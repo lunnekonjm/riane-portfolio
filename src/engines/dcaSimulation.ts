@@ -1,7 +1,8 @@
 /**
  * Moteur de calcul DCA automatique (Dollar Cost Averaging)
  * Conforme aux règles du PEA (passages en actions/parts entières uniquement)
- * et gestion des reliquats de trésorerie de mois en mois.
+ * Récupère les VRAIES données historiques maximales de marché (Yahoo Finance MAX)
+ * et applique un back-cast composé réaliste (8%/an) pour la période précédant la création de l'actif.
  */
 
 import type { Position } from '@/types/portfolio';
@@ -52,7 +53,7 @@ function getMonthlyDates(startDateStr: string): string[] {
 }
 
 /**
- * Perform DCA Simulation for a position
+ * Perform DCA Simulation for a position with REAL MAX Historical Data
  */
 export async function simulatePositionDCA(
   ticker: string,
@@ -63,19 +64,28 @@ export async function simulatePositionDCA(
 ): Promise<DCASimulationResult> {
   const months = getMonthlyDates(startDateStr);
 
-  // Fetch real historical prices if available
+  // Fetch REAL MAX historical prices from Yahoo Finance
   let priceMap = new Map<string, number>();
+  let earliestDate: string | null = null;
+  let earliestPrice: number = 0;
+
   try {
-    const historical = await getHistoricalData(ticker, '5Y');
+    const historical = await getHistoricalData(ticker, 'MAX');
     if (historical && historical.length > 0) {
       for (const pt of historical) {
         const monthKey = pt.date.slice(0, 7);
-        // Store close price for month (last available price in month)
-        priceMap.set(monthKey, pt.adjustedClose || pt.close);
+        const p = pt.adjustedClose || pt.close;
+        if (p > 0) {
+          priceMap.set(monthKey, p);
+          if (!earliestDate || monthKey < earliestDate) {
+            earliestDate = monthKey;
+            earliestPrice = p;
+          }
+        }
       }
     }
   } catch (err) {
-    console.warn(`[DCASimulation] No historical data for ${ticker}, using trend fallback:`, err);
+    console.warn(`[DCASimulation] Could not fetch MAX history for ${ticker}:`, err);
   }
 
   let cumulativeShares = 0;
@@ -83,27 +93,41 @@ export async function simulatePositionDCA(
   let rolloverCash = 0;
   const logs: DCASimulationMonthLog[] = [];
 
-  // Fallback base price computation if historical price map has gaps
-  const baseFallbackPrice = currentPriceFallback > 0 ? currentPriceFallback : 100;
   const totalMonths = months.length;
+  const fallbackBase = currentPriceFallback > 0 ? currentPriceFallback : (earliestPrice > 0 ? earliestPrice : 100);
 
   for (let i = 0; i < totalMonths; i++) {
     const monthKey = months[i];
     
-    // Price estimation: try historical price map first, else simulate linear market progression to fallback price
     let price = priceMap.get(monthKey);
+    
     if (!price || price <= 0) {
-      // Simulate historical price curve ending at current price (with modest monthly variation)
-      const ratio = (i + 1) / totalMonths;
-      const variation = (Math.sin(i * 0.7) * 0.05); // slight wave
-      price = Math.max(1, baseFallbackPrice * (0.8 + 0.2 * ratio + variation));
+      // Pre-IPO or pre-inception period back-casting:
+      // Use earliest available real price and discount backwards at ~8% annual market growth rate
+      if (earliestDate && earliestPrice > 0) {
+        const [earliestYr, earliestMo] = earliestDate.split('-').map(Number);
+        const [currYr, currMo] = monthKey.split('-').map(Number);
+        const monthsDiff = (earliestYr - currYr) * 12 + (earliestMo - currMo);
+        
+        if (monthsDiff > 0) {
+          const yearsDiff = monthsDiff / 12;
+          // Discount backwards by 8% per year
+          price = Math.max(0.1, earliestPrice / Math.pow(1.08, yearsDiff));
+        } else {
+          price = earliestPrice;
+        }
+      } else {
+        // General fallback if no price map available
+        const ratio = (i + 1) / totalMonths;
+        price = Math.max(1, fallbackBase * Math.pow(1.08, (i - totalMonths) / 12));
+      }
     }
 
     const cashAvailable = rolloverCash + monthlyBudget;
     
     let sharesBought = 0;
     if (isIntegerOnly) {
-      // PEA / PEA-PME Rule: Only full integer shares allowed!
+      // PEA / PEA-PME / CTO Rule: Only full integer shares allowed!
       sharesBought = Math.floor(cashAvailable / price);
     } else {
       sharesBought = cashAvailable / price;

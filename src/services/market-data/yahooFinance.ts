@@ -93,10 +93,11 @@ export const yahooFinanceProvider: MarketDataProvider = {
   async getHistoricalData(ticker: string, period: string = '1Y'): Promise<HistoricalDataPoint[]> {
     const rangeMap: Record<string, string> = {
       '1M': '1mo', '3M': '3mo', '6M': '6mo',
-      '1Y': '1y', '2Y': '2y', '5Y': '5y',
+      '1Y': '1y', '2Y': '2y', '5Y': '5y', '10Y': '10y', '20Y': '20y', 'MAX': 'max',
     };
-    const range = rangeMap[period] || '1y';
-    const url = `${YAHOO_BASE}/chart/${encodeURIComponent(ticker)}?range=${range}&interval=1d`;
+    const range = rangeMap[period] || 'max';
+    const interval = (period === '10Y' || period === '20Y' || period === 'MAX' || period === '5Y') ? '1mo' : '1d';
+    const url = `${YAHOO_BASE}/chart/${encodeURIComponent(ticker)}?range=${range}&interval=${interval}`;
     const res = await yahooFetch(url);
     const data = await res.json();
 

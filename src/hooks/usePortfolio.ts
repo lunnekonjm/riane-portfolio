@@ -67,6 +67,8 @@ export function usePortfolio() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [positions, loading]);
 
+  const [lastPricesUpdated, setLastPricesUpdated] = useState<number | null>(null);
+
   const refreshPricesInternal = async (currentPositions: Position[]) => {
     const tickers = currentPositions.map((p) => p.ticker);
     try {
@@ -90,6 +92,7 @@ export function usePortfolio() {
           })
         );
       }
+      setLastPricesUpdated(Date.now());
     } catch (err) {
       console.warn('[Portfolio] Price refresh failed:', err);
     }
@@ -207,6 +210,7 @@ export function usePortfolio() {
     loading,
     saving,
     fxRates,
+    lastPricesUpdated,
     totalValue,
     totalCost,
     gainLoss: totalValue - totalCost,

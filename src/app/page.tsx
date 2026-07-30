@@ -97,6 +97,8 @@ export default function HomePage() {
   const [editingPosition, setEditingPosition] = useState<Position | null | 'new'>(null);
   const [showConfigEditor, setShowConfigEditor] = useState(false);
   const [showFlowRebalanceModal, setShowFlowRebalanceModal] = useState(false);
+  const [showProfileModal, setShowProfileModal] = useState(false);
+  const [showConfirmSignOut, setShowConfirmSignOut] = useState(false);
   const [flowRebalanceResult, setFlowRebalanceResult] = useState<FlowRebalanceResult | null>(null);
   const [dcaGlobalStartDate, setDcaGlobalStartDate] = useState<string>('2024-01');
   const [adjustInflation, setAdjustInflation] = useState<boolean>(false);
@@ -106,7 +108,7 @@ export default function HomePage() {
 
   const {
     positions, config, totalValue, totalCost, gainLoss, gainLossPercent,
-    monthlyDCATotal, saving, pendingCount, filledPositions, fxRates,
+    monthlyDCATotal, saving, pendingCount, filledPositions, fxRates, lastPricesUpdated,
     addPosition, updatePosition, removePosition, updateConfig, refreshPrices, resetPortfolio,
   } = usePortfolio();
   const { result, status, statusMessage, isRunning, runAnalysis, history, clearResult } = useAnalysis();
@@ -232,15 +234,22 @@ export default function HomePage() {
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             fontSize: 14, fontWeight: 700, color: 'white',
           }}>
-            {user.displayName?.[0] || 'R'}
+            {user.displayName?.[0] || user.email?.[0]?.toUpperCase() || 'R'}
           </div>
           <div style={{ flex: 1, overflow: 'hidden' }}>
             <div style={{ fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-              {user.displayName || 'RIANE'}
+              {user.displayName || user.email || 'Investisseur'}
             </div>
+            <div style={{ fontSize: 11, color: 'var(--accent-emerald)', fontWeight: 500 }}>● Session Sécurisée</div>
           </div>
-          <button className="btn-ghost" onClick={signOut} style={{ padding: 6, fontSize: 16 }} id="sign-out-btn" title="Déconnexion">
-            ↗
+          <button
+            className="btn-ghost"
+            onClick={() => setShowProfileModal(true)}
+            style={{ padding: '6px 10px', fontSize: 12, fontWeight: 600, background: 'var(--bg-tertiary)', borderRadius: 8, cursor: 'pointer', border: '1px solid var(--border-subtle)' }}
+            id="profile-menu-btn"
+            title="Mon Profil & Déconnexion"
+          >
+            ⚙️ Profil
           </button>
         </div>
       </nav>
@@ -303,6 +312,24 @@ export default function HomePage() {
           {/* ═══ DASHBOARD ═══ */}
           {currentView === 'dashboard' && (
             <>
+              {/* 📅 Dashboard Date & Market Last Refresh Bar */}
+              <div className="card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12, padding: '12px 18px', background: 'var(--bg-secondary)', marginBottom: 16, borderLeft: '4px solid var(--accent-cyan)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <span style={{ fontSize: 18 }}>📅</span>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>
+                    Aujourd&apos;hui : <span style={{ color: 'var(--accent-cyan)', textTransform: 'capitalize' }}>{new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</span>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <span style={{ fontSize: 18 }}>🕒</span>
+                  <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
+                    Dernier rafraîchissement des cours : <strong style={{ color: 'var(--accent-emerald)' }}>
+                      {lastPricesUpdated ? new Date(lastPricesUpdated).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                    </strong> (Yahoo Finance Live)
+                  </div>
+                </div>
+              </div>
+
               {/* Onboarding Banner */}
               {pendingCount > 0 && (
                 <div className="card" style={{ borderLeft: '3px solid var(--accent-amber)', display: 'flex', alignItems: 'center', gap: 16 }}>
@@ -1325,6 +1352,93 @@ export default function HomePage() {
                 }}
               >
                 ✅ Appliquer les achats au versement mensuel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 👤 User Profile Modal */}
+      {showProfileModal && user && (
+        <div className="modal-overlay" onClick={() => setShowProfileModal(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 480 }}>
+            <div className="modal-header">
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{
+                  width: 44, height: 44, borderRadius: '50%',
+                  background: 'linear-gradient(135deg, var(--accent-cyan), var(--accent-violet))',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: 18, fontWeight: 700, color: 'white',
+                }}>
+                  {user.displayName?.[0] || user.email?.[0]?.toUpperCase() || 'R'}
+                </div>
+                <div>
+                  <h3 style={{ fontSize: 16, fontWeight: 700 }}>Mon Profil Investisseur</h3>
+                  <span style={{ fontSize: 12, color: 'var(--accent-emerald)', fontWeight: 600 }}>● Compte Sécurisé Firebase</span>
+                </div>
+              </div>
+              <button className="modal-close" onClick={() => setShowProfileModal(false)}>✕</button>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginTop: 16 }}>
+              <div style={{ padding: 14, background: 'var(--bg-tertiary)', borderRadius: 10 }}>
+                <div style={{ fontSize: 11, color: 'var(--text-tertiary)', textTransform: 'uppercase', marginBottom: 4 }}>Adresse Email</div>
+                <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)' }}>{user.email}</div>
+              </div>
+
+              <div style={{ padding: 14, background: 'var(--bg-tertiary)', borderRadius: 10 }}>
+                <div style={{ fontSize: 11, color: 'var(--text-tertiary)', textTransform: 'uppercase', marginBottom: 4 }}>Identifiant Unique (UID)</div>
+                <div className="mono" style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{user.uid}</div>
+              </div>
+
+              <div style={{ padding: 14, background: 'var(--bg-tertiary)', borderRadius: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <div style={{ fontSize: 11, color: 'var(--text-tertiary)', textTransform: 'uppercase' }}>Fournisseur d&apos;Accès</div>
+                  <div style={{ fontSize: 13, fontWeight: 600, marginTop: 2 }}>{user.providerData[0]?.providerId === 'google.com' ? 'Google OAuth 2.0' : 'Email / Mot de passe'}</div>
+                </div>
+                <span style={{ fontSize: 20 }}>🛡️</span>
+              </div>
+            </div>
+
+            <div style={{ marginTop: 24, display: 'flex', justifyContent: 'space-between', gap: 12 }}>
+              <button className="btn btn-secondary" onClick={() => setShowProfileModal(false)}>Fermer</button>
+              <button
+                className="btn btn-secondary"
+                onClick={() => {
+                  setShowProfileModal(false);
+                  setShowConfirmSignOut(true);
+                }}
+                style={{ background: 'rgba(244, 63, 94, 0.15)', color: 'var(--accent-rose)', borderColor: 'var(--accent-rose)', fontWeight: 700 }}
+              >
+                🚪 Se déconnecter
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 🚪 Sign Out Confirmation Sub-Modal */}
+      {showConfirmSignOut && (
+        <div className="modal-overlay" onClick={() => setShowConfirmSignOut(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 400, textAlign: 'center' }}>
+            <div style={{ fontSize: 40, marginBottom: 12 }}>🚪</div>
+            <h3 style={{ fontSize: 18, fontWeight: 700, marginBottom: 8 }}>Confirmer la déconnexion ?</h3>
+            <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 24 }}>
+              Vous devrez saisir à nouveau vos identifiants pour accéder à votre portefeuille RIANE.
+            </p>
+            <div style={{ display: 'flex', gap: 12, justifyContent: 'center' }}>
+              <button className="btn btn-secondary" onClick={() => setShowConfirmSignOut(false)} style={{ flex: 1 }}>
+                Annuler
+              </button>
+              <button
+                className="btn btn-primary"
+                onClick={async () => {
+                  setShowConfirmSignOut(false);
+                  await signOut();
+                }}
+                style={{ flex: 1, background: 'var(--accent-rose)', borderColor: 'var(--accent-rose)', fontWeight: 700 }}
+              >
+                Confirmer
               </button>
             </div>
           </div>

@@ -1081,41 +1081,47 @@ export default function HomePage() {
 
                 {/* Synthesis & Recommendation */}
                 {result?.synthesis && !isRunning && (
-                  <div className="recommendation-card" style={{ animation: 'fadeInUp 0.5s ease' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
-                      <span style={{ fontSize: 24 }}>🎯</span>
-                      <h3 style={{ fontSize: 18, fontWeight: 700 }}>Synthèse Finale</h3>
+                  <div className="recommendation-card" style={{ animation: 'fadeInUp 0.5s ease', background: 'var(--bg-secondary)', padding: 20, borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-accent)', boxShadow: '0 8px 32px rgba(0,0,0,0.3)', marginTop: 16 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, borderBottom: '1px solid var(--border-subtle)', paddingBottom: 12, flexWrap: 'wrap', gap: 10 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                        <span style={{ fontSize: 24 }}>🎯</span>
+                        <h3 style={{ fontSize: 18, fontWeight: 700, margin: 0 }}>Synthèse & Recommandation Stratégique</h3>
+                      </div>
                       {result.recommendation && (
-                        <span className={`confidence-badge ${result.recommendation.confidence}`}>
-                          Confiance : {result.recommendation.confidence}
+                        <span className={`confidence-badge ${result.recommendation.confidence}`} style={{ fontSize: 12, padding: '4px 12px' }}>
+                          Indice de Confiance : {result.recommendation.confidence.toUpperCase()}
                         </span>
                       )}
                     </div>
-                    <div style={{ whiteSpace: 'pre-wrap', fontSize: 14, lineHeight: 1.7, color: 'var(--text-secondary)' }}>
+
+                    {/* Rich Markdown Output */}
+                    <div style={{ whiteSpace: 'pre-wrap', fontSize: 14, lineHeight: 1.7, color: 'var(--text-primary)', minHeight: 120 }}>
                       {result.synthesis}
                     </div>
+
                     {result.recommendation && (
-                      <div style={{ marginTop: 20, padding: 16, background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-md)', display: 'flex', gap: 24, flexWrap: 'wrap' }}>
+                      <div style={{ marginTop: 20, padding: 16, background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)', display: 'flex', gap: 24, flexWrap: 'wrap' }}>
                         <div>
-                          <span style={{ fontSize: 11, color: 'var(--text-tertiary)', textTransform: 'uppercase' }}>Action</span>
+                          <span style={{ fontSize: 11, color: 'var(--text-tertiary)', textTransform: 'uppercase', display: 'block', marginBottom: 2 }}>Action Recommandée</span>
                           <div style={{ fontWeight: 700, fontSize: 16, color: 'var(--accent-cyan)' }}>{result.recommendation.action}</div>
                         </div>
                         <div>
-                          <span style={{ fontSize: 11, color: 'var(--text-tertiary)', textTransform: 'uppercase' }}>Poids</span>
+                          <span style={{ fontSize: 11, color: 'var(--text-tertiary)', textTransform: 'uppercase', display: 'block', marginBottom: 2 }}>Poids Cible</span>
                           <div style={{ fontWeight: 700, fontSize: 16 }}>{(result.recommendation.weight * 100).toFixed(1)}%</div>
                         </div>
                         <div>
-                          <span style={{ fontSize: 11, color: 'var(--text-tertiary)', textTransform: 'uppercase' }}>Source</span>
-                          <div style={{ fontSize: 14 }}>{result.recommendation.fundingSource || '—'}</div>
+                          <span style={{ fontSize: 11, color: 'var(--text-tertiary)', textTransform: 'uppercase', display: 'block', marginBottom: 2 }}>Source de Financement</span>
+                          <div style={{ fontSize: 14 }}>{result.recommendation.fundingSource || 'DCA Mensuel'}</div>
                         </div>
                         <div>
-                          <span style={{ fontSize: 11, color: 'var(--text-tertiary)', textTransform: 'uppercase' }}>Expire</span>
+                          <span style={{ fontSize: 11, color: 'var(--text-tertiary)', textTransform: 'uppercase', display: 'block', marginBottom: 2 }}>Validité de la Recommandation</span>
                           <div style={{ fontSize: 14 }}>{new Date(result.recommendation.expiresAt).toLocaleDateString('fr-FR')}</div>
                         </div>
                       </div>
                     )}
-                    <p style={{ marginTop: 16, fontSize: 12, color: 'var(--text-muted)', fontStyle: 'italic' }}>
-                      ⚠️ Validation humaine obligatoire — Aucune opération ne sera exécutée automatiquement.
+
+                    <p style={{ marginTop: 16, fontSize: 12, color: 'var(--text-muted)', fontStyle: 'italic', marginBottom: 0 }}>
+                      ⚠️ Validation humaine obligatoire — Aucune opération boursière n&apos;est exécutée automatiquement sans votre confirmation.
                     </p>
                   </div>
                 )}

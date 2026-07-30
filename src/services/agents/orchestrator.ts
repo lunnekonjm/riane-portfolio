@@ -217,6 +217,48 @@ Produis la synthèse finale proactive et structurée.`;
 }
 
 /**
+ * Check if query is within financial & portfolio management scope
+ */
+export function isFinancialQuery(query: string): { isFinancial: boolean; refusalMessage?: string } {
+  if (!query || query.trim().length === 0) {
+    return { isFinancial: false, refusalMessage: 'Veuillez saisir une question financière.' };
+  }
+
+  const q = query.toLowerCase().trim();
+
+  // Off-topic keywords
+  const offTopicKeywords = [
+    'meteo', 'météo', 'temps qu\'il fait', 'pluie', 'soleil', 'temperature',
+    'recette', 'cuisine', 'plat', 'gâteau', 'gateau', 'manger',
+    'marseille', 'bordeaux', 'paris', 'trajet', 'train', 'avion', 'voiture', 'itineraire', 'itinéraire',
+    'blague', 'raconte', 'histoire', 'poeme', 'poème',
+    'film', 'serie', 'série', 'musique', 'chanson',
+    'code python', 'script bash', 'jeu', 'football', 'match',
+  ];
+
+  const isOffTopic = offTopicKeywords.some((word) => q.includes(word));
+
+  if (isOffTopic) {
+    return {
+      isFinancial: false,
+      refusalMessage: `# ⛔ Demande Hors Périmètre Financier
+
+Je suis **RIANE AI**, votre assistant spécialisé en Analyse Financière et Gestion de Portefeuille.
+
+Votre demande (*"${query}"*) n'est pas liée à l'investissement, aux marchés financiers ou à votre patrimoine.
+
+### 💡 Exemples de requêtes que vous pouvez me poser :
+- 📈 *"Est-il pertinent d'ajouter **Microsoft (MSFT)** dans mon portefeuille ?"*
+- 🏛️ *"Comment optimiser la répartition entre mon **PEA (CW8)** et mon **CTO** ?"*
+- ⚡ *"Quel est l'impact d'un rebalancement de 500 €/mois sur mon DCA ?"*
+- 🛡️ *"Quelle est la sensibilité et la VaR 95% de mon allocation actuelle ?"*`,
+    };
+  }
+
+  return { isFinancial: true };
+}
+
+/**
  * Run the complete analysis pipeline
  */
 export async function runAnalysisPipeline(
@@ -236,6 +278,15 @@ export async function runAnalysisPipeline(
   };
 
   const result: AnalysisResult = { id: analysisId, request };
+
+  // Guardrail Scope Check
+  const guardrail = isFinancialQuery(query);
+  if (!guardrail.isFinancial) {
+    result.synthesis = guardrail.refusalMessage;
+    request.status = 'complete';
+    result.completedAt = Date.now();
+    return result;
+  }
 
   try {
     // Step 1: Extract ticker
@@ -301,13 +352,17 @@ export async function runAnalysisPipeline(
 
     // Step 6: Synthesis (Always generated for complete analysis)
     onStatus?.('synthesis', 'Synthèse finale...');
-    result.synthesis = await generateSynthesis(
+    const synthText = await generateSynthesis(
       context,
       dataResult,
       researchResult,
       portfolioResult,
       criticResult
     );
+
+    result.synthesis = synthText && synthText.trim().length > 50
+      ? synthText
+      : buildDeterministicSynthesis(context, dataResult, portfolioResult, criticResult);
 
     // Build recommendation
     if (portfolioResult.data?.proposedAction) {

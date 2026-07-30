@@ -11,13 +11,14 @@ import { ALL_SCENARIOS } from '@/data/stressScenarios';
 import { runStressTest } from '@/engines/stressTest';
 import PositionEditor from '@/components/PositionEditor';
 import ConfigEditor from '@/components/ConfigEditor';
+import EnvelopesTaxView from '@/components/EnvelopesTaxView';
 import { simulatePositionDCA } from '@/engines/dcaSimulation';
 import type { User } from 'firebase/auth';
 import type { Position, PortfolioConfig } from '@/types/portfolio';
 import type { AnalysisStatus } from '@/types/analysis';
 import type { StressTestResult } from '@/types/simulation';
 
-type PageView = 'dashboard' | 'analysis' | 'risk' | 'audit';
+type PageView = 'dashboard' | 'envelopes' | 'analysis' | 'risk' | 'audit';
 
 const PIPELINE_STEPS: Array<{ key: AnalysisStatus; label: string; icon: string }> = [
   { key: 'data-collection', label: 'Données', icon: '📊' },
@@ -201,6 +202,9 @@ export default function HomePage() {
         <button className={`sidebar-nav-item ${currentView === 'dashboard' ? 'active' : ''}`} onClick={() => setCurrentView('dashboard')} id="nav-dashboard">
           <span className="nav-icon">📊</span> Dashboard
         </button>
+        <button className={`sidebar-nav-item ${currentView === 'envelopes' ? 'active' : ''}`} onClick={() => setCurrentView('envelopes')} id="nav-envelopes">
+          <span className="nav-icon">🏛️</span> Enveloppes & Fiscalité
+        </button>
         <button className={`sidebar-nav-item ${currentView === 'analysis' ? 'active' : ''}`} onClick={() => setCurrentView('analysis')} id="nav-analysis">
           <span className="nav-icon">🔬</span> Analyse
         </button>
@@ -238,6 +242,7 @@ export default function HomePage() {
         <header className="page-header">
           <h1 className="page-title">
             {currentView === 'dashboard' && '📊 Tableau de Bord'}
+            {currentView === 'envelopes' && '🏛️ Enveloppes & Fiscalité'}
             {currentView === 'analysis' && '🔬 Analyse à la Demande'}
             {currentView === 'risk' && '⚡ Stress Tests & Risque'}
             {currentView === 'audit' && '📋 Journal d\'Audit'}
@@ -576,6 +581,11 @@ export default function HomePage() {
                 </div>
               )}
             </>
+          )}
+
+          {/* ═══ ENVELOPES & FISCALITÉ ═══ */}
+          {currentView === 'envelopes' && (
+            <EnvelopesTaxView positions={positions} fxRates={fxRates} />
           )}
 
           {/* ═══ ANALYSIS ═══ */}

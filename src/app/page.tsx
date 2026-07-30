@@ -92,6 +92,7 @@ export default function HomePage() {
   const [editingPosition, setEditingPosition] = useState<Position | null | 'new'>(null);
   const [showConfigEditor, setShowConfigEditor] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const [refreshingPrices, setRefreshingPrices] = useState(false);
 
   const {
     positions, config, totalValue, totalCost, gainLoss, gainLossPercent,
@@ -359,8 +360,24 @@ export default function HomePage() {
                 <div className="card-header">
                   <span className="card-title">Positions ({positions.length})</span>
                   <div style={{ display: 'flex', gap: 8 }}>
-                    <button className="btn btn-secondary" onClick={refreshPrices} title="Rafraîchir les prix" id="refresh-prices-btn">
-                      🔄 Prix
+                    <button
+                      className="btn btn-primary"
+                      onClick={async () => {
+                        setRefreshingPrices(true);
+                        try {
+                          await refreshPrices();
+                          showToast('Cours mis à jour (Yahoo Finance)');
+                        } catch {
+                          showToast('Impossible de récupérer les cours', 'error');
+                        } finally {
+                          setRefreshingPrices(false);
+                        }
+                      }}
+                      disabled={refreshingPrices || positions.length === 0}
+                      title="Récupérer les cours actuels (Yahoo Finance)"
+                      id="refresh-prices-btn"
+                    >
+                      {refreshingPrices ? <span className="loading-spinner" /> : '📈'} Cours actuels
                     </button>
                     <button
                       className="btn btn-secondary"

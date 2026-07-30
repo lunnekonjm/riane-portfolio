@@ -157,6 +157,7 @@ body::before {
   gap: 12px;
   padding: 10px 14px;
   border-radius: var(--radius-md);
+  background: transparent;
   color: var(--text-secondary);
   cursor: pointer;
   transition: all var(--transition-fast);
@@ -164,10 +165,12 @@ body::before {
   font-weight: 500;
   border: 1px solid transparent;
   text-decoration: none;
+  -webkit-appearance: none;
+  appearance: none;
 }
 
 .sidebar-nav-item:hover {
-  background: var(--bg-glass-hover);
+  background: var(--bg-tertiary);
   color: var(--text-primary);
   border-color: var(--border-medium);
 }
@@ -176,6 +179,7 @@ body::before {
   background: var(--accent-cyan-glow);
   color: var(--accent-cyan);
   border-color: var(--border-accent);
+  font-weight: 600;
 }
 
 .sidebar-nav-item .nav-icon {
@@ -226,11 +230,30 @@ body::before {
   border-radius: var(--radius-lg);
   padding: 24px;
   transition: all var(--transition-normal);
+  /* Ensure proper rendering on <button> elements */
+  -webkit-appearance: none;
+  appearance: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
 }
 
 .card:hover {
   border-color: var(--border-medium);
   box-shadow: var(--shadow-md);
+}
+
+/* Interactive card (button or clickable) */
+button.card {
+  cursor: pointer;
+  width: 100%;
+}
+
+button.card:hover {
+  background: var(--bg-glass-hover);
+  border-color: var(--accent-cyan);
+  box-shadow: var(--shadow-glow-cyan);
+  transform: translateY(-1px);
 }
 
 .card-header {
@@ -299,6 +322,10 @@ body::before {
   transition: all var(--transition-fast);
   border: 1px solid transparent;
   text-decoration: none;
+  -webkit-appearance: none;
+  appearance: none;
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
 }
 
 .btn-primary {

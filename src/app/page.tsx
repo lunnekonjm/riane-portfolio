@@ -548,9 +548,12 @@ export default function HomePage() {
                             <td className="mono">{pos.currentPrice ? `${pos.currentPrice.toFixed(2)}` : <span style={{ color: 'var(--text-muted)' }}>—</span>}</td>
                             <td className="mono" style={{ fontWeight: 600 }}>{value > 0 ? `${value.toLocaleString('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })} ${pos.currency === 'EUR' ? '€' : '$'}` : <span style={{ color: 'var(--text-muted)' }}>—</span>}</td>
                             <td>
-                              {cost > 0 && pos.currentPrice ? (
-                                <span className={`stat-change ${pl >= 0 ? 'positive' : 'negative'}`}>
+                              {cost > 0 ? (
+                                <span className={`stat-change ${pl >= 0 ? 'positive' : 'negative'}`} title={`Plus/Moins-value : ${pl >= 0 ? '+' : ''}${pl.toLocaleString('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })} ${pos.currency === 'EUR' ? '€' : '$'}`}>
                                   {pl >= 0 ? '↑' : '↓'} {Math.abs(plPct).toFixed(1)}%
+                                  <span style={{ fontSize: 11, fontWeight: 600, marginLeft: 4 }}>
+                                    ({pl >= 0 ? '+' : ''}{Math.round(pl).toLocaleString('fr-FR')} {pos.currency === 'EUR' ? '€' : '$'})
+                                  </span>
                                 </span>
                               ) : <span style={{ color: 'var(--text-muted)' }}>—</span>}
                             </td>

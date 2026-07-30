@@ -78,6 +78,12 @@ export function calculateSmartFlowRebalance(
   // Sort by most underweight first (highest weightGap)
   items.sort((a, b) => b.weightGap - a.weightGap);
 
+  // Compute current PEA deposits
+  const currentPeaDeposits = positions
+    .filter((p) => p.envelope === 'PEA')
+    .reduce((sum, p) => sum + (p.quantity * p.avgPrice * (fxRates[p.currency] || 1)), 0);
+
+  let peaDepositsAllocated = 0;
   let remainingCashEUR = monthlyBudget;
 
   // Iteratively allocate cash to most underweight items
@@ -90,6 +96,11 @@ export function calculateSmartFlowRebalance(
       const isIntegerOnly = item.position.envelope === 'PEA' || item.position.envelope === 'PEA-PME' || item.position.envelope === 'CTO';
       
       if (remainingCashEUR >= item.priceEUR) {
+        let targetEnvelope: string = item.position.envelope;
+        if (item.position.envelope === 'PEA' && (currentPeaDeposits + peaDepositsAllocated + item.priceEUR) > 150000) {
+          targetEnvelope = 'CTO (PEA plein)';
+        }
+
         const canBuy = isIntegerOnly
           ? Math.floor(remainingCashEUR / item.priceEUR)
           : remainingCashEUR / item.priceEUR;
@@ -100,9 +111,13 @@ export function calculateSmartFlowRebalance(
           const costEUR = buyCount * item.priceEUR;
           item.sharesBought += buyCount;
           item.spentEUR += costEUR;
+          if (item.position.envelope === 'PEA' && targetEnvelope === 'PEA') {
+            peaDepositsAllocated += costEUR;
+          }
+          (item as any).effectiveEnvelope = targetEnvelope;
           remainingCashEUR -= costEUR;
           allocatedInRound = true;
-          break; // re-sort or continue next iteration
+          break;
         }
       }
     }
@@ -122,7 +137,7 @@ export function calculateSmartFlowRebalance(
       positionId: item.position.id,
       ticker: item.position.ticker,
       name: item.position.name,
-      envelope: item.position.envelope,
+      envelope: (item as any).effectiveEnvelope || item.position.envelope,
       currentWeight: parseFloat((item.currentWeight * 100).toFixed(1)),
       targetWeight: parseFloat((item.targetWeight * 100).toFixed(1)),
       weightGap: parseFloat((item.weightGap * 100).toFixed(1)),

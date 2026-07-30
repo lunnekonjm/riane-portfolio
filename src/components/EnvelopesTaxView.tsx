@@ -6,6 +6,10 @@ import type { Position } from '@/types/portfolio';
 interface EnvelopesTaxViewProps {
   positions: Position[];
   fxRates: Record<string, number>;
+  adjustInflation?: boolean;
+  cumulativeInflationFactor?: number;
+  inflationRate?: number;
+  yearsElapsed?: number;
 }
 
 export const ENVELOPE_METADATA: Record<string, {
@@ -73,7 +77,16 @@ export const ENVELOPE_METADATA: Record<string, {
   },
 };
 
-export default function EnvelopesTaxView({ positions, fxRates }: EnvelopesTaxViewProps) {
+export default function EnvelopesTaxView({
+  positions,
+  fxRates,
+  adjustInflation = false,
+  cumulativeInflationFactor = 1.0,
+  inflationRate = 0.021,
+  yearsElapsed = 0,
+}: EnvelopesTaxViewProps) {
+  const factor = adjustInflation ? cumulativeInflationFactor : 1.0;
+
   // Withdrawal simulator state
   const [simEnvelope, setSimEnvelope] = useState<string>('PEA');
   const [simSeniority, setSimSeniority] = useState<'over5' | 'under5'>('over5');
@@ -96,10 +109,10 @@ export default function EnvelopesTaxView({ positions, fxRates }: EnvelopesTaxVie
 
   // Calculate PEA cost vs PEA-PME cost
   const peaPositions = envelopeGroups['PEA'] || [];
-  const peaCost = peaPositions.reduce((sum, p) => sum + (p.quantity * p.avgPrice * (fxRates[p.currency] || 1)), 0);
+  const peaCost = peaPositions.reduce((sum, p) => sum + (p.quantity * p.avgPrice * (fxRates[p.currency] || 1)), 0) / factor;
 
   const peaPmePositions = envelopeGroups['PEA-PME'] || [];
-  const peaPmeCost = peaPmePositions.reduce((sum, p) => sum + (p.quantity * p.avgPrice * (fxRates[p.currency] || 1)), 0);
+  const peaPmeCost = peaPmePositions.reduce((sum, p) => sum + (p.quantity * p.avgPrice * (fxRates[p.currency] || 1)), 0) / factor;
 
   // Legal French Rule: Combined PEA + PEA-PME deposits cannot exceed 225,000 €!
   const maxPeaPmeAllowed = Math.max(0, 225000 - peaCost);
@@ -199,6 +212,18 @@ export default function EnvelopesTaxView({ positions, fxRates }: EnvelopesTaxVie
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+      {/* 🎈 Active Inflation Banner */}
+      {adjustInflation && (
+        <div className="card" style={{ borderLeft: '4px solid var(--accent-amber)', background: 'rgba(245, 158, 11, 0.1)', padding: 14 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, color: 'var(--text-primary)' }}>
+            <span style={{ fontSize: 22 }}>🎈</span>
+            <div>
+              <strong>Mode Inflation Actif (Pouvoir d&apos;Achat Réel) :</strong> Les montants des enveloppes, versements et simulations de retrait sont déflatés en Euros constants (IPC Eurostat/INSEE ~{(inflationRate * 100).toFixed(1)}%/an sur {yearsElapsed.toFixed(1)} ans, déflateur cumulé : {((factor - 1) * 100).toFixed(1)}%).
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ⚠️ Legal Warning Banner if PEA / PEA-PME ceiling is exceeded */}
       {(isPeaExceeded || isPeaPmeExceeded || isCombinedExceeded) && (
         <div className="card" style={{ borderLeft: '4px solid var(--accent-rose)', background: 'rgba(244, 63, 94, 0.1)' }}>

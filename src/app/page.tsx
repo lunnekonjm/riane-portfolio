@@ -247,7 +247,7 @@ export default function HomePage() {
 
       {/* Main Content */}
       <main className="main-content">
-        <header className="page-header">
+        <header className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
           <h1 className="page-title">
             {currentView === 'dashboard' && '📊 Tableau de Bord'}
             {currentView === 'envelopes' && '🏛️ Enveloppes & Fiscalité'}
@@ -255,8 +255,32 @@ export default function HomePage() {
             {currentView === 'risk' && '⚡ Stress Tests & Risque'}
             {currentView === 'audit' && '📋 Journal d\'Audit'}
           </h1>
+
+          {/* Global Inflation Toggle Switch */}
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            background: adjustInflation ? 'rgba(245, 158, 11, 0.15)' : 'var(--bg-secondary)',
+            padding: '6px 14px',
+            borderRadius: 10,
+            border: adjustInflation ? '1px solid var(--accent-amber)' : '1px solid var(--border-subtle)',
+            transition: 'all 0.2s ease',
+          }}>
+            <span style={{ fontSize: 14 }}>🎈</span>
+            <label style={{ fontSize: 12, fontWeight: 700, color: adjustInflation ? 'var(--accent-amber)' : 'var(--text-secondary)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, margin: 0 }}>
+              <input
+                type="checkbox"
+                checked={adjustInflation}
+                onChange={(e) => setAdjustInflation(e.target.checked)}
+                style={{ cursor: 'pointer', accentColor: 'var(--accent-amber)' }}
+              />
+              Inflation (Pouvoir d&apos;Achat Réel)
+            </label>
+          </div>
+
           {isRunning && (
-            <div className="pipeline-steps">
+            <div className="pipeline-steps" style={{ width: '100%' }}>
               {PIPELINE_STEPS.map((step, i) => {
                 const stepStatuses: AnalysisStatus[] = ['data-collection', 'research', 'portfolio-eval', 'critique', 'synthesis'];
                 const currentIdx = stepStatuses.indexOf(status);
@@ -789,9 +813,22 @@ export default function HomePage() {
           )}
 
           {/* ═══ ENVELOPES & FISCALITÉ ═══ */}
-          {currentView === 'envelopes' && (
-            <EnvelopesTaxView positions={positions} fxRates={fxRates} />
-          )}
+          {currentView === 'envelopes' && (() => {
+            const startYear = parseInt(dcaGlobalStartDate.slice(0, 4)) || 2024;
+            const currentYear = new Date().getFullYear();
+            const yearsElapsed = Math.max(0, (currentYear - startYear) + (new Date().getMonth() / 12));
+            const cumulativeInflationFactor = adjustInflation ? Math.pow(1 + inflationRate, yearsElapsed) : 1.0;
+            return (
+              <EnvelopesTaxView
+                positions={positions}
+                fxRates={fxRates}
+                adjustInflation={adjustInflation}
+                cumulativeInflationFactor={cumulativeInflationFactor}
+                inflationRate={inflationRate}
+                yearsElapsed={yearsElapsed}
+              />
+            );
+          })()}
 
           {/* ═══ ANALYSIS ═══ */}
           {currentView === 'analysis' && (

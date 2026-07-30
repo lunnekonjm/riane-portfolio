@@ -191,6 +191,16 @@ export const ASSET_REGISTRY: RegisteredAsset[] = [
 
   // ── PEA-PME Actions ──
   {
+    ticker: 'ALKAL.PA',
+    name: 'Kalray SA',
+    assetType: 'STOCK',
+    envelope: 'PEA-PME',
+    currency: 'EUR',
+    themes: ['ai-semis', 'cloud-saas'],
+    exchange: 'Euronext Growth Paris',
+    searchTerms: ['kalray', 'alkal.pa', 'alkal', 'kalray sa', 'semiconducteurs pea-pme'],
+  },
+  {
     ticker: 'ALRIB.PA',
     name: 'Ribiberry / Digital PEA-PME Asset',
     assetType: 'STOCK',
@@ -209,6 +219,36 @@ export const ASSET_REGISTRY: RegisteredAsset[] = [
     themes: ['ai-semis'],
     exchange: 'Euronext Paris',
     searchTerms: ['memscap', 'mems.pa', 'mems', 'semiconducteurs pme'],
+  },
+  {
+    ticker: 'SAF.PA',
+    name: 'Safran SA',
+    assetType: 'STOCK',
+    envelope: 'PEA',
+    currency: 'EUR',
+    themes: ['general'],
+    exchange: 'Euronext Paris',
+    searchTerms: ['safran', 'saf.pa', 'saf', 'aeronautique'],
+  },
+  {
+    ticker: 'ML.PA',
+    name: 'Cie Générale des Établissements Michelin',
+    assetType: 'STOCK',
+    envelope: 'PEA',
+    currency: 'EUR',
+    themes: ['general'],
+    exchange: 'Euronext Paris',
+    searchTerms: ['michelin', 'ml.pa', 'pneu'],
+  },
+  {
+    ticker: 'STLAP.PA',
+    name: 'Stellantis N.V.',
+    assetType: 'STOCK',
+    envelope: 'PEA',
+    currency: 'EUR',
+    themes: ['general'],
+    exchange: 'Euronext Paris',
+    searchTerms: ['stellantis', 'peugeot', 'fiat', 'stlap.pa'],
   },
 
   // ── Actions US (CTO) ──
@@ -315,15 +355,23 @@ export const ASSET_REGISTRY: RegisteredAsset[] = [
 ];
 
 /**
- * Search assets in real-time by query string
+ * Search assets in real-time by query string with fuzzy token matching
  */
 export function searchAssets(query: string): RegisteredAsset[] {
   if (!query || query.trim().length === 0) return [];
 
-  const q = query.trim().toLowerCase();
+  const cleanQuery = query.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+  const rawQuery = query.trim().toLowerCase();
+
   return ASSET_REGISTRY.filter((asset) => {
-    if (asset.ticker.toLowerCase().includes(q)) return true;
-    if (asset.name.toLowerCase().includes(q)) return true;
-    return asset.searchTerms.some((term) => term.toLowerCase().includes(q));
+    const cleanTicker = asset.ticker.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const cleanName = asset.name.toLowerCase().replace(/[^a-z0-9]/g, '');
+
+    if (cleanTicker.includes(cleanQuery) || (cleanQuery.length >= 3 && cleanTicker.includes(cleanQuery))) return true;
+    if (cleanName.includes(cleanQuery) || cleanName.includes(rawQuery)) return true;
+    return asset.searchTerms.some((term) => {
+      const cleanTerm = term.toLowerCase().replace(/[^a-z0-9]/g, '');
+      return cleanTerm.includes(cleanQuery) || cleanQuery.includes(cleanTerm);
+    });
   });
 }

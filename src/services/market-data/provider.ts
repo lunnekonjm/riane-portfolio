@@ -155,3 +155,5 @@ export async function getMultipleQuotes(tickers: string[]): Promise<Map<string, 
   await Promise.allSettled(promises);
   return results;
 }
+
+export { searchYahooFinance } from './yahooFinance';

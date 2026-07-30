@@ -127,3 +127,27 @@ export const yahooFinanceProvider: MarketDataProvider = {
     }));
   },
 };
+
+export async function searchYahooFinance(query: string): Promise<Array<{ ticker: string; name: string; exchange: string; assetType: 'ETF' | 'STOCK' | 'FUND'; currency: 'EUR' | 'USD' }>> {
+  if (!query || query.trim().length < 2) return [];
+  try {
+    const url = `https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(query)}&quotesCount=10&newsCount=0`;
+    const res = await yahooFetch(url);
+    const data = await res.json();
+    const quotes = data?.quotes || [];
+
+    return quotes.map((q: any) => {
+      const ticker: string = q.symbol || '';
+      const isFrench = ticker.endsWith('.PA');
+      return {
+        ticker,
+        name: q.longname || q.shortname || ticker,
+        exchange: q.exchDisp || q.exchange || (isFrench ? 'Euronext Paris' : 'US Market'),
+        assetType: (q.quoteType === 'ETF' ? 'ETF' : 'STOCK') as 'ETF' | 'STOCK' | 'FUND',
+        currency: isFrench ? ('EUR' as const) : ('USD' as const),
+      };
+    });
+  } catch {
+    return [];
+  }
+}

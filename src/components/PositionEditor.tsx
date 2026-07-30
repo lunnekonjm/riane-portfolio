@@ -5,7 +5,7 @@ import type { Position } from '@/types/portfolio';
 import { THEMES } from '@/data/themes';
 import { simulatePositionDCA, type DCASimulationResult } from '@/engines/dcaSimulation';
 import { searchAssets, ASSET_REGISTRY, type RegisteredAsset } from '@/data/assetRegistry';
-import { getQuote } from '@/services/market-data/provider';
+import { getQuote, searchYahooFinance } from '@/services/market-data/provider';
 
 interface PositionEditorProps {
   position?: Position | null;
@@ -146,30 +146,60 @@ export default function PositionEditor({ position, onSave, onClose, onDelete }: 
     }
   };
 
+  const [didYouMeanAsset, setDidYouMeanAsset] = useState<RegisteredAsset | null>(null);
+
   const handleVerifyManualTicker = async () => {
-    const rawTicker = form.ticker.trim().toUpperCase();
-    if (!rawTicker) return;
+    const rawQuery = (tickerSearchInput || form.ticker).trim();
+    if (!rawQuery) return;
 
     setIsVerifyingTicker(true);
     setTickerError(null);
     setVerifiedQuoteText(null);
+    setDidYouMeanAsset(null);
 
+    // 1. Try exact quote fetch for raw ticker
     try {
-      const quote = await getQuote(rawTicker);
+      const quote = await getQuote(rawQuery.toUpperCase());
       if (quote && quote.price > 0) {
         setForm((prev) => ({
           ...prev,
-          ticker: rawTicker,
-          name: prev.name || rawTicker,
+          ticker: rawQuery.toUpperCase(),
+          name: prev.name || rawQuery.toUpperCase(),
           currentPrice: quote.price,
           currency: (quote.currency as any) || prev.currency,
         }));
         setVerifiedQuoteText(`✓ Actif officiel vérifié en temps réel — Prix : ${quote.price.toFixed(2)} ${quote.currency}`);
-      } else {
-        setTickerError(`❌ Impossible de vérifier le cours pour '${rawTicker}'. Veuillez sélectionner un actif valide.`);
+        setIsVerifyingTicker(false);
+        return;
       }
     } catch {
-      setTickerError(`❌ Ticker '${rawTicker}' non trouvé sur les marchés boursiers.`);
+      // Direct quote failed, fallback to Yahoo Finance Search API
+    }
+
+    // 2. Query Yahoo Finance Search API for fuzzy company/brand match (ex: "kalray")
+    try {
+      const yahooMatches = await searchYahooFinance(rawQuery);
+      if (yahooMatches.length > 0) {
+        const topMatch = yahooMatches[0];
+        const isFrench = topMatch.ticker.endsWith('.PA');
+        const candidate: RegisteredAsset = {
+          ticker: topMatch.ticker,
+          name: topMatch.name,
+          assetType: topMatch.assetType,
+          envelope: isFrench ? (topMatch.ticker.startsWith('AL') ? 'PEA-PME' : 'PEA') : 'CTO',
+          currency: topMatch.currency,
+          themes: ['general'],
+          exchange: topMatch.exchange,
+          searchTerms: [rawQuery.toLowerCase()],
+        };
+
+        setDidYouMeanAsset(candidate);
+        setTickerError(`💡 Intention détectée : '${rawQuery}' correspond à l'actif officiel ${candidate.name} (${candidate.ticker}).`);
+      } else {
+        setTickerError(`❌ Impossible de trouver '${rawQuery}' sur les marchés boursiers.`);
+      }
+    } catch {
+      setTickerError(`❌ Ticker ou entreprise '${rawQuery}' non trouvé.`);
     } finally {
       setIsVerifyingTicker(false);
     }
@@ -316,6 +346,23 @@ export default function PositionEditor({ position, onSave, onClose, onDelete }: 
             {tickerError && (
               <div style={{ fontSize: 12, color: 'var(--accent-rose)', fontWeight: 600, marginTop: 6 }}>
                 {tickerError}
+              </div>
+            )}
+
+            {/* Did You Mean Suggestion Button */}
+            {didYouMeanAsset && (
+              <div style={{ marginTop: 8, padding: 10, background: 'rgba(56, 189, 248, 0.15)', borderRadius: 8, border: '1px solid var(--accent-cyan)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ fontSize: 13, color: 'var(--text-primary)' }}>
+                  💡 Actif trouvé : <strong>{didYouMeanAsset.name}</strong> ({didYouMeanAsset.ticker} · {didYouMeanAsset.exchange})
+                </div>
+                <button
+                  type="button"
+                  className="btn btn-primary btn-sm"
+                  onClick={() => handleSelectRegisteredAsset(didYouMeanAsset)}
+                  style={{ fontSize: 12 }}
+                >
+                  ✅ Sélectionner {didYouMeanAsset.ticker}
+                </button>
               </div>
             )}
           </div>

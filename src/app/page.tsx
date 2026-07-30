@@ -116,6 +116,8 @@ export default function HomePage() {
   const [inflationRate, setInflationRate] = useState<number>(0.021); // 2.1% annual CPI inflation default
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [refreshingPrices, setRefreshingPrices] = useState(false);
+  const [showEmptyThemes, setShowEmptyThemes] = useState<boolean>(false);
+  const [showThemeInfoModal, setShowThemeInfoModal] = useState<boolean>(false);
 
   const {
     positions, config, totalValue, totalCost, gainLoss, gainLossPercent,
@@ -870,53 +872,98 @@ export default function HomePage() {
               </div>
 
               {/* Thematic Exposure */}
-              {positions.length > 0 && (
-                <div className="card">
-                  <div className="card-header">
-                    <span className="card-title">Exposition Thématique Transversale</span>
-                  </div>
-                  <div className="theme-bar-container">
-                    {THEMES.map((theme) => {
-                      // Match par ticker OU par thème assigné à la position
-                      const themePositions = positions.filter((p) =>
-                        theme.tickers.includes(p.ticker) || p.themes.includes(theme.id)
-                      );
-                      const themeValueEUR = themePositions.reduce((s, p) => {
-                        const price = p.currentPrice || p.avgPrice;
-                        const rate = (fxRates as any)[p.currency] || 1.0;
-                        const posValEUR = p.quantity * price * rate;
-                        const themeWeight = p.themes.length > 0 ? (1 / p.themes.length) : 1.0;
-                        return s + posValEUR * themeWeight;
-                      }, 0);
+              {positions.length > 0 && (() => {
+                const calculatedThemes = THEMES.map((theme) => {
+                  const themePositions = positions.filter((p) =>
+                    theme.tickers.includes(p.ticker) || p.themes.includes(theme.id)
+                  );
+                  const themeValueEUR = themePositions.reduce((s, p) => {
+                    const price = p.currentPrice || p.avgPrice;
+                    const rate = (fxRates as any)[p.currency] || 1.0;
+                    const posValEUR = p.quantity * price * rate;
+                    const themeWeight = p.themes.length > 0 ? (1 / p.themes.length) : 1.0;
+                    return s + posValEUR * themeWeight;
+                  }, 0);
 
-                      const exposure = totalValue > 0 ? (themeValueEUR / totalValue) * 100 : 0;
-                      const cappedExposure = Math.min(100, Math.max(0, exposure));
-                      const maxPct = Math.min(100, theme.maxExposure * 100);
-                      const isOverLimit = exposure > maxPct;
-                      return (
-                        <div className="theme-bar-row" key={theme.id}>
-                          <span className="theme-bar-label">{theme.label}</span>
-                          <div className="theme-bar-track">
-                            <div
-                              className="theme-bar-fill"
-                              style={{
-                                width: `${cappedExposure}%`,
-                                background: isOverLimit ? 'var(--accent-rose)' : undefined,
-                              }}
-                            />
-                            {maxPct < 100 && (
-                              <div className="theme-bar-limit" style={{ left: `${maxPct}%` }} title={`Max ${maxPct}%`} />
-                            )}
-                          </div>
-                          <span className="theme-bar-value" style={{ color: isOverLimit ? 'var(--accent-rose)' : undefined }}>
-                            {exposure.toFixed(1)}%
-                          </span>
+                  const exposure = totalValue > 0 ? (themeValueEUR / totalValue) * 100 : 0;
+                  const cappedExposure = Math.min(100, Math.max(0, exposure));
+                  const maxPct = Math.min(100, theme.maxExposure * 100);
+                  const isOverLimit = exposure > maxPct;
+
+                  return {
+                    theme,
+                    themePositions,
+                    themeValueEUR,
+                    exposure,
+                    cappedExposure,
+                    maxPct,
+                    isOverLimit,
+                  };
+                });
+
+                const visibleThemes = showEmptyThemes
+                  ? calculatedThemes
+                  : calculatedThemes.filter((t) => t.exposure > 0);
+
+                return (
+                  <div className="card" style={{ marginTop: 24 }}>
+                    <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <span className="card-title">Exposition Thématique Transversale</span>
+                        <button
+                          type="button"
+                          className="btn btn-ghost btn-sm"
+                          style={{ fontSize: 11, color: 'var(--accent-cyan)' }}
+                          onClick={() => setShowThemeInfoModal(true)}
+                          title="Voir les formules et explications des plafonds"
+                        >
+                          💡 Formules & Justification des Plafonds
+                        </button>
+                      </div>
+                      <button
+                        type="button"
+                        className="btn btn-secondary btn-sm"
+                        style={{ fontSize: 11 }}
+                        onClick={() => setShowEmptyThemes(!showEmptyThemes)}
+                      >
+                        {showEmptyThemes ? '🙈 Masquer thèmes à 0%' : '👁️ Afficher tous les thèmes'}
+                      </button>
+                    </div>
+
+                    <div className="theme-bar-container" style={{ marginTop: 12 }}>
+                      {visibleThemes.length === 0 ? (
+                        <div style={{ fontSize: 13, color: 'var(--text-muted)', padding: 16, textAlign: 'center' }}>
+                          Aucune position n&apos;est actuellement exposée aux thèmes d&apos;investissement.
                         </div>
-                      );
-                    })}
+                      ) : (
+                        visibleThemes.map(({ theme, exposure, cappedExposure, maxPct, isOverLimit }) => (
+                          <div className="theme-bar-row" key={theme.id} style={{ marginBottom: 12 }}>
+                            <div style={{ width: 190, display: 'flex', flexDirection: 'column' }}>
+                              <span className="theme-bar-label" style={{ fontWeight: 600 }}>{theme.label}</span>
+                              <span style={{ fontSize: 10, color: 'var(--text-tertiary)' }}>Plafond recommandé : {maxPct}%</span>
+                            </div>
+                            <div className="theme-bar-track">
+                              <div
+                                className="theme-bar-fill"
+                                style={{
+                                  width: `${cappedExposure}%`,
+                                  background: isOverLimit ? 'var(--accent-rose)' : undefined,
+                                }}
+                              />
+                              {maxPct < 100 && (
+                                <div className="theme-bar-limit" style={{ left: `${maxPct}%` }} title={`Plafond : ${maxPct}%`} />
+                              )}
+                            </div>
+                            <span className="theme-bar-value" style={{ color: isOverLimit ? 'var(--accent-rose)' : undefined, minWidth: 60, textAlign: 'right', fontWeight: 700 }}>
+                              {exposure.toFixed(1)}%
+                            </span>
+                          </div>
+                        ))
+                      )}
+                    </div>
                   </div>
-                </div>
-              )}
+                );
+              })()}
             </>
           )}
 
@@ -1556,6 +1603,52 @@ export default function HomePage() {
           onClearAll={() => setClearedNotificationIds(notifications.map((n) => n.id))}
           onUpdateSettings={(newSettings) => setNotificationSettings(newSettings)}
         />
+      )}
+
+      {/* 💡 Modal Justification Thématiques */}
+      {showThemeInfoModal && (
+        <div className="modal-overlay" onClick={() => setShowThemeInfoModal(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 680 }}>
+            <div className="modal-header">
+              <h2>💡 Calcul & Justifications des Plafonds Thématiques</h2>
+              <button className="modal-close-btn" onClick={() => setShowThemeInfoModal(false)}>✕</button>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16, fontSize: 14, lineHeight: 1.6, color: 'var(--text-primary)' }}>
+              <div style={{ padding: 14, background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)' }}>
+                <h4 style={{ color: 'var(--accent-cyan)', margin: '0 0 6px 0', fontSize: 15 }}>📊 Formule de Calcul Rigoureuse en Temps Réel</h4>
+                <p style={{ margin: 0, fontSize: 13, color: 'var(--text-secondary)' }}>
+                  L&apos;exposition de chaque thème est calculée dynamiquement à partir des cours en direct Yahoo Finance :
+                </p>
+                <div className="mono" style={{ padding: '8px 12px', background: 'var(--bg-secondary)', borderRadius: 6, marginTop: 8, fontSize: 13, color: 'var(--accent-emerald)' }}>
+                  Exposition (%) = ( Σ (Quantité × Prix Actuel € × Poids Thématique) / Valeur Totale du Portefeuille € ) × 100
+                </div>
+              </div>
+
+              <div style={{ padding: 14, background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)' }}>
+                <h4 style={{ color: 'var(--accent-amber)', margin: '0 0 6px 0', fontSize: 15 }}>🛡️ Justification des Plafonds Maximaux par Thème</h4>
+                <p style={{ margin: 0, fontSize: 13, color: 'var(--text-secondary)' }}>
+                  Les plafonds rouges ne sont pas arbitraires : ils découlent de la <strong>Théorie Moderne du Portefeuille (Markowitz)</strong> et du contrôle du risque de sur-concentration sectorielle :
+                </p>
+                <ul style={{ paddingLeft: 18, marginTop: 8, fontSize: 13, color: 'var(--text-secondary)' }}>
+                  <li style={{ marginBottom: 4 }}><strong>IA et Data Centers (45% max)</strong> : Évite une dépendance excessive à la bulle technologique et aux puces d&apos;IA.</li>
+                  <li style={{ marginBottom: 4 }}><strong>Photonique (15% max)</strong> : Niche technologique (capteurs/lasers) à haute volatilité, plafonnée à 15% pour protéger le capital.</li>
+                  <li style={{ marginBottom: 4 }}><strong>Small Caps Européennes (25% max)</strong> : Risque d&apos;illiquidité sur les petites capitalisations continentales.</li>
+                  <li style={{ marginBottom: 4 }}><strong>Défense / Énergie (10-15% max)</strong> : Secteurs cycliques et réglementés à maîtriser.</li>
+                </ul>
+              </div>
+
+              <div style={{ padding: 12, background: 'rgba(56, 189, 248, 0.1)', borderRadius: 'var(--radius-md)', border: '1px solid var(--accent-cyan)' }}>
+                <span style={{ fontSize: 12, color: 'var(--accent-cyan)', fontWeight: 600 }}>
+                  ⚡ Mise à Jour Dynamique : Ces taux sont re-calculés automatiquement en temps réel à chaque seconde selon la fluctuation des cours de bourse et vos arbitrages DCA.
+                </span>
+              </div>
+
+              <button className="btn btn-primary" onClick={() => setShowThemeInfoModal(false)} style={{ marginTop: 10, alignSelf: 'flex-end' }}>
+                J&apos;ai compris
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Toast */}

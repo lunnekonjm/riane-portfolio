@@ -119,7 +119,7 @@ export default function HomePage() {
 
   const {
     positions, config, totalValue, totalCost, gainLoss, gainLossPercent,
-    monthlyDCATotal, saving, pendingCount, filledPositions, fxRates, lastPricesUpdated,
+    monthlyDCATotal, saving, pendingCount, filledPositions, fxRates, lastPricesUpdated, marketStatusLabel,
     addPosition, updatePosition, removePosition, updateConfig, refreshPrices, resetPortfolio,
   } = usePortfolio();
   const { result, status, statusMessage, isRunning, runAnalysis, history, clearResult } = useAnalysis();
@@ -384,10 +384,12 @@ export default function HomePage() {
                     Aujourd&apos;hui : <span style={{ color: 'var(--accent-cyan)', textTransform: 'capitalize' }}>{new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</span>
                   </div>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <span style={{ fontSize: 18 }}>🕒</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                  <span className="badge badge-violet" style={{ fontSize: 12, padding: '4px 10px', fontWeight: 600 }}>
+                    {marketStatusLabel || '🔒 Cours de Clôture Officielle (Marché Fermé)'}
+                  </span>
                   <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
-                    Dernier rafraîchissement des cours : <strong style={{ color: 'var(--accent-emerald)' }}>
+                    Actualisé à <strong style={{ color: 'var(--accent-emerald)' }}>
                       {lastPricesUpdated ? new Date(lastPricesUpdated).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
                     </strong> (Yahoo Finance Live)
                   </div>

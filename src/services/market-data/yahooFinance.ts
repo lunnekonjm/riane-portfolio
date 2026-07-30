@@ -51,6 +51,12 @@ export const yahooFinanceProvider: MarketDataProvider = {
     const change = currentPrice - previousClose;
     const changePercent = previousClose > 0 ? (change / previousClose) * 100 : 0;
 
+    const marketState = (meta.marketState as any) || 'CLOSED';
+    const isMarketOpen = marketState === 'REGULAR';
+    const quoteTypeLabel = isMarketOpen
+      ? '🟢 Cours en Temps Réel (Marché Ouvert)'
+      : '🔒 Cours de Clôture Officielle (Marché Fermé)';
+
     return {
       ticker,
       price: currentPrice,
@@ -64,6 +70,8 @@ export const yahooFinanceProvider: MarketDataProvider = {
       timestamp: (timestamps?.[lastIdx] || Math.floor(Date.now() / 1000)) * 1000,
       currency: meta.currency || 'EUR',
       source: 'Yahoo Finance',
+      marketState,
+      quoteTypeLabel,
     };
   },
 

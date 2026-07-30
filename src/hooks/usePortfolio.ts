@@ -68,6 +68,7 @@ export function usePortfolio() {
   }, [positions, loading]);
 
   const [lastPricesUpdated, setLastPricesUpdated] = useState<number | null>(null);
+  const [marketStatusLabel, setMarketStatusLabel] = useState<string>('🔒 Cours de Clôture Officielle (Marché Fermé)');
 
   const refreshPricesInternal = async (currentPositions: Position[]) => {
     const tickers = currentPositions.map((p) => p.ticker);
@@ -82,6 +83,11 @@ export function usePortfolio() {
       }
 
       if (quotes.size > 0) {
+        const firstQuote = Array.from(quotes.values())[0];
+        if (firstQuote?.quoteTypeLabel) {
+          setMarketStatusLabel(firstQuote.quoteTypeLabel);
+        }
+
         setPositions((prev) =>
           prev.map((p) => {
             const quote = quotes.get(p.ticker);
@@ -211,6 +217,7 @@ export function usePortfolio() {
     saving,
     fxRates,
     lastPricesUpdated,
+    marketStatusLabel,
     totalValue,
     totalCost,
     gainLoss: totalValue - totalCost,

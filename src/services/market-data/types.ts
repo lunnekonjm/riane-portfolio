@@ -2,6 +2,8 @@
  * Types pour les services de données de marché
  */
 
+export type MarketState = 'REGULAR' | 'CLOSED' | 'PRE' | 'POST';
+
 export interface QuoteData {
   ticker: string;
   price: number;
@@ -15,6 +17,8 @@ export interface QuoteData {
   timestamp: number;
   currency: string;
   source: string;
+  marketState?: MarketState;
+  quoteTypeLabel?: string;
 }
 
 export interface CompanyProfile {

@@ -12,7 +12,7 @@ import {
   savePortfolioConfig,
 } from '@/services/firebase/firestore';
 import { DEFAULT_POSITIONS } from '@/data/portfolio';
-import { getMultipleQuotes } from '@/services/market-data/provider';
+import { getMultipleQuotes, getFxRates } from '@/services/market-data/provider';
 import type { Position, PortfolioConfig } from '@/types/portfolio';
 import type { User } from 'firebase/auth';
 
@@ -23,6 +23,8 @@ export function usePortfolio() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const pricesFetched = useRef(false);
+
+  const [fxRates, setFxRates] = useState<Record<string, number>>({ EUR: 1.0, USD: 0.92, GBP: 1.18, CHF: 1.04 });
 
   useEffect(() => {
     const unsubscribe = onAuthChange(async (u) => {
@@ -56,7 +58,7 @@ export function usePortfolio() {
     return unsubscribe;
   }, []);
 
-  // ── Auto-fetch real market prices on first load ──
+  // ── Auto-fetch real market prices & FX rates on first load ──
   useEffect(() => {
     if (positions.length > 0 && !pricesFetched.current && !loading) {
       pricesFetched.current = true;
@@ -68,7 +70,15 @@ export function usePortfolio() {
   const refreshPricesInternal = async (currentPositions: Position[]) => {
     const tickers = currentPositions.map((p) => p.ticker);
     try {
-      const quotes = await getMultipleQuotes(tickers);
+      const [quotes, rates] = await Promise.all([
+        getMultipleQuotes(tickers),
+        getFxRates(),
+      ]);
+
+      if (rates) {
+        setFxRates((prev) => ({ ...prev, ...rates }));
+      }
+
       if (quotes.size > 0) {
         setPositions((prev) =>
           prev.map((p) => {
@@ -161,7 +171,7 @@ export function usePortfolio() {
     }
   }, [user, positions]);
 
-  // ── Computed Values (only from REAL user data) ──
+  // ── Computed Values (only from REAL user data with FX conversion) ──
 
   /** Only positions where user has entered real data */
   const filledPositions = positions.filter((p) => p.quantity > 0 && p.avgPrice > 0);
@@ -171,11 +181,13 @@ export function usePortfolio() {
 
   const totalValue = filledPositions.reduce((sum, p) => {
     const price = p.currentPrice || p.avgPrice;
-    return sum + p.quantity * price;
+    const rateToEUR = fxRates[p.currency] || 1.0;
+    return sum + (p.quantity * price * rateToEUR);
   }, 0);
 
   const totalCost = filledPositions.reduce((sum, p) => {
-    return sum + p.quantity * p.avgPrice;
+    const rateToEUR = fxRates[p.currency] || 1.0;
+    return sum + (p.quantity * p.avgPrice * rateToEUR);
   }, 0);
 
   const monthlyDCATotal = positions.reduce((sum, p) => {
@@ -194,6 +206,7 @@ export function usePortfolio() {
     config,
     loading,
     saving,
+    fxRates,
     totalValue,
     totalCost,
     gainLoss: totalValue - totalCost,

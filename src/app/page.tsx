@@ -95,7 +95,7 @@ export default function HomePage() {
 
   const {
     positions, config, totalValue, totalCost, gainLoss, gainLossPercent,
-    monthlyDCATotal, saving,
+    monthlyDCATotal, saving, pendingCount, filledPositions,
     addPosition, updatePosition, removePosition, updateConfig, refreshPrices,
   } = usePortfolio();
   const { result, status, statusMessage, isRunning, runAnalysis, history, clearResult } = useAnalysis();
@@ -264,24 +264,46 @@ export default function HomePage() {
           {/* ═══ DASHBOARD ═══ */}
           {currentView === 'dashboard' && (
             <>
-              {/* Summary Cards */}
+              {/* Onboarding Banner */}
+              {pendingCount > 0 && (
+                <div className="card" style={{ borderLeft: '3px solid var(--accent-amber)', display: 'flex', alignItems: 'center', gap: 16 }}>
+                  <span style={{ fontSize: 28 }}>✍️</span>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: 600, marginBottom: 4 }}>
+                      {pendingCount === positions.length
+                        ? 'Renseignez vos positions pour activer le tableau de bord'
+                        : `${pendingCount} position${pendingCount > 1 ? 's' : ''} à compléter`}
+                    </div>
+                    <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
+                      Cliquez sur chaque ligne du tableau pour entrer vos quantités et prix réels d&apos;achat (PRU).
+                      Seules vos données réelles sont utilisées — aucune estimation.
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Summary Cards — only show real data */}
               <div className="grid-4">
                 <div className="card">
                   <div className="card-header"><span className="card-title">Valeur Totale</span></div>
-                  <div className="card-value" style={{ color: 'var(--accent-cyan)' }}>
+                  <div className="card-value" style={{ color: totalValue > 0 ? 'var(--accent-cyan)' : 'var(--text-muted)' }}>
                     {totalValue > 0
                       ? totalValue.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })
                       : '—'}
                   </div>
-                  {totalValue === 0 && <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Renseignez vos positions</span>}
+                  {totalValue === 0 && <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>À renseigner</span>}
+                  {filledPositions.length > 0 && filledPositions.length < positions.length && (
+                    <span style={{ fontSize: 11, color: 'var(--accent-amber)' }}>{filledPositions.length}/{positions.length} positions renseignées</span>
+                  )}
                 </div>
                 <div className="card">
-                  <div className="card-header"><span className="card-title">Coût Total</span></div>
+                  <div className="card-header"><span className="card-title">Coût Total (PRU)</span></div>
                   <div className="card-value">
                     {totalCost > 0
                       ? totalCost.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })
                       : '—'}
                   </div>
+                  {totalCost === 0 && <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Entrez vos PRU réels</span>}
                 </div>
                 <div className="card">
                   <div className="card-header"><span className="card-title">Plus/Moins-Value</span></div>
@@ -295,7 +317,10 @@ export default function HomePage() {
                       </span>
                     </>
                   ) : (
-                    <div className="card-value" style={{ color: 'var(--text-muted)' }}>—</div>
+                    <>
+                      <div className="card-value" style={{ color: 'var(--text-muted)' }}>—</div>
+                      <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Calculé depuis vos PRU</span>
+                    </>
                   )}
                 </div>
                 <div className="card" style={{ cursor: 'pointer' }} onClick={() => setShowConfigEditor(true)}>
@@ -366,14 +391,30 @@ export default function HomePage() {
                     </thead>
                     <tbody>
                       {positions.map((pos) => {
+                        const hasFilled = pos.quantity > 0 && pos.avgPrice > 0;
                         const price = pos.currentPrice || pos.avgPrice;
                         const value = pos.quantity * price;
                         const cost = pos.quantity * pos.avgPrice;
                         const pl = value - cost;
                         const plPct = cost > 0 ? (pl / cost) * 100 : 0;
                         return (
-                          <tr key={pos.id} style={{ cursor: 'pointer' }} onClick={() => setEditingPosition(pos)}>
-                            <td style={{ fontWeight: 600 }}>{pos.name}</td>
+                          <tr
+                            key={pos.id}
+                            style={{
+                              cursor: 'pointer',
+                              borderLeft: !hasFilled ? '3px solid var(--accent-amber)' : undefined,
+                              opacity: hasFilled ? 1 : 0.7,
+                            }}
+                            onClick={() => setEditingPosition(pos)}
+                          >
+                            <td style={{ fontWeight: 600 }}>
+                              {pos.name}
+                              {!hasFilled && (
+                                <span style={{ display: 'block', fontSize: 11, color: 'var(--accent-amber)', fontWeight: 400 }}>
+                                  ✍️ Cliquez pour renseigner
+                                </span>
+                              )}
+                            </td>
                             <td className="mono">{pos.ticker}</td>
                             <td>
                               <span className={`envelope-tag ${pos.envelope.toLowerCase()}`}>
@@ -385,7 +426,7 @@ export default function HomePage() {
                             <td className="mono">{pos.currentPrice ? `${pos.currentPrice.toFixed(2)}` : <span style={{ color: 'var(--text-muted)' }}>—</span>}</td>
                             <td className="mono" style={{ fontWeight: 600 }}>{value > 0 ? `${value.toLocaleString('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })} ${pos.currency === 'EUR' ? '€' : '$'}` : <span style={{ color: 'var(--text-muted)' }}>—</span>}</td>
                             <td>
-                              {cost > 0 ? (
+                              {cost > 0 && pos.currentPrice ? (
                                 <span className={`stat-change ${pl >= 0 ? 'positive' : 'negative'}`}>
                                   {pl >= 0 ? '↑' : '↓'} {Math.abs(plPct).toFixed(1)}%
                                 </span>

@@ -16,14 +16,6 @@ import { getMultipleQuotes } from '@/services/market-data/provider';
 import type { Position, PortfolioConfig } from '@/types/portfolio';
 import type { User } from 'firebase/auth';
 
-/**
- * Check if positions are "empty" — all have qty=0 and avgPrice=0
- * This indicates old default data that needs migration
- */
-function isEmptyPortfolio(positions: Position[]): boolean {
-  return positions.length > 0 && positions.every((p) => p.quantity === 0 && p.avgPrice === 0);
-}
-
 export function usePortfolio() {
   const [user, setUser] = useState<User | null>(null);
   const [positions, setPositions] = useState<Position[]>([]);
@@ -43,14 +35,8 @@ export function usePortfolio() {
             getPortfolioConfig(u.uid),
           ]);
 
-          // Migration: if all positions are zeros, replace with realistic defaults
-          if (isEmptyPortfolio(pos)) {
-            console.log('[Portfolio] Migrating empty positions to reference data...');
-            await saveAllPositions(u.uid, DEFAULT_POSITIONS);
-            setPositions(DEFAULT_POSITIONS);
-          } else if (pos.length === 0) {
-            // New user: initialize with reference portfolio
-            console.log('[Portfolio] New user — initializing with reference portfolio...');
+          if (pos.length === 0) {
+            // New user: initialize with structure from CDC (no fake data)
             await saveAllPositions(u.uid, DEFAULT_POSITIONS);
             setPositions(DEFAULT_POSITIONS);
           } else {
@@ -70,7 +56,7 @@ export function usePortfolio() {
     return unsubscribe;
   }, []);
 
-  // ── Auto-refresh prices on first load ──
+  // ── Auto-fetch real market prices on first load ──
   useEffect(() => {
     if (positions.length > 0 && !pricesFetched.current && !loading) {
       pricesFetched.current = true;
@@ -79,9 +65,6 @@ export function usePortfolio() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [positions, loading]);
 
-  /**
-   * Internal price refresh — tries market API, keeps existing currentPrice as fallback
-   */
   const refreshPricesInternal = async (currentPositions: Position[]) => {
     const tickers = currentPositions.map((p) => p.ticker);
     try {
@@ -98,12 +81,11 @@ export function usePortfolio() {
         );
       }
     } catch (err) {
-      console.warn('[Portfolio] Price refresh failed (API keys may be missing):', err);
-      // currentPrice from DEFAULT_POSITIONS is used as fallback
+      console.warn('[Portfolio] Price refresh failed:', err);
     }
   };
 
-  // ── Add Position ──
+  // ── CRUD ──
   const addPosition = useCallback(async (pos: Position) => {
     if (!user) return;
     setSaving(true);
@@ -117,7 +99,6 @@ export function usePortfolio() {
     }
   }, [user]);
 
-  // ── Update Position ──
   const updatePosition = useCallback(async (pos: Position) => {
     if (!user) return;
     setSaving(true);
@@ -131,7 +112,6 @@ export function usePortfolio() {
     }
   }, [user]);
 
-  // ── Delete Position ──
   const removePosition = useCallback(async (positionId: string) => {
     if (!user) return;
     setSaving(true);
@@ -145,7 +125,6 @@ export function usePortfolio() {
     }
   }, [user]);
 
-  // ── Update Config ──
   const updateConfig = useCallback(async (newConfig: PortfolioConfig) => {
     if (!user) return;
     setSaving(true);
@@ -159,18 +138,24 @@ export function usePortfolio() {
     }
   }, [user]);
 
-  // ── Manual Refresh Prices ──
   const refreshPrices = useCallback(async () => {
     await refreshPricesInternal(positions);
   }, [positions]);
 
-  // ── Computed Values ──
-  const totalValue = positions.reduce((sum, p) => {
+  // ── Computed Values (only from REAL user data) ──
+
+  /** Only positions where user has entered real data */
+  const filledPositions = positions.filter((p) => p.quantity > 0 && p.avgPrice > 0);
+
+  /** How many positions still need user input */
+  const pendingCount = positions.length - filledPositions.length;
+
+  const totalValue = filledPositions.reduce((sum, p) => {
     const price = p.currentPrice || p.avgPrice;
     return sum + p.quantity * price;
   }, 0);
 
-  const totalCost = positions.reduce((sum, p) => {
+  const totalCost = filledPositions.reduce((sum, p) => {
     return sum + p.quantity * p.avgPrice;
   }, 0);
 
@@ -195,6 +180,8 @@ export function usePortfolio() {
     gainLoss: totalValue - totalCost,
     gainLossPercent: totalCost > 0 ? ((totalValue - totalCost) / totalCost) * 100 : 0,
     monthlyDCATotal,
+    pendingCount,
+    filledPositions,
     positionsByEnvelope,
     addPosition,
     updatePosition,

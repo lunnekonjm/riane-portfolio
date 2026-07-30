@@ -1184,6 +1184,8 @@ export default function HomePage() {
                     </p>
                   </div>
                 )}
+                {/* 🚀 Spacer Div pour garantir que la Synthèse & Recommandation s'affiche 100% AU-DESSUS de la barre de saisie sans être masquée */}
+                <div style={{ height: 220, minHeight: 220, flexShrink: 0 }} />
               </div>
 
               {/* Input Area */}

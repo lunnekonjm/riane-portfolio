@@ -679,15 +679,22 @@ export default function HomePage() {
                     <span className="card-title">Exposition Thématique Transversale</span>
                   </div>
                   <div className="theme-bar-container">
-                    {THEMES.filter((t) => t.tickers.length > 0).map((theme) => {
+                    {THEMES.map((theme) => {
                       // Match par ticker OU par thème assigné à la position
                       const themePositions = positions.filter((p) =>
                         theme.tickers.includes(p.ticker) || p.themes.includes(theme.id)
                       );
-                      const exposure = totalValue > 0
-                        ? themePositions.reduce((s, p) => s + p.quantity * (p.currentPrice || p.avgPrice), 0) / totalValue * 100
-                        : 0;
-                      const maxPct = theme.maxExposure * 100;
+                      const themeValueEUR = themePositions.reduce((s, p) => {
+                        const price = p.currentPrice || p.avgPrice;
+                        const rate = (fxRates as any)[p.currency] || 1.0;
+                        const posValEUR = p.quantity * price * rate;
+                        const themeWeight = p.themes.length > 0 ? (1 / p.themes.length) : 1.0;
+                        return s + posValEUR * themeWeight;
+                      }, 0);
+
+                      const exposure = totalValue > 0 ? (themeValueEUR / totalValue) * 100 : 0;
+                      const cappedExposure = Math.min(100, Math.max(0, exposure));
+                      const maxPct = Math.min(100, theme.maxExposure * 100);
                       const isOverLimit = exposure > maxPct;
                       return (
                         <div className="theme-bar-row" key={theme.id}>
@@ -696,11 +703,13 @@ export default function HomePage() {
                             <div
                               className="theme-bar-fill"
                               style={{
-                                width: `${Math.min(exposure, 100)}%`,
+                                width: `${cappedExposure}%`,
                                 background: isOverLimit ? 'var(--accent-rose)' : undefined,
                               }}
                             />
-                            <div className="theme-bar-limit" style={{ left: `${maxPct}%` }} title={`Max ${maxPct}%`} />
+                            {maxPct < 100 && (
+                              <div className="theme-bar-limit" style={{ left: `${maxPct}%` }} title={`Max ${maxPct}%`} />
+                            )}
                           </div>
                           <span className="theme-bar-value" style={{ color: isOverLimit ? 'var(--accent-rose)' : undefined }}>
                             {exposure.toFixed(1)}%

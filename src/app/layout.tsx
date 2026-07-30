@@ -4,6 +4,7 @@ import './globals.css';
 export const metadata: Metadata = {
   title: 'RIANE Portfolio — Analyse Multi-Agents',
   description: 'Application multi-agents d\'analyse de portefeuille : veille, revue à la demande, allocation, simulations et gestion du risque.',
+  manifest: '/manifest.json',
 };
 
 export default function RootLayout({
@@ -13,7 +14,31 @@ export default function RootLayout({
 }) {
   return (
     <html lang="fr">
-      <body>{children}</body>
+      <head>
+        <meta name="theme-color" content="#06b6d4" />
+        <link rel="apple-touch-icon" href="/globe.svg" />
+      </head>
+      <body>
+        {children}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              if ('serviceWorker' in navigator) {
+                window.addEventListener('load', function() {
+                  navigator.serviceWorker.register('/sw.js').then(
+                    function(registration) {
+                      console.log('[PWA] ServiceWorker registered with scope: ', registration.scope);
+                    },
+                    function(err) {
+                      console.log('[PWA] ServiceWorker registration failed: ', err);
+                    }
+                  );
+                });
+              }
+            `,
+          }}
+        />
+      </body>
     </html>
   );
 }

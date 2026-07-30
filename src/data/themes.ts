@@ -58,7 +58,7 @@ export const THEMES: ThemeDefinition[] = [
     id: 'global-core',
     label: 'Cœur Indiciel Mondial',
     description: 'Indices mondiaux larges — cœur du portefeuille',
-    tickers: ['CW8.PA'],
+    tickers: ['GPEA.PA', 'CW8.PA'],
     maxExposure: 1.0,
   },
   {

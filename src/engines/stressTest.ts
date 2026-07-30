@@ -8,6 +8,7 @@ import type { Position } from '@/types/portfolio';
 
 /** Map des sensibilités actif → facteur de choc (connus) */
 const KNOWN_SENSITIVITY: Record<string, Record<string, number>> = {
+  'GPEA.PA': { global_equities: 1.0, technology: 0.3, small_caps: 0.2 },
   'CW8.PA': { global_equities: 1.0, technology: 0.3, small_caps: 0.2 },
   'PUST.PA': { global_equities: 0.8, technology: 1.0, nasdaq_100: 1.0, small_caps: 0.1 },
   'INDE.PA': { global_equities: 0.5, europe_small: 1.0, small_caps: 0.9 },

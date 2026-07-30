@@ -10,8 +10,8 @@ export const DEFAULT_POSITIONS: Position[] = [
   // ── PEA ──
   {
     id: 'pea-acwi',
-    ticker: 'CW8.PA',
-    name: 'MSCI ACWI (Amundi)',
+    ticker: 'GPEA.PA',
+    name: 'Amundi PEA Global MSCI ACWI (FR0014017NX3)',
     envelope: 'PEA',
     assetType: 'ETF',
     currency: 'EUR',

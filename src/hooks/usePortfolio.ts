@@ -142,6 +142,25 @@ export function usePortfolio() {
     await refreshPricesInternal(positions);
   }, [positions]);
 
+  // ── Reset Portfolio (clear fake data) ──
+  const resetPortfolio = useCallback(async () => {
+    if (!user) return;
+    setSaving(true);
+    try {
+      // Delete all existing positions from Firestore
+      for (const pos of positions) {
+        await deletePositionFromDb(user.uid, pos.id);
+      }
+      // Re-save clean structure-only defaults
+      await saveAllPositions(user.uid, DEFAULT_POSITIONS);
+      setPositions(DEFAULT_POSITIONS);
+    } catch (err) {
+      console.error('Error resetting portfolio:', err);
+    } finally {
+      setSaving(false);
+    }
+  }, [user, positions]);
+
   // ── Computed Values (only from REAL user data) ──
 
   /** Only positions where user has entered real data */
@@ -188,5 +207,6 @@ export function usePortfolio() {
     removePosition,
     updateConfig,
     refreshPrices,
+    resetPortfolio,
   };
 }

@@ -96,7 +96,7 @@ export default function HomePage() {
   const {
     positions, config, totalValue, totalCost, gainLoss, gainLossPercent,
     monthlyDCATotal, saving, pendingCount, filledPositions,
-    addPosition, updatePosition, removePosition, updateConfig, refreshPrices,
+    addPosition, updatePosition, removePosition, updateConfig, refreshPrices, resetPortfolio,
   } = usePortfolio();
   const { result, status, statusMessage, isRunning, runAnalysis, history, clearResult } = useAnalysis();
 
@@ -361,6 +361,19 @@ export default function HomePage() {
                   <div style={{ display: 'flex', gap: 8 }}>
                     <button className="btn btn-secondary" onClick={refreshPrices} title="Rafraîchir les prix" id="refresh-prices-btn">
                       🔄 Prix
+                    </button>
+                    <button
+                      className="btn btn-secondary"
+                      onClick={async () => {
+                        if (confirm('Réinitialiser toutes les positions à zéro ?\nVous pourrez ensuite entrer vos données réelles.')) {
+                          await resetPortfolio();
+                          showToast('Portefeuille réinitialisé — renseignez vos données réelles');
+                        }
+                      }}
+                      title="Remettre à zéro les quantités et PRU"
+                      id="reset-portfolio-btn"
+                    >
+                      🔄 Réinitialiser
                     </button>
                     <button className="btn btn-primary" onClick={() => setEditingPosition('new')} id="add-position-btn">
                       ➕ Ajouter

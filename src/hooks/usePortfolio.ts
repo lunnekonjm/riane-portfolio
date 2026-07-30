@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { onAuthChange } from '@/services/firebase/auth';
 import {
   getPositions,
@@ -16,12 +16,21 @@ import { getMultipleQuotes } from '@/services/market-data/provider';
 import type { Position, PortfolioConfig } from '@/types/portfolio';
 import type { User } from 'firebase/auth';
 
+/**
+ * Check if positions are "empty" — all have qty=0 and avgPrice=0
+ * This indicates old default data that needs migration
+ */
+function isEmptyPortfolio(positions: Position[]): boolean {
+  return positions.length > 0 && positions.every((p) => p.quantity === 0 && p.avgPrice === 0);
+}
+
 export function usePortfolio() {
   const [user, setUser] = useState<User | null>(null);
   const [positions, setPositions] = useState<Position[]>([]);
   const [config, setConfig] = useState<PortfolioConfig | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const pricesFetched = useRef(false);
 
   useEffect(() => {
     const unsubscribe = onAuthChange(async (u) => {
@@ -33,7 +42,21 @@ export function usePortfolio() {
             getPositions(u.uid),
             getPortfolioConfig(u.uid),
           ]);
-          setPositions(pos);
+
+          // Migration: if all positions are zeros, replace with realistic defaults
+          if (isEmptyPortfolio(pos)) {
+            console.log('[Portfolio] Migrating empty positions to reference data...');
+            await saveAllPositions(u.uid, DEFAULT_POSITIONS);
+            setPositions(DEFAULT_POSITIONS);
+          } else if (pos.length === 0) {
+            // New user: initialize with reference portfolio
+            console.log('[Portfolio] New user — initializing with reference portfolio...');
+            await saveAllPositions(u.uid, DEFAULT_POSITIONS);
+            setPositions(DEFAULT_POSITIONS);
+          } else {
+            setPositions(pos);
+          }
+
           setConfig(cfg);
         } catch (err) {
           console.error('Error loading portfolio:', err);
@@ -46,6 +69,39 @@ export function usePortfolio() {
     });
     return unsubscribe;
   }, []);
+
+  // ── Auto-refresh prices on first load ──
+  useEffect(() => {
+    if (positions.length > 0 && !pricesFetched.current && !loading) {
+      pricesFetched.current = true;
+      refreshPricesInternal(positions);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [positions, loading]);
+
+  /**
+   * Internal price refresh — tries market API, keeps existing currentPrice as fallback
+   */
+  const refreshPricesInternal = async (currentPositions: Position[]) => {
+    const tickers = currentPositions.map((p) => p.ticker);
+    try {
+      const quotes = await getMultipleQuotes(tickers);
+      if (quotes.size > 0) {
+        setPositions((prev) =>
+          prev.map((p) => {
+            const quote = quotes.get(p.ticker);
+            if (quote && quote.price > 0) {
+              return { ...p, currentPrice: quote.price };
+            }
+            return p;
+          })
+        );
+      }
+    } catch (err) {
+      console.warn('[Portfolio] Price refresh failed (API keys may be missing):', err);
+      // currentPrice from DEFAULT_POSITIONS is used as fallback
+    }
+  };
 
   // ── Add Position ──
   const addPosition = useCallback(async (pos: Position) => {
@@ -103,23 +159,9 @@ export function usePortfolio() {
     }
   }, [user]);
 
-  // ── Refresh Prices ──
+  // ── Manual Refresh Prices ──
   const refreshPrices = useCallback(async () => {
-    const tickers = positions.map((p) => p.ticker);
-    try {
-      const quotes = await getMultipleQuotes(tickers);
-      setPositions((prev) =>
-        prev.map((p) => {
-          const quote = quotes.get(p.ticker);
-          if (quote) {
-            return { ...p, currentPrice: quote.price };
-          }
-          return p;
-        })
-      );
-    } catch (err) {
-      console.error('Error refreshing prices:', err);
-    }
+    await refreshPricesInternal(positions);
   }, [positions]);
 
   // ── Computed Values ──

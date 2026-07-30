@@ -13,6 +13,7 @@ import PositionEditor from '@/components/PositionEditor';
 import ConfigEditor from '@/components/ConfigEditor';
 import EnvelopesTaxView from '@/components/EnvelopesTaxView';
 import NotificationCenterModal from '@/components/NotificationCenterModal';
+import GlossaryInfoModal from '@/components/GlossaryInfoModal';
 import ReportsView from '@/components/ReportsView';
 import { generatePortfolioNotifications } from '@/engines/notificationEngine';
 import type { AppNotification, NotificationSettings } from '@/types/notification';
@@ -118,6 +119,13 @@ export default function HomePage() {
   const [refreshingPrices, setRefreshingPrices] = useState(false);
   const [showEmptyThemes, setShowEmptyThemes] = useState<boolean>(false);
   const [showThemeInfoModal, setShowThemeInfoModal] = useState<boolean>(false);
+  const [showGlossaryModal, setShowGlossaryModal] = useState<boolean>(false);
+  const [glossaryInitialTerm, setGlossaryInitialTerm] = useState<string | undefined>(undefined);
+
+  const openGlossary = (term?: string) => {
+    setGlossaryInitialTerm(term);
+    setShowGlossaryModal(true);
+  };
 
   const {
     positions, config, totalValue, totalCost, gainLoss, gainLossPercent,
@@ -342,6 +350,28 @@ export default function HomePage() {
               )}
             </button>
 
+            {/* 📚 Lexique & Explications Financières Button */}
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm"
+              style={{
+                color: 'var(--accent-cyan)',
+                fontSize: 12,
+                fontWeight: 700,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+                border: '1px solid rgba(56, 189, 248, 0.3)',
+                padding: '6px 12px',
+                borderRadius: 10,
+                background: 'rgba(56, 189, 248, 0.08)',
+              }}
+              onClick={() => openGlossary()}
+              title="Ouvrir le dictionnaire financier et les explications sans abréviations"
+            >
+              📚 Lexique & Explications
+            </button>
+
             {/* Global Inflation Toggle Switch */}
             <div style={{
               display: 'flex',
@@ -482,7 +512,7 @@ export default function HomePage() {
                     {/* Summary Cards — only show real data */}
                     <div className="grid-4">
                       <div className="card">
-                        <div className="card-header">
+                        <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                           <span className="card-title">
                             {adjustInflation ? 'Valeur Réelle (Ajustée Inflation)' : 'Valeur Totale'}
                           </span>
@@ -498,10 +528,19 @@ export default function HomePage() {
                         )}
                       </div>
                       <div className="card">
-                        <div className="card-header">
+                        <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                           <span className="card-title">
                             {adjustInflation ? 'Coût Total Réel (Euros Constants)' : 'Coût Total (PRU)'}
                           </span>
+                          <button
+                            type="button"
+                            className="btn btn-ghost btn-sm"
+                            style={{ padding: '0 4px', fontSize: 12, color: 'var(--accent-cyan)' }}
+                            onClick={() => openGlossary('PRU')}
+                            title="Qu'est-ce que le PRU (Prix Moyen d'Acquisition) ?"
+                          >
+                            💡 PRU
+                          </button>
                         </div>
                         <div className="card-value">
                           {displayTotalCost > 0
@@ -511,10 +550,19 @@ export default function HomePage() {
                         {displayTotalCost === 0 && <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Entrez vos PRU réels</span>}
                       </div>
                       <div className="card">
-                        <div className="card-header">
+                        <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                           <span className="card-title">
                             {adjustInflation ? 'Plus/Moins-Value Réelle' : 'Plus/Moins-Value'}
                           </span>
+                          <button
+                            type="button"
+                            className="btn btn-ghost btn-sm"
+                            style={{ padding: '0 4px', fontSize: 12, color: 'var(--accent-cyan)' }}
+                            onClick={() => openGlossary('PFU')}
+                            title="Explications sur la fiscalité et le calcul du net"
+                          >
+                            💡 Taxe
+                          </button>
                         </div>
                         {displayTotalCost > 0 ? (
                           <>
@@ -549,9 +597,23 @@ export default function HomePage() {
                         )}
                       </div>
                       <div className="card" style={{ cursor: 'pointer' }} onClick={() => setShowConfigEditor(true)}>
-                        <div className="card-header">
+                        <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                           <span className="card-title">DCA Mensuel</span>
-                          <span style={{ fontSize: 14, color: 'var(--text-muted)' }}>⚙️</span>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <button
+                              type="button"
+                              className="btn btn-ghost btn-sm"
+                              style={{ padding: '0 4px', fontSize: 12, color: 'var(--accent-cyan)' }}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openGlossary('DCA');
+                              }}
+                              title="Qu'est-ce que le DCA (Dollar-Cost Averaging) ?"
+                            >
+                              💡 DCA
+                            </button>
+                            <span style={{ fontSize: 14, color: 'var(--text-muted)' }}>⚙️</span>
+                          </div>
                         </div>
                         <div className="card-value" style={{ color: 'var(--accent-emerald)' }}>
                           {monthlyDCATotal > 0
@@ -1651,6 +1713,14 @@ export default function HomePage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* 📚 Modal Lexique & Explications Financières */}
+      {showGlossaryModal && (
+        <GlossaryInfoModal
+          onClose={() => setShowGlossaryModal(false)}
+          initialTerm={glossaryInitialTerm}
+        />
       )}
 
       {/* Toast */}

@@ -99,6 +99,8 @@ export default function HomePage() {
   const [showFlowRebalanceModal, setShowFlowRebalanceModal] = useState(false);
   const [flowRebalanceResult, setFlowRebalanceResult] = useState<FlowRebalanceResult | null>(null);
   const [dcaGlobalStartDate, setDcaGlobalStartDate] = useState<string>('2024-01');
+  const [adjustInflation, setAdjustInflation] = useState<boolean>(false);
+  const [inflationRate, setInflationRate] = useState<number>(0.021); // 2.1% annual CPI inflation default
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [refreshingPrices, setRefreshingPrices] = useState(false);
 
@@ -295,76 +297,116 @@ export default function HomePage() {
                 </div>
               )}
 
-              {/* Summary Cards — only show real data */}
-              <div className="grid-4">
-                <div className="card">
-                  <div className="card-header"><span className="card-title">Valeur Totale</span></div>
-                  <div className="card-value" style={{ color: totalValue > 0 ? 'var(--accent-cyan)' : 'var(--text-muted)' }}>
-                    {totalValue > 0
-                      ? totalValue.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })
-                      : '—'}
-                  </div>
-                  {totalValue === 0 && <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>À renseigner</span>}
-                  {filledPositions.length > 0 && filledPositions.length < positions.length && (
-                    <span style={{ fontSize: 11, color: 'var(--accent-amber)' }}>{filledPositions.length}/{positions.length} positions renseignées</span>
-                  )}
-                </div>
-                <div className="card">
-                  <div className="card-header"><span className="card-title">Coût Total (PRU)</span></div>
-                  <div className="card-value">
-                    {totalCost > 0
-                      ? totalCost.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })
-                      : '—'}
-                  </div>
-                  {totalCost === 0 && <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Entrez vos PRU réels</span>}
-                </div>
-                <div className="card">
-                  <div className="card-header"><span className="card-title">Plus/Moins-Value</span></div>
-                  {totalCost > 0 ? (
-                    <>
-                      <div className={`card-value ${gainLoss >= 0 ? 'stat-gain' : 'stat-loss'}`}>
-                        {gainLoss >= 0 ? '+' : ''}{gainLoss.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
+              {/* Inflation Factor Calculation */}
+              {(() => {
+                const startYear = parseInt(dcaGlobalStartDate.slice(0, 4)) || 2024;
+                const currentYear = new Date().getFullYear();
+                const yearsElapsed = Math.max(0, (currentYear - startYear) + (new Date().getMonth() / 12));
+                const cumulativeInflationFactor = adjustInflation ? Math.pow(1 + inflationRate, yearsElapsed) : 1.0;
+
+                const displayTotalValue = totalValue / cumulativeInflationFactor;
+                const displayTotalCost = totalCost / cumulativeInflationFactor;
+                const displayGainLoss = displayTotalValue - displayTotalCost;
+                const displayGainLossPercent = displayTotalCost > 0 ? (displayGainLoss / displayTotalCost) * 100 : 0;
+
+                return (
+                  <>
+                    {adjustInflation && (
+                      <div className="card" style={{ borderLeft: '4px solid var(--accent-amber)', background: 'rgba(245, 158, 11, 0.1)', padding: 12, marginBottom: 16 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, color: 'var(--text-primary)' }}>
+                          <span style={{ fontSize: 20 }}>🎈</span>
+                          <div>
+                            <strong>Mode Inflation Actif (Pouvoir d&apos;Achat Réel) :</strong> Montants et plus-values exprimés en Euros constants (IPC Eurostat/INSEE ~{(inflationRate * 100).toFixed(1)}%/an sur {yearsElapsed.toFixed(1)} ans, inflation cumulée : {((cumulativeInflationFactor - 1) * 100).toFixed(1)}%).
+                          </div>
+                        </div>
                       </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 }}>
-                        <span className={`stat-change ${gainLoss >= 0 ? 'positive' : 'negative'}`}>
-                          {gainLossPercent >= 0 ? '↑' : '↓'} {Math.abs(gainLossPercent).toFixed(2)}%
-                        </span>
-                        {gainLoss > 0 && (
-                          <span style={{ fontSize: 11, color: 'var(--text-muted)' }} title="Après prélèvements sociaux PEA (18.6%) et Flat Tax CTO (30%)">
-                            Net: +{filledPositions.reduce((sum, p) => {
-                              const price = p.currentPrice || p.avgPrice;
-                              const rateToEUR = (fxRates as any)[p.currency] || 1.0;
-                              const val = p.quantity * price * rateToEUR;
-                              const cost = p.quantity * p.avgPrice * rateToEUR;
-                              const pl = val - cost;
-                              if (pl <= 0) return sum + pl;
-                              const taxRate = (p.envelope === 'PEA' || p.envelope === 'PEA-PME') ? 0.186 : 0.30;
-                              return sum + (pl * (1 - taxRate));
-                            }, 0).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
+                    )}
+
+                    {/* Summary Cards — only show real data */}
+                    <div className="grid-4">
+                      <div className="card">
+                        <div className="card-header">
+                          <span className="card-title">
+                            {adjustInflation ? 'Valeur Réelle (Ajustée Inflation)' : 'Valeur Totale'}
                           </span>
+                        </div>
+                        <div className="card-value" style={{ color: displayTotalValue > 0 ? 'var(--accent-cyan)' : 'var(--text-muted)' }}>
+                          {displayTotalValue > 0
+                            ? displayTotalValue.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })
+                            : '—'}
+                        </div>
+                        {displayTotalValue === 0 && <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>À renseigner</span>}
+                        {filledPositions.length > 0 && filledPositions.length < positions.length && (
+                          <span style={{ fontSize: 11, color: 'var(--accent-amber)' }}>{filledPositions.length}/{positions.length} positions renseignées</span>
                         )}
                       </div>
-                    </>
-                  ) : (
-                    <>
-                      <div className="card-value" style={{ color: 'var(--text-muted)' }}>—</div>
-                      <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Calculé depuis vos PRU</span>
-                    </>
-                  )}
-                </div>
-                <div className="card" style={{ cursor: 'pointer' }} onClick={() => setShowConfigEditor(true)}>
-                  <div className="card-header">
-                    <span className="card-title">DCA Mensuel</span>
-                    <span style={{ fontSize: 14, color: 'var(--text-muted)' }}>⚙️</span>
-                  </div>
-                  <div className="card-value" style={{ color: 'var(--accent-emerald)' }}>
-                    {monthlyDCATotal > 0
-                      ? monthlyDCATotal.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })
-                      : (config?.monthlyBudget || 1000).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
-                  </div>
-                  <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Cliquer pour configurer</span>
-                </div>
-              </div>
+                      <div className="card">
+                        <div className="card-header">
+                          <span className="card-title">
+                            {adjustInflation ? 'Coût Total Réel (Euros Constants)' : 'Coût Total (PRU)'}
+                          </span>
+                        </div>
+                        <div className="card-value">
+                          {displayTotalCost > 0
+                            ? displayTotalCost.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })
+                            : '—'}
+                        </div>
+                        {displayTotalCost === 0 && <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Entrez vos PRU réels</span>}
+                      </div>
+                      <div className="card">
+                        <div className="card-header">
+                          <span className="card-title">
+                            {adjustInflation ? 'Plus/Moins-Value Réelle' : 'Plus/Moins-Value'}
+                          </span>
+                        </div>
+                        {displayTotalCost > 0 ? (
+                          <>
+                            <div className={`card-value ${displayGainLoss >= 0 ? 'stat-gain' : 'stat-loss'}`}>
+                              {displayGainLoss >= 0 ? '+' : ''}{displayGainLoss.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 }}>
+                              <span className={`stat-change ${displayGainLoss >= 0 ? 'positive' : 'negative'}`}>
+                                {displayGainLossPercent >= 0 ? '↑' : '↓'} {Math.abs(displayGainLossPercent).toFixed(2)}%
+                              </span>
+                              {displayGainLoss > 0 && (
+                                <span style={{ fontSize: 11, color: 'var(--text-muted)' }} title="Après prélèvements sociaux PEA (18.6%) et Flat Tax CTO (30%)">
+                                  Net: +{(filledPositions.reduce((sum, p) => {
+                                    const price = p.currentPrice || p.avgPrice;
+                                    const rateToEUR = (fxRates as any)[p.currency] || 1.0;
+                                    const val = p.quantity * price * rateToEUR;
+                                    const cost = p.quantity * p.avgPrice * rateToEUR;
+                                    const pl = val - cost;
+                                    if (pl <= 0) return sum + pl;
+                                    const taxRate = (p.envelope === 'PEA' || p.envelope === 'PEA-PME') ? 0.186 : 0.30;
+                                    return sum + (pl * (1 - taxRate));
+                                  }, 0) / cumulativeInflationFactor).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
+                                </span>
+                              )}
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <div className="card-value" style={{ color: 'var(--text-muted)' }}>—</div>
+                            <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Calculé depuis vos PRU</span>
+                          </>
+                        )}
+                      </div>
+                      <div className="card" style={{ cursor: 'pointer' }} onClick={() => setShowConfigEditor(true)}>
+                        <div className="card-header">
+                          <span className="card-title">DCA Mensuel</span>
+                          <span style={{ fontSize: 14, color: 'var(--text-muted)' }}>⚙️</span>
+                        </div>
+                        <div className="card-value" style={{ color: 'var(--accent-emerald)' }}>
+                          {monthlyDCATotal > 0
+                            ? (monthlyDCATotal / cumulativeInflationFactor).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })
+                            : ((config?.monthlyBudget || 1000) / cumulativeInflationFactor).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
+                        </div>
+                        <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Cliquer pour configurer</span>
+                      </div>
+                    </div>
+                  </>
+                );
+              })()}
 
               {/* Quick Analysis Bar */}
               <div className="card" style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
@@ -398,7 +440,7 @@ export default function HomePage() {
                     </div>
                   </div>
 
-                  {/* Presets & Custom Month Selector */}
+                  {/* Presets, Custom Month Selector & Inflation Toggle */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                     <button
                       type="button"
@@ -452,6 +494,29 @@ export default function HomePage() {
                         onChange={(e) => setDcaGlobalStartDate(e.target.value)}
                         title="Sélectionner un mois personnalisé"
                       />
+                    </div>
+
+                    {/* Inflation Toggle Switch */}
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 8,
+                      background: adjustInflation ? 'rgba(245, 158, 11, 0.15)' : 'var(--bg-tertiary)',
+                      padding: '6px 12px',
+                      borderRadius: 8,
+                      border: adjustInflation ? '1px solid var(--accent-amber)' : '1px solid var(--border-subtle)',
+                      transition: 'all 0.2s ease',
+                    }}>
+                      <span style={{ fontSize: 13 }}>🎈</span>
+                      <label style={{ fontSize: 12, fontWeight: 600, color: adjustInflation ? 'var(--accent-amber)' : 'var(--text-secondary)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, margin: 0 }}>
+                        <input
+                          type="checkbox"
+                          checked={adjustInflation}
+                          onChange={(e) => setAdjustInflation(e.target.checked)}
+                          style={{ cursor: 'pointer', accentColor: 'var(--accent-amber)' }}
+                        />
+                        Ajuster à l&apos;Inflation
+                      </label>
                     </div>
 
                     <button

@@ -1371,7 +1371,7 @@ export default function HomePage() {
           <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 640 }}>
             <div className="modal-header">
               <h2>🎯 Rebalancement Intelligent par les Flux</h2>
-              <button className="btn-ghost" onClick={() => setShowFlowRebalanceModal(false)} style={{ fontSize: 20 }}>✕</button>
+              <button className="modal-close-btn" onClick={() => setShowFlowRebalanceModal(false)} type="button" aria-label="Fermer">✕</button>
             </div>
 
             <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 16 }}>

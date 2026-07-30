@@ -38,7 +38,7 @@ export default function ConfigEditor({ config, onSave, onClose }: ConfigEditorPr
       <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 500 }}>
         <div className="modal-header">
           <h2>⚙️ Configuration Portefeuille</h2>
-          <button className="btn-ghost" onClick={onClose} style={{ fontSize: 20 }}>✕</button>
+          <button className="modal-close-btn" onClick={onClose} type="button" aria-label="Fermer">✕</button>
         </div>
 
         <form onSubmit={handleSubmit}>

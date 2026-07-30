@@ -262,7 +262,7 @@ export default function PositionEditor({ position, onSave, onClose, onDelete }: 
       <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 640 }}>
         <div className="modal-header">
           <h2>{isNew ? '➕ Ajouter une Position' : `✏️ Modifier ${form.name}`}</h2>
-          <button className="btn-ghost" onClick={onClose} style={{ fontSize: 20 }}>✕</button>
+          <button className="modal-close-btn" onClick={onClose} type="button" aria-label="Fermer">✕</button>
         </div>
 
         <form onSubmit={handleSubmit}>

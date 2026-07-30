@@ -40,8 +40,8 @@ export const DEFAULT_POSITIONS: Position[] = [
   // ── PEA-PME ──
   {
     id: 'pea-pme-ies',
-    ticker: 'INDE.PA',
-    name: 'Indépendance Europe Small',
+    ticker: '0P0001DKPM.F',
+    name: 'Indépendance Europe Small A (C) (LU1832174962)',
     envelope: 'PEA-PME',
     assetType: 'FUND',
     currency: 'EUR',

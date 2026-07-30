@@ -11,6 +11,7 @@ const KNOWN_SENSITIVITY: Record<string, Record<string, number>> = {
   'GPEA.PA': { global_equities: 1.0, technology: 0.3, small_caps: 0.2 },
   'CW8.PA': { global_equities: 1.0, technology: 0.3, small_caps: 0.2 },
   'PUST.PA': { global_equities: 0.8, technology: 1.0, nasdaq_100: 1.0, small_caps: 0.1 },
+  '0P0001DKPM.F': { global_equities: 0.5, europe_small: 1.0, small_caps: 0.9 },
   'INDE.PA': { global_equities: 0.5, europe_small: 1.0, small_caps: 0.9 },
   'ALRIB.PA': { europe_small: 0.8, small_caps: 1.0, small_cap_technology: 1.0, riber: 1.0, speculative: 0.3, speculative_bucket: 0.3 },
   'MEMS.PA': { europe_small: 0.8, small_caps: 1.0, small_cap_technology: 1.0, memscap: 1.0, speculative: 0.3, speculative_bucket: 0.3 },

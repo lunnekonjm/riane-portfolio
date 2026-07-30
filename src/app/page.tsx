@@ -13,6 +13,9 @@ import PositionEditor from '@/components/PositionEditor';
 import ConfigEditor from '@/components/ConfigEditor';
 import EnvelopesTaxView from '@/components/EnvelopesTaxView';
 import { simulatePositionDCA } from '@/engines/dcaSimulation';
+import { calculatePortfolioRiskMetrics } from '@/engines/riskAnalytics';
+import { calculateSmartFlowRebalance, type FlowRebalanceResult } from '@/engines/flowRebalancer';
+import { exportPortfolioToCSV } from '@/utils/export';
 import type { User } from 'firebase/auth';
 import type { Position, PortfolioConfig } from '@/types/portfolio';
 import type { AnalysisStatus } from '@/types/analysis';
@@ -93,6 +96,8 @@ export default function HomePage() {
   const [selectedStressResult, setSelectedStressResult] = useState<StressTestResult | null>(null);
   const [editingPosition, setEditingPosition] = useState<Position | null | 'new'>(null);
   const [showConfigEditor, setShowConfigEditor] = useState(false);
+  const [showFlowRebalanceModal, setShowFlowRebalanceModal] = useState(false);
+  const [flowRebalanceResult, setFlowRebalanceResult] = useState<FlowRebalanceResult | null>(null);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [refreshingPrices, setRefreshingPrices] = useState(false);
 
@@ -456,6 +461,29 @@ export default function HomePage() {
                     >
                       🔄 Réinitialiser
                     </button>
+                    <button
+                      className="btn btn-secondary"
+                      onClick={() => {
+                        const monthlyBudget = config?.monthlyBudget || 1000;
+                        const result = calculateSmartFlowRebalance(positions, monthlyBudget, fxRates);
+                        setFlowRebalanceResult(result);
+                        setShowFlowRebalanceModal(true);
+                      }}
+                      disabled={positions.length === 0}
+                      title="Calculer l'affectation optimale des nouveaux versements mensuels"
+                      id="smart-rebalance-btn"
+                    >
+                      🎯 Flux DCA
+                    </button>
+                    <button
+                      className="btn btn-secondary"
+                      onClick={() => exportPortfolioToCSV(positions, fxRates)}
+                      disabled={positions.length === 0}
+                      title="Exporter le portefeuille en fichier CSV"
+                      id="export-csv-btn"
+                    >
+                      📥 CSV
+                    </button>
                     <button className="btn btn-primary" onClick={() => setEditingPosition('new')} id="add-position-btn">
                       ➕ Ajouter
                     </button>
@@ -809,6 +837,39 @@ export default function HomePage() {
           {/* ═══ RISK ═══ */}
           {currentView === 'risk' && (
             <>
+              {/* Parametric VaR Card */}
+              {(() => {
+                const metrics = calculatePortfolioRiskMetrics(positions, fxRates);
+                return (
+                  <div className="card" style={{ borderLeft: '4px solid var(--accent-cyan)' }}>
+                    <div className="card-header">
+                      <span className="card-title">⚡ Métriques de Risque Paramétrique & Volatilité</span>
+                      <span className="badge badge-cyan">Score Diversification : {metrics.diversificationScore}/100</span>
+                    </div>
+
+                    <div className="grid-4" style={{ marginBottom: 12 }}>
+                      <div>
+                        <span style={{ fontSize: 11, color: 'var(--text-muted)', display: 'block' }}>Volatilité Annuelle</span>
+                        <strong className="mono" style={{ fontSize: 20, color: 'var(--accent-amber)' }}>{metrics.annualVolatility}%</strong>
+                      </div>
+                      <div>
+                        <span style={{ fontSize: 11, color: 'var(--text-muted)', display: 'block' }}>VaR 95% (1 an)</span>
+                        <strong className="mono" style={{ fontSize: 20, color: 'var(--accent-rose)' }}>-{metrics.var95EUR.toLocaleString('fr-FR')} €</strong>
+                        <span style={{ fontSize: 11, color: 'var(--accent-rose)', display: 'block' }}>-{metrics.var95Percent}%</span>
+                      </div>
+                      <div>
+                        <span style={{ fontSize: 11, color: 'var(--text-muted)', display: 'block' }}>VaR 99% (Crise 1 an)</span>
+                        <strong className="mono" style={{ fontSize: 20, color: 'var(--accent-rose)' }}>-{metrics.var99EUR.toLocaleString('fr-FR')} €</strong>
+                        <span style={{ fontSize: 11, color: 'var(--accent-rose)', display: 'block' }}>-{metrics.var99Percent}%</span>
+                      </div>
+                      <div>
+                        <span style={{ fontSize: 11, color: 'var(--text-muted)', display: 'block' }}>Ratio de Sharpe Estimé</span>
+                        <strong className="mono" style={{ fontSize: 20, color: 'var(--accent-emerald)' }}>{metrics.estimatedSharpeRatio}</strong>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
               <div className="card">
                 <div className="card-header">
                   <span className="card-title">Stress Tests Disponibles</span>
@@ -978,6 +1039,82 @@ export default function HomePage() {
           onSave={handleSaveConfig}
           onClose={() => setShowConfigEditor(false)}
         />
+      )}
+
+      {/* Smart Flow Rebalancer Modal */}
+      {showFlowRebalanceModal && flowRebalanceResult && (
+        <div className="modal-overlay" onClick={() => setShowFlowRebalanceModal(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 640 }}>
+            <div className="modal-header">
+              <h2>🎯 Rebalancement Intelligent par les Flux</h2>
+              <button className="btn-ghost" onClick={() => setShowFlowRebalanceModal(false)} style={{ fontSize: 20 }}>✕</button>
+            </div>
+
+            <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 16 }}>
+              Ce moteur calcule l&apos;affectation optimale de votre versement mensuel ({flowRebalanceResult.totalDCA} €) pour rééquilibrer vos sous-pondérations <strong>sans vendre aucun actif</strong> (zéro frottement fiscal).
+            </p>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 20 }}>
+              {flowRebalanceResult.instructions.map((inst) => (
+                <div key={inst.positionId} style={{ padding: 12, background: 'var(--bg-tertiary)', borderRadius: 10, border: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div>
+                    <div style={{ fontWeight: 600, fontSize: 14 }}>{inst.name} ({inst.ticker})</div>
+                    <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                      Poids actuel : {inst.currentWeight}% → Cible : {inst.targetWeight}% (Écart : {inst.weightGap > 0 ? '+' : ''}{inst.weightGap}%)
+                    </div>
+                  </div>
+
+                  <div style={{ textAlign: 'right' }}>
+                    {inst.recommendedShares > 0 ? (
+                      <>
+                        <span className="badge badge-emerald" style={{ fontSize: 13, padding: '4px 10px' }}>
+                          Acheter +{inst.recommendedShares} part{inst.recommendedShares > 1 ? 's' : ''} ({inst.recommendedCost} €)
+                        </span>
+                        <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>
+                          Nouveau poids : {inst.newWeightAfter}%
+                        </div>
+                      </>
+                    ) : (
+                      <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Conserver (conforme)</span>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div style={{ padding: 12, background: 'var(--bg-secondary)', borderRadius: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+              <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Reliquat non investi (trésorerie)</span>
+              <strong className="mono" style={{ color: 'var(--accent-amber)' }}>{flowRebalanceResult.uninvestedCash} €</strong>
+            </div>
+
+            <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end' }}>
+              <button className="btn btn-secondary" onClick={() => setShowFlowRebalanceModal(false)}>Fermer</button>
+              <button
+                className="btn btn-primary"
+                onClick={async () => {
+                  let appliedCount = 0;
+                  for (const inst of flowRebalanceResult.instructions) {
+                    if (inst.recommendedShares > 0) {
+                      const pos = positions.find((p) => p.id === inst.positionId);
+                      if (pos) {
+                        await updatePosition({
+                          ...pos,
+                          quantity: pos.quantity + inst.recommendedShares,
+                          updatedAt: Date.now(),
+                        });
+                        appliedCount++;
+                      }
+                    }
+                  }
+                  showToast(`Rebalancement appliqué : +${appliedCount} positions mises à jour`);
+                  setShowFlowRebalanceModal(false);
+                }}
+              >
+                ✅ Appliquer les achats au versement mensuel
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Toast */}

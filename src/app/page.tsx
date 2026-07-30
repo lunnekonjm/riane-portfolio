@@ -383,32 +383,79 @@ export default function HomePage() {
                 </button>
               </div>
 
-              {/* Portfolio by Envelope */}
-              <div className="card">
-                <div className="card-header">
-                  <span className="card-title">Positions ({positions.length})</span>
-                  <div style={{ display: 'flex', gap: 8 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'var(--bg-tertiary)', padding: '2px 8px', borderRadius: 8, border: '1px solid var(--border-subtle)' }}>
-                      <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Début DCA:</span>
+              {/* ⚡ Console de Simulation DCA & Période d'Accumulation */}
+              <div className="card" style={{ borderLeft: '4px solid var(--accent-emerald)', background: 'var(--bg-secondary)', padding: 16 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <span style={{ fontSize: 24 }}>⚡</span>
+                    <div>
+                      <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-primary)' }}>
+                        Console d&apos;Accumulation DCA Historique
+                      </div>
+                      <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
+                        Simulez l&apos;accumulation réelle depuis une date de départ (cours réels Yahoo Finance MAX, reliquats &amp; parts entières).
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Presets & Custom Month Selector */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                    <button
+                      type="button"
+                      className={`btn btn-sm ${dcaGlobalStartDate === '2025-01' ? 'btn-primary' : 'btn-secondary'}`}
+                      onClick={() => setDcaGlobalStartDate('2025-01')}
+                      style={{ fontSize: 12 }}
+                    >
+                      1 An (2025)
+                    </button>
+                    <button
+                      type="button"
+                      className={`btn btn-sm ${dcaGlobalStartDate === '2023-01' ? 'btn-primary' : 'btn-secondary'}`}
+                      onClick={() => setDcaGlobalStartDate('2023-01')}
+                      style={{ fontSize: 12 }}
+                    >
+                      3 Ans (2023)
+                    </button>
+                    <button
+                      type="button"
+                      className={`btn btn-sm ${dcaGlobalStartDate === '2021-01' ? 'btn-primary' : 'btn-secondary'}`}
+                      onClick={() => setDcaGlobalStartDate('2021-01')}
+                      style={{ fontSize: 12 }}
+                    >
+                      5 Ans (2021)
+                    </button>
+                    <button
+                      type="button"
+                      className={`btn btn-sm ${dcaGlobalStartDate === '2003-01' ? 'btn-primary' : 'btn-secondary'}`}
+                      onClick={() => setDcaGlobalStartDate('2003-01')}
+                      style={{ fontSize: 12 }}
+                    >
+                      23 Ans (2003)
+                    </button>
+
+                    {/* Styled Date Picker Input */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'var(--bg-tertiary)', padding: '6px 12px', borderRadius: 8, border: '1px solid var(--border-accent)' }}>
+                      <span style={{ fontSize: 13 }}>📅</span>
                       <input
                         type="month"
                         className="mono"
                         style={{
                           background: 'transparent',
                           border: 'none',
-                          color: 'var(--text-primary)',
-                          fontSize: 12,
-                          fontWeight: 600,
+                          color: 'var(--accent-cyan)',
+                          fontSize: 13,
+                          fontWeight: 700,
                           cursor: 'pointer',
                           outline: 'none',
                         }}
                         value={dcaGlobalStartDate}
                         onChange={(e) => setDcaGlobalStartDate(e.target.value)}
-                        title="Date de début d'accumulation DCA"
+                        title="Sélectionner un mois personnalisé"
                       />
                     </div>
+
                     <button
-                      className="btn btn-secondary"
+                      className="btn btn-primary"
                       onClick={async () => {
                         if (!dcaGlobalStartDate) return;
                         setRefreshingPrices(true);
@@ -443,10 +490,36 @@ export default function HomePage() {
                         }
                       }}
                       disabled={refreshingPrices || positions.length === 0}
-                      title={`Calculer automatiquement le DCA depuis ${dcaGlobalStartDate}`}
+                      style={{ padding: '8px 16px', fontWeight: 700 }}
                       id="auto-dca-btn"
                     >
-                      ⚡ Auto DCA
+                      {refreshingPrices ? <span className="loading-spinner" /> : '⚡ Simuler DCA'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Portfolio by Envelope */}
+              <div className="card">
+                <div className="card-header">
+                  <span className="card-title">Positions ({positions.length})</span>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button
+                      className="btn btn-secondary"
+                      onClick={async () => {
+                        setRefreshingPrices(true);
+                        try {
+                          await refreshPrices();
+                          showToast('Cours de bourse actualisés avec succès !');
+                        } catch (err) {
+                          showToast('Erreur lors du rafraîchissement des cours', 'error');
+                        } finally {
+                          setRefreshingPrices(false);
+                        }
+                      }}
+                      disabled={refreshingPrices}
+                    >
+                      📈 Cours actuels
                     </button>
                     <button
                       className="btn btn-primary"

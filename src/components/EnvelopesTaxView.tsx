@@ -41,7 +41,7 @@ export const ENVELOPE_METADATA: Record<string, {
     description: 'Aucun plafond de versement, accès universel aux marchés mondiaux',
     taxRules: {
       under5Years: { irRate: 0.128, label: 'Flat Tax / PFU (12.8% IR + Prélèvements Sociaux)' },
-      over5Years: { irRate: 0.128, label: 'Flat Tax / PFU 30% ou option barème progressif IR' },
+      over5Years: { irRate: 0.128, label: 'Flat Tax / PFU (12.8% IR + Prélèvements Sociaux) ou Option Barème IR' },
     },
   },
   PEE: {
@@ -79,9 +79,12 @@ export default function EnvelopesTaxView({ positions, fxRates }: EnvelopesTaxVie
   const [simSeniority, setSimSeniority] = useState<'over5' | 'under5'>('over5');
   const [simWithdrawalAmount, setSimWithdrawalAmount] = useState<number>(500000);
   
+  // CTO specific state: Choice between Flat Tax PFU vs Progressive Income Tax TMI
+  const [ctoTaxRegime, setCtoTaxRegime] = useState<'pfu' | 'bareme'>('pfu');
+  const [ctoTmiRate, setCtoTmiRate] = useState<number>(0.30); // 30% TMI default
+  
   // Tax rate settings (18.6% vs 17.2% vs custom)
   const [psRate, setPsRate] = useState<number>(0.186); // 18.6% default
-  const [customGainPercent, setCustomGainPercent] = useState<number>(40); // 40% gain ratio default
 
   // Group positions by envelope
   const envelopeGroups = positions.reduce((acc, pos) => {
@@ -174,13 +177,25 @@ export default function EnvelopesTaxView({ positions, fxRates }: EnvelopesTaxVie
   const withdrawnGain = grossWithdrawal * actualGainRatio;
   const withdrawnCapital = grossWithdrawal - withdrawnGain;
 
-  const rules = targetSimSummary?.meta.taxRules[simSeniority === 'over5' ? 'over5Years' : 'under5Years'];
-  const irRate = rules?.irRate || 0;
-  
+  // Compute IR rate depending on envelope & regime
+  let irRate = 0;
+  if (simEnvelope === 'CTO') {
+    irRate = ctoTaxRegime === 'pfu' ? 0.128 : ctoTmiRate;
+  } else if (simEnvelope === 'PEA' || simEnvelope === 'PEA-PME') {
+    irRate = simSeniority === 'over5' ? 0.0 : 0.128;
+  } else {
+    irRate = 0.128;
+  }
+
   const irTax = withdrawnGain * irRate;
   const psTax = withdrawnGain * psRate;
   const totalTax = irTax + psTax;
   const netReceived = grossWithdrawal - totalTax;
+
+  // CTO comparison metrics (Flat Tax PFU vs Barème Progressif TMI)
+  const ctoPfuTax = withdrawnGain * (0.128 + psRate);
+  const ctoBaremeTax = withdrawnGain * (ctoTmiRate + psRate);
+  const ctoSavingsWithPfu = ctoBaremeTax - ctoPfuTax;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
@@ -292,24 +307,24 @@ export default function EnvelopesTaxView({ positions, fxRates }: EnvelopesTaxVie
 
             {/* Tax Info summary */}
             <div style={{ fontSize: 12, padding: 8, background: 'var(--bg-secondary)', borderRadius: 6, border: '1px solid var(--border-subtle)', color: 'var(--text-secondary)' }}>
-              <strong>Fiscalité (&gt; 5 ans) :</strong> {s.meta.taxRules.over5Years.label} (PS: {(psRate * 100).toFixed(1)}%)
+              <strong>Fiscalité :</strong> {s.meta.taxRules.over5Years.label} (PS: {(psRate * 100).toFixed(1)}%)
             </div>
           </div>
         ))}
       </div>
 
-      {/* 💸 Simulateur de Retrait & Fiscalité */}
+      {/* 💸 Simulateur de Retrait & Fiscalité Complexe (PEA + CTO) */}
       <div className="card" style={{ borderLeft: '4px solid var(--accent-violet)' }}>
         <div className="card-header">
-          <span className="card-title">💸 Simulateur de Retrait & Calculateur d&apos;Impôt Réel</span>
+          <span className="card-title">💸 Simulateur de Retrait & Calculateur d&apos;Impôt Réel (PEA & CTO)</span>
         </div>
         <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 16 }}>
-          Simulez n&apos;importe quel montant de retrait (ex: 500 000 €) pour calculer l&apos;impôt sur le revenu (IR) et les cotisations sociales (PS) exactes.
+          Simulez un retrait partiel ou total sur votre **PEA, PEA-PME ou CTO** avec comparaison exacte des régimes fiscaux (Flat Tax 30% vs Barème Progressif IR).
         </p>
 
         <div className="form-row" style={{ marginBottom: 16 }}>
           <div className="form-group">
-            <label className="form-label">Enveloppe à simuler</label>
+            <label className="form-label">Enveloppe du retrait</label>
             <select
               className="input"
               value={simEnvelope}
@@ -323,17 +338,31 @@ export default function EnvelopesTaxView({ positions, fxRates }: EnvelopesTaxVie
             </select>
           </div>
 
-          <div className="form-group">
-            <label className="form-label">Ancienneté du plan</label>
-            <select
-              className="input"
-              value={simSeniority}
-              onChange={(e) => setSimSeniority(e.target.value as any)}
-            >
-              <option value="over5">Plus de 5 ans (Exonération IR sur PEA / PS seulement)</option>
-              <option value="under5">Moins de 5 ans (Flat Tax / PFU : 12.8% IR + PS)</option>
-            </select>
-          </div>
+          {simEnvelope === 'PEA' || simEnvelope === 'PEA-PME' ? (
+            <div className="form-group">
+              <label className="form-label">Ancienneté du PEA</label>
+              <select
+                className="input"
+                value={simSeniority}
+                onChange={(e) => setSimSeniority(e.target.value as any)}
+              >
+                <option value="over5">Plus de 5 ans (Exonération IR 0% + PS)</option>
+                <option value="under5">Moins de 5 ans (Flat Tax 30% : 12.8% IR + PS)</option>
+              </select>
+            </div>
+          ) : (
+            <div className="form-group">
+              <label className="form-label">Régime Fiscal CTO</label>
+              <select
+                className="input"
+                value={ctoTaxRegime}
+                onChange={(e) => setCtoTaxRegime(e.target.value as any)}
+              >
+                <option value="pfu">Flat Tax / PFU (12.8% IR + Prélèvements Sociaux)</option>
+                <option value="bareme">Barème Progressif IR (Option globale selon TMI)</option>
+              </select>
+            </div>
+          )}
 
           <div className="form-group">
             <label className="form-label">Montant du retrait brut (€)</label>
@@ -348,7 +377,7 @@ export default function EnvelopesTaxView({ positions, fxRates }: EnvelopesTaxVie
           </div>
         </div>
 
-        {/* Advanced Tax Parameters */}
+        {/* Dynamic Controls based on envelope selection */}
         <div className="form-row" style={{ marginBottom: 20, padding: 12, background: 'var(--bg-tertiary)', borderRadius: 10 }}>
           <div className="form-group">
             <label className="form-label" style={{ fontSize: 12 }}>Taux des Prélèvements Sociaux (PS)</label>
@@ -357,11 +386,28 @@ export default function EnvelopesTaxView({ positions, fxRates }: EnvelopesTaxVie
               value={psRate}
               onChange={(e) => setPsRate(parseFloat(e.target.value))}
             >
-              <option value="0.172">17.2% (Taux légal actuel en vigueur)</option>
-              <option value="0.186">18.6% (Taux ajusté / Projet de Loi de Finances)</option>
-              <option value="0.20">20.0% (Scénario de hausse de cotisations)</option>
+              <option value="0.186">18.6% (Taux actualisé / Projet de Loi de Finances)</option>
+              <option value="0.172">17.2% (Ancien taux légal)</option>
+              <option value="0.20">20.0% (Scénario de hausse)</option>
             </select>
           </div>
+
+          {simEnvelope === 'CTO' && ctoTaxRegime === 'bareme' && (
+            <div className="form-group">
+              <label className="form-label" style={{ fontSize: 12 }}>Tranche Marginale d&apos;Imposition (TMI IR)</label>
+              <select
+                className="input mono"
+                value={ctoTmiRate}
+                onChange={(e) => setCtoTmiRate(parseFloat(e.target.value))}
+              >
+                <option value="0.0">0% (Non imposable)</option>
+                <option value="0.11">11% (Tranche 11%)</option>
+                <option value="0.30">30% (Tranche 30%)</option>
+                <option value="0.41">41% (Tranche 41%)</option>
+                <option value="0.45">45% (Tranche 45%)</option>
+              </select>
+            </div>
+          )}
 
           <div className="form-group">
             <label className="form-label" style={{ fontSize: 12 }}>Part de Plus-Value Imposable (Calculée automatiquement)</label>
@@ -372,7 +418,7 @@ export default function EnvelopesTaxView({ positions, fxRates }: EnvelopesTaxVie
               </span>
             </div>
             <span style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4, display: 'block' }}>
-              ℹ️ Déterminé automatiquement par l&apos;évolution réelle de votre enveloppe {simEnvelope} ({simTotalVal > 0 ? `${simTotalGain.toFixed(0)}€ de plus-value sur ${simTotalVal.toFixed(0)}€` : 'd&apos;après le portefeuille global'}).
+              ℹ️ Calculé depuis l&apos;évolution réelle de votre portefeuille sur l&apos;enveloppe {simEnvelope} ({simTotalVal > 0 ? `${simTotalGain.toFixed(0)}€ de plus-value sur ${simTotalVal.toFixed(0)}€` : 'd&apos;après le portefeuille global'}).
             </span>
           </div>
         </div>
@@ -386,11 +432,11 @@ export default function EnvelopesTaxView({ positions, fxRates }: EnvelopesTaxVie
                 <strong className="mono" style={{ fontSize: 20 }}>{grossWithdrawal.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}</strong>
               </div>
               <div>
-                <span style={{ fontSize: 11, color: 'var(--text-muted)', display: 'block' }}>Part Capital (Non Imposable)</span>
+                <span style={{ fontSize: 11, color: 'var(--text-muted)', display: 'block' }}>Capital Restitué (Exonéré)</span>
                 <strong className="mono" style={{ fontSize: 18, color: 'var(--accent-emerald)' }}>{withdrawnCapital.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}</strong>
               </div>
               <div>
-                <span style={{ fontSize: 11, color: 'var(--text-muted)', display: 'block' }}>Part Plus-Value Imposable ({(actualGainRatio * 100).toFixed(0)}%)</span>
+                <span style={{ fontSize: 11, color: 'var(--text-muted)', display: 'block' }}>Plus-Value Imposable ({(actualGainRatio * 100).toFixed(1)}%)</span>
                 <strong className="mono" style={{ fontSize: 18, color: 'var(--accent-amber)' }}>{withdrawnGain.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}</strong>
               </div>
               <div>
@@ -401,7 +447,9 @@ export default function EnvelopesTaxView({ positions, fxRates }: EnvelopesTaxVie
 
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 16, borderTop: '1px solid var(--border-subtle)', flexWrap: 'wrap', gap: 16 }}>
               <div>
-                <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Détail des prélèvements : </span>
+                <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
+                  Détail de l&apos;imposition {simEnvelope} ({simEnvelope === 'CTO' ? (ctoTaxRegime === 'pfu' ? 'Flat Tax 31.4%' : `Barème IR TMI ${(ctoTmiRate * 100).toFixed(0)}%`) : (simSeniority === 'over5' ? 'PEA > 5 ans' : 'PEA < 5 ans')}) :
+                </span>
                 <div style={{ fontSize: 12, color: 'var(--text-primary)', marginTop: 4 }}>
                   • Impôt sur le Revenu IR ({(irRate * 100).toFixed(1)}%) : <strong className="mono">{irTax.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}</strong><br />
                   • Prélèvements Sociaux PS ({(psRate * 100).toFixed(1)}%) : <strong className="mono">{psTax.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}</strong>
@@ -409,12 +457,32 @@ export default function EnvelopesTaxView({ positions, fxRates }: EnvelopesTaxVie
               </div>
 
               <div style={{ textAlign: 'right', background: 'var(--bg-tertiary)', padding: '12px 20px', borderRadius: 10, border: '1px solid var(--border-accent)' }}>
-                <span style={{ fontSize: 11, color: 'var(--text-muted)', display: 'block', textTransform: 'uppercase' }}>Capital Net Reçu en Compte Bancaire</span>
+                <span style={{ fontSize: 11, color: 'var(--text-muted)', display: 'block', textTransform: 'uppercase' }}>Net Reçu en Compte Bancaire</span>
                 <strong className="mono" style={{ fontSize: 24, color: 'var(--accent-emerald)' }}>
                   {netReceived.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
                 </strong>
               </div>
             </div>
+
+            {/* CTO Optimization comparison card */}
+            {simEnvelope === 'CTO' && (
+              <div style={{ marginTop: 16, padding: 12, background: 'rgba(59, 130, 246, 0.1)', borderRadius: 10, border: '1px solid rgba(59, 130, 246, 0.3)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--accent-cyan)' }}>
+                    💡 Comparatif Fiscal CTO : Flat Tax (PFU) vs Barème Progressif (TMI {(ctoTmiRate * 100).toFixed(0)}%)
+                  </span>
+                  <span className="mono" style={{ fontSize: 13, fontWeight: 700, color: ctoSavingsWithPfu >= 0 ? 'var(--accent-emerald)' : 'var(--accent-rose)' }}>
+                    {ctoSavingsWithPfu >= 0
+                      ? `Économie PFU : +${ctoSavingsWithPfu.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}`
+                      : `Avantage Barème : +${Math.abs(ctoSavingsWithPfu).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}`}
+                  </span>
+                </div>
+                <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 4 }}>
+                  • Impôts totaux en Flat Tax (PFU 31.4%) : <strong className="mono">{ctoPfuTax.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}</strong><br />
+                  • Impôts totaux au Barème IR (TMI {(ctoTmiRate * 100).toFixed(0)}% + PS) : <strong className="mono">{ctoBaremeTax.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}</strong>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>

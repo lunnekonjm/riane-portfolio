@@ -5,7 +5,7 @@ import type { Position } from '@/types/portfolio';
 import { THEMES } from '@/data/themes';
 import { simulatePositionDCA, type DCASimulationResult } from '@/engines/dcaSimulation';
 import { searchAssets, ASSET_REGISTRY, type RegisteredAsset } from '@/data/assetRegistry';
-import { getQuote, searchYahooFinance } from '@/services/market-data/provider';
+import { getQuote, getCompanyProfile, searchYahooFinance } from '@/services/market-data/provider';
 
 interface PositionEditorProps {
   position?: Position | null;
@@ -122,6 +122,26 @@ export default function PositionEditor({ position, onSave, onClose, onDelete }: 
     }
   };
 
+function mapSectorToThemes(sector?: string, industry?: string): string[] {
+  const s = (sector || '').toLowerCase();
+  const ind = (industry || '').toLowerCase();
+  const themes: string[] = [];
+
+  if (s.includes('tech') || ind.includes('software') || ind.includes('semi')) {
+    themes.push('ai-semis', 'cloud-saas');
+  }
+  if (s.includes('health') || ind.includes('pharma') || ind.includes('bio')) {
+    themes.push('health');
+  }
+  if (s.includes('utilit') || s.includes('energy') || ind.includes('solar') || ind.includes('clean')) {
+    themes.push('clean-energy');
+  }
+  if (s.includes('financial') || s.includes('bank')) {
+    themes.push('general');
+  }
+  return themes.length > 0 ? themes : ['general'];
+}
+
   const handleSelectRegisteredAsset = async (asset: RegisteredAsset) => {
     setShowDropdown(false);
     setTickerSearchInput(`${asset.name} (${asset.ticker})`);
@@ -137,17 +157,31 @@ export default function PositionEditor({ position, onSave, onClose, onDelete }: 
       assetType: asset.assetType,
       currency: asset.currency,
       themes: asset.themes,
+      quantity: prev.quantity > 0 ? prev.quantity : 1,
     }));
 
     try {
-      const quote = await getQuote(asset.ticker);
-      if (quote && quote.price > 0) {
-        setForm((prev) => ({
+      const [quote, profile] = await Promise.all([
+        getQuote(asset.ticker).catch(() => null),
+        getCompanyProfile(asset.ticker).catch(() => null),
+      ]);
+
+      setForm((prev) => {
+        const price = quote?.price && quote.price > 0 ? quote.price : prev.currentPrice;
+        const autoThemes = profile?.sector ? mapSectorToThemes(profile.sector, profile.industry) : prev.themes;
+        return {
           ...prev,
-          currentPrice: quote.price,
-          avgPrice: prev.avgPrice > 0 ? prev.avgPrice : quote.price,
-        }));
-        setVerifiedQuoteText(`✓ Actif officiel vérifié — Prix en direct : ${quote.price.toFixed(2)} ${quote.currency} (Yahoo Finance Live)`);
+          name: profile?.name || asset.name || prev.name,
+          currentPrice: price,
+          avgPrice: prev.avgPrice > 0 ? prev.avgPrice : (price || 100),
+          currency: (profile?.currency as any) || (quote?.currency as any) || prev.currency,
+          themes: autoThemes.length > 0 ? autoThemes : prev.themes,
+          quantity: prev.quantity > 0 ? prev.quantity : 1,
+        };
+      });
+
+      if (quote && quote.price > 0) {
+        setVerifiedQuoteText(`✓ Actif officiel vérifié : ${profile?.name || asset.name} (${profile?.sector || asset.exchange || 'Bourse'}) — Prix : ${quote.price.toFixed(2)} ${quote.currency || asset.currency}`);
       } else {
         setVerifiedQuoteText(`✓ Actif répertorié (${asset.exchange})`);
       }
@@ -188,16 +222,26 @@ export default function PositionEditor({ position, onSave, onClose, onDelete }: 
 
     // 1. Try exact quote fetch for raw ticker
     try {
-      const quote = await getQuote(rawQuery.toUpperCase());
+      const [quote, profile] = await Promise.all([
+        getQuote(rawQuery.toUpperCase()).catch(() => null),
+        getCompanyProfile(rawQuery.toUpperCase()).catch(() => null),
+      ]);
+
       if (quote && quote.price > 0) {
-        setForm((prev) => ({
-          ...prev,
-          ticker: rawQuery.toUpperCase(),
-          name: prev.name || rawQuery.toUpperCase(),
-          currentPrice: quote.price,
-          currency: (quote.currency as any) || prev.currency,
-        }));
-        setVerifiedQuoteText(`✓ Actif officiel vérifié en temps réel — Prix : ${quote.price.toFixed(2)} ${quote.currency}`);
+        setForm((prev) => {
+          const autoThemes = profile?.sector ? mapSectorToThemes(profile.sector, profile.industry) : prev.themes;
+          return {
+            ...prev,
+            ticker: rawQuery.toUpperCase(),
+            name: profile?.name || prev.name || rawQuery.toUpperCase(),
+            currentPrice: quote.price,
+            avgPrice: prev.avgPrice > 0 ? prev.avgPrice : (quote.price || 100),
+            currency: (profile?.currency as any) || (quote.currency as any) || prev.currency,
+            themes: autoThemes.length > 0 ? autoThemes : prev.themes,
+            quantity: prev.quantity > 0 ? prev.quantity : 1,
+          };
+        });
+        setVerifiedQuoteText(`✓ Actif officiel vérifié : ${profile?.name || rawQuery.toUpperCase()} (${profile?.sector || 'Marché Direct'}) — Prix : ${quote.price.toFixed(2)} ${quote.currency}`);
         setIsVerifyingTicker(false);
         return;
       }

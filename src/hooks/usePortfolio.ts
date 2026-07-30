@@ -106,42 +106,78 @@ export function usePortfolio() {
 
   // ── CRUD ──
   const addPosition = useCallback(async (pos: Position) => {
-    if (!user) return;
     setSaving(true);
-    try {
-      await savePosition(user.uid, pos);
-      setPositions((prev) => [...prev, pos]);
-    } catch (err) {
-      console.error('Error adding position:', err);
-    } finally {
-      setSaving(false);
+    // Guarantee quantity >= 1 and valid PRU
+    const validPos: Position = {
+      ...pos,
+      quantity: pos.quantity > 0 ? pos.quantity : 1,
+      avgPrice: pos.avgPrice > 0 ? pos.avgPrice : (pos.currentPrice || 100),
+      updatedAt: Date.now(),
+    };
+
+    setPositions((prev) => {
+      const filtered = prev.filter((p) => p.id !== validPos.id);
+      const updated = [...filtered, validPos];
+      try {
+        localStorage.setItem('riane_local_positions', JSON.stringify(updated));
+      } catch {
+        // ignore
+      }
+      return updated;
+    });
+
+    if (user) {
+      try {
+        await savePosition(user.uid, validPos);
+      } catch (err) {
+        console.warn('[Portfolio] Firestore save failed, kept in local state:', err);
+      }
     }
+    setSaving(false);
   }, [user]);
 
   const updatePosition = useCallback(async (pos: Position) => {
-    if (!user) return;
     setSaving(true);
-    try {
-      await savePosition(user.uid, pos);
-      setPositions((prev) => prev.map((p) => (p.id === pos.id ? pos : p)));
-    } catch (err) {
-      console.error('Error updating position:', err);
-    } finally {
-      setSaving(false);
+    setPositions((prev) => {
+      const updated = prev.map((p) => (p.id === pos.id ? pos : p));
+      try {
+        localStorage.setItem('riane_local_positions', JSON.stringify(updated));
+      } catch {
+        // ignore
+      }
+      return updated;
+    });
+
+    if (user) {
+      try {
+        await savePosition(user.uid, pos);
+      } catch (err) {
+        console.warn('[Portfolio] Firestore update failed, kept in local state:', err);
+      }
     }
+    setSaving(false);
   }, [user]);
 
   const removePosition = useCallback(async (positionId: string) => {
-    if (!user) return;
     setSaving(true);
-    try {
-      await deletePositionFromDb(user.uid, positionId);
-      setPositions((prev) => prev.filter((p) => p.id !== positionId));
-    } catch (err) {
-      console.error('Error deleting position:', err);
-    } finally {
-      setSaving(false);
+    setPositions((prev) => {
+      const updated = prev.filter((p) => p.id !== positionId);
+      try {
+        localStorage.setItem('riane_local_positions', JSON.stringify(updated));
+      } catch {
+        // ignore
+      }
+      return updated;
+    });
+
+    if (user) {
+      try {
+        await deletePositionFromDb(user.uid, positionId);
+      } catch (err) {
+        console.warn('[Portfolio] Firestore delete failed:', err);
+      }
     }
+    setSaving(false);
   }, [user]);
 
   const updateConfig = useCallback(async (newConfig: PortfolioConfig) => {

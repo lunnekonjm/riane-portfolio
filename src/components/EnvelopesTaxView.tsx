@@ -322,6 +322,25 @@ export default function EnvelopesTaxView({ positions, fxRates }: EnvelopesTaxVie
           Simulez un retrait partiel ou total sur votre **PEA, PEA-PME ou CTO** avec comparaison exacte des régimes fiscaux (Flat Tax 30% vs Barème Progressif IR).
         </p>
 
+        <div style={{ display: 'flex', gap: 10, marginBottom: 16 }}>
+          <button
+            type="button"
+            className={`btn ${simEnvelope === 'PEA' ? 'btn-primary' : 'btn-secondary'}`}
+            onClick={() => setSimEnvelope('PEA')}
+            style={{ fontSize: 13, fontWeight: 700 }}
+          >
+            🏛️ Simuler Retrait PEA (Exonéré IR)
+          </button>
+          <button
+            type="button"
+            className={`btn ${simEnvelope === 'CTO' ? 'btn-primary' : 'btn-secondary'}`}
+            onClick={() => setSimEnvelope('CTO')}
+            style={{ fontSize: 13, fontWeight: 700 }}
+          >
+            💼 Simuler Retrait CTO (Flat Tax 30% / TMI)
+          </button>
+        </div>
+
         <div className="form-row" style={{ marginBottom: 16 }}>
           <div className="form-group">
             <label className="form-label">Enveloppe du retrait</label>

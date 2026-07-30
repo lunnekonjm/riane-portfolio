@@ -161,10 +161,14 @@ export default function EnvelopesTaxView({ positions, fxRates }: EnvelopesTaxVie
   const simTotalVal = targetSimSummary?.totalValue || 0;
   const simTotalGain = targetSimSummary?.gainLoss || 0;
 
-  // Auto gain ratio if portfolio has real data, otherwise use user's gain % slider
-  const actualGainRatio = (simTotalVal > 0 && simTotalGain > 0)
-    ? (simTotalGain / simTotalVal)
-    : (customGainPercent / 100);
+  // Global portfolio metrics fallback if selected envelope is empty
+  const globalTotalVal = summaries.reduce((sum, s) => sum + s.totalValue, 0);
+  const globalTotalGain = summaries.reduce((sum, s) => sum + Math.max(0, s.gainLoss), 0);
+
+  // Auto gain ratio calculated strictly from portfolio evolution
+  const actualGainRatio = simTotalVal > 0
+    ? Math.max(0, simTotalGain / simTotalVal)
+    : (globalTotalVal > 0 ? Math.max(0, globalTotalGain / globalTotalVal) : 0.30);
 
   const grossWithdrawal = Math.max(0, simWithdrawalAmount);
   const withdrawnGain = grossWithdrawal * actualGainRatio;
@@ -360,18 +364,15 @@ export default function EnvelopesTaxView({ positions, fxRates }: EnvelopesTaxVie
           </div>
 
           <div className="form-group">
-            <label className="form-label" style={{ fontSize: 12 }}>Part de Plus-Value dans le retrait (%)</label>
-            <input
-              type="number"
-              className="input mono"
-              value={Math.round(actualGainRatio * 100)}
-              onChange={(e) => setCustomGainPercent(parseFloat(e.target.value) || 0)}
-              min="0"
-              max="100"
-              step="5"
-            />
+            <label className="form-label" style={{ fontSize: 12 }}>Part de Plus-Value Imposable (Calculée automatiquement)</label>
+            <div className="input mono" style={{ background: 'var(--bg-secondary)', fontWeight: 700, color: 'var(--accent-cyan)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span>{(actualGainRatio * 100).toFixed(1)}% de gains</span>
+              <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 400 }}>
+                {((1 - actualGainRatio) * 100).toFixed(1)}% capital non imposable
+              </span>
+            </div>
             <span style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4, display: 'block' }}>
-              {simTotalVal > 0 ? `Calculé d'après votre portefeuille actuel (${(actualGainRatio * 100).toFixed(1)}% de gains)` : 'Définissez la proportion de gains/intérêts'}
+              ℹ️ Déterminé automatiquement par l&apos;évolution réelle de votre enveloppe {simEnvelope} ({simTotalVal > 0 ? `${simTotalGain.toFixed(0)}€ de plus-value sur ${simTotalVal.toFixed(0)}€` : 'd&apos;après le portefeuille global'}).
             </span>
           </div>
         </div>

@@ -147,17 +147,30 @@ export default function HomePage() {
 
   const unreadNotificationsCount = notifications.filter((n) => !n.read).length;
 
-  // Auto-scroll chat messages container when synthesis or pipeline completes
-  useEffect(() => {
-    if (result?.synthesis || result?.marketData) {
-      setTimeout(() => {
-        const chatEl = document.getElementById('chat-messages');
-        if (chatEl) {
-          chatEl.scrollTop = chatEl.scrollHeight;
-        }
-      }, 100);
+  // Robust Multi-Stage Auto-Scroll to guarantee the Synthesis card is 100% visible
+  const scrollToBottom = useCallback(() => {
+    const chatEl = document.getElementById('chat-messages');
+    const synthTargetEl = document.getElementById('synthesis-scroll-target');
+    if (synthTargetEl) {
+      synthTargetEl.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    } else if (chatEl) {
+      chatEl.scrollTo({ top: chatEl.scrollHeight, behavior: 'smooth' });
     }
-  }, [result?.synthesis, result?.marketData]);
+  }, []);
+
+  useEffect(() => {
+    if (result?.synthesis || result?.marketData || status === 'synthesis' || !isRunning) {
+      scrollToBottom();
+      const t1 = setTimeout(scrollToBottom, 150);
+      const t2 = setTimeout(scrollToBottom, 450);
+      const t3 = setTimeout(scrollToBottom, 900);
+      return () => {
+        clearTimeout(t1);
+        clearTimeout(t2);
+        clearTimeout(t3);
+      };
+    }
+  }, [result?.synthesis, result?.marketData, status, isRunning, scrollToBottom]);
 
   useEffect(() => {
     const unsub = onAuthChange((u) => {
@@ -1244,10 +1257,11 @@ export default function HomePage() {
                     <p style={{ marginTop: 16, fontSize: 12, color: 'var(--text-muted)', fontStyle: 'italic', marginBottom: 0 }}>
                       ⚠️ Validation humaine obligatoire — Aucune opération boursière n&apos;est exécutée automatiquement sans votre confirmation.
                     </p>
+                    <div id="synthesis-scroll-target" style={{ height: 1, minHeight: 1 }} />
                   </div>
                 )}
-                {/* 🚀 Spacer Div pour garantir que la Synthèse & Recommandation s'affiche 100% AU-DESSUS de la barre de saisie sans être masquée */}
-                <div style={{ height: 220, minHeight: 220, flexShrink: 0 }} />
+                {/* 🚀 Spacer Div de 320px pour garantir que la Synthèse s'affiche 100% au centre au-dessus de la barre */}
+                <div style={{ height: 320, minHeight: 320, flexShrink: 0 }} />
               </div>
 
               {/* Input Area */}

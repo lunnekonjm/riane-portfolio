@@ -505,23 +505,6 @@ export default function HomePage() {
                   <span className="card-title">Positions ({positions.length})</span>
                   <div style={{ display: 'flex', gap: 8 }}>
                     <button
-                      className="btn btn-secondary"
-                      onClick={async () => {
-                        setRefreshingPrices(true);
-                        try {
-                          await refreshPrices();
-                          showToast('Cours de bourse actualisés avec succès !');
-                        } catch (err) {
-                          showToast('Erreur lors du rafraîchissement des cours', 'error');
-                        } finally {
-                          setRefreshingPrices(false);
-                        }
-                      }}
-                      disabled={refreshingPrices}
-                    >
-                      📈 Cours actuels
-                    </button>
-                    <button
                       className="btn btn-primary"
                       onClick={async () => {
                         setRefreshingPrices(true);
@@ -571,12 +554,16 @@ export default function HomePage() {
                       className="btn btn-secondary"
                       onClick={() => exportPortfolioToCSV(positions, fxRates)}
                       disabled={positions.length === 0}
-                      title="Exporter le portefeuille en fichier CSV"
+                      title="Exporter le portefeuille au format CSV"
                       id="export-csv-btn"
                     >
                       📥 CSV
                     </button>
-                    <button className="btn btn-primary" onClick={() => setEditingPosition('new')} id="add-position-btn">
+                    <button
+                      className="btn btn-primary"
+                      onClick={() => setEditingPosition('new')}
+                      id="add-position-btn"
+                    >
                       ➕ Ajouter
                     </button>
                   </div>
@@ -629,24 +616,45 @@ export default function HomePage() {
                                 </span>
                               )}
                             </td>
-                            <td className="mono">{pos.ticker}</td>
+                            <td className="mono" style={{ whiteSpace: 'nowrap' }}>{pos.ticker}</td>
                             <td>
                               <span className={`envelope-tag ${pos.envelope.toLowerCase()}`}>
                                 {pos.envelope}
                               </span>
                             </td>
                             <td className="mono">{pos.quantity > 0 ? pos.quantity : <span style={{ color: 'var(--text-muted)' }}>—</span>}</td>
-                            <td className="mono">{pos.avgPrice > 0 ? `${pos.avgPrice.toFixed(2)} ${pos.currency === 'EUR' ? '€' : '$'}` : <span style={{ color: 'var(--text-muted)' }}>—</span>}</td>
-                            <td className="mono">{pos.currentPrice ? `${pos.currentPrice.toFixed(2)}` : <span style={{ color: 'var(--text-muted)' }}>—</span>}</td>
-                            <td className="mono" style={{ fontWeight: 600 }}>{value > 0 ? `${value.toLocaleString('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })} ${pos.currency === 'EUR' ? '€' : '$'}` : <span style={{ color: 'var(--text-muted)' }}>—</span>}</td>
-                            <td>
+                            <td className="mono" style={{ whiteSpace: 'nowrap' }}>
+                              {pos.avgPrice > 0 ? `${pos.avgPrice.toFixed(2)} ${pos.currency === 'EUR' ? '€' : '$'}` : <span style={{ color: 'var(--text-muted)' }}>—</span>}
+                            </td>
+                            <td className="mono" style={{ whiteSpace: 'nowrap' }}>
+                              {pos.currentPrice ? `${pos.currentPrice.toFixed(2)} ${pos.currency === 'EUR' ? '€' : '$'}` : <span style={{ color: 'var(--text-muted)' }}>—</span>}
+                            </td>
+                            <td className="mono" style={{ fontWeight: 600, whiteSpace: 'nowrap' }}>
+                              {value > 0 ? `${Math.round(value).toLocaleString('fr-FR')} ${pos.currency === 'EUR' ? '€' : '$'}` : <span style={{ color: 'var(--text-muted)' }}>—</span>}
+                            </td>
+                            <td style={{ whiteSpace: 'nowrap' }}>
                               {cost > 0 ? (
-                                <span className={`stat-change ${pl >= 0 ? 'positive' : 'negative'}`} title={`Plus/Moins-value : ${pl >= 0 ? '+' : ''}${pl.toLocaleString('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })} ${pos.currency === 'EUR' ? '€' : '$'}`}>
-                                  {pl >= 0 ? '↑' : '↓'} {Math.abs(plPct).toFixed(1)}%
-                                  <span style={{ fontSize: 11, fontWeight: 600, marginLeft: 4 }}>
+                                <div
+                                  className={`stat-change ${pl >= 0 ? 'positive' : 'negative'}`}
+                                  style={{
+                                    display: 'inline-flex',
+                                    flexDirection: 'column',
+                                    alignItems: 'flex-start',
+                                    padding: '4px 10px',
+                                    borderRadius: 8,
+                                    whiteSpace: 'nowrap',
+                                    lineHeight: 1.25,
+                                  }}
+                                  title={`Plus/Moins-value : ${pl >= 0 ? '+' : ''}${pl.toLocaleString('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })} ${pos.currency === 'EUR' ? '€' : '$'}`}
+                                >
+                                  <div style={{ fontWeight: 700, fontSize: 13, display: 'flex', alignItems: 'center', gap: 3 }}>
+                                    <span>{pl >= 0 ? '↑' : '↓'}</span>
+                                    <span>{pl >= 0 ? '+' : ''}{plPct.toFixed(1)}%</span>
+                                  </div>
+                                  <div style={{ fontSize: 11, opacity: 0.95, fontWeight: 600, marginTop: 2 }}>
                                     ({pl >= 0 ? '+' : ''}{Math.round(pl).toLocaleString('fr-FR')} {pos.currency === 'EUR' ? '€' : '$'})
-                                  </span>
-                                </span>
+                                  </div>
+                                </div>
                               ) : <span style={{ color: 'var(--text-muted)' }}>—</span>}
                             </td>
                             <td className="mono" style={{ fontSize: 12 }}>{pos.monthlyDCA ? `${pos.monthlyDCA}€` : pos.annualBudget ? `${pos.annualBudget}€/an` : '—'}</td>

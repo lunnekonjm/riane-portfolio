@@ -98,11 +98,36 @@ export default function PositionEditor({ position, onSave, onClose, onDelete }: 
     handleChange('themes', form.themes.filter((t) => t !== themeId));
   };
 
+  // Asset Cache Engine (localStorage)
+  const [cachedAssets, setCachedAssets] = useState<RegisteredAsset[]>([]);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('riane_asset_cache');
+      if (raw) {
+        setCachedAssets(JSON.parse(raw));
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  const saveToAssetCache = (asset: RegisteredAsset) => {
+    try {
+      const updated = [asset, ...cachedAssets.filter((a) => a.ticker !== asset.ticker)].slice(0, 10);
+      setCachedAssets(updated);
+      localStorage.setItem('riane_asset_cache', JSON.stringify(updated));
+    } catch {
+      // ignore
+    }
+  };
+
   const handleSelectRegisteredAsset = async (asset: RegisteredAsset) => {
     setShowDropdown(false);
     setTickerSearchInput(`${asset.name} (${asset.ticker})`);
     setTickerError(null);
     setIsVerifyingTicker(true);
+    saveToAssetCache(asset);
 
     setForm((prev) => ({
       ...prev,
@@ -117,7 +142,11 @@ export default function PositionEditor({ position, onSave, onClose, onDelete }: 
     try {
       const quote = await getQuote(asset.ticker);
       if (quote && quote.price > 0) {
-        setForm((prev) => ({ ...prev, currentPrice: quote.price }));
+        setForm((prev) => ({
+          ...prev,
+          currentPrice: quote.price,
+          avgPrice: prev.avgPrice > 0 ? prev.avgPrice : quote.price,
+        }));
         setVerifiedQuoteText(`✓ Actif officiel vérifié — Prix en direct : ${quote.price.toFixed(2)} ${quote.currency} (Yahoo Finance Live)`);
       } else {
         setVerifiedQuoteText(`✓ Actif répertorié (${asset.exchange})`);
@@ -363,6 +392,24 @@ export default function PositionEditor({ position, onSave, onClose, onDelete }: 
                 >
                   ✅ Sélectionner {didYouMeanAsset.ticker}
                 </button>
+              </div>
+            )}
+
+            {/* Cached Recent Assets Pills */}
+            {cachedAssets.length > 0 && !showDropdown && (
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 10, alignItems: 'center' }}>
+                <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>⏱️ Récemment vérifiés :</span>
+                {cachedAssets.map((asset) => (
+                  <button
+                    key={asset.ticker}
+                    type="button"
+                    className="badge badge-cyan"
+                    onClick={() => handleSelectRegisteredAsset(asset)}
+                    style={{ cursor: 'pointer', fontSize: 11, padding: '3px 8px', border: '1px solid var(--border-subtle)' }}
+                  >
+                    {asset.ticker} ({asset.name})
+                  </button>
+                ))}
               </div>
             )}
           </div>
@@ -626,7 +673,7 @@ export default function PositionEditor({ position, onSave, onClose, onDelete }: 
             </div>
           </div>
 
-          {/* Row 5: Weights */}
+          {/* Row 5: Weights with Preset Buttons */}
           <div className="form-row">
             <div className="form-group">
               <label className="form-label">Poids cible (%)</label>
@@ -638,9 +685,22 @@ export default function PositionEditor({ position, onSave, onClose, onDelete }: 
                 max="100"
                 value={form.targetWeight ? (form.targetWeight * 100).toFixed(0) : ''}
                 onChange={(e) => handleOptionalNumber('targetWeight', e.target.value ? String(parseFloat(e.target.value) / 100) : '')}
-                placeholder="—"
+                placeholder="ex: 10%"
                 id="input-target-weight"
               />
+              <div style={{ display: 'flex', gap: 4, marginTop: 6, flexWrap: 'wrap' }}>
+                {[5, 10, 15, 20, 25, 50].map((pct) => (
+                  <button
+                    key={pct}
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    style={{ fontSize: 10, padding: '2px 6px' }}
+                    onClick={() => handleChange('targetWeight', pct / 100)}
+                  >
+                    {pct}%
+                  </button>
+                ))}
+              </div>
             </div>
             <div className="form-group">
               <label className="form-label">Poids max (%)</label>
@@ -652,9 +712,22 @@ export default function PositionEditor({ position, onSave, onClose, onDelete }: 
                 max="100"
                 value={form.maxWeight ? (form.maxWeight * 100).toFixed(0) : ''}
                 onChange={(e) => handleOptionalNumber('maxWeight', e.target.value ? String(parseFloat(e.target.value) / 100) : '')}
-                placeholder="—"
+                placeholder="ex: 30%"
                 id="input-max-weight"
               />
+              <div style={{ display: 'flex', gap: 4, marginTop: 6, flexWrap: 'wrap' }}>
+                {[15, 25, 30, 40, 50].map((pct) => (
+                  <button
+                    key={pct}
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    style={{ fontSize: 10, padding: '2px 6px' }}
+                    onClick={() => handleChange('maxWeight', pct / 100)}
+                  >
+                    {pct}%
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
 

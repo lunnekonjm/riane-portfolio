@@ -12,6 +12,7 @@ import { runResearchAgent } from './researchAgent';
 import { runPortfolioRiskAgent } from './portfolioRiskAgent';
 import { runCriticAgent } from './criticAgent';
 import { addAuditEntry, saveAnalysis } from '@/services/firebase/firestore';
+import { ASSET_REGISTRY } from '@/data/assetRegistry';
 import type { AgentContext, AgentResult } from './types';
 import type { AnalysisResult, AnalysisRequest, AnalysisStatus } from '@/types/analysis';
 
@@ -217,7 +218,7 @@ Produis la synthèse finale proactive et structurée.`;
 }
 
 /**
- * Check if query is within financial & portfolio management scope
+ * Waterproof Financial Scope Guardrail Classifier
  */
 export function isFinancialQuery(query: string): { isFinancial: boolean; refusalMessage?: string } {
   if (!query || query.trim().length === 0) {
@@ -226,18 +227,35 @@ export function isFinancialQuery(query: string): { isFinancial: boolean; refusal
 
   const q = query.toLowerCase().trim();
 
-  // Off-topic keywords
+  // 1. Direct Casual Chat / Salutations / Nonsense Blocklist
+  const casualChatRegex = /^(hey|hi|hello|salut|coucou|bonjour|bonsoir|yo|ca va|ça va|test|abc|123|qui es tu|qui es-tu|tu fais quoi|raconte|blague|cv)$/i;
+  if (casualChatRegex.test(q)) {
+    return {
+      isFinancial: false,
+      refusalMessage: `# ⛔ Salutation / Chat Général Non Financier
+
+Bonjour ! Je suis **RIANE AI**, votre assistant virtuel exclusivement dédié à l'**Analyse Financière** et à la **Gestion de Portefeuille**.
+
+Pour que je puisse vous aider, veuillez me poser une question portant sur un actif, un ETF, votre allocation ou votre stratégie d'investissement.
+
+### 💡 Exemples de requêtes valides :
+- 📈 *"Est-il pertinent d'ajouter **Microsoft (MSFT)** à mon portefeuille ?"*
+- 🏛️ *"Comment rééquilibrer mon **PEA** (CW8) et mon **CTO** ?"*
+- ⚡ *"Quel est l'impact d'un rebalancement DCA de 500 €/mois ?"*
+- 🛡️ *"Analyser l'exposition sectorielle et le risque de mon portefeuille."*`,
+    };
+  }
+
+  // 2. Off-topic topics (weather, cooking, travel, sports, IT code, etc.)
   const offTopicKeywords = [
-    'meteo', 'météo', 'temps qu\'il fait', 'pluie', 'soleil', 'temperature',
-    'recette', 'cuisine', 'plat', 'gâteau', 'gateau', 'manger',
+    'meteo', 'météo', 'temps qu\'il fait', 'pluie', 'soleil', 'temperature', 'température',
+    'recette', 'cuisine', 'plat', 'gâteau', 'gateau', 'manger', 'restaurant',
     'marseille', 'bordeaux', 'paris', 'trajet', 'train', 'avion', 'voiture', 'itineraire', 'itinéraire',
     'blague', 'raconte', 'histoire', 'poeme', 'poème',
     'film', 'serie', 'série', 'musique', 'chanson',
     'code python', 'script bash', 'jeu', 'football', 'match',
   ];
-
   const isOffTopic = offTopicKeywords.some((word) => q.includes(word));
-
   if (isOffTopic) {
     return {
       isFinancial: false,
@@ -252,6 +270,41 @@ Votre demande (*"${query}"*) n'est pas liée à l'investissement, aux marchés f
 - 🏛️ *"Comment optimiser la répartition entre mon **PEA (CW8)** et mon **CTO** ?"*
 - ⚡ *"Quel est l'impact d'un rebalancement de 500 €/mois sur mon DCA ?"*
 - 🛡️ *"Quelle est la sensibilité et la VaR 95% de mon allocation actuelle ?"*`,
+    };
+  }
+
+  // 3. Positive Financial Intent Check
+  // A query MUST match at least one financial keyword, asset ticker, company name, or ticker format (e.g., AAPL, CW8.PA, LVMH)
+  const financialKeywords = [
+    'action', 'actions', 'etf', 'etfs', 'stock', 'stocks', 'pea', 'cto', 'pee', 'dca',
+    'portefeuille', 'portfolio', 'allocation', 'rendement', 'dividende', 'dividendes',
+    'bourse', 'invest', 'investir', 'investissement', 'courtier', 'achat', 'acheter', 'vente', 'vendre',
+    'rebalance', 'rebalancement', 'risq', 'risque', 'var', 'volatilité', 'inflation', 'taux', 'fed', 'ecb', 'bce',
+    'market', 'marché', 'nasdaq', 'cac', 'sp500', 's&p', 'crypto', 'btc', 'eth', 'pfu', 'flat tax',
+    'fiscal', 'frais', 'pru', 'option', 'oblig', 'obligation', 'fond', 'fcp', 'bpa', 'per', 'peg', 'ebitda',
+    'marge', 'arbitrage', 'surpondérer', 'sous-pondérer', 'pertinent', 'analys', 'compar', 'rendement',
+    'croissance', 'valeur', 'small cap', 'large cap', 'mid cap', 'world', 'emrg', 'pust', 'cw8', 'wpea', 'gpea',
+  ];
+
+  const hasFinancialKeyword = financialKeywords.some((word) => q.includes(word));
+
+  const containsRegisteredAsset = ASSET_REGISTRY.some(
+    (a) => q.includes(a.ticker.toLowerCase()) || q.includes(a.name.toLowerCase())
+  );
+
+  // Short ticker pattern (2-6 letters/numbers, e.g. msft, nvda, lvmh, alkal.pa)
+  const isShortTickerPattern = /^[a-z0-9]{2,6}(\.[a-z]{2})?$/i.test(q);
+
+  if (!hasFinancialKeyword && !containsRegisteredAsset && !isShortTickerPattern) {
+    return {
+      isFinancial: false,
+      refusalMessage: `# ⛔ Requête Ambigüe ou Non Financière
+
+Je n'ai pas détecté d'actif, d'ETF ou de sujet d'investissement clair dans votre demande (*"${query}"*).
+
+### 💡 Veuillez me poser une question précise :
+- Mentionnez un **actif ou ticker** (ex: *"Est-il pertinent d'acheter **Microsoft (MSFT)** ?"*).
+- Ou posez une question sur votre **allocation / DCA** (ex: *"Comment optimiser mon DCA mensuel ?"*).`,
     };
   }
 

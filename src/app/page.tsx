@@ -329,7 +329,7 @@ export default function HomePage() {
                           {gainLossPercent >= 0 ? '↑' : '↓'} {Math.abs(gainLossPercent).toFixed(2)}%
                         </span>
                         {gainLoss > 0 && (
-                          <span style={{ fontSize: 11, color: 'var(--text-muted)' }} title="Après prélèvements sociaux PEA (17.2%) et Flat Tax CTO (30%)">
+                          <span style={{ fontSize: 11, color: 'var(--text-muted)' }} title="Après prélèvements sociaux PEA (18.6%) et Flat Tax CTO (30%)">
                             Net: +{filledPositions.reduce((sum, p) => {
                               const price = p.currentPrice || p.avgPrice;
                               const rateToEUR = (fxRates as any)[p.currency] || 1.0;
@@ -337,7 +337,7 @@ export default function HomePage() {
                               const cost = p.quantity * p.avgPrice * rateToEUR;
                               const pl = val - cost;
                               if (pl <= 0) return sum + pl;
-                              const taxRate = (p.envelope === 'PEA' || p.envelope === 'PEA-PME') ? 0.172 : 0.30;
+                              const taxRate = (p.envelope === 'PEA' || p.envelope === 'PEA-PME') ? 0.186 : 0.30;
                               return sum + (pl * (1 - taxRate));
                             }, 0).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
                           </span>

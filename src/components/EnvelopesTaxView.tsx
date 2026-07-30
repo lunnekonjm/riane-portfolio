@@ -79,8 +79,8 @@ export default function EnvelopesTaxView({ positions, fxRates }: EnvelopesTaxVie
   const [simSeniority, setSimSeniority] = useState<'over5' | 'under5'>('over5');
   const [simWithdrawalAmount, setSimWithdrawalAmount] = useState<number>(500000);
   
-  // Tax rate settings (17.2% vs 18.6% vs custom)
-  const [psRate, setPsRate] = useState<number>(0.172); // 17.2% default
+  // Tax rate settings (18.6% vs 17.2% vs custom)
+  const [psRate, setPsRate] = useState<number>(0.186); // 18.6% default
   const [customGainPercent, setCustomGainPercent] = useState<number>(40); // 40% gain ratio default
 
   // Group positions by envelope

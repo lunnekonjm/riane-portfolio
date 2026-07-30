@@ -122,24 +122,69 @@ export default function PositionEditor({ position, onSave, onClose, onDelete }: 
     }
   };
 
-function mapSectorToThemes(sector?: string, industry?: string): string[] {
+function autoGenerateThemes(
+  ticker: string,
+  name?: string,
+  sector?: string,
+  industry?: string
+): string[] {
+  const t = (ticker || '').toUpperCase();
+  const n = (name || '').toLowerCase();
   const s = (sector || '').toLowerCase();
   const ind = (industry || '').toLowerCase();
-  const themes: string[] = [];
+  const matched = new Set<string>();
 
-  if (s.includes('tech') || ind.includes('software') || ind.includes('semi')) {
-    themes.push('ai-semis', 'cloud-saas');
+  // 1. Core global ETFs
+  if (t.includes('CW8') || t.includes('GPEA') || t.includes('ACWI') || n.includes('msci world') || n.includes('acwi')) {
+    matched.add('global-core');
   }
-  if (s.includes('health') || ind.includes('pharma') || ind.includes('bio')) {
-    themes.push('health');
+
+  // 2. Tech / Nasdaq / AI
+  if (t.includes('PUST') || t.includes('QQQ') || n.includes('nasdaq') || s.includes('tech') || ind.includes('software') || ind.includes('cloud')) {
+    matched.add('ai-datacenters');
+    matched.add('tech-satellite');
   }
-  if (s.includes('utilit') || s.includes('energy') || ind.includes('solar') || ind.includes('clean')) {
-    themes.push('clean-energy');
+
+  // 3. Semiconductors
+  if (ind.includes('semi') || n.includes('semi') || s.includes('semi') || t.includes('ALRIB') || t.includes('MEMS') || t.includes('NVDA') || t.includes('AMD') || t.includes('ASML')) {
+    matched.add('semiconductors');
+    matched.add('ai-datacenters');
   }
-  if (s.includes('financial') || s.includes('bank')) {
-    themes.push('general');
+
+  // 4. Photonics / Sensors / Deep Tech (e.g. Kalray, Coherent, STMicro)
+  if (t.includes('COHR') || t.includes('ALKAL') || ind.includes('photo') || n.includes('kalray') || n.includes('coherent')) {
+    matched.add('photonics');
+    matched.add('semiconductors');
   }
-  return themes.length > 0 ? themes : ['general'];
+
+  // 5. European Small Caps
+  if (t.endsWith('.PA') && (t.startsWith('AL') || t.includes('INDE') || n.includes('small cap') || s.includes('small'))) {
+    matched.add('europe-small-caps');
+    matched.add('sovereign-industry');
+  }
+
+  // 6. Defense
+  if (s.includes('defense') || s.includes('aerospace') || ind.includes('defense') || n.includes('airbus') || n.includes('thales') || n.includes('dassault') || n.includes('safran')) {
+    matched.add('defense');
+    matched.add('sovereign-industry');
+  }
+
+  // 7. Energy / Electrification
+  if (s.includes('energy') || s.includes('utilit') || ind.includes('solar') || ind.includes('electricity') || t.includes('CEG') || t.includes('TTE')) {
+    matched.add('energy-electrification');
+  }
+
+  // 8. Health
+  if (s.includes('health') || s.includes('pharma') || ind.includes('biotech') || n.includes('sanofi') || n.includes('novartis')) {
+    matched.add('health');
+  }
+
+  if (matched.size === 0) {
+    if (s.includes('tech')) matched.add('tech-satellite');
+    else matched.add('global-core');
+  }
+
+  return Array.from(matched);
 }
 
   const handleSelectRegisteredAsset = async (asset: RegisteredAsset) => {
@@ -168,14 +213,14 @@ function mapSectorToThemes(sector?: string, industry?: string): string[] {
 
       setForm((prev) => {
         const price = quote?.price && quote.price > 0 ? quote.price : prev.currentPrice;
-        const autoThemes = profile?.sector ? mapSectorToThemes(profile.sector, profile.industry) : prev.themes;
+        const autoThemes = autoGenerateThemes(asset.ticker, profile?.name || asset.name, profile?.sector, profile?.industry);
         return {
           ...prev,
           name: profile?.name || asset.name || prev.name,
           currentPrice: price,
           avgPrice: prev.avgPrice > 0 ? prev.avgPrice : (price || 100),
           currency: (profile?.currency as any) || (quote?.currency as any) || prev.currency,
-          themes: autoThemes.length > 0 ? autoThemes : prev.themes,
+          themes: autoThemes.length > 0 ? autoThemes : asset.themes,
           quantity: prev.quantity > 0 ? prev.quantity : 1,
         };
       });
@@ -229,7 +274,7 @@ function mapSectorToThemes(sector?: string, industry?: string): string[] {
 
       if (quote && quote.price > 0) {
         setForm((prev) => {
-          const autoThemes = profile?.sector ? mapSectorToThemes(profile.sector, profile.industry) : prev.themes;
+          const autoThemes = autoGenerateThemes(rawQuery.toUpperCase(), profile?.name || prev.name, profile?.sector, profile?.industry);
           return {
             ...prev,
             ticker: rawQuery.toUpperCase(),
@@ -777,10 +822,13 @@ function mapSectorToThemes(sector?: string, industry?: string): string[] {
 
           {/* Themes */}
           <div className="form-group" style={{ marginBottom: 20 }}>
-            <label className="form-label">Thèmes</label>
+            <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span>Thèmes d&apos;Investissement</span>
+              <span style={{ fontSize: 11, color: 'var(--accent-violet)', fontWeight: 600 }}>✨ Générés automatiquement selon le secteur</span>
+            </label>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
               {form.themes.map((t) => (
-                <span key={t} className="badge badge-violet" style={{ cursor: 'pointer' }} onClick={() => removeTheme(t)}>
+                <span key={t} className="badge badge-violet" style={{ cursor: 'pointer', padding: '4px 10px', fontSize: 12 }} onClick={() => removeTheme(t)} title="Cliquer pour retirer">
                   {THEMES.find((th) => th.id === t)?.label || t} ✕
                 </span>
               ))}
@@ -791,7 +839,7 @@ function mapSectorToThemes(sector?: string, industry?: string): string[] {
               onChange={(e) => { addTheme(e.target.value); }}
               id="select-theme"
             >
-              <option value="">+ Ajouter un thème...</option>
+              <option value="">+ Modifier / Ajouter un thème personnalisé...</option>
               {THEMES.filter((t) => !form.themes.includes(t.id)).map((t) => (
                 <option key={t.id} value={t.id}>{t.label}</option>
               ))}

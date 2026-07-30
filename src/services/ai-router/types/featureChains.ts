@@ -6,7 +6,8 @@ export type FeatureId =
   | 'risk-assessment'    // Évaluation risque et stress
   | 'critic'             // Contre-analyse et conformité
   | 'synthesis'          // Synthèse orchestrateur
-  | 'news-scan';         // Scan d'actualités (Google Search obligatoire)
+  | 'news-scan'          // Scan d'actualités (Google Search obligatoire)
+  | 'intent-classifier'; // Guardrail de sécurité et périmètre
 
 export interface FeatureRequirement {
   requiredCapability: ModelEntry['capabilities'][number];
@@ -74,5 +75,11 @@ export const FEATURE_CHAINS: Record<FeatureId, FeatureRequirement> = {
     requiredQuotaKind: 'groundingSearch',
     degradeInsteadOfFallback: true,
     chain: ['gemini-2.5-flash', 'gemini-flash-latest'],
+  },
+  'intent-classifier': {
+    requiredCapability: 'text',
+    requiredQuotaKind: 'generation',
+    degradeInsteadOfFallback: false,
+    chain: ['gemini-3.5-flash-lite', 'gemini-2.5-flash', 'gemini-flash-latest'],
   },
 };

@@ -312,6 +312,91 @@ Je n'ai pas détecté d'actif, d'ETF ou de sujet d'investissement clair dans vot
 }
 
 /**
+ * Modern LLM Semantic Guardrail Classifier
+ * Uses Gemini AI with System Instruction to classify query intent semantically.
+ */
+export async function evaluateFinancialIntentWithAI(query: string): Promise<{ isFinancial: boolean; refusalMessage?: string }> {
+  if (!query || query.trim().length === 0) {
+    return { isFinancial: false, refusalMessage: 'Veuillez saisir une question financière.' };
+  }
+
+  const q = query.toLowerCase().trim();
+
+  // Fast pre-check for basic casual chat / greetings
+  if (/^(hey|hi|hello|salut|coucou|bonjour|bonsoir|yo|ca va|ça va|test|abc|123)$/i.test(q)) {
+    return {
+      isFinancial: false,
+      refusalMessage: `# ⛔ Salutation / Chat Général Non Financier
+
+Bonjour ! Je suis **RIANE AI**, votre assistant virtuel exclusivement dédié à l'**Analyse Financière** et à la **Gestion de Portefeuille**.
+
+Pour que je puisse vous aider, veuillez me poser une question portant sur un actif, un ETF, votre allocation ou votre stratégie d'investissement.
+
+### 💡 Exemples de requêtes valides :
+- 📈 *"Est-il pertinent d'ajouter **Microsoft (MSFT)** à mon portefeuille ?"*
+- 🏛️ *"Comment rééquilibrer mon **PEA** (CW8) et mon **CTO** ?"*
+- ⚡ *"Quel est l'impact d'un rebalancement DCA de 500 €/mois ?"*
+- 🛡️ *"Analyser l'exposition sectorielle et le risque de mon portefeuille."*`,
+    };
+  }
+
+  try {
+    const selection = await selectModel('intent-classifier');
+    if (!selection.modelId) {
+      return isFinancialQuery(query);
+    }
+
+    const { getAI, getGenerativeModel, GoogleAIBackend } = await getAIModule();
+    const app = getFirebaseApp();
+    const ai = getAI(app, { backend: new GoogleAIBackend() });
+
+    const model = getGenerativeModel(ai, {
+      model: selection.modelId,
+      generationConfig: { maxOutputTokens: 256, responseMimeType: 'application/json' },
+      systemInstruction: `Tu es le Guardrail de Sécurité et de Périmètre pour l'assistant financier RIANE AI.
+Ton UNIQUE rôle est d'évaluer si la requête utilisateur est liée au domaine financier ou patrimonial :
+- Analyse d'actions, d'ETF, de fonds, de cryptomonnaies ou d'actifs financiers.
+- Gestion de portefeuille, allocation d'actifs, stratégie DCA, fiscalité (PEA, CTO, PEA-PME).
+- Macroéconomie, marchés financiers, taux d'intérêt, entreprises ou finance personnelle.
+
+Si la demande N'EST PAS financière ou patrimoniale (ex: météo, bavardage général, blagues, voyages, cuisine, code informatique hors finance, culture générale), tu DOIS la refuser.
+
+FORMAT DE RÉPONSE JSON OBLIGATOIRE :
+{
+  "isFinancial": boolean,
+  "reason": "Explication claire du refus en markdown français si isFinancial est false"
+}`,
+    });
+
+    const response = await model.generateContent(`Évalue la requête utilisateur suivante : "${query}"`);
+    await recordUsage(selection.modelId, 'generation', 'success');
+    const text = response.response.text();
+    const parsed = JSON.parse(text);
+
+    if (!parsed.isFinancial) {
+      return {
+        isFinancial: false,
+        refusalMessage: parsed.reason || `# ⛔ Demande Hors Périmètre Financier
+
+Je suis **RIANE AI**, votre assistant spécialisé en Analyse Financière et Gestion de Portefeuille.
+
+Votre demande (*"${query}"*) n'est pas liée à l'investissement, aux marchés financiers ou à votre patrimoine.
+
+### 💡 Exemples de requêtes valides :
+- 📈 *"Est-il pertinent d'ajouter **Microsoft (MSFT)** dans mon portefeuille ?"*
+- 🏛️ *"Comment optimiser la répartition entre mon **PEA (CW8)** et mon **CTO** ?"*
+- ⚡ *"Quel est l'impact d'un rebalancement de 500 €/mois sur mon DCA ?"*`,
+      };
+    }
+  } catch {
+    // If AI classification times out or fails, fallback to local guardrail check
+    return isFinancialQuery(query);
+  }
+
+  return { isFinancial: true };
+}
+
+/**
  * Run the complete analysis pipeline
  */
 export async function runAnalysisPipeline(
@@ -332,8 +417,9 @@ export async function runAnalysisPipeline(
 
   const result: AnalysisResult = { id: analysisId, request };
 
-  // Guardrail Scope Check
-  const guardrail = isFinancialQuery(query);
+  // Modern AI Guardrail Scope Check
+  onStatus?.('data-collection', 'Vérification du périmètre financier...');
+  const guardrail = await evaluateFinancialIntentWithAI(query);
   if (!guardrail.isFinancial) {
     result.synthesis = guardrail.refusalMessage;
     request.status = 'complete';

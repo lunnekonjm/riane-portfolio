@@ -99,6 +99,9 @@ export default function EnvelopesTaxView({
   // Tax rate settings (18.6% vs 17.2% vs custom)
   const [psRate, setPsRate] = useState<number>(0.186); // 18.6% default
 
+  // UX Optimization: Option to hide empty 0€ envelopes to avoid screen clutter
+  const [hideEmptyEnvelopes, setHideEmptyEnvelopes] = useState<boolean>(true);
+
   // Group positions by envelope
   const envelopeGroups = positions.reduce((acc, pos) => {
     const env = pos.envelope;
@@ -210,8 +213,38 @@ export default function EnvelopesTaxView({
   const ctoBaremeTax = withdrawnGain * (ctoTmiRate + psRate);
   const ctoSavingsWithPfu = ctoBaremeTax - ctoPfuTax;
 
+  const activeSummaries = summaries.filter((s) => s.totalValue > 0 || s.totalCost > 0);
+  const displayedSummaries = hideEmptyEnvelopes && activeSummaries.length > 0 ? activeSummaries : summaries;
+  const emptyCount = summaries.length - activeSummaries.length;
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+      {/* Executive Toolbar & Filter Switch */}
+      <div className="card" style={{ padding: '12px 18px', background: 'var(--bg-secondary)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12, borderLeft: '4px solid var(--accent-violet)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <span style={{ fontSize: 20 }}>🏛️</span>
+          <div>
+            <h2 style={{ fontSize: 16, fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>
+              Enveloppes Fiscales & Optimisation Patrimoniale
+            </h2>
+            <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
+              {activeSummaries.length} enveloppes financées sur {summaries.length} au total
+            </span>
+          </div>
+        </div>
+
+        {emptyCount > 0 && (
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={() => setHideEmptyEnvelopes(!hideEmptyEnvelopes)}
+            style={{ fontSize: 12, padding: '6px 12px', fontWeight: 600 }}
+          >
+            {hideEmptyEnvelopes ? `👁️ Afficher toutes les enveloppes (+${emptyCount} inactives)` : `🙈 Masquer les enveloppes inactives (0 €)`}
+          </button>
+        )}
+      </div>
+
       {/* 🎈 Active Inflation Banner */}
       {adjustInflation && (
         <div className="card" style={{ borderLeft: '4px solid var(--accent-amber)', background: 'rgba(245, 158, 11, 0.1)', padding: 14 }}>
@@ -244,8 +277,8 @@ export default function EnvelopesTaxView({
       )}
 
       {/* 🏛️ Envelopes Grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: 20 }}>
-        {summaries.map((s) => (
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 20 }}>
+        {displayedSummaries.map((s) => (
           <div key={s.envKey} className="card" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             <div className="card-header" style={{ marginBottom: 0 }}>
               <div>

@@ -19,8 +19,8 @@
   "auth": {
     "providers": {
       "googleSignIn": {
-        "oAuthBrandDisplayName": "My App",
-        "supportEmail": "RIANE Portfolio"
+        "oAuthBrandDisplayName": "RIANE Portfolio",
+        "supportEmail": "hoshy.dev@gmail.com"
       }
     }
   }

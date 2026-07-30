@@ -547,29 +547,6 @@ export default function HomePage() {
                       />
                     </div>
 
-                    {/* Inflation Toggle Switch */}
-                    <div style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 8,
-                      background: adjustInflation ? 'rgba(245, 158, 11, 0.15)' : 'var(--bg-tertiary)',
-                      padding: '6px 12px',
-                      borderRadius: 8,
-                      border: adjustInflation ? '1px solid var(--accent-amber)' : '1px solid var(--border-subtle)',
-                      transition: 'all 0.2s ease',
-                    }}>
-                      <span style={{ fontSize: 13 }}>🎈</span>
-                      <label style={{ fontSize: 12, fontWeight: 600, color: adjustInflation ? 'var(--accent-amber)' : 'var(--text-secondary)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, margin: 0 }}>
-                        <input
-                          type="checkbox"
-                          checked={adjustInflation}
-                          onChange={(e) => setAdjustInflation(e.target.checked)}
-                          style={{ cursor: 'pointer', accentColor: 'var(--accent-amber)' }}
-                        />
-                        Ajuster à l&apos;Inflation
-                      </label>
-                    </div>
-
                     <button
                       className="btn btn-primary"
                       onClick={async () => {

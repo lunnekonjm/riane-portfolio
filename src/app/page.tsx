@@ -98,6 +98,7 @@ export default function HomePage() {
   const [showConfigEditor, setShowConfigEditor] = useState(false);
   const [showFlowRebalanceModal, setShowFlowRebalanceModal] = useState(false);
   const [flowRebalanceResult, setFlowRebalanceResult] = useState<FlowRebalanceResult | null>(null);
+  const [dcaGlobalStartDate, setDcaGlobalStartDate] = useState<string>('2024-01');
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [refreshingPrices, setRefreshingPrices] = useState(false);
 
@@ -387,11 +388,29 @@ export default function HomePage() {
                 <div className="card-header">
                   <span className="card-title">Positions ({positions.length})</span>
                   <div style={{ display: 'flex', gap: 8 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'var(--bg-tertiary)', padding: '2px 8px', borderRadius: 8, border: '1px solid var(--border-subtle)' }}>
+                      <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Début DCA:</span>
+                      <input
+                        type="month"
+                        className="mono"
+                        style={{
+                          background: 'transparent',
+                          border: 'none',
+                          color: 'var(--text-primary)',
+                          fontSize: 12,
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                          outline: 'none',
+                        }}
+                        value={dcaGlobalStartDate}
+                        onChange={(e) => setDcaGlobalStartDate(e.target.value)}
+                        title="Date de début d'accumulation DCA"
+                      />
+                    </div>
                     <button
                       className="btn btn-secondary"
                       onClick={async () => {
-                        const startDate = prompt('Entrez votre date de début de DCA (ex: 2024-01) :', '2024-01');
-                        if (!startDate) return;
+                        if (!dcaGlobalStartDate) return;
                         setRefreshingPrices(true);
                         try {
                           let updatedCount = 0;
@@ -401,7 +420,7 @@ export default function HomePage() {
                             const sim = await simulatePositionDCA(
                               pos.ticker,
                               monthlyBudget,
-                              startDate,
+                              dcaGlobalStartDate,
                               pos.currentPrice || pos.avgPrice || 100,
                               isIntegerOnly
                             );
@@ -415,7 +434,7 @@ export default function HomePage() {
                               updatedCount++;
                             }
                           }
-                          showToast(`DCA calculé automatiquement pour ${updatedCount} positions depuis ${startDate}`);
+                          showToast(`DCA calculé automatiquement pour ${updatedCount} positions depuis ${dcaGlobalStartDate}`);
                         } catch (err) {
                           console.error(err);
                           showToast('Erreur lors du calcul du DCA', 'error');
@@ -424,7 +443,7 @@ export default function HomePage() {
                         }
                       }}
                       disabled={refreshingPrices || positions.length === 0}
-                      title="Calculer automatiquement les quantités et PRU depuis une date de début"
+                      title={`Calculer automatiquement le DCA depuis ${dcaGlobalStartDate}`}
                       id="auto-dca-btn"
                     >
                       ⚡ Auto DCA

@@ -2,7 +2,12 @@
  * Moteur de calcul DCA automatique (Dollar Cost Averaging)
  * Conforme aux règles du PEA (passages en actions/parts entières uniquement)
  * Récupère les VRAIES données historiques maximales de marché (Yahoo Finance MAX)
- * et applique un back-cast composé réaliste (8%/an) pour la période précédant la création de l'actif.
+ * 
+ * RÈGLE D'INCEPTION :
+ * Si la date de simulation (ex: 2000) précède la date de création/IPO de l'actif (ex: 2010),
+ * aucun achat d'action n'est effectué avant la date de création réelle (sharesBought = 0).
+ * La trésorerie DCA est conservée en solde d'espèces non investi jusqu'au lancement de l'actif,
+ * puis investie à partir du premier cours réel d'introduction.
  */
 
 import type { Position } from '@/types/portfolio';
@@ -19,6 +24,7 @@ export interface DCASimulationMonthLog {
   cumulativeShares: number;
   cumulativeCost: number;
   cumulativePRU: number;
+  note?: string;
 }
 
 export interface DCASimulationResult {
@@ -28,6 +34,7 @@ export interface DCASimulationResult {
   currentValue: number;
   uninvestedCash: number;
   monthsCount: number;
+  earliestAvailableDate: string | null;
   logs: DCASimulationMonthLog[];
 }
 
@@ -53,7 +60,7 @@ function getMonthlyDates(startDateStr: string): string[] {
 }
 
 /**
- * Perform DCA Simulation for a position with REAL MAX Historical Data
+ * Perform DCA Simulation for a position with REAL MAX Historical Data & Strict Inception Rules
  */
 export async function simulatePositionDCA(
   ticker: string,
@@ -94,33 +101,34 @@ export async function simulatePositionDCA(
   const logs: DCASimulationMonthLog[] = [];
 
   const totalMonths = months.length;
-  const fallbackBase = currentPriceFallback > 0 ? currentPriceFallback : (earliestPrice > 0 ? earliestPrice : 100);
 
   for (let i = 0; i < totalMonths; i++) {
     const monthKey = months[i];
+    const price = priceMap.get(monthKey);
     
-    let price = priceMap.get(monthKey);
-    
-    if (!price || price <= 0) {
-      // Pre-IPO or pre-inception period back-casting:
-      // Use earliest available real price and discount backwards at ~8% annual market growth rate
-      if (earliestDate && earliestPrice > 0) {
-        const [earliestYr, earliestMo] = earliestDate.split('-').map(Number);
-        const [currYr, currMo] = monthKey.split('-').map(Number);
-        const monthsDiff = (earliestYr - currYr) * 12 + (earliestMo - currMo);
-        
-        if (monthsDiff > 0) {
-          const yearsDiff = monthsDiff / 12;
-          // Discount backwards by 8% per year
-          price = Math.max(0.1, earliestPrice / Math.pow(1.08, yearsDiff));
-        } else {
-          price = earliestPrice;
-        }
-      } else {
-        // General fallback if no price map available
-        const ratio = (i + 1) / totalMonths;
-        price = Math.max(1, fallbackBase * Math.pow(1.08, (i - totalMonths) / 12));
-      }
+    // Check if asset existed on this date
+    const existsYet = price && price > 0;
+    const isPreInception = earliestDate && monthKey < earliestDate;
+
+    if (isPreInception || !existsYet) {
+      // Asset did NOT exist yet on this date:
+      // Do NOT invent fake negative prices or purchases!
+      // Money is accumulated in uninvested cash buffer until launch.
+      rolloverCash += monthlyBudget;
+      logs.push({
+        date: monthKey,
+        sharePrice: 0,
+        monthlyBudget,
+        cashAvailable: parseFloat(rolloverCash.toFixed(2)),
+        sharesBought: 0,
+        spent: 0,
+        rolloverCash: parseFloat(rolloverCash.toFixed(2)),
+        cumulativeShares: isIntegerOnly ? Math.floor(cumulativeShares) : parseFloat(cumulativeShares.toFixed(4)),
+        cumulativeCost: parseFloat(cumulativeCost.toFixed(2)),
+        cumulativePRU: parseFloat((cumulativeShares > 0 ? cumulativeCost / cumulativeShares : 0).toFixed(2)),
+        note: earliestDate ? `Actif non encore créé (Lancement : ${earliestDate})` : 'Données marché indisponibles',
+      });
+      continue;
     }
 
     const cashAvailable = rolloverCash + monthlyBudget;
@@ -165,6 +173,7 @@ export async function simulatePositionDCA(
     currentValue: parseFloat((totalSharesFinal * latestPrice).toFixed(2)),
     uninvestedCash: parseFloat(rolloverCash.toFixed(2)),
     monthsCount: totalMonths,
+    earliestAvailableDate: earliestDate,
     logs,
   };
 }

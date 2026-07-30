@@ -1,0 +1,95 @@
+[debug] [2026-07-30T16:23:54.493Z] ----------------------------------------------------------------------
+[debug] [2026-07-30T16:23:54.494Z] Command:       /Users/richard/.nvm/versions/node/v20.20.0/bin/node /Users/richard/.npm/_npx/ba4f1959e38407b5/node_modules/.bin/firebase deploy --only auth --project riane-portfolio
+[debug] [2026-07-30T16:23:54.495Z] CLI Version:   15.25.0
+[debug] [2026-07-30T16:23:54.495Z] Platform:      darwin
+[debug] [2026-07-30T16:23:54.495Z] Node Version:  v20.20.0
+[debug] [2026-07-30T16:23:54.495Z] Detected Agent: antigravity
+[debug] [2026-07-30T16:23:54.495Z] Time:          Thu Jul 30 2026 18:23:54 GMT+0200 (Central European Summer Time)
+[debug] [2026-07-30T16:23:54.495Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2026-07-30T16:23:55.200Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-07-30T16:23:55.200Z] > authorizing via signed-in user (lunneko.njm@gmail.com)
+[debug] [2026-07-30T16:23:55.200Z] [iam] checking project riane-portfolio for permissions ["firebase.projects.get","firebase.projects.update","firebaseauth.configs.update"]
+[debug] [2026-07-30T16:23:55.201Z] Checked if tokens are valid: true, expires at: 1785430002840
+[debug] [2026-07-30T16:23:55.201Z] Checked if tokens are valid: true, expires at: 1785430002840
+[debug] [2026-07-30T16:23:55.201Z] >>> [apiv2][query] POST https://cloudresourcemanager.googleapis.com/v1/projects/riane-portfolio:testIamPermissions [none]
+[debug] [2026-07-30T16:23:55.202Z] >>> [apiv2][(partial)header] POST https://cloudresourcemanager.googleapis.com/v1/projects/riane-portfolio:testIamPermissions  x-goog-user-project=riane-portfolio
+[debug] [2026-07-30T16:23:55.202Z] >>> [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/riane-portfolio:testIamPermissions {"permissions":["firebase.projects.get","firebase.projects.update","firebaseauth.configs.update"]}
+[debug] [2026-07-30T16:23:55.949Z] <<< [apiv2][status] POST https://cloudresourcemanager.googleapis.com/v1/projects/riane-portfolio:testIamPermissions 200
+[debug] [2026-07-30T16:23:55.949Z] <<< [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/riane-portfolio:testIamPermissions {"permissions":["firebase.projects.get","firebase.projects.update","firebaseauth.configs.update"]}
+[info] 
+[info] === Deploying to 'riane-portfolio'...
+[info] 
+[info] i  deploying auth 
+[debug] [2026-07-30T16:23:55.951Z] Checked if tokens are valid: true, expires at: 1785430002840
+[debug] [2026-07-30T16:23:55.951Z] Checked if tokens are valid: true, expires at: 1785430002840
+[debug] [2026-07-30T16:23:55.952Z] >>> [apiv2][query] GET https://firebase.googleapis.com/v1beta1/projects/riane-portfolio/webApps pageSize=100
+[debug] [2026-07-30T16:23:56.354Z] <<< [apiv2][status] GET https://firebase.googleapis.com/v1beta1/projects/riane-portfolio/webApps 200
+[debug] [2026-07-30T16:23:56.355Z] <<< [apiv2][body] GET https://firebase.googleapis.com/v1beta1/projects/riane-portfolio/webApps {"apps":[{"name":"projects/riane-portfolio/webApps/1:154633961734:web:db873fed1b155deb535e87","appId":"1:154633961734:web:db873fed1b155deb535e87","displayName":"RIANE Portfolio Web","projectId":"riane-portfolio","webId":"NTRiZWI2N2EtM2Q3OS00ZTRkLTliYzQtZjBiYjVmOTcyY2Yx","apiKeyId":"3e21110b-59c6-4b76-8987-687cce303fac","state":"ACTIVE","expireTime":"1970-01-01T00:00:00Z","etag":"1_1c7dd130-22d0-4d13-aee7-ebcdeb0d2170"}]}
+[info] Enabling auth providers: Google sign-in...
+[debug] [2026-07-30T16:23:56.357Z] [provision] Starting Firebase app provisioning...
+[debug] [2026-07-30T16:23:56.357Z] [provision] Request: {
+  "appNamespace": "1:154633961734:web:db873fed1b155deb535e87",
+  "parent": "projects/riane-portfolio",
+  "firebaseAuthInput": {
+    "googleSigninProviderMode": "PROVIDER_ENABLED",
+    "googleSigninProviderConfig": {
+      "publicDisplayName": "My App",
+      "customerSupportEmail": "RIANE Portfolio"
+    }
+  },
+  "webInput": {}
+}
+[debug] [2026-07-30T16:23:56.357Z] Checked if tokens are valid: true, expires at: 1785430002840
+[debug] [2026-07-30T16:23:56.357Z] Checked if tokens are valid: true, expires at: 1785430002840
+[debug] [2026-07-30T16:23:56.357Z] >>> [apiv2][query] POST https://firebase.googleapis.com/v1alpha/firebase:provisionFirebaseApp [none]
+[debug] [2026-07-30T16:23:56.357Z] >>> [apiv2][body] POST https://firebase.googleapis.com/v1alpha/firebase:provisionFirebaseApp {"appNamespace":"1:154633961734:web:db873fed1b155deb535e87","parent":"projects/riane-portfolio","firebaseAuthInput":{"googleSigninProviderMode":"PROVIDER_ENABLED","googleSigninProviderConfig":{"publicDisplayName":"My App","customerSupportEmail":"RIANE Portfolio"}},"webInput":{}}
+[debug] [2026-07-30T16:23:57.503Z] <<< [apiv2][status] POST https://firebase.googleapis.com/v1alpha/firebase:provisionFirebaseApp 200
+[debug] [2026-07-30T16:23:57.503Z] <<< [apiv2][body] POST https://firebase.googleapis.com/v1alpha/firebase:provisionFirebaseApp {"name":"operations/workflows/MDU5MWRjZjYtNDhmNC00MmNhLThiYTktNTcyMWNiNDcxODc3"}
+[debug] [2026-07-30T16:23:57.503Z] [provision] Operation started: operations/workflows/MDU5MWRjZjYtNDhmNC00MmNhLThiYTktNTcyMWNiNDcxODc3
+[debug] [2026-07-30T16:23:57.504Z] [provision] Polling for operation completion...
+[debug] [2026-07-30T16:23:57.505Z] Checked if tokens are valid: true, expires at: 1785430002840
+[debug] [2026-07-30T16:23:57.505Z] Checked if tokens are valid: true, expires at: 1785430002840
+[debug] [2026-07-30T16:23:57.506Z] >>> [apiv2][query] GET https://firebase.googleapis.com/v1beta1/operations/workflows/MDU5MWRjZjYtNDhmNC00MmNhLThiYTktNTcyMWNiNDcxODc3 [none]
+[debug] [2026-07-30T16:23:57.900Z] <<< [apiv2][status] GET https://firebase.googleapis.com/v1beta1/operations/workflows/MDU5MWRjZjYtNDhmNC00MmNhLThiYTktNTcyMWNiNDcxODc3 200
+[debug] [2026-07-30T16:23:57.901Z] <<< [apiv2][body] GET https://firebase.googleapis.com/v1beta1/operations/workflows/MDU5MWRjZjYtNDhmNC00MmNhLThiYTktNTcyMWNiNDcxODc3 {"name":"operations/workflows/MDU5MWRjZjYtNDhmNC00MmNhLThiYTktNTcyMWNiNDcxODc3"}
+[debug] [2026-07-30T16:23:58.102Z] [Provision Firebase App Poller] Retrying task index 0
+[debug] [2026-07-30T16:23:58.104Z] Checked if tokens are valid: true, expires at: 1785430002840
+[debug] [2026-07-30T16:23:58.104Z] Checked if tokens are valid: true, expires at: 1785430002840
+[debug] [2026-07-30T16:23:58.104Z] >>> [apiv2][query] GET https://firebase.googleapis.com/v1beta1/operations/workflows/MDU5MWRjZjYtNDhmNC00MmNhLThiYTktNTcyMWNiNDcxODc3 [none]
+[debug] [2026-07-30T16:23:58.438Z] <<< [apiv2][status] GET https://firebase.googleapis.com/v1beta1/operations/workflows/MDU5MWRjZjYtNDhmNC00MmNhLThiYTktNTcyMWNiNDcxODc3 200
+[debug] [2026-07-30T16:23:58.438Z] <<< [apiv2][body] GET https://firebase.googleapis.com/v1beta1/operations/workflows/MDU5MWRjZjYtNDhmNC00MmNhLThiYTktNTcyMWNiNDcxODc3 {"name":"operations/workflows/MDU5MWRjZjYtNDhmNC00MmNhLThiYTktNTcyMWNiNDcxODc3"}
+[debug] [2026-07-30T16:23:58.839Z] [Provision Firebase App Poller] Retrying task index 0
+[debug] [2026-07-30T16:23:58.840Z] Checked if tokens are valid: true, expires at: 1785430002840
+[debug] [2026-07-30T16:23:58.840Z] Checked if tokens are valid: true, expires at: 1785430002840
+[debug] [2026-07-30T16:23:58.840Z] >>> [apiv2][query] GET https://firebase.googleapis.com/v1beta1/operations/workflows/MDU5MWRjZjYtNDhmNC00MmNhLThiYTktNTcyMWNiNDcxODc3 [none]
+[debug] [2026-07-30T16:23:59.235Z] <<< [apiv2][status] GET https://firebase.googleapis.com/v1beta1/operations/workflows/MDU5MWRjZjYtNDhmNC00MmNhLThiYTktNTcyMWNiNDcxODc3 200
+[debug] [2026-07-30T16:23:59.235Z] <<< [apiv2][body] GET https://firebase.googleapis.com/v1beta1/operations/workflows/MDU5MWRjZjYtNDhmNC00MmNhLThiYTktNTcyMWNiNDcxODc3 {"name":"operations/workflows/MDU5MWRjZjYtNDhmNC00MmNhLThiYTktNTcyMWNiNDcxODc3"}
+[debug] [2026-07-30T16:24:00.036Z] [Provision Firebase App Poller] Retrying task index 0
+[debug] [2026-07-30T16:24:00.038Z] Checked if tokens are valid: true, expires at: 1785430002840
+[debug] [2026-07-30T16:24:00.038Z] Checked if tokens are valid: true, expires at: 1785430002840
+[debug] [2026-07-30T16:24:00.038Z] >>> [apiv2][query] GET https://firebase.googleapis.com/v1beta1/operations/workflows/MDU5MWRjZjYtNDhmNC00MmNhLThiYTktNTcyMWNiNDcxODc3 [none]
+[debug] [2026-07-30T16:24:00.361Z] <<< [apiv2][status] GET https://firebase.googleapis.com/v1beta1/operations/workflows/MDU5MWRjZjYtNDhmNC00MmNhLThiYTktNTcyMWNiNDcxODc3 200
+[debug] [2026-07-30T16:24:00.362Z] <<< [apiv2][body] GET https://firebase.googleapis.com/v1beta1/operations/workflows/MDU5MWRjZjYtNDhmNC00MmNhLThiYTktNTcyMWNiNDcxODc3 {"name":"operations/workflows/MDU5MWRjZjYtNDhmNC00MmNhLThiYTktNTcyMWNiNDcxODc3"}
+[debug] [2026-07-30T16:24:01.963Z] [Provision Firebase App Poller] Retrying task index 0
+[debug] [2026-07-30T16:24:01.964Z] Checked if tokens are valid: true, expires at: 1785430002840
+[debug] [2026-07-30T16:24:01.964Z] Checked if tokens are valid: true, expires at: 1785430002840
+[debug] [2026-07-30T16:24:01.965Z] >>> [apiv2][query] GET https://firebase.googleapis.com/v1beta1/operations/workflows/MDU5MWRjZjYtNDhmNC00MmNhLThiYTktNTcyMWNiNDcxODc3 [none]
+[debug] [2026-07-30T16:24:02.410Z] <<< [apiv2][status] GET https://firebase.googleapis.com/v1beta1/operations/workflows/MDU5MWRjZjYtNDhmNC00MmNhLThiYTktNTcyMWNiNDcxODc3 200
+[debug] [2026-07-30T16:24:02.411Z] <<< [apiv2][body] GET https://firebase.googleapis.com/v1beta1/operations/workflows/MDU5MWRjZjYtNDhmNC00MmNhLThiYTktNTcyMWNiNDcxODc3 {"name":"operations/workflows/MDU5MWRjZjYtNDhmNC00MmNhLThiYTktNTcyMWNiNDcxODc3"}
+[debug] [2026-07-30T16:24:05.612Z] [Provision Firebase App Poller] Retrying task index 0
+[debug] [2026-07-30T16:24:05.614Z] Checked if tokens are valid: true, expires at: 1785430002840
+[debug] [2026-07-30T16:24:05.614Z] Checked if tokens are valid: true, expires at: 1785430002840
+[debug] [2026-07-30T16:24:05.616Z] >>> [apiv2][query] GET https://firebase.googleapis.com/v1beta1/operations/workflows/MDU5MWRjZjYtNDhmNC00MmNhLThiYTktNTcyMWNiNDcxODc3 [none]
+[debug] [2026-07-30T16:24:06.055Z] <<< [apiv2][status] GET https://firebase.googleapis.com/v1beta1/operations/workflows/MDU5MWRjZjYtNDhmNC00MmNhLThiYTktNTcyMWNiNDcxODc3 200
+[debug] [2026-07-30T16:24:06.055Z] <<< [apiv2][body] GET https://firebase.googleapis.com/v1beta1/operations/workflows/MDU5MWRjZjYtNDhmNC00MmNhLThiYTktNTcyMWNiNDcxODc3 {"name":"operations/workflows/MDU5MWRjZjYtNDhmNC00MmNhLThiYTktNTcyMWNiNDcxODc3","done":true,"error":{"code":3,"message":"Both public display name and customer support email must be provided for Google Sign-In brand configuration, or neither if the project already has the OAuth Brand set.","details":[{"@type":"type.googleapis.com/util.StatusProto","code":40016,"space":"ProvisionFirebaseApp","message":"Both public display name and customer support email must be provided for Google Sign-In brand configuration, or neither if the project already has the OAuth Brand set.","canonicalCode":3}]}}
+[debug] [2026-07-30T16:24:06.147Z] FirebaseError: Both public display name and customer support email must be provided for Google Sign-In brand configuration, or neither if the project already has the OAuth Brand set.
+    at OperationPoller.poll (/Users/richard/.npm/_npx/ba4f1959e38407b5/node_modules/firebase-tools/lib/operation-poller.js:25:19)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async provisionFirebaseApp (/Users/richard/.npm/_npx/ba4f1959e38407b5/node_modules/firebase-tools/lib/management/provisioning/provision.js:101:24)
+    at async deploy (/Users/richard/.npm/_npx/ba4f1959e38407b5/node_modules/firebase-tools/lib/deploy/auth/deploy.js:47:5)
+    at async chain (/Users/richard/.npm/_npx/ba4f1959e38407b5/node_modules/firebase-tools/lib/deploy/index.js:105:9)
+    at async deploy (/Users/richard/.npm/_npx/ba4f1959e38407b5/node_modules/firebase-tools/lib/deploy/index.js:186:9)
+    at async /Users/richard/.npm/_npx/ba4f1959e38407b5/node_modules/firebase-tools/lib/command.js:277:28
+[error] 
+[error] Error: Failed to provision Firebase app: Both public display name and customer support email must be provided for Google Sign-In brand configuration, or neither if the project already has the OAuth Brand set.

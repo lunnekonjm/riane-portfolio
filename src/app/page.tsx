@@ -97,7 +97,7 @@ export default function HomePage() {
 
   const {
     positions, config, totalValue, totalCost, gainLoss, gainLossPercent,
-    monthlyDCATotal, saving, pendingCount, filledPositions,
+    monthlyDCATotal, saving, pendingCount, filledPositions, fxRates,
     addPosition, updatePosition, removePosition, updateConfig, refreshPrices, resetPortfolio,
   } = usePortfolio();
   const { result, status, statusMessage, isRunning, runAnalysis, history, clearResult } = useAnalysis();
@@ -314,9 +314,25 @@ export default function HomePage() {
                       <div className={`card-value ${gainLoss >= 0 ? 'stat-gain' : 'stat-loss'}`}>
                         {gainLoss >= 0 ? '+' : ''}{gainLoss.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
                       </div>
-                      <span className={`stat-change ${gainLoss >= 0 ? 'positive' : 'negative'}`}>
-                        {gainLossPercent >= 0 ? '↑' : '↓'} {Math.abs(gainLossPercent).toFixed(2)}%
-                      </span>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 }}>
+                        <span className={`stat-change ${gainLoss >= 0 ? 'positive' : 'negative'}`}>
+                          {gainLossPercent >= 0 ? '↑' : '↓'} {Math.abs(gainLossPercent).toFixed(2)}%
+                        </span>
+                        {gainLoss > 0 && (
+                          <span style={{ fontSize: 11, color: 'var(--text-muted)' }} title="Après prélèvements sociaux PEA (17.2%) et Flat Tax CTO (30%)">
+                            Net: +{filledPositions.reduce((sum, p) => {
+                              const price = p.currentPrice || p.avgPrice;
+                              const rateToEUR = (fxRates as any)[p.currency] || 1.0;
+                              const val = p.quantity * price * rateToEUR;
+                              const cost = p.quantity * p.avgPrice * rateToEUR;
+                              const pl = val - cost;
+                              if (pl <= 0) return sum + pl;
+                              const taxRate = (p.envelope === 'PEA' || p.envelope === 'PEA-PME') ? 0.172 : 0.30;
+                              return sum + (pl * (1 - taxRate));
+                            }, 0).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
+                          </span>
+                        )}
+                      </div>
                     </>
                   ) : (
                     <>

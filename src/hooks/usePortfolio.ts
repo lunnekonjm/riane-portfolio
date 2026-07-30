@@ -18,7 +18,7 @@ import type { User } from 'firebase/auth';
 
 export function usePortfolio() {
   const [user, setUser] = useState<User | null>(null);
-  const [positions, setPositions] = useState<Position[]>(DEFAULT_POSITIONS);
+  const [positions, setPositions] = useState<Position[]>([]);
   const [config, setConfig] = useState<PortfolioConfig | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -33,15 +33,14 @@ export function usePortfolio() {
             getPositions(u.uid),
             getPortfolioConfig(u.uid),
           ]);
-          if (pos.length > 0) {
-            setPositions(pos);
-          } else {
-            await saveAllPositions(u.uid, DEFAULT_POSITIONS);
-          }
+          setPositions(pos);
           setConfig(cfg);
         } catch (err) {
           console.error('Error loading portfolio:', err);
         }
+      } else {
+        setPositions([]);
+        setConfig(null);
       }
       setLoading(false);
     });

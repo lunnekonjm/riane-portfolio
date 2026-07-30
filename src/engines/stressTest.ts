@@ -6,8 +6,8 @@
 import type { StressScenario, StressTestResult } from '@/types/simulation';
 import type { Position } from '@/types/portfolio';
 
-/** Map des sensibilités actif → facteur de choc */
-const ASSET_SENSITIVITY: Record<string, Record<string, number>> = {
+/** Map des sensibilités actif → facteur de choc (connus) */
+const KNOWN_SENSITIVITY: Record<string, Record<string, number>> = {
   'CW8.PA': { global_equities: 1.0, technology: 0.3, small_caps: 0.2 },
   'PUST.PA': { global_equities: 0.8, technology: 1.0, nasdaq_100: 1.0, small_caps: 0.1 },
   'INDE.PA': { global_equities: 0.5, europe_small: 1.0, small_caps: 0.9 },
@@ -19,13 +19,77 @@ const ASSET_SENSITIVITY: Record<string, Record<string, number>> = {
 };
 
 /**
+ * Dynamically infer sensitivity for unknown positions based on their metadata
+ */
+function getSensitivity(position: Position): Record<string, number> {
+  // Use known mapping if available
+  if (KNOWN_SENSITIVITY[position.ticker]) {
+    return KNOWN_SENSITIVITY[position.ticker];
+  }
+
+  // Infer from position metadata
+  const sensitivity: Record<string, number> = {};
+
+  // Asset type based defaults
+  if (position.assetType === 'ETF') {
+    sensitivity.global_equities = 0.8;
+  } else if (position.assetType === 'STOCK') {
+    sensitivity.global_equities = 0.6;
+  } else if (position.assetType === 'BOND') {
+    sensitivity.global_equities = 0.1;
+    sensitivity.interest_rates = 0.8;
+  } else if (position.assetType === 'CRYPTO') {
+    sensitivity.global_equities = 0.4;
+    sensitivity.speculative = 1.0;
+  }
+
+  // Theme-based sensitivity
+  for (const theme of position.themes) {
+    if (theme.includes('tech') || theme.includes('ai') || theme.includes('semi')) {
+      sensitivity.technology = 0.8;
+      sensitivity.nasdaq_100 = 0.6;
+    }
+    if (theme.includes('small') || theme.includes('micro')) {
+      sensitivity.small_caps = 0.8;
+      sensitivity.europe_small = 0.6;
+    }
+    if (theme.includes('energy') || theme.includes('nuclear')) {
+      sensitivity.energy = 0.7;
+    }
+    if (theme.includes('specul')) {
+      sensitivity.speculative = 0.5;
+      sensitivity.speculative_bucket = 0.5;
+    }
+  }
+
+  // Currency exposure — USD assets are affected by EUR/USD
+  if (position.currency === 'USD') {
+    sensitivity.eur_usd = -0.4;
+    sensitivity.eur_appreciation = -0.4;
+  }
+
+  // Envelope-based — speculative/opportunistic positions are more volatile
+  if (position.envelope === 'SPECULATIVE' || position.envelope === 'OPPORTUNISTIC') {
+    sensitivity.speculative = Math.max(sensitivity.speculative || 0, 0.5);
+    sensitivity.global_equities = Math.max(sensitivity.global_equities || 0, 0.7);
+  }
+
+  // Fallback: at least some market sensitivity
+  if (Object.keys(sensitivity).length === 0) {
+    sensitivity.global_equities = 0.5;
+  }
+
+  return sensitivity;
+}
+
+/**
  * Calculate the impact of a stress scenario on a single position
  */
 function calculatePositionImpact(
   position: Position,
   scenario: StressScenario
 ): number {
-  const sensitivity = ASSET_SENSITIVITY[position.ticker] || { global_equities: 0.5 };
+  const sensitivity = getSensitivity(position);
   let totalShock = 0;
   let shockCount = 0;
 

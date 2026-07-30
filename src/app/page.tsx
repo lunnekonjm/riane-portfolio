@@ -148,13 +148,32 @@ export default function HomePage() {
   if (authLoading) return <div className="auth-screen"><div className="loading-spinner" style={{ width: 40, height: 40 }} /></div>;
   if (!user) return <AuthScreen />;
 
+  const defaultConfig = {
+    monthlyBudget: 1000,
+    annualCTOBudget: 8000,
+    annualSpeculativeCap: 2000,
+    riskProfile: 'dynamic' as const,
+    noLeverage: true,
+    rebalanceByFlows: true,
+    baseCurrency: 'EUR' as const,
+    horizonYears: 15,
+  };
+
   const handleRunAnalysis = () => {
     if (!queryInput.trim() || isRunning) return;
-    runAnalysis(user.uid, queryInput.trim(), positions, config);
+    if (positions.length === 0) {
+      showToast('Ajoutez au moins une position avant de lancer une analyse', 'error');
+      return;
+    }
+    runAnalysis(user.uid, queryInput.trim(), positions, config || defaultConfig);
     setCurrentView('analysis');
   };
 
   const handleRunStressTest = (scenarioIdx: number) => {
+    if (positions.length === 0) {
+      showToast('Ajoutez des positions pour lancer un stress test', 'error');
+      return;
+    }
     const scenario = ALL_SCENARIOS[scenarioIdx];
     if (scenario) {
       const stressResult = runStressTest(positions, scenario);
@@ -388,30 +407,44 @@ export default function HomePage() {
               </div>
 
               {/* Thematic Exposure */}
-              <div className="card">
-                <div className="card-header">
-                  <span className="card-title">Exposition Thématique Transversale</span>
-                </div>
-                <div className="theme-bar-container">
-                  {THEMES.filter((t) => t.tickers.length > 0).map((theme) => {
-                    const themePositions = positions.filter((p) => theme.tickers.includes(p.ticker));
-                    const exposure = totalValue > 0
-                      ? themePositions.reduce((s, p) => s + p.quantity * (p.currentPrice || p.avgPrice), 0) / totalValue * 100
-                      : (themePositions.length / positions.length) * 100;
-                    const maxPct = theme.maxExposure * 100;
-                    return (
-                      <div className="theme-bar-row" key={theme.id}>
-                        <span className="theme-bar-label">{theme.label}</span>
-                        <div className="theme-bar-track">
-                          <div className="theme-bar-fill" style={{ width: `${Math.min(exposure, 100)}%` }} />
-                          <div className="theme-bar-limit" style={{ left: `${maxPct}%` }} title={`Max ${maxPct}%`} />
+              {positions.length > 0 && (
+                <div className="card">
+                  <div className="card-header">
+                    <span className="card-title">Exposition Thématique Transversale</span>
+                  </div>
+                  <div className="theme-bar-container">
+                    {THEMES.filter((t) => t.tickers.length > 0).map((theme) => {
+                      // Match par ticker OU par thème assigné à la position
+                      const themePositions = positions.filter((p) =>
+                        theme.tickers.includes(p.ticker) || p.themes.includes(theme.id)
+                      );
+                      const exposure = totalValue > 0
+                        ? themePositions.reduce((s, p) => s + p.quantity * (p.currentPrice || p.avgPrice), 0) / totalValue * 100
+                        : 0;
+                      const maxPct = theme.maxExposure * 100;
+                      const isOverLimit = exposure > maxPct;
+                      return (
+                        <div className="theme-bar-row" key={theme.id}>
+                          <span className="theme-bar-label">{theme.label}</span>
+                          <div className="theme-bar-track">
+                            <div
+                              className="theme-bar-fill"
+                              style={{
+                                width: `${Math.min(exposure, 100)}%`,
+                                background: isOverLimit ? 'var(--accent-rose)' : undefined,
+                              }}
+                            />
+                            <div className="theme-bar-limit" style={{ left: `${maxPct}%` }} title={`Max ${maxPct}%`} />
+                          </div>
+                          <span className="theme-bar-value" style={{ color: isOverLimit ? 'var(--accent-rose)' : undefined }}>
+                            {exposure.toFixed(1)}%
+                          </span>
                         </div>
-                        <span className="theme-bar-value">{exposure.toFixed(1)}%</span>
-                      </div>
-                    );
-                  })}
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
+              )}
             </>
           )}
 
@@ -427,7 +460,38 @@ export default function HomePage() {
                   </div>
                 )}
 
-                {/* Pipeline status */}
+                {/* Pipeline steps visualization */}
+                {(isRunning || result) && (
+                  <div style={{ display: 'flex', gap: 8, justifyContent: 'center', padding: '16px 0' }}>
+                    {PIPELINE_STEPS.map((step, i) => {
+                      const isCurrent = status === step.key;
+                      const isDone = PIPELINE_STEPS.findIndex(s => s.key === status) > i || status === 'complete';
+                      return (
+                        <div key={step.key} style={{
+                          display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
+                          opacity: isDone ? 1 : isCurrent ? 1 : 0.4,
+                          transition: 'opacity 0.3s ease',
+                        }}>
+                          <div style={{
+                            width: 40, height: 40, borderRadius: '50%',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            fontSize: 18,
+                            background: isDone ? 'var(--accent-emerald-glow)' : isCurrent ? 'var(--accent-cyan-glow)' : 'var(--bg-tertiary)',
+                            border: `2px solid ${isDone ? 'var(--accent-emerald)' : isCurrent ? 'var(--accent-cyan)' : 'var(--border-subtle)'}`,
+                            animation: isCurrent ? 'pulse 1.5s infinite' : undefined,
+                          }}>
+                            {isDone ? '✓' : step.icon}
+                          </div>
+                          <span style={{ fontSize: 10, fontWeight: 600, color: isDone ? 'var(--accent-emerald)' : isCurrent ? 'var(--accent-cyan)' : 'var(--text-muted)' }}>
+                            {step.label}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* Current status message */}
                 {isRunning && (
                   <div className="chat-message system">
                     <span className="loading-spinner" style={{ display: 'inline-block', marginRight: 8, verticalAlign: 'middle' }} />
@@ -695,43 +759,66 @@ export default function HomePage() {
 
           {/* ═══ AUDIT ═══ */}
           {currentView === 'audit' && (
-            <div className="card">
-              <div className="card-header">
-                <span className="card-title">Journal d&apos;Audit des Décisions</span>
-              </div>
-              {history.length === 0 ? (
-                <p style={{ color: 'var(--text-tertiary)', fontSize: 14, textAlign: 'center', padding: 40 }}>
-                  Aucune analyse effectuée pour le moment.<br />
-                  Lancez une analyse depuis le Dashboard ou la page Analyse.
-                </p>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                  {history.map((h) => (
-                    <div key={h.id} style={{ padding: 16, background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-                        <span style={{ fontWeight: 600 }}>{h.request.query}</span>
-                        <span style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>
-                          {h.completedAt ? new Date(h.completedAt).toLocaleString('fr-FR') : '—'}
-                        </span>
-                      </div>
-                      <div style={{ display: 'flex', gap: 8 }}>
-                        <span className={`badge ${h.request.status === 'complete' ? 'badge-emerald' : h.request.status === 'abstention' ? 'badge-amber' : 'badge-rose'}`}>
-                          {h.request.status}
-                        </span>
-                        {h.recommendation && (
-                          <span className="badge badge-cyan">{h.recommendation.action}</span>
-                        )}
-                        {h.recommendation && (
-                          <span className={`confidence-badge ${h.recommendation.confidence}`}>
-                            {h.recommendation.confidence}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  ))}
+            <>
+              {/* Résumé portefeuille */}
+              <div className="grid-3">
+                <div className="card">
+                  <div className="card-header"><span className="card-title">Positions</span></div>
+                  <div className="card-value" style={{ color: 'var(--accent-cyan)' }}>{positions.length}</div>
                 </div>
-              )}
-            </div>
+                <div className="card">
+                  <div className="card-header"><span className="card-title">Enveloppes</span></div>
+                  <div className="card-value">{Object.keys(envelopeGroups).length}</div>
+                </div>
+                <div className="card">
+                  <div className="card-header"><span className="card-title">Analyses</span></div>
+                  <div className="card-value">{history.length}</div>
+                </div>
+              </div>
+
+              <div className="card">
+                <div className="card-header">
+                  <span className="card-title">Journal d&apos;Audit des Décisions</span>
+                </div>
+                {history.length === 0 ? (
+                  <p style={{ color: 'var(--text-tertiary)', fontSize: 14, textAlign: 'center', padding: 40 }}>
+                    Aucune analyse effectuée pour le moment.<br />
+                    Lancez une analyse depuis le Dashboard ou la page Analyse.
+                  </p>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                    {history.map((h) => (
+                      <div key={h.id} style={{ padding: 16, background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)', cursor: 'pointer' }}
+                        onClick={() => { clearResult(); setCurrentView('analysis'); }}
+                      >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+                          <span style={{ fontWeight: 600 }}>{h.request.query}</span>
+                          <span style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>
+                            {h.completedAt ? new Date(h.completedAt).toLocaleString('fr-FR') : '—'}
+                          </span>
+                        </div>
+                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                          <span className={`badge ${h.request.status === 'complete' ? 'badge-emerald' : h.request.status === 'abstention' ? 'badge-amber' : 'badge-rose'}`}>
+                            {h.request.status === 'complete' ? '✓ Complète' : h.request.status === 'abstention' ? '⛔ Abstention' : h.request.status}
+                          </span>
+                          {h.recommendation && (
+                            <span className="badge badge-cyan">{h.recommendation.action}</span>
+                          )}
+                          {h.recommendation && (
+                            <span className={`confidence-badge ${h.recommendation.confidence}`}>
+                              {h.recommendation.confidence}
+                            </span>
+                          )}
+                          {h.marketData && (
+                            <span className="badge badge-violet">{h.marketData.ticker} · {h.marketData.price?.toFixed(2)} {h.marketData.currency}</span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </>
           )}
         </div>
       </main>

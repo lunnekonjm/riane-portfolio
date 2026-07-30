@@ -137,6 +137,18 @@ export default function HomePage() {
 
   const unreadNotificationsCount = notifications.filter((n) => !n.read).length;
 
+  // Auto-scroll chat messages container when synthesis or pipeline completes
+  useEffect(() => {
+    if (result?.synthesis || result?.marketData) {
+      setTimeout(() => {
+        const chatEl = document.getElementById('chat-messages');
+        if (chatEl) {
+          chatEl.scrollTop = chatEl.scrollHeight;
+        }
+      }, 100);
+    }
+  }, [result?.synthesis, result?.marketData]);
+
   useEffect(() => {
     const unsub = onAuthChange((u) => {
       setUser(u);

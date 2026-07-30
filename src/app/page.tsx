@@ -12,6 +12,10 @@ import { runStressTest } from '@/engines/stressTest';
 import PositionEditor from '@/components/PositionEditor';
 import ConfigEditor from '@/components/ConfigEditor';
 import EnvelopesTaxView from '@/components/EnvelopesTaxView';
+import NotificationCenterModal from '@/components/NotificationCenterModal';
+import { generatePortfolioNotifications } from '@/engines/notificationEngine';
+import type { AppNotification, NotificationSettings } from '@/types/notification';
+import { DEFAULT_NOTIFICATION_SETTINGS } from '@/types/notification';
 import { simulatePositionDCA } from '@/engines/dcaSimulation';
 import { calculatePortfolioRiskMetrics } from '@/engines/riskAnalytics';
 import { calculateSmartFlowRebalance, type FlowRebalanceResult } from '@/engines/flowRebalancer';
@@ -20,6 +24,7 @@ import type { User } from 'firebase/auth';
 import type { Position, PortfolioConfig } from '@/types/portfolio';
 import type { AnalysisStatus } from '@/types/analysis';
 import type { StressTestResult } from '@/types/simulation';
+import { useMemo } from 'react';
 
 type PageView = 'dashboard' | 'envelopes' | 'analysis' | 'risk' | 'audit';
 
@@ -99,6 +104,11 @@ export default function HomePage() {
   const [showFlowRebalanceModal, setShowFlowRebalanceModal] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showConfirmSignOut, setShowConfirmSignOut] = useState(false);
+  const [showNotificationModal, setShowNotificationModal] = useState(false);
+  const [notificationSettings, setNotificationSettings] = useState<NotificationSettings>(DEFAULT_NOTIFICATION_SETTINGS);
+  const [readNotificationIds, setReadNotificationIds] = useState<string[]>([]);
+  const [clearedNotificationIds, setClearedNotificationIds] = useState<string[]>([]);
+
   const [flowRebalanceResult, setFlowRebalanceResult] = useState<FlowRebalanceResult | null>(null);
   const [dcaGlobalStartDate, setDcaGlobalStartDate] = useState<string>('2024-01');
   const [adjustInflation, setAdjustInflation] = useState<boolean>(false);
@@ -112,6 +122,19 @@ export default function HomePage() {
     addPosition, updatePosition, removePosition, updateConfig, refreshPrices, resetPortfolio,
   } = usePortfolio();
   const { result, status, statusMessage, isRunning, runAnalysis, history, clearResult } = useAnalysis();
+
+  const rawNotifications = useMemo(() => {
+    const monthlyBudget = config?.monthlyBudget || 1000;
+    return generatePortfolioNotifications(positions, fxRates, notificationSettings, monthlyBudget);
+  }, [positions, fxRates, notificationSettings, config?.monthlyBudget]);
+
+  const notifications = useMemo(() => {
+    return rawNotifications
+      .filter((n) => !clearedNotificationIds.includes(n.id))
+      .map((n) => ({ ...n, read: n.read || readNotificationIds.includes(n.id) }));
+  }, [rawNotifications, readNotificationIds, clearedNotificationIds]);
+
+  const unreadNotificationsCount = notifications.filter((n) => !n.read).length;
 
   useEffect(() => {
     const unsub = onAuthChange((u) => {
@@ -265,27 +288,62 @@ export default function HomePage() {
             {currentView === 'audit' && '📋 Journal d\'Audit'}
           </h1>
 
-          {/* Global Inflation Toggle Switch */}
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 8,
-            background: adjustInflation ? 'rgba(245, 158, 11, 0.15)' : 'var(--bg-secondary)',
-            padding: '6px 14px',
-            borderRadius: 10,
-            border: adjustInflation ? '1px solid var(--accent-amber)' : '1px solid var(--border-subtle)',
-            transition: 'all 0.2s ease',
-          }}>
-            <span style={{ fontSize: 14 }}>🎈</span>
-            <label style={{ fontSize: 12, fontWeight: 700, color: adjustInflation ? 'var(--accent-amber)' : 'var(--text-secondary)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, margin: 0 }}>
-              <input
-                type="checkbox"
-                checked={adjustInflation}
-                onChange={(e) => setAdjustInflation(e.target.checked)}
-                style={{ cursor: 'pointer', accentColor: 'var(--accent-amber)' }}
-              />
-              Inflation (Pouvoir d&apos;Achat Réel)
-            </label>
+          {/* Header Actions: Notification Bell & Global Inflation Toggle */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            {/* Notification Bell Button */}
+            <button
+              className="profile-pill-btn"
+              onClick={() => setShowNotificationModal(true)}
+              title="Centre de notifications & alertes"
+              id="notification-bell-btn"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+                padding: '6px 12px',
+                background: unreadNotificationsCount > 0 ? 'rgba(244, 63, 94, 0.15)' : 'var(--bg-secondary)',
+                borderRadius: 10,
+                border: unreadNotificationsCount > 0 ? '1px solid var(--accent-rose)' : '1px solid var(--border-subtle)',
+                cursor: 'pointer',
+              }}
+            >
+              <span style={{ fontSize: 15 }}>🔔</span>
+              {unreadNotificationsCount > 0 && (
+                <span style={{
+                  background: 'var(--accent-rose)',
+                  color: 'white',
+                  fontSize: 10,
+                  fontWeight: 800,
+                  padding: '2px 6px',
+                  borderRadius: 10,
+                }}>
+                  {unreadNotificationsCount}
+                </span>
+              )}
+            </button>
+
+            {/* Global Inflation Toggle Switch */}
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              background: adjustInflation ? 'rgba(245, 158, 11, 0.15)' : 'var(--bg-secondary)',
+              padding: '6px 14px',
+              borderRadius: 10,
+              border: adjustInflation ? '1px solid var(--accent-amber)' : '1px solid var(--border-subtle)',
+              transition: 'all 0.2s ease',
+            }}>
+              <span style={{ fontSize: 14 }}>🎈</span>
+              <label style={{ fontSize: 12, fontWeight: 700, color: adjustInflation ? 'var(--accent-amber)' : 'var(--text-secondary)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, margin: 0 }}>
+                <input
+                  type="checkbox"
+                  checked={adjustInflation}
+                  onChange={(e) => setAdjustInflation(e.target.checked)}
+                  style={{ cursor: 'pointer', accentColor: 'var(--accent-amber)' }}
+                />
+                Inflation (Pouvoir d&apos;Achat Réel)
+              </label>
+            </div>
           </div>
 
           {isRunning && (
@@ -1420,6 +1478,18 @@ export default function HomePage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* 🔔 Notification Center Modal */}
+      {showNotificationModal && (
+        <NotificationCenterModal
+          notifications={notifications}
+          settings={notificationSettings}
+          onClose={() => setShowNotificationModal(false)}
+          onMarkAllAsRead={() => setReadNotificationIds(notifications.map((n) => n.id))}
+          onClearAll={() => setClearedNotificationIds(notifications.map((n) => n.id))}
+          onUpdateSettings={(newSettings) => setNotificationSettings(newSettings)}
+        />
       )}
 
       {/* Toast */}

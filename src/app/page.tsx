@@ -13,6 +13,7 @@ import PositionEditor from '@/components/PositionEditor';
 import ConfigEditor from '@/components/ConfigEditor';
 import EnvelopesTaxView from '@/components/EnvelopesTaxView';
 import NotificationCenterModal from '@/components/NotificationCenterModal';
+import ReportsView from '@/components/ReportsView';
 import { generatePortfolioNotifications } from '@/engines/notificationEngine';
 import type { AppNotification, NotificationSettings } from '@/types/notification';
 import { DEFAULT_NOTIFICATION_SETTINGS } from '@/types/notification';
@@ -26,7 +27,7 @@ import type { AnalysisStatus } from '@/types/analysis';
 import type { StressTestResult } from '@/types/simulation';
 import { useMemo } from 'react';
 
-type PageView = 'dashboard' | 'envelopes' | 'analysis' | 'risk' | 'audit';
+type PageView = 'dashboard' | 'envelopes' | 'analysis' | 'risk' | 'audit' | 'reports';
 
 const PIPELINE_STEPS: Array<{ key: AnalysisStatus; label: string; icon: string }> = [
   { key: 'data-collection', label: 'Données', icon: '📊' },
@@ -247,6 +248,9 @@ export default function HomePage() {
         <button className={`sidebar-nav-item ${currentView === 'audit' ? 'active' : ''}`} onClick={() => setCurrentView('audit')} id="nav-audit">
           <span className="nav-icon">📋</span> Audit
         </button>
+        <button className={`sidebar-nav-item ${currentView === 'reports' ? 'active' : ''}`} onClick={() => setCurrentView('reports')} id="nav-reports">
+          <span className="nav-icon">📰</span> Rapports AI
+        </button>
 
         <div style={{ flex: 1 }} />
 
@@ -286,6 +290,7 @@ export default function HomePage() {
             {currentView === 'analysis' && '🔬 Analyse à la Demande'}
             {currentView === 'risk' && '⚡ Stress Tests & Risque'}
             {currentView === 'audit' && '📋 Journal d\'Audit'}
+            {currentView === 'reports' && '📰 Rapports & Newsletters AI'}
           </h1>
 
           {/* Header Actions: Notification Bell & Global Inflation Toggle */}
@@ -1296,6 +1301,20 @@ export default function HomePage() {
                 )}
               </div>
             </>
+          )}
+
+          {/* ═══ REPORTS & NEWSLETTERS ═══ */}
+          {currentView === 'reports' && (
+            <ReportsView
+              positions={positions}
+              config={config}
+              fxRates={fxRates}
+              adjustInflation={adjustInflation}
+              cumulativeInflationFactor={Math.pow(1 + inflationRate, Math.max(0, (new Date().getFullYear() - (parseInt(dcaGlobalStartDate.slice(0, 4)) || 2024)) + (new Date().getMonth() / 12)))}
+              inflationRate={inflationRate}
+              yearsElapsed={Math.max(0, (new Date().getFullYear() - (parseInt(dcaGlobalStartDate.slice(0, 4)) || 2024)) + (new Date().getMonth() / 12))}
+              onShowToast={showToast}
+            />
           )}
         </div>
       </main>

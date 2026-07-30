@@ -393,6 +393,32 @@ export default function HomePage() {
                 </div>
               </div>
 
+              {/* 🚨 Proactive Outlier / Krach Alert Banner */}
+              {notifications.filter((n) => n.category === 'outlier' && !n.read).length > 0 && (
+                <div className="card" style={{ borderLeft: '4px solid var(--accent-rose)', background: 'rgba(244, 63, 94, 0.12)', padding: 14, marginBottom: 16 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                      <span style={{ fontSize: 24 }}>🚨</span>
+                      <div>
+                        <strong style={{ color: 'var(--accent-rose)', fontSize: 14 }}>
+                          ALERTE PROACTIVE KRACH / ANOMALIE DE MARCHÉ DÉTECTÉE !
+                        </strong>
+                        <div style={{ fontSize: 13, color: 'var(--text-primary)', marginTop: 2 }}>
+                          {notifications.find((n) => n.category === 'outlier' && !n.read)?.message}
+                        </div>
+                      </div>
+                    </div>
+                    <button
+                      className="btn btn-secondary btn-sm"
+                      onClick={() => setShowNotificationModal(true)}
+                      style={{ borderColor: 'var(--accent-rose)', color: 'var(--accent-rose)', fontWeight: 700 }}
+                    >
+                      Voir les alertes (🔔)
+                    </button>
+                  </div>
+                </div>
+              )}
+
               {/* Onboarding Banner */}
               {pendingCount > 0 && (
                 <div className="card" style={{ borderLeft: '3px solid var(--accent-amber)', display: 'flex', alignItems: 'center', gap: 16 }}>

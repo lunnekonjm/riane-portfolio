@@ -108,5 +108,38 @@ export function generatePortfolioNotifications(
     });
   }
 
+  // ── 4. Krach & Outlier Price Move Alerts ──
+  if (settings.outlierAlertsEnabled ?? true) {
+    const threshold = settings.outlierThresholdPct || 3.0;
+
+    filled.forEach((p) => {
+      if (p.currentPrice && p.avgPrice && p.avgPrice > 0) {
+        const movePct = ((p.currentPrice - p.avgPrice) / p.avgPrice) * 100;
+
+        if (movePct <= -threshold * 2) {
+          notifications.push({
+            id: `notif-crash-${p.id}`,
+            category: 'outlier',
+            title: `🚨 Alerte Krach / Baisse Anormale : ${p.name} (${p.ticker})`,
+            message: `Le cours de ${p.name} (${p.currentPrice.toFixed(2)} ${p.currency}) enregistre une baisse marquée de ${movePct.toFixed(1)}% par rapport à votre PRU (${p.avgPrice.toFixed(2)} ${p.currency}). Opportunité d'achat sur réajustement.`,
+            timestamp: now,
+            read: false,
+            priority: 'high',
+          });
+        } else if (movePct >= threshold * 3) {
+          notifications.push({
+            id: `notif-surge-${p.id}`,
+            category: 'outlier',
+            title: `🚀 Alerte Envolée Exceptionnelle : ${p.name} (${p.ticker})`,
+            message: `Surperformance majeure ! ${p.name} affiche un gain de +${movePct.toFixed(1)}% par rapport à votre PRU (${p.avgPrice.toFixed(2)} ${p.currency}).`,
+            timestamp: now,
+            read: false,
+            priority: 'medium',
+          });
+        }
+      }
+    });
+  }
+
   return notifications;
 }

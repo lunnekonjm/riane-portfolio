@@ -2,7 +2,7 @@
  * Notification System Types
  */
 
-export type NotificationCategory = 'dca' | 'fiscal' | 'risk' | 'market';
+export type NotificationCategory = 'dca' | 'fiscal' | 'risk' | 'market' | 'outlier';
 
 export interface AppNotification {
   id: string;
@@ -21,6 +21,8 @@ export interface NotificationSettings {
   peaCeilingAlertsEnabled: boolean;
   allocationDriftEnabled: boolean;
   marketVolatilityEnabled: boolean;
+  outlierAlertsEnabled: boolean;
+  outlierThresholdPct: number; // Default 3.0%
 }
 
 export const DEFAULT_NOTIFICATION_SETTINGS: NotificationSettings = {
@@ -29,4 +31,6 @@ export const DEFAULT_NOTIFICATION_SETTINGS: NotificationSettings = {
   peaCeilingAlertsEnabled: true,
   allocationDriftEnabled: true,
   marketVolatilityEnabled: true,
+  outlierAlertsEnabled: true,
+  outlierThresholdPct: 3.0,
 };

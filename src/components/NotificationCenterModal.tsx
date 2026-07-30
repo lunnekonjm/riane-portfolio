@@ -88,7 +88,7 @@ export default function NotificationCenterModal({
             {/* Category Filter Pills & Action Buttons */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
               <div style={{ display: 'flex', gap: 6 }}>
-                {(['all', 'dca', 'fiscal', 'risk'] as const).map((cat) => (
+                {(['all', 'dca', 'fiscal', 'risk', 'outlier'] as const).map((cat) => (
                   <button
                     key={cat}
                     className={`btn btn-sm ${selectedCategory === cat ? 'btn-primary' : 'btn-secondary'}`}
@@ -99,6 +99,7 @@ export default function NotificationCenterModal({
                     {cat === 'dca' && '💸 DCA'}
                     {cat === 'fiscal' && '🏛️ Fiscal'}
                     {cat === 'risk' && '⚡ Risque'}
+                    {cat === 'outlier' && '🚨 Krach & Outliers'}
                   </button>
                 ))}
               </div>
@@ -229,6 +230,39 @@ export default function NotificationCenterModal({
                 />
               </label>
             </div>
+
+            {/* Setting 4: Krach & Outliers Alert */}
+            <div style={{ padding: 14, background: 'var(--bg-tertiary)', borderRadius: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--accent-rose)' }}>🚨 Alertes Krach Boursier & Variations Anormales (Outliers)</div>
+                <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 2 }}>
+                  Détection proactive en cas de baisse brutal ou d&apos;envolée exceptionnelle d&apos;un actif.
+                </div>
+              </div>
+              <label style={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
+                <input
+                  type="checkbox"
+                  checked={settings.outlierAlertsEnabled ?? true}
+                  onChange={(e) => onUpdateSettings({ ...settings, outlierAlertsEnabled: e.target.checked })}
+                  style={{ width: 18, height: 18, accentColor: 'var(--accent-rose)', cursor: 'pointer' }}
+                />
+              </label>
+            </div>
+
+            {settings.outlierAlertsEnabled && (
+              <div style={{ padding: '10px 14px', background: 'var(--bg-secondary)', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Sensibilité de détection d&apos;Outliers :</span>
+                <select
+                  value={settings.outlierThresholdPct || 3.0}
+                  onChange={(e) => onUpdateSettings({ ...settings, outlierThresholdPct: parseFloat(e.target.value) || 3.0 })}
+                  style={{ background: 'var(--bg-tertiary)', color: 'var(--accent-rose)', border: '1px solid var(--border-subtle)', borderRadius: 6, padding: '4px 10px', fontSize: 13, fontWeight: 700 }}
+                >
+                  <option value={3.0}>±3.0% (Haute Sensibilité)</option>
+                  <option value={5.0}>±5.0% (Sensibilité Normale)</option>
+                  <option value={7.0}>±7.0% (Chocs Majeurs Uniquement)</option>
+                </select>
+              </div>
+            )}
           </div>
         )}
 

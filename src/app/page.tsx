@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { onAuthChange, signInWithGoogle, signOut } from '@/services/firebase/auth';
 import { isFirebaseConfigured } from '@/services/firebase/config';
 import { usePortfolio } from '@/hooks/usePortfolio';
@@ -9,7 +9,10 @@ import { THEMES } from '@/data/themes';
 import { ENVELOPE_LABELS } from '@/data/portfolio';
 import { ALL_SCENARIOS } from '@/data/stressScenarios';
 import { runStressTest } from '@/engines/stressTest';
+import PositionEditor from '@/components/PositionEditor';
+import ConfigEditor from '@/components/ConfigEditor';
 import type { User } from 'firebase/auth';
+import type { Position, PortfolioConfig } from '@/types/portfolio';
 import type { AnalysisStatus } from '@/types/analysis';
 import type { StressTestResult } from '@/types/simulation';
 
@@ -86,8 +89,15 @@ export default function HomePage() {
   const [currentView, setCurrentView] = useState<PageView>('dashboard');
   const [queryInput, setQueryInput] = useState('');
   const [selectedStressResult, setSelectedStressResult] = useState<StressTestResult | null>(null);
+  const [editingPosition, setEditingPosition] = useState<Position | null | 'new'>(null);
+  const [showConfigEditor, setShowConfigEditor] = useState(false);
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
-  const { positions, config, totalValue, totalCost, gainLoss, gainLossPercent } = usePortfolio();
+  const {
+    positions, config, totalValue, totalCost, gainLoss, gainLossPercent,
+    monthlyDCATotal, saving,
+    addPosition, updatePosition, removePosition, updateConfig, refreshPrices,
+  } = usePortfolio();
   const { result, status, statusMessage, isRunning, runAnalysis, history, clearResult } = useAnalysis();
 
   useEffect(() => {
@@ -97,6 +107,42 @@ export default function HomePage() {
     });
     return unsub;
   }, []);
+
+  // Auto-dismiss toast
+  useEffect(() => {
+    if (toast) {
+      const t = setTimeout(() => setToast(null), 3000);
+      return () => clearTimeout(t);
+    }
+  }, [toast]);
+
+  const showToast = (message: string, type: 'success' | 'error' = 'success') => {
+    setToast({ message, type });
+  };
+
+  const handleSavePosition = async (pos: Position) => {
+    if (editingPosition === 'new') {
+      await addPosition(pos);
+      showToast(`${pos.name} ajouté au portefeuille`);
+    } else {
+      await updatePosition(pos);
+      showToast(`${pos.name} mis à jour`);
+    }
+    setEditingPosition(null);
+  };
+
+  const handleDeletePosition = async (id: string) => {
+    const pos = positions.find((p) => p.id === id);
+    await removePosition(id);
+    showToast(`${pos?.name || 'Position'} supprimée`);
+    setEditingPosition(null);
+  };
+
+  const handleSaveConfig = async (cfg: PortfolioConfig) => {
+    await updateConfig(cfg);
+    showToast('Configuration mise à jour');
+    setShowConfigEditor(false);
+  };
 
   if (!isFirebaseConfigured()) return <ConfigNeeded />;
   if (authLoading) return <div className="auth-screen"><div className="loading-spinner" style={{ width: 40, height: 40 }} /></div>;
@@ -204,27 +250,46 @@ export default function HomePage() {
                 <div className="card">
                   <div className="card-header"><span className="card-title">Valeur Totale</span></div>
                   <div className="card-value" style={{ color: 'var(--accent-cyan)' }}>
-                    {totalValue.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
+                    {totalValue > 0
+                      ? totalValue.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })
+                      : '—'}
                   </div>
+                  {totalValue === 0 && <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Renseignez vos positions</span>}
                 </div>
                 <div className="card">
                   <div className="card-header"><span className="card-title">Coût Total</span></div>
-                  <div className="card-value">{totalCost.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}</div>
+                  <div className="card-value">
+                    {totalCost > 0
+                      ? totalCost.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })
+                      : '—'}
+                  </div>
                 </div>
                 <div className="card">
                   <div className="card-header"><span className="card-title">Plus/Moins-Value</span></div>
-                  <div className={`card-value ${gainLoss >= 0 ? 'stat-gain' : 'stat-loss'}`}>
-                    {gainLoss >= 0 ? '+' : ''}{gainLoss.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
-                  </div>
-                  <span className={`stat-change ${gainLoss >= 0 ? 'positive' : 'negative'}`}>
-                    {gainLossPercent >= 0 ? '↑' : '↓'} {Math.abs(gainLossPercent).toFixed(2)}%
-                  </span>
+                  {totalCost > 0 ? (
+                    <>
+                      <div className={`card-value ${gainLoss >= 0 ? 'stat-gain' : 'stat-loss'}`}>
+                        {gainLoss >= 0 ? '+' : ''}{gainLoss.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
+                      </div>
+                      <span className={`stat-change ${gainLoss >= 0 ? 'positive' : 'negative'}`}>
+                        {gainLossPercent >= 0 ? '↑' : '↓'} {Math.abs(gainLossPercent).toFixed(2)}%
+                      </span>
+                    </>
+                  ) : (
+                    <div className="card-value" style={{ color: 'var(--text-muted)' }}>—</div>
+                  )}
                 </div>
-                <div className="card">
-                  <div className="card-header"><span className="card-title">DCA Mensuel</span></div>
-                  <div className="card-value" style={{ color: 'var(--accent-emerald)' }}>
-                    {(config?.monthlyBudget || 1000).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
+                <div className="card" style={{ cursor: 'pointer' }} onClick={() => setShowConfigEditor(true)}>
+                  <div className="card-header">
+                    <span className="card-title">DCA Mensuel</span>
+                    <span style={{ fontSize: 14, color: 'var(--text-muted)' }}>⚙️</span>
                   </div>
+                  <div className="card-value" style={{ color: 'var(--accent-emerald)' }}>
+                    {monthlyDCATotal > 0
+                      ? monthlyDCATotal.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })
+                      : (config?.monthlyBudget || 1000).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
+                  </div>
+                  <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Cliquer pour configurer</span>
                 </div>
               </div>
 
@@ -248,44 +313,78 @@ export default function HomePage() {
               {/* Portfolio by Envelope */}
               <div className="card">
                 <div className="card-header">
-                  <span className="card-title">Positions par Enveloppe</span>
+                  <span className="card-title">Positions ({positions.length})</span>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button className="btn btn-secondary" onClick={refreshPrices} title="Rafraîchir les prix" id="refresh-prices-btn">
+                      🔄 Prix
+                    </button>
+                    <button className="btn btn-primary" onClick={() => setEditingPosition('new')} id="add-position-btn">
+                      ➕ Ajouter
+                    </button>
+                  </div>
                 </div>
-                <table className="portfolio-table">
-                  <thead>
-                    <tr>
-                      <th>Actif</th>
-                      <th>Ticker</th>
-                      <th>Enveloppe</th>
-                      <th>Quantité</th>
-                      <th>Prix Moyen</th>
-                      <th>DCA/mois</th>
-                      <th>Thèmes</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {positions.map((pos) => (
-                      <tr key={pos.id}>
-                        <td style={{ fontWeight: 600 }}>{pos.name}</td>
-                        <td className="mono">{pos.ticker}</td>
-                        <td>
-                          <span className={`envelope-tag ${pos.envelope.toLowerCase().replace('-', '-')}`}>
-                            {pos.envelope}
-                          </span>
-                        </td>
-                        <td className="mono">{pos.quantity}</td>
-                        <td className="mono">{pos.avgPrice > 0 ? `${pos.avgPrice.toFixed(2)} ${pos.currency === 'EUR' ? '€' : '$'}` : '—'}</td>
-                        <td className="mono">{pos.monthlyDCA ? `${pos.monthlyDCA} €` : pos.annualBudget ? `${pos.annualBudget} €/an` : '—'}</td>
-                        <td>
-                          {pos.themes.slice(0, 2).map((t) => (
-                            <span key={t} className="badge badge-violet" style={{ marginRight: 4 }}>
-                              {THEMES.find((th) => th.id === t)?.label || t}
-                            </span>
-                          ))}
-                        </td>
+                {positions.length === 0 ? (
+                  <div className="empty-state">
+                    <div className="empty-state-icon">📂</div>
+                    <div className="empty-state-text">Aucune position.<br />Ajoutez votre premier ETF ou action.</div>
+                    <button className="btn btn-primary" onClick={() => setEditingPosition('new')}>➕ Ajouter une position</button>
+                  </div>
+                ) : (
+                  <table className="portfolio-table">
+                    <thead>
+                      <tr>
+                        <th>Actif</th>
+                        <th>Ticker</th>
+                        <th>Enveloppe</th>
+                        <th>Qté</th>
+                        <th>PRU</th>
+                        <th>Prix</th>
+                        <th>Valeur</th>
+                        <th>P&L</th>
+                        <th>DCA</th>
+                        <th></th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {positions.map((pos) => {
+                        const price = pos.currentPrice || pos.avgPrice;
+                        const value = pos.quantity * price;
+                        const cost = pos.quantity * pos.avgPrice;
+                        const pl = value - cost;
+                        const plPct = cost > 0 ? (pl / cost) * 100 : 0;
+                        return (
+                          <tr key={pos.id} style={{ cursor: 'pointer' }} onClick={() => setEditingPosition(pos)}>
+                            <td style={{ fontWeight: 600 }}>{pos.name}</td>
+                            <td className="mono">{pos.ticker}</td>
+                            <td>
+                              <span className={`envelope-tag ${pos.envelope.toLowerCase()}`}>
+                                {pos.envelope}
+                              </span>
+                            </td>
+                            <td className="mono">{pos.quantity > 0 ? pos.quantity : <span style={{ color: 'var(--text-muted)' }}>—</span>}</td>
+                            <td className="mono">{pos.avgPrice > 0 ? `${pos.avgPrice.toFixed(2)} ${pos.currency === 'EUR' ? '€' : '$'}` : <span style={{ color: 'var(--text-muted)' }}>—</span>}</td>
+                            <td className="mono">{pos.currentPrice ? `${pos.currentPrice.toFixed(2)}` : <span style={{ color: 'var(--text-muted)' }}>—</span>}</td>
+                            <td className="mono" style={{ fontWeight: 600 }}>{value > 0 ? `${value.toLocaleString('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })} ${pos.currency === 'EUR' ? '€' : '$'}` : <span style={{ color: 'var(--text-muted)' }}>—</span>}</td>
+                            <td>
+                              {cost > 0 ? (
+                                <span className={`stat-change ${pl >= 0 ? 'positive' : 'negative'}`}>
+                                  {pl >= 0 ? '↑' : '↓'} {Math.abs(plPct).toFixed(1)}%
+                                </span>
+                              ) : <span style={{ color: 'var(--text-muted)' }}>—</span>}
+                            </td>
+                            <td className="mono" style={{ fontSize: 12 }}>{pos.monthlyDCA ? `${pos.monthlyDCA}€` : pos.annualBudget ? `${pos.annualBudget}€/an` : '—'}</td>
+                            <td onClick={(e) => e.stopPropagation()}>
+                              <div className="row-actions">
+                                <button className="row-action-btn" onClick={() => setEditingPosition(pos)} title="Modifier">✏️</button>
+                                <button className="row-action-btn danger" onClick={() => { if (confirm(`Supprimer ${pos.name} ?`)) handleDeletePosition(pos.id); }} title="Supprimer">🗑</button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                )}
               </div>
 
               {/* Thematic Exposure */}
@@ -636,6 +735,30 @@ export default function HomePage() {
           )}
         </div>
       </main>
+      {/* ═══ MODALS ═══ */}
+      {editingPosition && (
+        <PositionEditor
+          position={editingPosition === 'new' ? null : editingPosition}
+          onSave={handleSavePosition}
+          onClose={() => setEditingPosition(null)}
+          onDelete={editingPosition !== 'new' ? handleDeletePosition : undefined}
+        />
+      )}
+
+      {showConfigEditor && config && (
+        <ConfigEditor
+          config={config}
+          onSave={handleSaveConfig}
+          onClose={() => setShowConfigEditor(false)}
+        />
+      )}
+
+      {/* Toast */}
+      {toast && (
+        <div className={`toast ${toast.type}`}>
+          {toast.type === 'success' ? '✅' : '❌'} {toast.message}
+        </div>
+      )}
     </div>
   );
 }

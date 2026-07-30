@@ -5,9 +5,9 @@
 
 export type Envelope = 'PEA' | 'PEA-PME' | 'CTO' | 'PEE' | 'SPECULATIVE' | 'OPPORTUNISTIC';
 
-export type AssetType = 'ETF' | 'STOCK' | 'FUND';
+export type AssetType = 'ETF' | 'STOCK' | 'FUND' | 'BOND' | 'CRYPTO' | 'CASH';
 
-export type Currency = 'EUR' | 'USD';
+export type Currency = 'EUR' | 'USD' | 'GBP' | 'CHF';
 
 export interface Position {
   id: string;
@@ -44,11 +44,11 @@ export interface PortfolioConfig {
   /** Annual speculative budget cap */
   annualSpeculativeCap: number;
   /** Risk profile */
-  riskProfile: 'dynamic';
+  riskProfile: 'conservative' | 'balanced' | 'dynamic' | 'aggressive';
   /** No leverage allowed */
-  noLeverage: true;
+  noLeverage: boolean;
   /** Rebalance by flows first */
-  rebalanceByFlows: true;
+  rebalanceByFlows: boolean;
   /** Base currency */
   baseCurrency: Currency;
   /** Investment horizon in years */

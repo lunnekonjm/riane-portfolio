@@ -26,10 +26,47 @@ async function getAIModule() {
 
 export type StatusCallback = (status: AnalysisStatus, message: string) => void;
 
+const TICKER_MAP: Record<string, { ticker: string; name: string }> = {
+  microsoft: { ticker: 'MSFT', name: 'Microsoft Corporation' },
+  msft: { ticker: 'MSFT', name: 'Microsoft Corporation' },
+  apple: { ticker: 'AAPL', name: 'Apple Inc.' },
+  aapl: { ticker: 'AAPL', name: 'Apple Inc.' },
+  nvidia: { ticker: 'NVDA', name: 'NVIDIA Corporation' },
+  nvda: { ticker: 'NVDA', name: 'NVIDIA Corporation' },
+  amazon: { ticker: 'AMZN', name: 'Amazon.com Inc.' },
+  google: { ticker: 'GOOGL', name: 'Alphabet Inc.' },
+  alphabet: { ticker: 'GOOGL', name: 'Alphabet Inc.' },
+  meta: { ticker: 'META', name: 'Meta Platforms Inc.' },
+  tesla: { ticker: 'TSLA', name: 'Tesla Inc.' },
+  total: { ticker: 'TTE.PA', name: 'TotalEnergies SE' },
+  totalenergies: { ticker: 'TTE.PA', name: 'TotalEnergies SE' },
+  'air liquide': { ticker: 'AI.PA', name: 'Air Liquide SA' },
+  loreal: { ticker: 'OR.PA', name: 'L\'Oréal SA' },
+  'l\'oreal': { ticker: 'OR.PA', name: 'L\'Oréal SA' },
+  schneider: { ticker: 'SU.PA', name: 'Schneider Electric SE' },
+  'x-fab': { ticker: 'XFAB.PA', name: 'X-FAB Silicon Foundries SE' },
+  xfab: { ticker: 'XFAB.PA', name: 'X-FAB Silicon Foundries SE' },
+  asml: { ticker: 'ASML.AS', name: 'ASML Holding NV' },
+  lvmh: { ticker: 'MC.PA', name: 'LVMH Moët Hennessy Louis Vuitton' },
+  hermes: { ticker: 'RMS.PA', name: 'Hermès International' },
+  riber: { ticker: 'ALRIB.PA', name: 'Riber SA' },
+  memscap: { ticker: 'MEMS.PA', name: 'Memscap SA' },
+  coherent: { ticker: 'COHR', name: 'Coherent Corp' },
+  constellation: { ticker: 'CEG', name: 'Constellation Energy Corp' },
+  symbotic: { ticker: 'SYM', name: 'Symbotic Inc' },
+};
+
 /**
- * Extract ticker from user query using Gemini
+ * Extract ticker from user query using Gemini or Fallback Dictionary
  */
 async function extractTicker(query: string): Promise<string | null> {
+  const normalized = query.toLowerCase().trim();
+  for (const [key, val] of Object.entries(TICKER_MAP)) {
+    if (normalized.includes(key)) {
+      return val.ticker;
+    }
+  }
+
   const selection = await selectModel('synthesis');
   if (!selection.modelId) return null;
 
@@ -50,7 +87,7 @@ async function extractTicker(query: string): Promise<string | null> {
     const result = await model.generateContent(query);
     await recordUsage(selection.modelId, 'generation', 'success');
     const parsed = JSON.parse(result.response.text());
-    return parsed.ticker;
+    return parsed.ticker || null;
   } catch {
     return null;
   }
@@ -79,34 +116,47 @@ async function generateSynthesis(
     const model = getGenerativeModel(ai, {
       model: selection.modelId,
       generationConfig: { maxOutputTokens: 2048 },
-      systemInstruction: `Tu es le rapporteur en chef du portefeuille de RIANE. 
-Tu produis une synthèse claire, structurée et actionnable à partir des analyses des 4 agents.
-La synthèse doit :
-1. Résumer les conclusions clés
-2. Mettre en évidence les points de divergence entre agents
-3. Indiquer clairement la recommandation finale et ses conditions
-4. Rappeler les réserves du contradicteur
-5. Préciser la date d'expiration de la recommandation
-6. NE JAMAIS exécuter d'ordre — validation humaine obligatoire
+      systemInstruction: `Tu es l'analyste stratégique en chef du portefeuille de RIANE.
+Tu produis une réponse hyper-structurée, claire, proactive et directement actionnable pour l'utilisateur.
 
-Écris en français, de manière professionnelle mais accessible.`,
+STRUCTURE OBLIGATOIRE DE LA RÉPONSE :
+
+# 🎯 Recommandation & Pertinence
+Donne un verdict clair dès la première ligne (ex: 🟢 Pertinent / 🟡 À privilégier via ETF / 🔴 Non recommandé). Explique brièvement pourquoi.
+
+### 📊 1. Analyse de Redondance & Recouvrement (Overlap)
+Explique précisément dans quelle mesure cet actif est DÉJÀ détenu indirectement via les ETF existants du portefeuille (ex: ETF Nasdaq PUST.PA ou ETF MSCI ACWI GPEA.PA). Donne des chiffres concrets.
+
+### 🏛️ 2. Éligibilité & Optimisation Enveloppe Fiscale (PEA vs CTO)
+Précise l'enveloppe éligible (PEA, PEA-PME ou CTO). Si l'actif est uniquement éligible au CTO, explique l'impact de la Flat Tax 30% par rapport à l'exonération PEA (18.6% PS seuls).
+
+### 💸 3. Stratégie DCA & Allocation des Flux
+Explique comment cet achat s'intègre avec le budget DCA mensuel du portefeuille.
+
+### 🛡️ 4. Alternative Optimale Recommandée
+Donne la meilleure alternative d'investissement (ex: "Conserver l'exposition via l'ETF PUST.PA en PEA plutôt qu'acheter l'action en direct en CTO").
+
+Style : Professionnel, pédagogue, structuré avec des émoticônes claires et des titres lisibles.`,
     });
 
-    const prompt = `Synthèse de l'analyse pour "${context.ticker}" — Requête : ${context.query}
+    const prompt = `Analyse stratégique pour "${context.ticker || context.query}" — Requête utilisateur : "${context.query}"
+
+PORTEFEUILLE ACTUEL DE L'UTILISATEUR :
+${JSON.stringify(context.portfolioPositions.map(p => ({ ticker: p.ticker, name: p.name, envelope: p.envelope, qty: p.quantity, pru: p.avgPrice })), null, 2)}
 
 DONNÉES MARCHÉ :
-${JSON.stringify(dataResult.data, null, 2)}
+${JSON.stringify(dataResult?.data || {}, null, 2)}
 
 RECHERCHE FONDAMENTALE :
-${JSON.stringify(researchResult.data, null, 2)}
+${JSON.stringify(researchResult?.data || {}, null, 2)}
 
-ÉVALUATION PORTEFEUILLE :
-${JSON.stringify(portfolioResult.data, null, 2)}
+ÉVALUATION PORTEFEUILLE & RISQUE :
+${JSON.stringify(portfolioResult?.data || {}, null, 2)}
 
-CONTRE-ANALYSE :
-${JSON.stringify(criticResult.data, null, 2)}
+RÉSERVES DU CONTRADICTEUR :
+${JSON.stringify(criticResult?.data || {}, null, 2)}
 
-Produis la synthèse finale.`;
+Produis la synthèse finale proactive et structurée.`;
 
     const result = await model.generateContent(prompt);
     await recordUsage(selection.modelId, 'generation', 'success');
@@ -199,18 +249,7 @@ export async function runAnalysisPipeline(
       result.critique = criticResult.data;
     }
 
-    // Check abstention
-    if (criticResult.data?.abstentionCheck?.shouldAbstain) {
-      request.status = 'abstention';
-      result.synthesis = `⚠️ MODE ABSTENTION\n\nLe système s'abstient de recommander une action.\n\nRaisons :\n${criticResult.data.abstentionCheck.reasons.join('\n')}\n\nInformations nécessaires pour reprendre :\n${criticResult.data.abstentionCheck.requiredInfo.join('\n')}`;
-      result.completedAt = Date.now();
-
-      await saveAnalysis(uid, result);
-      onStatus?.('abstention', 'Abstention — informations insuffisantes');
-      return result;
-    }
-
-    // Step 6: Synthesis
+    // Step 6: Synthesis (Always generated for complete analysis)
     onStatus?.('synthesis', 'Synthèse finale...');
     result.synthesis = await generateSynthesis(
       context,

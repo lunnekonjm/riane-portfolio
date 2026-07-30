@@ -127,6 +127,19 @@ Produis une contre-analyse complète avec vérification d'abstention.`;
       }
     }
 
+    if (parsed) {
+      if (Array.isArray(parsed.ruleViolations)) {
+        parsed.ruleViolations = parsed.ruleViolations.filter(
+          (v: string) => !v.includes('undefined') && !v.includes('null')
+        );
+      }
+      if (parsed.abstentionCheck && parsed.abstentionCheck.reasons) {
+        parsed.abstentionCheck.reasons = parsed.abstentionCheck.reasons.filter(
+          (r: string) => !r.includes('undefined') && !r.includes('null')
+        );
+      }
+    }
+
     return {
       agent: 'critic',
       success: true,

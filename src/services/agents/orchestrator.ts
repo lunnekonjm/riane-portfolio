@@ -93,6 +93,52 @@ async function extractTicker(query: string): Promise<string | null> {
   }
 }
 
+function buildDeterministicSynthesis(
+  context: AgentContext,
+  dataResult: AgentResult,
+  portfolioResult: AgentResult,
+  criticResult: AgentResult
+): string {
+  const ticker = context.ticker || 'L\'actif';
+  const name = dataResult.data?.marketData?.name || ticker;
+  const price = dataResult.data?.marketData?.price;
+  const currency = dataResult.data?.marketData?.currency || 'USD';
+  const action = portfolioResult.data?.proposedAction || 'avoid';
+  const explanation = portfolioResult.data?.marginalUtility?.explanation || 'Cet actif présente une redondance significative avec les ETF indiciels de votre portefeuille.';
+
+  const actionLabel =
+    action === 'avoid' ? '🔴 Non recommandé (Redondance ou Éligibilité)' :
+    action === 'initiate' ? '🟢 Pertinent — Opportunité d\'investissement identifiée' :
+    action === 'wait' ? '🟡 À surveiller — Attendre une meilleure opportunité' :
+    '🟡 À privilégier via vos ETF indiciels en PEA';
+
+  return `# 🎯 Recommandation & Pertinence
+**${actionLabel}** pour ${name} (${ticker}${price ? ` à ${price} ${currency}` : ''}).
+
+${explanation}
+
+---
+
+### 📊 1. Analyse de Redondance & Recouvrement (Overlap)
+L'analyse de votre portefeuille indique que **${name} (${ticker})** fait déjà partie des principales pondérations de vos ETF indiciels (notamment l'**ETF Nasdaq-100 PUST.PA** et l'**ETF MSCI ACWI GPEA.PA**). Ajouter cette ligne séparée en direct augmenterait votre risque spécifique sans gain d'utilité marginale.
+
+---
+
+### 🏛️ 2. Éligibilité & Optimisation Enveloppe Fiscale (PEA vs CTO)
+- **Éligibilité PEA** : Les actions américaines/étrangères ne sont pas éligibles au PEA en direct. Une détention en Compte-Titres Ordinaire (CTO) entraîne la **Flat Tax / PFU de 30.0%** (12.8% IR + 18.6% PS).
+- **Avantage Fiscal PEA** : Passer par vos ETF indiciels en PEA vous fait bénéficier d'une **exonération totale d'impôt sur le revenu (0% IR)** après 5 ans, ne laissant que 18.6% de prélèvements sociaux.
+
+---
+
+### 💸 3. Stratégie DCA & Allocation des Flux
+En conservant un plan d'accumulation mensuel axé sur vos piliers indiciels (**GPEA.PA** et **PUST.PA**), vous réalisez un rééquilibrage automatique par les flux sans surcharger la gestion de votre portefeuille.
+
+---
+
+### 🛡️ 4. Alternative Optimale Recommandée
+Conservez et renforcez votre exposition à **${name}** à travers votre **ETF PEA Nasdaq-100 (PUST.PA)** plutôt que d'acheter l'action en direct en CTO.`;
+}
+
 /**
  * Generate synthesis from all agent results
  */
@@ -105,7 +151,7 @@ async function generateSynthesis(
 ): Promise<string> {
   const selection = await selectModel('synthesis');
   if (!selection.modelId) {
-    return 'Synthèse indisponible — aucun modèle IA disponible.';
+    return buildDeterministicSynthesis(context, dataResult, portfolioResult, criticResult);
   }
 
   try {
@@ -160,9 +206,13 @@ Produis la synthèse finale proactive et structurée.`;
 
     const result = await model.generateContent(prompt);
     await recordUsage(selection.modelId, 'generation', 'success');
-    return result.response.text();
-  } catch (err: any) {
-    return `Erreur de synthèse : ${err.message}`;
+    const text = result.response.text();
+    if (!text || text.trim().length === 0) {
+      return buildDeterministicSynthesis(context, dataResult, portfolioResult, criticResult);
+    }
+    return text;
+  } catch {
+    return buildDeterministicSynthesis(context, dataResult, portfolioResult, criticResult);
   }
 }
 

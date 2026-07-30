@@ -122,6 +122,19 @@ export default function PositionEditor({ position, onSave, onClose, onDelete }: 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.ticker.trim() || !form.name.trim()) return;
+
+    const cost = form.quantity * form.avgPrice;
+    if (form.envelope === 'PEA' && cost > 150000) {
+      if (!confirm(`⚠️ Attention : Les versements sur cette position (${cost.toLocaleString('fr-FR')} €) dépassent le plafond légal individuel du PEA (150 000 €).\nVoulez-vous quand même enregistrer ?`)) {
+        return;
+      }
+    }
+    if (form.envelope === 'PEA-PME' && cost > 225000) {
+      if (!confirm(`⚠️ Attention : Les versements sur cette position (${cost.toLocaleString('fr-FR')} €) dépassent le plafond légal cumulé PEA + PEA-PME (225 000 € max au total).\nVoulez-vous quand même enregistrer ?`)) {
+        return;
+      }
+    }
+
     onSave({ ...form, updatedAt: Date.now() });
   };
 

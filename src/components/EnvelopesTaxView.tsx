@@ -20,7 +20,7 @@ export const ENVELOPE_METADATA: Record<string, {
   PEA: {
     label: 'PEA (Plan d\'Épargne en Actions)',
     depositLimit: 150000,
-    description: 'Exonération d\'impôt sur le revenu après 5 ans d\'ancienneté',
+    description: 'Exonération d\'impôt sur le revenu après 5 ans d\'ancienneté (Plafond versement = 150 000 €)',
     taxRules: {
       under5Years: { irRate: 0.128, psRate: 0.172, label: 'Clôture du PEA ou PFU 30% (12.8% IR + 17.2% PS)' },
       over5Years: { irRate: 0.0, psRate: 0.172, label: 'Exonération d\'IR (0%) + Prélèvements Sociaux (17.2%)' },
@@ -29,7 +29,7 @@ export const ENVELOPE_METADATA: Record<string, {
   'PEA-PME': {
     label: 'PEA-PME',
     depositLimit: 225000,
-    description: 'Dédié aux PME et ETI européennes (plafond cumulé PEA+PME = 225k€)',
+    description: 'Dédié aux PME/ETI. Plafond cumulé PEA + PEA-PME = 225 000 € max au total (75 000 € si PEA à 150 000 €)',
     taxRules: {
       under5Years: { irRate: 0.128, psRate: 0.172, label: 'Clôture ou PFU 30% (12.8% IR + 17.2% PS)' },
       over5Years: { irRate: 0.0, psRate: 0.172, label: 'Exonération d\'IR (0%) + Prélèvements Sociaux (17.2%)' },
@@ -87,6 +87,21 @@ export default function EnvelopesTaxView({ positions, fxRates }: EnvelopesTaxVie
     return acc;
   }, {} as Record<string, Position[]>);
 
+  // Calculate PEA cost vs PEA-PME cost
+  const peaPositions = envelopeGroups['PEA'] || [];
+  const peaCost = peaPositions.reduce((sum, p) => sum + (p.quantity * p.avgPrice * (fxRates[p.currency] || 1)), 0);
+
+  const peaPmePositions = envelopeGroups['PEA-PME'] || [];
+  const peaPmeCost = peaPmePositions.reduce((sum, p) => sum + (p.quantity * p.avgPrice * (fxRates[p.currency] || 1)), 0);
+
+  // Legal French Rule: Combined PEA + PEA-PME deposits cannot exceed 225,000 €!
+  // So max allowed deposit on PEA-PME = 225,000 - PEA_cost (e.g. 75,000 if PEA is 150,000)
+  const maxPeaPmeAllowed = Math.max(0, 225000 - peaCost);
+
+  const isPeaExceeded = peaCost > 150000;
+  const isPeaPmeExceeded = peaPmeCost > maxPeaPmeAllowed;
+  const isCombinedExceeded = (peaCost + peaPmeCost) > 225000;
+
   const envelopeKeys = Array.from(new Set([...Object.keys(ENVELOPE_METADATA), ...Object.keys(envelopeGroups)]));
 
   // Compute metrics per envelope
@@ -116,8 +131,15 @@ export default function EnvelopesTaxView({ positions, fxRates }: EnvelopesTaxVie
 
     const gainLoss = totalValue - totalCost;
     const gainLossPercent = totalCost > 0 ? (gainLoss / totalCost) * 100 : 0;
-    const depositLimit = meta.depositLimit;
-    const fillRate = depositLimit ? (totalCost / depositLimit) * 100 : undefined;
+
+    // Dynamic legal deposit ceiling
+    let depositLimit = meta.depositLimit;
+    if (envKey === 'PEA-PME') {
+      // Combined PEA + PEA-PME limit = 225,000 €
+      depositLimit = maxPeaPmeAllowed;
+    }
+
+    const fillRate = depositLimit && depositLimit > 0 ? (totalCost / depositLimit) * 100 : undefined;
 
     return {
       envKey,
@@ -153,6 +175,25 @@ export default function EnvelopesTaxView({ positions, fxRates }: EnvelopesTaxVie
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+      {/* ⚠️ Legal Warning Banner if PEA / PEA-PME ceiling is exceeded */}
+      {(isPeaExceeded || isPeaPmeExceeded || isCombinedExceeded) && (
+        <div className="card" style={{ borderLeft: '4px solid var(--accent-rose)', background: 'rgba(244, 63, 94, 0.1)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <span style={{ fontSize: 28 }}>🚨</span>
+            <div>
+              <h3 style={{ fontSize: 16, fontWeight: 700, color: 'var(--accent-rose)' }}>
+                Dépassement du Plafond Légal PEA / PEA-PME (Code Monétaire et Financier - Loi PACTE)
+              </h3>
+              <p style={{ fontSize: 13, color: 'var(--text-primary)', marginTop: 4 }}>
+                {isPeaExceeded && `• Le PEA classique a dépassé le plafond légal de 150 000 € de versements (Actuel : ${peaCost.toLocaleString('fr-FR')} €).\n`}
+                {isPeaPmeExceeded && `• Le PEA-PME a dépassé son plafond dynamique légal (${maxPeaPmeAllowed.toLocaleString('fr-FR')} € max sur PEA-PME car le PEA est à ${peaCost.toLocaleString('fr-FR')} €).\n`}
+                {isCombinedExceeded && `• Le cumul PEA + PEA-PME dépasse la limite légale absolue de 225 000 € (Total actuel : ${(peaCost + peaPmeCost).toLocaleString('fr-FR')} €).`}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* 🏛️ Envelopes Grid */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: 20 }}>
         {summaries.map((s) => (
@@ -189,12 +230,12 @@ export default function EnvelopesTaxView({ positions, fxRates }: EnvelopesTaxVie
             </div>
 
             {/* Plafond de versement / Fill Rate */}
-            {s.depositLimit ? (
+            {s.envKey === 'PEA' && (
               <div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 4 }}>
-                  <span style={{ color: 'var(--text-secondary)' }}>Taux de remplissage du plafond</span>
-                  <span style={{ fontWeight: 600, color: (s.fillRate || 0) > 90 ? 'var(--accent-rose)' : 'var(--accent-emerald)' }}>
-                    {s.totalCost.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} € / {s.depositLimit.toLocaleString('fr-FR')} € ({(s.fillRate || 0).toFixed(1)}%)
+                  <span style={{ color: 'var(--text-secondary)' }}>Taux de remplissage PEA (Max 150 000 €)</span>
+                  <span style={{ fontWeight: 600, color: (s.fillRate || 0) > 100 ? 'var(--accent-rose)' : 'var(--accent-emerald)' }}>
+                    {s.totalCost.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} € / 150 000 € ({(s.fillRate || 0).toFixed(1)}%)
                   </span>
                 </div>
                 <div style={{ height: 8, background: 'var(--bg-tertiary)', borderRadius: 4, overflow: 'hidden' }}>
@@ -202,13 +243,39 @@ export default function EnvelopesTaxView({ positions, fxRates }: EnvelopesTaxVie
                     style={{
                       height: '100%',
                       width: `${Math.min(100, s.fillRate || 0)}%`,
-                      background: (s.fillRate || 0) > 90 ? 'var(--accent-rose)' : 'linear-gradient(90deg, var(--accent-cyan), var(--accent-emerald))',
+                      background: (s.fillRate || 0) > 100 ? 'var(--accent-rose)' : 'linear-gradient(90deg, var(--accent-cyan), var(--accent-emerald))',
                       transition: 'width 0.5s ease',
                     }}
                   />
                 </div>
               </div>
-            ) : (
+            )}
+
+            {s.envKey === 'PEA-PME' && (
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 4 }}>
+                  <span style={{ color: 'var(--text-secondary)' }}>Plafond dynamique PEA-PME (Cumul max 225k€)</span>
+                  <span style={{ fontWeight: 600, color: (s.fillRate || 0) > 100 ? 'var(--accent-rose)' : 'var(--accent-emerald)' }}>
+                    {s.totalCost.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} € / {maxPeaPmeAllowed.toLocaleString('fr-FR')} € ({(s.fillRate || 0).toFixed(1)}%)
+                  </span>
+                </div>
+                <div style={{ height: 8, background: 'var(--bg-tertiary)', borderRadius: 4, overflow: 'hidden' }}>
+                  <div
+                    style={{
+                      height: '100%',
+                      width: `${Math.min(100, s.fillRate || 0)}%`,
+                      background: (s.fillRate || 0) > 100 ? 'var(--accent-rose)' : 'linear-gradient(90deg, var(--accent-cyan), var(--accent-emerald))',
+                      transition: 'width 0.5s ease',
+                    }}
+                  />
+                </div>
+                <span style={{ fontSize: 11, color: 'var(--text-muted)', display: 'block', marginTop: 4 }}>
+                  ℹ️ Calculé dynamiquement : 225 000 € - {peaCost.toLocaleString('fr-FR')} € (PEA) = {maxPeaPmeAllowed.toLocaleString('fr-FR')} € max autorisés sur PEA-PME.
+                </span>
+              </div>
+            )}
+
+            {!s.depositLimit && s.envKey !== 'PEA-PME' && s.envKey !== 'PEA' && (
               <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
                 ℹ️ Sans plafond légal de versement
               </div>
@@ -254,8 +321,8 @@ export default function EnvelopesTaxView({ positions, fxRates }: EnvelopesTaxVie
               value={simSeniority}
               onChange={(e) => setSimSeniority(e.target.value as any)}
             >
-              <option value="over5">Plus de 5 ans (Exonération IR sur PEA)</option>
-              <option value="under5">Moins de 5 ans (Flat Tax 30%)</option>
+              <option value="over5">Plus de 5 ans (Exonération IR sur PEA / PS 17.2%)</option>
+              <option value="under5">Moins de 5 ans (Flat Tax 30% : 12.8% IR + 17.2% PS)</option>
             </select>
           </div>
 

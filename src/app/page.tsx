@@ -166,6 +166,7 @@ export default function HomePage() {
       showToast(`${pos.name} mis à jour`);
     }
     setEditingPosition(null);
+    refreshPrices();
   };
 
   const handleDeletePosition = async (id: string) => {

@@ -1,9 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import type { Position } from '@/types/portfolio';
 import { THEMES } from '@/data/themes';
 import { simulatePositionDCA, type DCASimulationResult } from '@/engines/dcaSimulation';
+import { searchAssets, ASSET_REGISTRY, type RegisteredAsset } from '@/data/assetRegistry';
+import { getQuote } from '@/services/market-data/provider';
 
 interface PositionEditorProps {
   position?: Position | null;
@@ -40,6 +42,14 @@ export default function PositionEditor({ position, onSave, onClose, onDelete }: 
     maxWeight: position?.maxWeight,
     updatedAt: Date.now(),
   });
+
+  // Autocomplete & Verification States
+  const [tickerSearchInput, setTickerSearchInput] = useState<string>(position?.ticker || '');
+  const [searchResults, setSearchResults] = useState<RegisteredAsset[]>([]);
+  const [showDropdown, setShowDropdown] = useState<boolean>(false);
+  const [isVerifyingTicker, setIsVerifyingTicker] = useState<boolean>(false);
+  const [verifiedQuoteText, setVerifiedQuoteText] = useState<string | null>(position?.currentPrice ? `✓ Prix en direct : ${position.currentPrice} ${position.currency}` : null);
+  const [tickerError, setTickerError] = useState<string | null>(null);
 
   const [themeInput, setThemeInput] = useState('');
 
@@ -86,6 +96,83 @@ export default function PositionEditor({ position, onSave, onClose, onDelete }: 
 
   const removeTheme = (themeId: string) => {
     handleChange('themes', form.themes.filter((t) => t !== themeId));
+  };
+
+  const handleSelectRegisteredAsset = async (asset: RegisteredAsset) => {
+    setShowDropdown(false);
+    setTickerSearchInput(`${asset.name} (${asset.ticker})`);
+    setTickerError(null);
+    setIsVerifyingTicker(true);
+
+    setForm((prev) => ({
+      ...prev,
+      ticker: asset.ticker,
+      name: asset.name,
+      envelope: asset.envelope,
+      assetType: asset.assetType,
+      currency: asset.currency,
+      themes: asset.themes,
+    }));
+
+    try {
+      const quote = await getQuote(asset.ticker);
+      if (quote && quote.price > 0) {
+        setForm((prev) => ({ ...prev, currentPrice: quote.price }));
+        setVerifiedQuoteText(`✓ Actif officiel vérifié — Prix en direct : ${quote.price.toFixed(2)} ${quote.currency} (Yahoo Finance Live)`);
+      } else {
+        setVerifiedQuoteText(`✓ Actif répertorié (${asset.exchange})`);
+      }
+    } catch {
+      setVerifiedQuoteText(`✓ Actif répertorié (${asset.exchange})`);
+    } finally {
+      setIsVerifyingTicker(false);
+    }
+  };
+
+  const handleSearchInputChange = (value: string) => {
+    setTickerSearchInput(value);
+    setVerifiedQuoteText(null);
+    setTickerError(null);
+
+    const matches = searchAssets(value);
+    setSearchResults(matches);
+    setShowDropdown(matches.length > 0);
+
+    const exactMatch = ASSET_REGISTRY.find((a) => a.ticker.toLowerCase() === value.trim().toLowerCase());
+    if (exactMatch) {
+      handleSelectRegisteredAsset(exactMatch);
+    } else {
+      setForm((prev) => ({ ...prev, ticker: value.toUpperCase() }));
+    }
+  };
+
+  const handleVerifyManualTicker = async () => {
+    const rawTicker = form.ticker.trim().toUpperCase();
+    if (!rawTicker) return;
+
+    setIsVerifyingTicker(true);
+    setTickerError(null);
+    setVerifiedQuoteText(null);
+
+    try {
+      const quote = await getQuote(rawTicker);
+      if (quote && quote.price > 0) {
+        setForm((prev) => ({
+          ...prev,
+          ticker: rawTicker,
+          name: prev.name || rawTicker,
+          currentPrice: quote.price,
+          currency: (quote.currency as any) || prev.currency,
+        }));
+        setVerifiedQuoteText(`✓ Actif officiel vérifié en temps réel — Prix : ${quote.price.toFixed(2)} ${quote.currency}`);
+      } else {
+        setTickerError(`❌ Impossible de vérifier le cours pour '${rawTicker}'. Veuillez sélectionner un actif valide.`);
+      }
+    } catch {
+      setTickerError(`❌ Ticker '${rawTicker}' non trouvé sur les marchés boursiers.`);
+    } finally {
+      setIsVerifyingTicker(false);
+    }
   };
 
   const handleRunDCASimulation = async () => {
@@ -149,21 +236,105 @@ export default function PositionEditor({ position, onSave, onClose, onDelete }: 
         </div>
 
         <form onSubmit={handleSubmit}>
+          {/* Autocomplete Search & Ticker Verification Bar */}
+          <div className="form-group" style={{ position: 'relative', marginBottom: 16 }}>
+            <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span>🔍 Rechercher une Action, ETF ou Fond Reconnus *</span>
+              {isVerifyingTicker && <span style={{ fontSize: 12, color: 'var(--accent-cyan)' }}>Vérification du cours...</span>}
+            </label>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <input
+                className="input"
+                value={tickerSearchInput}
+                onChange={(e) => handleSearchInputChange(e.target.value)}
+                onFocus={() => setShowDropdown(searchResults.length > 0)}
+                placeholder="Tapez un nom ou un ticker (ex: LVMH, Air Liquide, CW8, PUST, Nvidia, MSFT...)"
+                id="input-asset-search"
+              />
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={handleVerifyManualTicker}
+                disabled={isVerifyingTicker || !form.ticker}
+                style={{ whiteSpace: 'nowrap', fontSize: 13 }}
+              >
+                {isVerifyingTicker ? <span className="loading-spinner" /> : '🔍 Vérifier le cours'}
+              </button>
+            </div>
+
+            {/* Dropdown Suggestions */}
+            {showDropdown && searchResults.length > 0 && (
+              <div style={{
+                position: 'absolute',
+                top: '100%',
+                left: 0,
+                right: 0,
+                zIndex: 100,
+                background: 'var(--bg-secondary)',
+                border: '1px solid var(--border-accent)',
+                borderRadius: 'var(--radius-md)',
+                boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
+                maxHeight: 220,
+                overflowY: 'auto',
+                marginTop: 4,
+              }}>
+                {searchResults.map((asset) => (
+                  <div
+                    key={asset.ticker}
+                    onClick={() => handleSelectRegisteredAsset(asset)}
+                    style={{
+                      padding: '10px 14px',
+                      borderBottom: '1px solid var(--border-subtle)',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      transition: 'background 0.15s ease',
+                    }}
+                    onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--bg-tertiary)')}
+                    onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                  >
+                    <div>
+                      <strong style={{ color: 'var(--accent-cyan)', fontSize: 14 }}>{asset.ticker}</strong>
+                      <span style={{ fontSize: 13, color: 'var(--text-primary)', marginLeft: 8 }}>{asset.name}</span>
+                    </div>
+                    <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                      <span className="badge badge-cyan" style={{ fontSize: 11 }}>{asset.envelope}</span>
+                      <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{asset.exchange}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Status Feedback */}
+            {verifiedQuoteText && (
+              <div style={{ fontSize: 12, color: 'var(--accent-emerald)', fontWeight: 600, marginTop: 6 }}>
+                {verifiedQuoteText}
+              </div>
+            )}
+            {tickerError && (
+              <div style={{ fontSize: 12, color: 'var(--accent-rose)', fontWeight: 600, marginTop: 6 }}>
+                {tickerError}
+              </div>
+            )}
+          </div>
+
           {/* Row 1: Ticker + Name */}
           <div className="form-row">
             <div className="form-group">
-              <label className="form-label">Ticker *</label>
+              <label className="form-label">Ticker Officiel *</label>
               <input
-                className="input"
+                className="input mono"
                 value={form.ticker}
                 onChange={(e) => handleChange('ticker', e.target.value.toUpperCase())}
-                placeholder="GPEA.PA, PUST.PA, COHR..."
+                placeholder="CW8.PA, PUST.PA, MSFT..."
                 required
                 id="input-ticker"
               />
             </div>
             <div className="form-group" style={{ flex: 2 }}>
-              <label className="form-label">Nom *</label>
+              <label className="form-label">Nom Complet *</label>
               <input
                 className="input"
                 value={form.name}

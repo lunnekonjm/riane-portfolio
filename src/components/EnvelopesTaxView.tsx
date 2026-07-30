@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import type { Position, Envelope } from '@/types/portfolio';
+import type { Position } from '@/types/portfolio';
 
 interface EnvelopesTaxViewProps {
   positions: Position[];
@@ -13,26 +13,26 @@ export const ENVELOPE_METADATA: Record<string, {
   depositLimit?: number;
   description: string;
   taxRules: {
-    under5Years: { irRate: number; psRate: number; label: string };
-    over5Years: { irRate: number; psRate: number; label: string };
+    under5Years: { irRate: number; label: string };
+    over5Years: { irRate: number; label: string };
   };
 }> = {
   PEA: {
     label: 'PEA (Plan d\'Épargne en Actions)',
     depositLimit: 150000,
-    description: 'Exonération d\'impôt sur le revenu après 5 ans d\'ancienneté (Plafond versement = 150 000 €)',
+    description: 'Exonération d\'impôt sur le revenu après 5 ans (Plafond versement = 150 000 €)',
     taxRules: {
-      under5Years: { irRate: 0.128, psRate: 0.172, label: 'Clôture du PEA ou PFU 30% (12.8% IR + 17.2% PS)' },
-      over5Years: { irRate: 0.0, psRate: 0.172, label: 'Exonération d\'IR (0%) + Prélèvements Sociaux (17.2%)' },
+      under5Years: { irRate: 0.128, label: 'Clôture ou PFU (12.8% IR + Prélèvements Sociaux)' },
+      over5Years: { irRate: 0.0, label: 'Exonération d\'IR (0%) + Prélèvements Sociaux' },
     },
   },
   'PEA-PME': {
     label: 'PEA-PME',
     depositLimit: 225000,
-    description: 'Dédié aux PME/ETI. Plafond cumulé PEA + PEA-PME = 225 000 € max au total (75 000 € si PEA à 150 000 €)',
+    description: 'Plafond cumulé PEA + PEA-PME = 225 000 € max au total (75 000 € si PEA à 150 000 €)',
     taxRules: {
-      under5Years: { irRate: 0.128, psRate: 0.172, label: 'Clôture ou PFU 30% (12.8% IR + 17.2% PS)' },
-      over5Years: { irRate: 0.0, psRate: 0.172, label: 'Exonération d\'IR (0%) + Prélèvements Sociaux (17.2%)' },
+      under5Years: { irRate: 0.128, label: 'Clôture ou PFU (12.8% IR + Prélèvements Sociaux)' },
+      over5Years: { irRate: 0.0, label: 'Exonération d\'IR (0%) + Prélèvements Sociaux' },
     },
   },
   CTO: {
@@ -40,8 +40,8 @@ export const ENVELOPE_METADATA: Record<string, {
     depositLimit: undefined,
     description: 'Aucun plafond de versement, accès universel aux marchés mondiaux',
     taxRules: {
-      under5Years: { irRate: 0.128, psRate: 0.172, label: 'PFU / Flat Tax 30% (12.8% IR + 17.2% PS)' },
-      over5Years: { irRate: 0.128, psRate: 0.172, label: 'PFU / Flat Tax 30% ou option barème progressif IR' },
+      under5Years: { irRate: 0.128, label: 'Flat Tax / PFU (12.8% IR + Prélèvements Sociaux)' },
+      over5Years: { irRate: 0.128, label: 'Flat Tax / PFU 30% ou option barème progressif IR' },
     },
   },
   PEE: {
@@ -49,8 +49,8 @@ export const ENVELOPE_METADATA: Record<string, {
     depositLimit: undefined,
     description: 'Épargne salariale (abondement entreprise)',
     taxRules: {
-      under5Years: { irRate: 0.128, psRate: 0.172, label: 'Bloqué 5 ans (sauf déblocage anticipé)' },
-      over5Years: { irRate: 0.0, psRate: 0.172, label: 'Exonération d\'IR (0%) + Prélèvements Sociaux (17.2%)' },
+      under5Years: { irRate: 0.128, label: 'Bloqué 5 ans (sauf déblocage anticipé)' },
+      over5Years: { irRate: 0.0, label: 'Exonération d\'IR (0%) + Prélèvements Sociaux' },
     },
   },
   SPECULATIVE: {
@@ -58,8 +58,8 @@ export const ENVELOPE_METADATA: Record<string, {
     depositLimit: 2000,
     description: 'Poche dédiée aux opérations à fort risque / levier',
     taxRules: {
-      under5Years: { irRate: 0.128, psRate: 0.172, label: 'Flat Tax 30%' },
-      over5Years: { irRate: 0.128, psRate: 0.172, label: 'Flat Tax 30%' },
+      under5Years: { irRate: 0.128, label: 'Flat Tax 30%' },
+      over5Years: { irRate: 0.128, label: 'Flat Tax 30%' },
     },
   },
   OPPORTUNISTIC: {
@@ -67,8 +67,8 @@ export const ENVELOPE_METADATA: Record<string, {
     depositLimit: undefined,
     description: 'Liquidités et opportunités de marché',
     taxRules: {
-      under5Years: { irRate: 0.128, psRate: 0.172, label: 'Flat Tax 30%' },
-      over5Years: { irRate: 0.128, psRate: 0.172, label: 'Flat Tax 30%' },
+      under5Years: { irRate: 0.128, label: 'Flat Tax 30%' },
+      over5Years: { irRate: 0.128, label: 'Flat Tax 30%' },
     },
   },
 };
@@ -77,7 +77,11 @@ export default function EnvelopesTaxView({ positions, fxRates }: EnvelopesTaxVie
   // Withdrawal simulator state
   const [simEnvelope, setSimEnvelope] = useState<string>('PEA');
   const [simSeniority, setSimSeniority] = useState<'over5' | 'under5'>('over5');
-  const [simWithdrawalAmount, setSimWithdrawalAmount] = useState<number>(5000);
+  const [simWithdrawalAmount, setSimWithdrawalAmount] = useState<number>(500000);
+  
+  // Tax rate settings (17.2% vs 18.6% vs custom)
+  const [psRate, setPsRate] = useState<number>(0.172); // 17.2% default
+  const [customGainPercent, setCustomGainPercent] = useState<number>(40); // 40% gain ratio default
 
   // Group positions by envelope
   const envelopeGroups = positions.reduce((acc, pos) => {
@@ -95,7 +99,6 @@ export default function EnvelopesTaxView({ positions, fxRates }: EnvelopesTaxVie
   const peaPmeCost = peaPmePositions.reduce((sum, p) => sum + (p.quantity * p.avgPrice * (fxRates[p.currency] || 1)), 0);
 
   // Legal French Rule: Combined PEA + PEA-PME deposits cannot exceed 225,000 €!
-  // So max allowed deposit on PEA-PME = 225,000 - PEA_cost (e.g. 75,000 if PEA is 150,000)
   const maxPeaPmeAllowed = Math.max(0, 225000 - peaCost);
 
   const isPeaExceeded = peaCost > 150000;
@@ -112,8 +115,8 @@ export default function EnvelopesTaxView({ positions, fxRates }: EnvelopesTaxVie
       depositLimit: undefined,
       description: '',
       taxRules: {
-        under5Years: { irRate: 0.128, psRate: 0.172, label: 'Flat Tax 30%' },
-        over5Years: { irRate: 0.128, psRate: 0.172, label: 'Flat Tax 30%' },
+        under5Years: { irRate: 0.128, label: 'Flat Tax 30%' },
+        over5Years: { irRate: 0.128, label: 'Flat Tax 30%' },
       },
     };
 
@@ -135,7 +138,6 @@ export default function EnvelopesTaxView({ positions, fxRates }: EnvelopesTaxVie
     // Dynamic legal deposit ceiling
     let depositLimit = meta.depositLimit;
     if (envKey === 'PEA-PME') {
-      // Combined PEA + PEA-PME limit = 225,000 €
       depositLimit = maxPeaPmeAllowed;
     }
 
@@ -154,24 +156,27 @@ export default function EnvelopesTaxView({ positions, fxRates }: EnvelopesTaxVie
     };
   });
 
-  // Calculate withdrawal simulation
+  // Calculate withdrawal simulation (UNCONSTRAINED BY CURRENT PORTFOLIO VALUE)
   const targetSimSummary = summaries.find((s) => s.envKey === simEnvelope) || summaries[0];
   const simTotalVal = targetSimSummary?.totalValue || 0;
-  const simTotalCost = targetSimSummary?.totalCost || 0;
   const simTotalGain = targetSimSummary?.gainLoss || 0;
 
-  const actualWithdrawal = Math.min(simWithdrawalAmount, simTotalVal);
-  const gainRatio = simTotalVal > 0 ? Math.max(0, simTotalGain / simTotalVal) : 0;
-  const capitalRatio = 1 - gainRatio;
+  // Auto gain ratio if portfolio has real data, otherwise use user's gain % slider
+  const actualGainRatio = (simTotalVal > 0 && simTotalGain > 0)
+    ? (simTotalGain / simTotalVal)
+    : (customGainPercent / 100);
 
-  const withdrawnCapital = actualWithdrawal * capitalRatio;
-  const withdrawnGain = actualWithdrawal * gainRatio;
+  const grossWithdrawal = Math.max(0, simWithdrawalAmount);
+  const withdrawnGain = grossWithdrawal * actualGainRatio;
+  const withdrawnCapital = grossWithdrawal - withdrawnGain;
 
   const rules = targetSimSummary?.meta.taxRules[simSeniority === 'over5' ? 'over5Years' : 'under5Years'];
-  const irTax = withdrawnGain * (rules?.irRate || 0);
-  const psTax = withdrawnGain * (rules?.psRate || 0);
+  const irRate = rules?.irRate || 0;
+  
+  const irTax = withdrawnGain * irRate;
+  const psTax = withdrawnGain * psRate;
   const totalTax = irTax + psTax;
-  const netReceived = actualWithdrawal - totalTax;
+  const netReceived = grossWithdrawal - totalTax;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
@@ -222,9 +227,9 @@ export default function EnvelopesTaxView({ positions, fxRates }: EnvelopesTaxVie
                 </strong>
               </div>
               <div>
-                <span style={{ fontSize: 11, color: 'var(--text-muted)', display: 'block' }}>Plus-Value</span>
+                <span style={{ fontSize: 11, color: 'var(--text-muted)', display: 'block' }}>Plus-Value Brute</span>
                 <strong className={`mono ${s.gainLoss >= 0 ? 'stat-gain' : 'stat-loss'}`} style={{ fontSize: 14 }}>
-                  {s.totalCost > 0 ? `${s.gainLoss >= 0 ? '+' : ''}${s.gainLoss.toFixed(0)}€` : '—'}
+                  {s.totalCost > 0 ? `${s.gainLoss >= 0 ? '+' : ''}${s.gainLoss.toFixed(0)}€ (${s.gainLossPercent >= 0 ? '+' : ''}${s.gainLossPercent.toFixed(1)}%)` : '—'}
                 </strong>
               </div>
             </div>
@@ -283,7 +288,7 @@ export default function EnvelopesTaxView({ positions, fxRates }: EnvelopesTaxVie
 
             {/* Tax Info summary */}
             <div style={{ fontSize: 12, padding: 8, background: 'var(--bg-secondary)', borderRadius: 6, border: '1px solid var(--border-subtle)', color: 'var(--text-secondary)' }}>
-              <strong>Fiscalité (&gt; 5 ans) :</strong> {s.meta.taxRules.over5Years.label}
+              <strong>Fiscalité (&gt; 5 ans) :</strong> {s.meta.taxRules.over5Years.label} (PS: {(psRate * 100).toFixed(1)}%)
             </div>
           </div>
         ))}
@@ -292,15 +297,15 @@ export default function EnvelopesTaxView({ positions, fxRates }: EnvelopesTaxVie
       {/* 💸 Simulateur de Retrait & Fiscalité */}
       <div className="card" style={{ borderLeft: '4px solid var(--accent-violet)' }}>
         <div className="card-header">
-          <span className="card-title">💸 Simulateur de Retrait & Calculateur d&apos;Impôt</span>
+          <span className="card-title">💸 Simulateur de Retrait & Calculateur d&apos;Impôt Réel</span>
         </div>
         <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 16 }}>
-          Simulez un retrait partiel ou total pour calculer le montant net d&apos;impôts viré sur votre compte bancaire selon l&apos;ancienneté de l&apos;enveloppe.
+          Simulez n&apos;importe quel montant de retrait (ex: 500 000 €) pour calculer l&apos;impôt sur le revenu (IR) et les cotisations sociales (PS) exactes.
         </p>
 
         <div className="form-row" style={{ marginBottom: 16 }}>
           <div className="form-group">
-            <label className="form-label">Enveloppe à retirer</label>
+            <label className="form-label">Enveloppe à simuler</label>
             <select
               className="input"
               value={simEnvelope}
@@ -308,7 +313,7 @@ export default function EnvelopesTaxView({ positions, fxRates }: EnvelopesTaxVie
             >
               {summaries.map((s) => (
                 <option key={s.envKey} value={s.envKey}>
-                  {s.envKey} — {s.totalValue.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
+                  {s.envKey} — {s.meta.label}
                 </option>
               ))}
             </select>
@@ -321,60 +326,90 @@ export default function EnvelopesTaxView({ positions, fxRates }: EnvelopesTaxVie
               value={simSeniority}
               onChange={(e) => setSimSeniority(e.target.value as any)}
             >
-              <option value="over5">Plus de 5 ans (Exonération IR sur PEA / PS 17.2%)</option>
-              <option value="under5">Moins de 5 ans (Flat Tax 30% : 12.8% IR + 17.2% PS)</option>
+              <option value="over5">Plus de 5 ans (Exonération IR sur PEA / PS seulement)</option>
+              <option value="under5">Moins de 5 ans (Flat Tax / PFU : 12.8% IR + PS)</option>
             </select>
           </div>
 
           <div className="form-group">
-            <label className="form-label">Montant du retrait (€)</label>
+            <label className="form-label">Montant du retrait brut (€)</label>
             <input
               type="number"
               className="input mono"
               value={simWithdrawalAmount}
               onChange={(e) => setSimWithdrawalAmount(parseFloat(e.target.value) || 0)}
               min="0"
-              max={simTotalVal}
+              step="10000"
             />
           </div>
         </div>
 
+        {/* Advanced Tax Parameters */}
+        <div className="form-row" style={{ marginBottom: 20, padding: 12, background: 'var(--bg-tertiary)', borderRadius: 10 }}>
+          <div className="form-group">
+            <label className="form-label" style={{ fontSize: 12 }}>Taux des Prélèvements Sociaux (PS)</label>
+            <select
+              className="input mono"
+              value={psRate}
+              onChange={(e) => setPsRate(parseFloat(e.target.value))}
+            >
+              <option value="0.172">17.2% (Taux légal actuel en vigueur)</option>
+              <option value="0.186">18.6% (Taux ajusté / Projet de Loi de Finances)</option>
+              <option value="0.20">20.0% (Scénario de hausse de cotisations)</option>
+            </select>
+          </div>
+
+          <div className="form-group">
+            <label className="form-label" style={{ fontSize: 12 }}>Part de Plus-Value dans le retrait (%)</label>
+            <input
+              type="number"
+              className="input mono"
+              value={Math.round(actualGainRatio * 100)}
+              onChange={(e) => setCustomGainPercent(parseFloat(e.target.value) || 0)}
+              min="0"
+              max="100"
+              step="5"
+            />
+            <span style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4, display: 'block' }}>
+              {simTotalVal > 0 ? `Calculé d'après votre portefeuille actuel (${(actualGainRatio * 100).toFixed(1)}% de gains)` : 'Définissez la proportion de gains/intérêts'}
+            </span>
+          </div>
+        </div>
+
         {/* Breakdown Result */}
-        {actualWithdrawal > 0 && (
-          <div style={{ background: 'var(--bg-tertiary)', padding: 16, borderRadius: 12, border: '1px solid var(--border-medium)' }}>
+        {grossWithdrawal > 0 && (
+          <div style={{ background: 'var(--bg-secondary)', padding: 20, borderRadius: 12, border: '1px solid var(--border-medium)' }}>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 16, marginBottom: 16 }}>
               <div>
-                <span style={{ fontSize: 11, color: 'var(--text-muted)', display: 'block' }}>Montant Retiré Brut</span>
-                <strong className="mono" style={{ fontSize: 18 }}>{actualWithdrawal.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}</strong>
+                <span style={{ fontSize: 11, color: 'var(--text-muted)', display: 'block' }}>Retrait Brut Simulé</span>
+                <strong className="mono" style={{ fontSize: 20 }}>{grossWithdrawal.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}</strong>
               </div>
               <div>
                 <span style={{ fontSize: 11, color: 'var(--text-muted)', display: 'block' }}>Part Capital (Non Imposable)</span>
-                <strong className="mono" style={{ fontSize: 16, color: 'var(--accent-emerald)' }}>{withdrawnCapital.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}</strong>
+                <strong className="mono" style={{ fontSize: 18, color: 'var(--accent-emerald)' }}>{withdrawnCapital.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}</strong>
               </div>
               <div>
-                <span style={{ fontSize: 11, color: 'var(--text-muted)', display: 'block' }}>Part Plus-Value (Imposable)</span>
-                <strong className="mono" style={{ fontSize: 16, color: 'var(--accent-amber)' }}>{withdrawnGain.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}</strong>
+                <span style={{ fontSize: 11, color: 'var(--text-muted)', display: 'block' }}>Part Plus-Value Imposable ({(actualGainRatio * 100).toFixed(0)}%)</span>
+                <strong className="mono" style={{ fontSize: 18, color: 'var(--accent-amber)' }}>{withdrawnGain.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}</strong>
               </div>
               <div>
                 <span style={{ fontSize: 11, color: 'var(--text-muted)', display: 'block' }}>Total Impôts & Cotisations</span>
-                <strong className="mono" style={{ fontSize: 16, color: 'var(--accent-rose)' }}>-{totalTax.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}</strong>
+                <strong className="mono" style={{ fontSize: 18, color: 'var(--accent-rose)' }}>-{totalTax.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}</strong>
               </div>
             </div>
 
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 12, borderTop: '1px solid var(--border-subtle)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 16, borderTop: '1px solid var(--border-subtle)', flexWrap: 'wrap', gap: 16 }}>
               <div>
-                <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Règle appliquée : </span>
-                <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--accent-cyan)' }}>
-                  {rules?.label}
-                </span>
-                <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-                  IR ({(rules?.irRate || 0) * 100}%) = {irTax.toFixed(2)}€ | Prélèvements Sociaux ({(rules?.psRate || 0) * 100}%) = {psTax.toFixed(2)}€
+                <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Détail des prélèvements : </span>
+                <div style={{ fontSize: 12, color: 'var(--text-primary)', marginTop: 4 }}>
+                  • Impôt sur le Revenu IR ({(irRate * 100).toFixed(1)}%) : <strong className="mono">{irTax.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}</strong><br />
+                  • Prélèvements Sociaux PS ({(psRate * 100).toFixed(1)}%) : <strong className="mono">{psTax.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}</strong>
                 </div>
               </div>
 
-              <div style={{ textAlign: 'right' }}>
-                <span style={{ fontSize: 11, color: 'var(--text-muted)', display: 'block' }}>Netteté en compte bancaire</span>
-                <strong className="mono" style={{ fontSize: 22, color: 'var(--accent-emerald)' }}>
+              <div style={{ textAlign: 'right', background: 'var(--bg-tertiary)', padding: '12px 20px', borderRadius: 10, border: '1px solid var(--border-accent)' }}>
+                <span style={{ fontSize: 11, color: 'var(--text-muted)', display: 'block', textTransform: 'uppercase' }}>Capital Net Reçu en Compte Bancaire</span>
+                <strong className="mono" style={{ fontSize: 24, color: 'var(--accent-emerald)' }}>
                   {netReceived.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
                 </strong>
               </div>

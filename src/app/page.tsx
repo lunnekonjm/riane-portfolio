@@ -11,6 +11,7 @@ import { ALL_SCENARIOS } from '@/data/stressScenarios';
 import { runStressTest } from '@/engines/stressTest';
 import PositionEditor from '@/components/PositionEditor';
 import ConfigEditor from '@/components/ConfigEditor';
+import { simulatePositionDCA } from '@/engines/dcaSimulation';
 import type { User } from 'firebase/auth';
 import type { Position, PortfolioConfig } from '@/types/portfolio';
 import type { AnalysisStatus } from '@/types/analysis';
@@ -360,6 +361,48 @@ export default function HomePage() {
                 <div className="card-header">
                   <span className="card-title">Positions ({positions.length})</span>
                   <div style={{ display: 'flex', gap: 8 }}>
+                    <button
+                      className="btn btn-secondary"
+                      onClick={async () => {
+                        const startDate = prompt('Entrez votre date de début de DCA (ex: 2024-01) :', '2024-01');
+                        if (!startDate) return;
+                        setRefreshingPrices(true);
+                        try {
+                          let updatedCount = 0;
+                          for (const pos of positions) {
+                            const monthlyBudget = pos.monthlyDCA || (pos.annualBudget ? pos.annualBudget / 12 : 100);
+                            const isIntegerOnly = pos.envelope === 'PEA' || pos.envelope === 'PEA-PME' || pos.envelope === 'CTO';
+                            const sim = await simulatePositionDCA(
+                              pos.ticker,
+                              monthlyBudget,
+                              startDate,
+                              pos.currentPrice || pos.avgPrice || 100,
+                              isIntegerOnly
+                            );
+                            if (sim.totalShares > 0) {
+                              await updatePosition({
+                                ...pos,
+                                quantity: sim.totalShares,
+                                avgPrice: sim.avgPrice,
+                                updatedAt: Date.now(),
+                              });
+                              updatedCount++;
+                            }
+                          }
+                          showToast(`DCA calculé automatiquement pour ${updatedCount} positions depuis ${startDate}`);
+                        } catch (err) {
+                          console.error(err);
+                          showToast('Erreur lors du calcul du DCA', 'error');
+                        } finally {
+                          setRefreshingPrices(false);
+                        }
+                      }}
+                      disabled={refreshingPrices || positions.length === 0}
+                      title="Calculer automatiquement les quantités et PRU depuis une date de début"
+                      id="auto-dca-btn"
+                    >
+                      ⚡ Auto DCA
+                    </button>
                     <button
                       className="btn btn-primary"
                       onClick={async () => {

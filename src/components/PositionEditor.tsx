@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import type { Position } from '@/types/portfolio';
 import { THEMES } from '@/data/themes';
+import { simulatePositionDCA, type DCASimulationResult } from '@/engines/dcaSimulation';
 
 interface PositionEditorProps {
   position?: Position | null;
@@ -41,6 +42,12 @@ export default function PositionEditor({ position, onSave, onClose, onDelete }: 
   });
 
   const [themeInput, setThemeInput] = useState('');
+
+  // DCA Auto-Calculation State
+  const [dcaStartDate, setDcaStartDate] = useState<string>('2024-01');
+  const [isCalculatingDCA, setIsCalculatingDCA] = useState<boolean>(false);
+  const [dcaResult, setDcaResult] = useState<DCASimulationResult | null>(null);
+  const [showDCAHistory, setShowDCAHistory] = useState<boolean>(false);
 
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => {
@@ -81,6 +88,37 @@ export default function PositionEditor({ position, onSave, onClose, onDelete }: 
     handleChange('themes', form.themes.filter((t) => t !== themeId));
   };
 
+  const handleRunDCASimulation = async () => {
+    if (!form.ticker) return;
+    const monthlyAmount = form.monthlyDCA || (form.annualBudget ? form.annualBudget / 12 : 100);
+    setIsCalculatingDCA(true);
+    try {
+      // PEA / PEA-PME / CTO require integer shares (no fractional shares!)
+      const isIntegerOnly = form.envelope === 'PEA' || form.envelope === 'PEA-PME' || form.envelope === 'CTO';
+      const result = await simulatePositionDCA(
+        form.ticker,
+        monthlyAmount,
+        dcaStartDate,
+        form.currentPrice || form.avgPrice || 100,
+        isIntegerOnly
+      );
+      setDcaResult(result);
+    } catch (err) {
+      console.error('DCA Simulation failed:', err);
+    } finally {
+      setIsCalculatingDCA(false);
+    }
+  };
+
+  const handleApplyDCAResult = () => {
+    if (!dcaResult) return;
+    setForm((prev) => ({
+      ...prev,
+      quantity: dcaResult.totalShares,
+      avgPrice: dcaResult.avgPrice,
+    }));
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.ticker.trim() || !form.name.trim()) return;
@@ -91,7 +129,7 @@ export default function PositionEditor({ position, onSave, onClose, onDelete }: 
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+      <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 640 }}>
         <div className="modal-header">
           <h2>{isNew ? '➕ Ajouter une Position' : `✏️ Modifier ${form.name}`}</h2>
           <button className="btn-ghost" onClick={onClose} style={{ fontSize: 20 }}>✕</button>
@@ -106,7 +144,7 @@ export default function PositionEditor({ position, onSave, onClose, onDelete }: 
                 className="input"
                 value={form.ticker}
                 onChange={(e) => handleChange('ticker', e.target.value.toUpperCase())}
-                placeholder="CW8.PA, COHR, PUST.PA..."
+                placeholder="GPEA.PA, PUST.PA, COHR..."
                 required
                 id="input-ticker"
               />
@@ -117,7 +155,7 @@ export default function PositionEditor({ position, onSave, onClose, onDelete }: 
                 className="input"
                 value={form.name}
                 onChange={(e) => handleChange('name', e.target.value)}
-                placeholder="MSCI ACWI (Amundi)..."
+                placeholder="Amundi PEA Global MSCI ACWI..."
                 required
                 id="input-name"
               />
@@ -146,14 +184,142 @@ export default function PositionEditor({ position, onSave, onClose, onDelete }: 
             </div>
           </div>
 
+          {/* ⚡ Calculateur DCA Automatique Section */}
+          <div style={{
+            background: 'var(--bg-tertiary)',
+            border: '1px solid var(--border-accent)',
+            borderRadius: 'var(--radius-md)',
+            padding: 16,
+            marginBottom: 20
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+              <span style={{ fontWeight: 600, fontSize: 14, color: 'var(--accent-cyan)' }}>
+                ⚡ Auto-Calculateur DCA (Règle PEA : Actions entières)
+              </span>
+            </div>
+            <p style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 12 }}>
+              Indiquez quand vous avez commencé votre DCA. L&apos;application simule l&apos;accumulation mensuelle (actions entières + reliquat d&apos;espèces) jusqu&apos;à aujourd&apos;hui.
+            </p>
+
+            <div className="form-row" style={{ marginBottom: 10 }}>
+              <div className="form-group">
+                <label className="form-label" style={{ fontSize: 12 }}>Début du DCA (Mois/Année)</label>
+                <input
+                  type="month"
+                  className="input mono"
+                  value={dcaStartDate}
+                  onChange={(e) => setDcaStartDate(e.target.value)}
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label" style={{ fontSize: 12 }}>Versement mensuel (€)</label>
+                <input
+                  type="number"
+                  className="input mono"
+                  value={form.monthlyDCA || (form.annualBudget ? form.annualBudget / 12 : 100)}
+                  onChange={(e) => handleOptionalNumber('monthlyDCA', e.target.value)}
+                  placeholder="100"
+                />
+              </div>
+              <div className="form-group" style={{ display: 'flex', alignItems: 'flex-end' }}>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  style={{ width: '100%', borderColor: 'var(--accent-cyan)' }}
+                  onClick={handleRunDCASimulation}
+                  disabled={isCalculatingDCA || !form.ticker}
+                >
+                  {isCalculatingDCA ? <span className="loading-spinner" /> : '⚡ Simuler DCA'}
+                </button>
+              </div>
+            </div>
+
+            {dcaResult && (
+              <div style={{ background: 'var(--bg-secondary)', padding: 12, borderRadius: 8, border: '1px solid var(--border-subtle)', marginTop: 10 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--accent-emerald)' }}>
+                    📊 Résultats DCA ({dcaResult.monthsCount} mois) :
+                  </span>
+                  <button
+                    type="button"
+                    className="btn btn-ghost"
+                    style={{ fontSize: 11, padding: '2px 8px' }}
+                    onClick={() => setShowDCAHistory(!showDCAHistory)}
+                  >
+                    {showDCAHistory ? 'Masquer historique' : '🔍 Voir historique mois par mois'}
+                  </button>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, textAlign: 'center', marginBottom: 10 }}>
+                  <div>
+                    <span style={{ display: 'block', fontSize: 10, color: 'var(--text-muted)' }}>Actions entières</span>
+                    <strong style={{ fontSize: 15, color: 'var(--accent-cyan)' }}>{dcaResult.totalShares}</strong>
+                  </div>
+                  <div>
+                    <span style={{ display: 'block', fontSize: 10, color: 'var(--text-muted)' }}>PRU Estimé</span>
+                    <strong style={{ fontSize: 15 }}>{dcaResult.avgPrice.toFixed(2)} €</strong>
+                  </div>
+                  <div>
+                    <span style={{ display: 'block', fontSize: 10, color: 'var(--text-muted)' }}>Total Investi</span>
+                    <strong style={{ fontSize: 15 }}>{dcaResult.totalInvested.toFixed(0)} €</strong>
+                  </div>
+                  <div>
+                    <span style={{ display: 'block', fontSize: 10, color: 'var(--text-muted)' }}>Reliquat Cash PEA</span>
+                    <strong style={{ fontSize: 15, color: 'var(--accent-amber)' }}>{dcaResult.uninvestedCash.toFixed(2)} €</strong>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  style={{ width: '100%', fontSize: 13, padding: '6px 12px' }}
+                  onClick={handleApplyDCAResult}
+                >
+                  ✅ Appliquer ces {dcaResult.totalShares} actions & PRU ({dcaResult.avgPrice.toFixed(2)} €) au formulaire
+                </button>
+
+                {showDCAHistory && (
+                  <div style={{ marginTop: 12, maxHeight: 180, overflowY: 'auto', fontSize: 11 }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                      <thead>
+                        <tr style={{ color: 'var(--text-muted)', borderBottom: '1px solid var(--border-subtle)' }}>
+                          <th>Mois</th>
+                          <th>Cours</th>
+                          <th>Disponible</th>
+                          <th>Acheté</th>
+                          <th>Reliquat</th>
+                          <th>Cumul Actions</th>
+                          <th>PRU</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {dcaResult.logs.map((log) => (
+                          <tr key={log.date} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                            <td>{log.date}</td>
+                            <td>{log.sharePrice} €</td>
+                            <td>{log.cashAvailable} €</td>
+                            <td style={{ color: 'var(--accent-cyan)', fontWeight: 600 }}>+{log.sharesBought}</td>
+                            <td style={{ color: 'var(--accent-amber)' }}>{log.rolloverCash} €</td>
+                            <td>{log.cumulativeShares}</td>
+                            <td>{log.cumulativePRU} €</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
           {/* Row 3: Quantity + Avg Price + Current Price */}
           <div className="form-row">
             <div className="form-group">
-              <label className="form-label">Quantité</label>
+              <label className="form-label">Quantité (Actions entières)</label>
               <input
                 className="input mono"
                 type="number"
-                step="any"
+                step="1"
                 min="0"
                 value={form.quantity || ''}
                 onChange={(e) => handleNumberChange('quantity', e.target.value)}
@@ -162,7 +328,7 @@ export default function PositionEditor({ position, onSave, onClose, onDelete }: 
               />
             </div>
             <div className="form-group">
-              <label className="form-label">Prix moyen d&apos;achat</label>
+              <label className="form-label">Prix moyen d&apos;achat (PRU €)</label>
               <input
                 className="input mono"
                 type="number"

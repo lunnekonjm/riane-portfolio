@@ -175,12 +175,6 @@ export default function HomePage() {
     }
   }, []);
 
-  const handleUpdateDcaStartDate = (newDate: string) => {
-    setDcaGlobalStartDate(newDate);
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('riane_dca_start_date', newDate);
-    }
-  };
   const [adjustInflation, setAdjustInflation] = useState<boolean>(false);
   const [inflationRate, setInflationRate] = useState<number>(0.021); // 2.1% annual CPI inflation default
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
@@ -204,6 +198,90 @@ export default function HomePage() {
     canUndo, undoLastAction, canRedo, redoLastAction, transactions, recordTransaction,
     addPosition, updatePosition, removePosition, updateConfig, refreshPrices, resetPortfolio,
   } = usePortfolio();
+
+  const handleRunGlobalDCACalculation = async (startDate: string) => {
+    if (!startDate) return;
+    setRefreshingPrices(true);
+    try {
+      let updatedCount = 0;
+      for (const pos of positions) {
+        const monthlyBudget = pos.monthlyDCA || (pos.annualBudget ? pos.annualBudget / 12 : 100);
+        const isIntegerOnly = pos.envelope === 'PEA' || pos.envelope === 'PEA-PME' || pos.envelope === 'CTO';
+
+        let realLivePrice = pos.currentPrice;
+        if (!realLivePrice || realLivePrice === 10) {
+          try {
+            const q = await getQuote(pos.ticker);
+            if (q && q.price > 0) realLivePrice = q.price;
+          } catch {
+            // keep existing
+          }
+        }
+        const effectivePrice = realLivePrice || pos.avgPrice || (pos.ticker.includes('GPEA') ? 4.89 : 100);
+
+        const sim = await simulatePositionDCA(
+          pos.ticker,
+          monthlyBudget,
+          startDate,
+          effectivePrice,
+          isIntegerOnly,
+          pos.dcaFrequency || 'monthly',
+          pos.dcaDepositMonth || 1,
+          pos.dcaDepositDay || 5
+        );
+
+        const finalShares = sim.totalShares;
+        const finalPRU = sim.avgPrice > 0 ? sim.avgPrice : (pos.avgPrice || realLivePrice || effectivePrice);
+
+        await updatePosition({
+          ...pos,
+          quantity: finalShares,
+          avgPrice: finalPRU,
+          ...(realLivePrice && realLivePrice > 0 ? { currentPrice: realLivePrice } : {}),
+          updatedAt: Date.now(),
+        });
+        updatedCount++;
+      }
+      showToast(`DCA calculé automatiquement pour ${updatedCount} positions depuis ${startDate}`);
+    } catch (err) {
+      console.error(err);
+      showToast('Erreur lors du calcul du DCA', 'error');
+    } finally {
+      setRefreshingPrices(false);
+    }
+  };
+
+  const handleUpdateDcaStartDate = (newDate: string) => {
+    setDcaGlobalStartDate(newDate);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('riane_dca_start_date', newDate);
+    }
+    handleRunGlobalDCACalculation(newDate);
+  };
+
+  const dcaBreakdown = useMemo(() => {
+    let monthlySum = 0;
+    let nonMonthlySum = 0;
+    let nonMonthlyCount = 0;
+
+    positions.forEach((p) => {
+      const isNonMonthly = p.dcaFrequency === 'annual' || p.dcaFrequency === 'quarterly' || (p.annualBudget && p.annualBudget > 0);
+      const monthlyEquiv = p.monthlyDCA || (p.annualBudget ? p.annualBudget / 12 : 0);
+      if (isNonMonthly) {
+        nonMonthlyCount++;
+        const annualPart = p.annualBudget || (p.monthlyDCA ? p.monthlyDCA * 12 : 0);
+        nonMonthlySum += annualPart;
+      } else {
+        monthlySum += monthlyEquiv;
+      }
+    });
+
+    return {
+      monthlySum,
+      nonMonthlySum,
+      nonMonthlyCount,
+    };
+  }, [positions]);
 
   // Global Ctrl+Z (Undo) / Ctrl+Y (Redo) Keyboard Shortcuts
   useEffect(() => {
@@ -774,9 +852,9 @@ export default function HomePage() {
                           </>
                         )}
                       </div>
-                      <div className="card" style={{ cursor: 'pointer' }} onClick={() => setShowConfigEditor(true)} data-tooltip="Somme totale de vos versements d'accumulation mensuels">
+                      <div className="card" style={{ cursor: 'pointer' }} onClick={() => setShowConfigEditor(true)} data-tooltip="Somme totale de vos versements d'accumulation (mensuels & lissés)">
                         <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <span className="card-title">DCA Mensuel</span>
+                          <span className="card-title">DCA &amp; Épargne</span>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                             <button
                               type="button"
@@ -786,19 +864,31 @@ export default function HomePage() {
                                 e.stopPropagation();
                                 openGlossary('DCA');
                               }}
-                              title="Qu'est-ce que le DCA (Dollar-Cost Averaging) ?"
+                              title="Qu'est-ce que le DCA et la fréquence de versement ?"
                             >
                               💡 DCA
                             </button>
                             <span style={{ fontSize: 14, color: 'var(--text-muted)' }}>⚙️</span>
                           </div>
                         </div>
-                        <div className="card-value" style={{ color: 'var(--accent-emerald)' }}>
-                          {monthlyDCATotal > 0
-                            ? (monthlyDCATotal / cumulativeInflationFactor).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })
-                            : ((config?.monthlyBudget || 1000) / cumulativeInflationFactor).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
+                        <div className="card-value" style={{ color: 'var(--accent-emerald)', display: 'flex', alignItems: 'baseline', gap: 4, flexWrap: 'wrap' }}>
+                          <span>
+                            {monthlyDCATotal > 0
+                              ? (monthlyDCATotal / cumulativeInflationFactor).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })
+                              : ((config?.monthlyBudget || 1000) / cumulativeInflationFactor).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
+                          </span>
+                          <span style={{ fontSize: 12, color: 'var(--text-tertiary)', fontWeight: 500 }}>/mois (équiv.)</span>
                         </div>
-                        <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Cliquer pour configurer</span>
+                        <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 4, display: 'flex', flexDirection: 'column', gap: 2 }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span>Cumul Annuel : <strong>{((monthlyDCATotal || (config?.monthlyBudget || 1000)) * 12).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })}/an</strong></span>
+                          </div>
+                          {dcaBreakdown.nonMonthlyCount > 0 && (
+                            <span style={{ color: 'var(--accent-cyan)', fontSize: 10, fontWeight: 500 }}>
+                              🔄 {dcaBreakdown.nonMonthlyCount} {dcaBreakdown.nonMonthlyCount > 1 ? 'versements non-mensuels' : 'versement non-mensuel'} ({dcaBreakdown.nonMonthlySum.toLocaleString('fr-FR')} €/an lissés)
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </>

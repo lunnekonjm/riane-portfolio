@@ -3,8 +3,9 @@
 import { useState, useRef, useEffect } from 'react';
 
 interface CustomDatePickerProps {
-  value: string; // Format: 'YYYY-MM' (e.g. '2024-01')
+  value: string; // Format: 'YYYY-MM-DD' or 'YYYY-MM'
   onChange: (newValue: string) => void;
+  showDaySelector?: boolean;
 }
 
 const MONTH_NAMES_FR = [
@@ -17,21 +18,26 @@ const MONTH_SHORT_FR = [
   'Juil.', 'Août', 'Sept.', 'Oct.', 'Nov.', 'Déc.'
 ];
 
-export default function CustomDatePicker({ value, onChange }: CustomDatePickerProps) {
+export default function CustomDatePicker({ value, onChange, showDaySelector = true }: CustomDatePickerProps) {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Parse current value 'YYYY-MM'
-  const [yearStr, monthStr] = (value || '2024-01').split('-');
-  const currentYear = parseInt(yearStr || '2024', 10);
-  const currentMonth = parseInt(monthStr || '01', 10) - 1; // 0-indexed
+  // Parse current value 'YYYY-MM-DD' or 'YYYY-MM'
+  const parts = (value || '2024-01-05').split('-');
+  const currentYear = parseInt(parts[0] || '2024', 10);
+  const currentMonth = parseInt(parts[1] || '01', 10) - 1; // 0-indexed
+  const initialDay = parts[2] ? parseInt(parts[2], 10) : 5;
 
   const [viewYear, setViewYear] = useState<number>(currentYear);
+  const [selectedDay, setSelectedDay] = useState<number>(initialDay);
 
-  // Sync viewYear when value changes externally
+  // Sync viewYear & selectedDay when value changes externally
   useEffect(() => {
     setViewYear(currentYear);
-  }, [currentYear]);
+    if (parts[2]) {
+      setSelectedDay(parseInt(parts[2], 10));
+    }
+  }, [currentYear, parts[2]]);
 
   // Click outside to close
   useEffect(() => {
@@ -50,12 +56,15 @@ export default function CustomDatePicker({ value, onChange }: CustomDatePickerPr
 
   const handleSelectMonth = (monthIndex: number) => {
     const mm = String(monthIndex + 1).padStart(2, '0');
+    const dd = String(selectedDay).padStart(2, '0');
     const yyyy = String(viewYear);
-    onChange(`${yyyy}-${mm}`);
+    onChange(`${yyyy}-${mm}-${dd}`);
     setIsOpen(false);
   };
 
-  const formattedLabel = `${MONTH_NAMES_FR[currentMonth] || 'janvier'} ${currentYear}`;
+  const formattedLabel = parts[2] 
+    ? `${selectedDay} ${MONTH_NAMES_FR[currentMonth] || 'janvier'} ${currentYear}`
+    : `${MONTH_NAMES_FR[currentMonth] || 'janvier'} ${currentYear}`;
 
   return (
     <div ref={containerRef} style={{ position: 'relative', display: 'inline-block' }}>
@@ -95,7 +104,7 @@ export default function CustomDatePicker({ value, onChange }: CustomDatePickerPr
             top: 'calc(100% + 8px)',
             left: 0,
             zIndex: 999,
-            width: 280,
+            width: 290,
             padding: 16,
             background: '#0f172a',
             border: '1px solid rgba(255, 255, 255, 0.15)',
@@ -106,7 +115,7 @@ export default function CustomDatePicker({ value, onChange }: CustomDatePickerPr
           }}
         >
           {/* Header Year Navigator */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
             <button
               type="button"
               className="btn btn-ghost btn-sm"
@@ -131,6 +140,38 @@ export default function CustomDatePicker({ value, onChange }: CustomDatePickerPr
               ▶
             </button>
           </div>
+
+          {/* Day of Month Selector Bar */}
+          {showDaySelector && (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, padding: '6px 10px', background: 'rgba(255, 255, 255, 0.04)', borderRadius: 8 }}>
+              <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Jour exact du versement :</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <input
+                  type="number"
+                  min="1"
+                  max="31"
+                  value={selectedDay}
+                  onChange={(e) => {
+                    const day = Math.min(31, Math.max(1, parseInt(e.target.value) || 1));
+                    setSelectedDay(day);
+                  }}
+                  style={{
+                    width: 48,
+                    background: 'var(--bg-tertiary)',
+                    border: '1px solid var(--accent-cyan)',
+                    borderRadius: 6,
+                    color: 'var(--accent-cyan)',
+                    fontFamily: 'var(--font-mono)',
+                    fontWeight: 700,
+                    fontSize: 13,
+                    textAlign: 'center',
+                    padding: '2px 4px',
+                    outline: 'none',
+                  }}
+                />
+              </div>
+            </div>
+          )}
 
           {/* Month Grid (3 cols x 4 rows) */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginBottom: 14 }}>
@@ -184,19 +225,20 @@ export default function CustomDatePicker({ value, onChange }: CustomDatePickerPr
                 const now = new Date();
                 const yyyy = now.getFullYear();
                 const mm = String(now.getMonth() + 1).padStart(2, '0');
-                onChange(`${yyyy}-${mm}`);
+                const dd = String(selectedDay).padStart(2, '0');
+                onChange(`${yyyy}-${mm}-${dd}`);
                 setIsOpen(false);
               }}
               style={{ fontSize: 11, padding: '4px 6px', color: 'var(--accent-cyan)' }}
             >
-              Ce mois
+              Aujourd&apos;hui
             </button>
 
             <button
               type="button"
               className="btn btn-ghost btn-sm"
               onClick={() => {
-                onChange('2024-01');
+                onChange(`2024-01-${String(selectedDay).padStart(2, '0')}`);
                 setIsOpen(false);
               }}
               style={{ fontSize: 11, padding: '4px 6px', color: 'var(--text-muted)' }}
@@ -208,7 +250,7 @@ export default function CustomDatePicker({ value, onChange }: CustomDatePickerPr
               type="button"
               className="btn btn-ghost btn-sm"
               onClick={() => {
-                onChange('2003-01');
+                onChange(`2003-01-${String(selectedDay).padStart(2, '0')}`);
                 setIsOpen(false);
               }}
               style={{ fontSize: 11, padding: '4px 6px', color: 'var(--text-muted)' }}

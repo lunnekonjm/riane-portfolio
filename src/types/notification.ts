@@ -12,6 +12,8 @@ export interface AppNotification {
   timestamp: number;
   read: boolean;
   priority: 'low' | 'medium' | 'high';
+  actionHint?: string; // Explicit step on what the user should do to resolve
+  actionCtaLabel?: string; // Text for direct CTA button
   actionUrl?: string;
 }
 

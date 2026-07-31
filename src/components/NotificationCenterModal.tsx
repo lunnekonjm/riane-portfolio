@@ -149,6 +149,11 @@ export default function NotificationCenterModal({
                     <p style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.5, margin: 0 }}>
                       {n.message}
                     </p>
+                    {n.actionHint && (
+                      <div style={{ fontSize: 11, color: 'var(--text-primary)', background: 'rgba(255, 255, 255, 0.05)', padding: '6px 10px', borderRadius: 6, marginTop: 8, borderLeft: '3px solid var(--accent-cyan)', lineHeight: 1.4 }}>
+                        <strong>👉 Que faire :</strong> {n.actionHint}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>

@@ -41,9 +41,11 @@ export default function WelcomeBanner({
   let statusMessage = '';
   let statusBadge = { label: '🟢 Portefeuille Équilibré', color: 'var(--accent-emerald)', bg: 'rgba(16, 185, 129, 0.12)' };
 
-  if (activeAlerts.length > 0) {
+  const topAlert = activeAlerts.length > 0 ? activeAlerts[0] : null;
+
+  if (topAlert) {
     statusBadge = { label: `🚨 ${activeAlerts.length} Alerte(s) Active(s)`, color: 'var(--accent-rose)', bg: 'rgba(244, 63, 94, 0.15)' };
-    statusMessage = activeAlerts[0].message;
+    statusMessage = topAlert.message;
   } else if (overallGain >= 0) {
     statusMessage = `Votre portefeuille enregistre une plus-value globale de +${overallGainPercent.toFixed(1)}% (+${Math.round(overallGain).toLocaleString('fr-FR')} €). Vos plafonds sectoriels sont respectés.`;
   } else {
@@ -54,8 +56,8 @@ export default function WelcomeBanner({
     <div
       className="card"
       style={{
-        background: 'linear-gradient(135deg, rgba(6, 182, 212, 0.12) 0%, rgba(17, 24, 39, 0.8) 100%)',
-        borderLeft: '4px solid var(--accent-cyan)',
+        background: topAlert ? 'linear-gradient(135deg, rgba(244, 63, 94, 0.12) 0%, rgba(17, 24, 39, 0.85) 100%)' : 'linear-gradient(135deg, rgba(6, 182, 212, 0.12) 0%, rgba(17, 24, 39, 0.8) 100%)',
+        borderLeft: topAlert ? '4px solid var(--accent-rose)' : '4px solid var(--accent-cyan)',
         padding: '14px 18px',
         marginBottom: 16,
         position: 'relative',
@@ -63,7 +65,7 @@ export default function WelcomeBanner({
       }}
     >
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14, flex: 1, minWidth: 260 }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14, flex: 1, minWidth: 260 }}>
           <span style={{ fontSize: 32 }}>👋</span>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
@@ -77,20 +79,36 @@ export default function WelcomeBanner({
             <p style={{ fontSize: 13, color: 'var(--text-secondary)', margin: '4px 0 0 0', lineHeight: 1.5 }}>
               {statusMessage}
             </p>
+            {topAlert?.actionHint && (
+              <div style={{ fontSize: 12, color: 'var(--text-primary)', background: 'rgba(255, 255, 255, 0.05)', padding: '6px 10px', borderRadius: 6, marginTop: 8, borderLeft: '3px solid var(--accent-rose)', lineHeight: 1.4 }}>
+                <strong>👉 Que faire :</strong> {topAlert.actionHint}
+              </div>
+            )}
           </div>
         </div>
 
         {/* Action Shortcuts */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-          {monthlyDCA > 0 && (
+          {topAlert ? (
             <button
               type="button"
-              className="btn btn-secondary btn-sm"
-              style={{ fontSize: 11, color: 'var(--accent-emerald)', borderColor: 'rgba(16, 185, 129, 0.3)' }}
+              className="btn btn-primary btn-sm"
+              style={{ fontSize: 11, background: 'var(--accent-rose)', color: 'white' }}
               onClick={onOpenRebalance}
             >
-              🎯 Versement DCA ({monthlyDCA}€)
+              {topAlert.actionCtaLabel || '🎯 Corriger via DCA'}
             </button>
+          ) : (
+            monthlyDCA > 0 && (
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                style={{ fontSize: 11, color: 'var(--accent-emerald)', borderColor: 'rgba(16, 185, 129, 0.3)' }}
+                onClick={onOpenRebalance}
+              >
+                🎯 Versement DCA ({monthlyDCA}€)
+              </button>
+            )
           )}
           <button
             type="button"

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { runMonteCarloSimulation, type MonteCarloResult } from '@/engines/monteCarloEngine';
+import { runMonteCarloSimulation, type MonteCarloResult, type TaxEnvelopeType } from '@/engines/monteCarloEngine';
 
 interface MonteCarloModalProps {
   initialCapital: number;
@@ -15,6 +15,7 @@ export default function MonteCarloModal({ initialCapital, monthlyDCA, onClose }:
   const [horizonYears, setHorizonYears] = useState<number>(15);
   const [expectedReturn, setExpectedReturn] = useState<number>(7.5);
   const [volatility, setVolatility] = useState<number>(15.0);
+  const [taxEnvelope, setTaxEnvelope] = useState<TaxEnvelopeType>('MIXED');
 
   const simulation: MonteCarloResult = useMemo(() => {
     return runMonteCarloSimulation({
@@ -24,8 +25,9 @@ export default function MonteCarloModal({ initialCapital, monthlyDCA, onClose }:
       annualReturnMean: expectedReturn / 100,
       annualVolatility: volatility / 100,
       numSimulations: 10000,
+      taxEnvelope,
     });
-  }, [capitalInput, dcaInput, horizonYears, expectedReturn, volatility]);
+  }, [capitalInput, dcaInput, horizonYears, expectedReturn, volatility, taxEnvelope]);
 
   const maxVal = Math.max(...simulation.yearlySummaries.map((s) => s.p90));
 
@@ -38,14 +40,14 @@ export default function MonteCarloModal({ initialCapital, monthlyDCA, onClose }:
               <span>🎲</span> Simulation Monte Carlo & Indépendance (FIRE)
             </h2>
             <p style={{ fontSize: 13, color: 'var(--text-secondary)', margin: '4px 0 0 0' }}>
-              10 000 trajectoires stochastiques projetées à {horizonYears} ans basées sur vos versements DCA.
+              10 000 trajectoires stochastiques projetées à {horizonYears} ans avec règles fiscales d&apos;enveloppe.
             </p>
           </div>
           <button className="modal-close-btn" onClick={onClose}>✕</button>
         </div>
 
         {/* Input Parameters Panel */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12, padding: 14, background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-md)', margin: '12px 0 16px 0', border: '1px solid var(--border-subtle)' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10, padding: 14, background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-md)', margin: '12px 0 16px 0', border: '1px solid var(--border-subtle)' }}>
           <div>
             <label style={{ fontSize: 11, color: 'var(--text-tertiary)', display: 'block', marginBottom: 4 }}>Capital Initial (€)</label>
             <input
@@ -75,12 +77,25 @@ export default function MonteCarloModal({ initialCapital, monthlyDCA, onClose }:
                   type="button"
                   className={`btn btn-sm ${horizonYears === h ? 'btn-primary' : 'btn-secondary'}`}
                   onClick={() => setHorizonYears(h)}
-                  style={{ fontSize: 11, padding: '4px 8px', flex: 1 }}
+                  style={{ fontSize: 11, padding: '4px 6px', flex: 1 }}
                 >
                   {h}a
                 </button>
               ))}
             </div>
+          </div>
+          <div>
+            <label style={{ fontSize: 11, color: 'var(--text-tertiary)', display: 'block', marginBottom: 4 }}>Fiscalité Enveloppe</label>
+            <select
+              className="input"
+              value={taxEnvelope}
+              onChange={(e) => setTaxEnvelope(e.target.value as TaxEnvelopeType)}
+              style={{ fontSize: 12, padding: '6px 8px', fontWeight: 700 }}
+            >
+              <option value="MIXED">📊 Prorata Portefeuille</option>
+              <option value="PEA">🏛️ PEA (17.2% PS / 0% IR)</option>
+              <option value="CTO">💼 CTO (30.0% Flat Tax)</option>
+            </select>
           </div>
           <div>
             <label style={{ fontSize: 11, color: 'var(--text-tertiary)', display: 'block', marginBottom: 4 }}>Rendement (%)</label>
@@ -149,11 +164,14 @@ export default function MonteCarloModal({ initialCapital, monthlyDCA, onClose }:
             </div>
             <div className="card" style={{ background: 'var(--bg-tertiary)', borderLeft: '4px solid var(--accent-cyan)', padding: 12 }}>
               <span style={{ fontSize: 11, color: 'var(--accent-cyan)', textTransform: 'uppercase' }}>Médiane Attendue (P50)</span>
-              <div style={{ fontSize: 18, fontWeight: 700, marginTop: 4, color: 'var(--accent-cyan)' }}>
-                {simulation.finalP50.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })}
+              <div style={{ fontSize: 17, fontWeight: 700, marginTop: 4, color: 'var(--accent-cyan)' }}>
+                {simulation.finalP50.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })} <span style={{ fontSize: 11, fontWeight: 400, color: 'var(--text-tertiary)' }}>(Brut)</span>
               </div>
-              <span style={{ fontSize: 11, color: 'var(--accent-emerald)', fontWeight: 600 }}>
-                Rente : {simulation.monthlyPassiveIncomeP50.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })}/mois (4%)
+              <div style={{ fontSize: 13, fontWeight: 700, color: 'white', marginTop: 2 }}>
+                Net en Poche : {simulation.finalP50Net.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })}
+              </div>
+              <span style={{ fontSize: 11, color: 'var(--accent-emerald)', fontWeight: 600, display: 'block', marginTop: 2 }}>
+                Rente Net : {simulation.monthlyPassiveIncomeP50Net.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })}/mois (4%)
               </span>
             </div>
             <div className="card" style={{ background: 'var(--bg-tertiary)', borderLeft: '4px solid var(--accent-emerald)', padding: 12 }}>

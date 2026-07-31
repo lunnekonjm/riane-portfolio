@@ -1,3 +1,5 @@
+export type TaxEnvelopeType = 'PEA' | 'CTO' | 'MIXED';
+
 export interface MonteCarloInput {
   initialCapital: number;
   monthlyDCA: number;
@@ -6,6 +8,8 @@ export interface MonteCarloInput {
   annualVolatility?: number; // e.g. 0.15 (15%)
   inflationRate?: number; // e.g. 0.021 (2.1%)
   numSimulations?: number; // e.g. 10000
+  taxEnvelope?: TaxEnvelopeType; // Tax mode
+  peaRatio?: number; // 0.0 to 1.0 (for MIXED mode)
 }
 
 export interface MonteCarloYearSummary {
@@ -13,16 +17,21 @@ export interface MonteCarloYearSummary {
   p10: number; // 10th percentile (Bear market)
   p50: number; // Median expected
   p90: number; // 90th percentile (Bull market)
+  p50Net: number; // Post-tax net wealth
   totalInvested: number;
 }
 
 export interface MonteCarloResult {
   horizonYears: number;
+  taxEnvelope: TaxEnvelopeType;
+  effectiveTaxRate: number; // e.g. 0.172 for PEA, 0.30 for CTO
   totalInvestedFinal: number;
   finalP10: number;
   finalP50: number;
   finalP90: number;
-  monthlyPassiveIncomeP50: number; // 4% rule
+  finalP50Net: number; // Net cash after French taxes
+  monthlyPassiveIncomeP50Gross: number; // 4% rule gross
+  monthlyPassiveIncomeP50Net: number; // 4% rule net after taxes
   targetMilestones: {
     targetAmount: number;
     successProbability: number;
@@ -42,7 +51,29 @@ function randomNormal(): number {
 }
 
 /**
- * Runs 10,000 Stochastic Monte Carlo Simulations for Wealth Projection
+ * Calculates effective French tax rate based on envelope
+ * PEA: 17.2% PS (0% IR after 5 years)
+ * CTO: 30.0% PFU / Flat Tax
+ * MIXED: Weighted by PEA vs CTO ratio
+ */
+export function getEffectiveTaxRate(envelope: TaxEnvelopeType, peaRatio = 0.75): number {
+  if (envelope === 'PEA') return 0.172; // 17.2% Prélèvements sociaux
+  if (envelope === 'CTO') return 0.30;  // 30% Flat tax / PFU
+  // MIXED
+  return peaRatio * 0.172 + (1 - peaRatio) * 0.30;
+}
+
+/**
+ * Applies French tax rate ONLY to the capital gain portion (Plus-Value)
+ */
+export function applyFrenchTax(grossWealth: number, totalInvested: number, taxRate: number): number {
+  const capitalGain = Math.max(0, grossWealth - totalInvested);
+  const taxAmount = capitalGain * taxRate;
+  return grossWealth - taxAmount;
+}
+
+/**
+ * Runs 10,000 Stochastic Monte Carlo Simulations for Wealth Projection with French Tax Rules
  */
 export function runMonteCarloSimulation(input: MonteCarloInput): MonteCarloResult {
   const {
@@ -53,16 +84,18 @@ export function runMonteCarloSimulation(input: MonteCarloInput): MonteCarloResul
     annualVolatility = 0.15,
     inflationRate = 0.021,
     numSimulations = 10000,
+    taxEnvelope = 'MIXED',
+    peaRatio = 0.75,
   } = input;
 
+  const effectiveTaxRate = getEffectiveTaxRate(taxEnvelope, peaRatio);
   const realReturn = annualReturnMean - inflationRate;
   const dt = 1 / 12; // Monthly time step
   const totalMonths = horizonYears * 12;
   const drift = (realReturn - 0.5 * Math.pow(annualVolatility, 2)) * dt;
   const volSqrtDt = annualVolatility * Math.sqrt(dt);
 
-  // Array to store final trajectories across all 10,000 simulations
-  // We track month-by-month results for 10,000 runs
+  // Track month-by-month results for 10,000 runs
   const simulationResults: number[][] = Array.from({ length: numSimulations }, () => new Array(totalMonths + 1));
 
   for (let sim = 0; sim < numSimulations; sim++) {
@@ -77,7 +110,7 @@ export function runMonteCarloSimulation(input: MonteCarloInput): MonteCarloResul
     }
   }
 
-  // Calculate yearly summaries for years 1 to horizonYears
+  // Calculate yearly summaries
   const yearlySummaries: MonteCarloYearSummary[] = [];
 
   for (let year = 1; year <= horizonYears; year++) {
@@ -89,12 +122,15 @@ export function runMonteCarloSimulation(input: MonteCarloInput): MonteCarloResul
     const p90Idx = Math.floor(numSimulations * 0.9);
 
     const totalInvested = initialCapital + monthlyDCA * monthIdx;
+    const p50Gross = yearValues[p50Idx];
+    const p50Net = applyFrenchTax(p50Gross, totalInvested, effectiveTaxRate);
 
     yearlySummaries.push({
       year,
       p10: yearValues[p10Idx],
-      p50: yearValues[p50Idx],
+      p50: p50Gross,
       p90: yearValues[p90Idx],
+      p50Net,
       totalInvested,
     });
   }
@@ -105,13 +141,19 @@ export function runMonteCarloSimulation(input: MonteCarloInput): MonteCarloResul
   const finalP90 = finalYearValues[Math.floor(numSimulations * 0.9)];
   const totalInvestedFinal = initialCapital + monthlyDCA * totalMonths;
 
-  // Monthly passive income based on Trinity Study 4% Safe Withdrawal Rate rule
-  const monthlyPassiveIncomeP50 = (finalP50 * 0.04) / 12;
+  const finalP50Net = applyFrenchTax(finalP50, totalInvestedFinal, effectiveTaxRate);
 
-  // Success probabilities for key milestones
+  // Monthly passive income based on Trinity Study 4% Safe Withdrawal Rate rule
+  const monthlyPassiveIncomeP50Gross = (finalP50 * 0.04) / 12;
+  const monthlyPassiveIncomeP50Net = (finalP50Net * 0.04) / 12;
+
+  // Success probabilities for key milestones (Net of tax)
   const targets = [100000, 250000, 500000, 1000000];
   const targetMilestones = targets.map((targetAmount) => {
-    const successes = finalYearValues.filter((v) => v >= targetAmount).length;
+    const successes = finalYearValues.filter((grossWealth) => {
+      const netWealth = applyFrenchTax(grossWealth, totalInvestedFinal, effectiveTaxRate);
+      return netWealth >= targetAmount;
+    }).length;
     return {
       targetAmount,
       successProbability: (successes / numSimulations) * 100,
@@ -120,11 +162,15 @@ export function runMonteCarloSimulation(input: MonteCarloInput): MonteCarloResul
 
   return {
     horizonYears,
+    taxEnvelope,
+    effectiveTaxRate,
     totalInvestedFinal,
     finalP10,
     finalP50,
     finalP90,
-    monthlyPassiveIncomeP50,
+    finalP50Net,
+    monthlyPassiveIncomeP50Gross,
+    monthlyPassiveIncomeP50Net,
     targetMilestones,
     yearlySummaries,
   };

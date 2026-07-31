@@ -1088,16 +1088,16 @@ export default function HomePage() {
                     <table className="portfolio-table">
                     <thead>
                       <tr>
-                        <th data-tooltip="Nom complet de l'actif ou de l'ETF">Actif</th>
-                        <th data-tooltip="Code de cotation boursière (ex: PUST.PA, COHR)">Ticker</th>
-                        <th data-tooltip="Enveloppe fiscale d'investissement (PEA, PEA-PME, CTO)">Enveloppe</th>
-                        <th data-tooltip="Nombre total de parts actuellement détenues">Qté</th>
-                        <th data-tooltip="Prix de Revient Unitaire moyen d'achat">PRU</th>
-                        <th data-tooltip="Cours du marché en direct (Yahoo Finance)">Prix</th>
-                        <th data-tooltip="Valeur totale actuelle en portefeuille (Quantité × Prix)">Valeur</th>
-                        <th data-tooltip="Plus ou Moins-value latente totale (% et montant €/$)">P&L</th>
-                        <th data-tooltip="Budget mensuel ou annuel d'accumulation DCA">DCA</th>
-                        <th data-tooltip="Actions rapides : Édition, Historique des arbitrages, Suppression">Actions</th>
+                        <th><span data-tooltip="Nom complet de l'actif ou de l'ETF">Actif</span></th>
+                        <th><span data-tooltip="Code de cotation boursière (ex: PUST.PA, COHR)">Ticker</span></th>
+                        <th><span data-tooltip="Enveloppe fiscale d'investissement (PEA, PEA-PME, CTO)">Enveloppe</span></th>
+                        <th><span data-tooltip="Nombre total de parts actuellement détenues">Qté</span></th>
+                        <th><span data-tooltip="Prix de Revient Unitaire moyen d'achat">PRU</span></th>
+                        <th><span data-tooltip="Cours du marché en direct (Yahoo Finance)">Prix</span></th>
+                        <th><span data-tooltip="Valeur totale actuelle en portefeuille (Quantité × Prix)">Valeur</span></th>
+                        <th><span data-tooltip="Plus ou Moins-value latente totale (% et montant €/$)">P&L</span></th>
+                        <th><span data-tooltip="Budget mensuel ou annuel d'accumulation DCA">DCA</span></th>
+                        <th><span data-tooltip="Actions rapides : Édition, Historique des arbitrages, Suppression">Actions</span></th>
                       </tr>
                     </thead>
                     <tbody>

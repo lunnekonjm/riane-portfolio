@@ -350,37 +350,36 @@ export function usePortfolio() {
     await refreshPricesInternal(positions);
   }, [positions]);
 
-  // ── Reset Portfolio (clear data, transaction journal, and history) ──
+  // ── Reset Portfolio (instant local reset + async sync) ──
   const resetPortfolio = useCallback(async () => {
     setSaving(true);
     clearAnalysisCache();
-    try {
-      // 1. Clear transaction journal completely
-      setTransactions([]);
-      if (typeof window !== 'undefined') {
-        localStorage.removeItem('riane_transaction_history');
-        localStorage.removeItem('riane_local_positions');
-      }
 
-      // 2. Clear Undo / Redo history stacks
-      setHistoryStack([]);
-      setRedoStack([]);
+    // 1. Immediately reset local React state & localStorage
+    setPositions(DEFAULT_POSITIONS);
+    setTransactions([]);
+    setHistoryStack([]);
+    setRedoStack([]);
 
-      if (user) {
-        // Delete all existing positions from Firestore
-        for (const pos of positions) {
-          await deletePositionFromDb(user.uid, pos.id);
-        }
-        // Re-save clean structure-only defaults
-        await saveAllPositions(user.uid, DEFAULT_POSITIONS);
-      }
-
-      setPositions(DEFAULT_POSITIONS);
-    } catch (err) {
-      console.error('Error resetting portfolio:', err);
-    } finally {
-      setSaving(false);
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('riane_transaction_history');
+      localStorage.removeItem('riane_local_positions');
+      localStorage.setItem('riane_local_positions', JSON.stringify(DEFAULT_POSITIONS));
     }
+
+    // 2. Async non-blocking Firestore reset
+    if (user) {
+      try {
+        for (const pos of positions) {
+          deletePositionFromDb(user.uid, pos.id).catch(() => {});
+        }
+        saveAllPositions(user.uid, DEFAULT_POSITIONS).catch(() => {});
+      } catch (err) {
+        console.warn('[Portfolio] Firestore reset warning:', err);
+      }
+    }
+
+    setSaving(false);
   }, [user, positions]);
 
   // ── Computed Values (only from REAL user data with FX conversion) ──

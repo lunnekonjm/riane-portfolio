@@ -392,7 +392,20 @@ function autoGenerateThemes(
     e.preventDefault();
     if (!form.ticker.trim() || !form.name.trim()) return;
 
-    const cost = form.quantity * form.avgPrice;
+    let finalQuantity = form.quantity;
+    let finalAvgPrice = form.avgPrice;
+
+    // Auto-calculate quantity if 0 so position is saved filled!
+    if ((!finalQuantity || finalQuantity <= 0) && (finalAvgPrice > 0 || (form.currentPrice && form.currentPrice > 0))) {
+      const price = finalAvgPrice || form.currentPrice || (form.ticker.includes('GPEA') ? 4.91 : 100);
+      const budget = form.monthlyDCA || (form.annualBudget ? form.annualBudget / 12 : 100);
+      finalQuantity = Math.max(1, Math.floor(budget / price));
+      if (!finalAvgPrice || finalAvgPrice === 0) {
+        finalAvgPrice = price;
+      }
+    }
+
+    const cost = finalQuantity * finalAvgPrice;
     if (form.envelope === 'PEA' && cost > 150000) {
       if (!confirm(`⚠️ Attention : Les versements sur cette position (${cost.toLocaleString('fr-FR')} €) dépassent le plafond légal individuel du PEA (150 000 €).\nVoulez-vous quand même enregistrer ?`)) {
         return;
@@ -404,7 +417,13 @@ function autoGenerateThemes(
       }
     }
 
-    onSave({ ...form, dcaStartDate, updatedAt: Date.now() });
+    onSave({
+      ...form,
+      quantity: finalQuantity,
+      avgPrice: finalAvgPrice,
+      dcaStartDate,
+      updatedAt: Date.now(),
+    });
   };
 
   const totalValue = form.quantity * (form.currentPrice || form.avgPrice);

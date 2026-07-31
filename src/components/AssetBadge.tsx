@@ -55,8 +55,8 @@ export default function AssetBadge({ ticker, name, showTicker = true, style, cla
           style={{
             position: 'absolute',
             bottom: '100%',
-            left: '50%',
-            transform: 'translateX(-50%) translateY(-8px)',
+            left: 0,
+            transform: 'translateY(-8px)',
             width: 290,
             background: 'rgba(15, 23, 42, 0.98)',
             backdropFilter: 'blur(16px)',

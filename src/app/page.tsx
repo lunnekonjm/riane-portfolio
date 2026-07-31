@@ -778,7 +778,7 @@ export default function HomePage() {
               <div className="card">
                 <div className="card-header">
                   <span className="card-title">Positions ({positions.length})</span>
-                  <div style={{ display: 'flex', gap: 8 }}>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                     <button
                       className="btn btn-primary"
                       onClick={async () => {
@@ -850,7 +850,8 @@ export default function HomePage() {
                     <button className="btn btn-primary" onClick={() => setEditingPosition('new')}>➕ Ajouter une position</button>
                   </div>
                 ) : (
-                  <table className="portfolio-table">
+                  <div style={{ overflowX: 'auto', width: '100%', WebkitOverflowScrolling: 'touch', borderRadius: 'var(--radius-md)' }}>
+                    <table className="portfolio-table">
                     <thead>
                       <tr>
                         <th>Actif</th>
@@ -944,6 +945,7 @@ export default function HomePage() {
                       })}
                     </tbody>
                   </table>
+                  </div>
                 )}
               </div>
 
@@ -1246,7 +1248,7 @@ export default function HomePage() {
                     <MarkdownRenderer content={result.synthesis} style={{ minHeight: 120, margin: '8px 0' }} />
 
                     {result.recommendation && (
-                      <div style={{ marginTop: 20, padding: 16, background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)', display: 'flex', gap: 24, flexWrap: 'wrap' }}>
+                      <div style={{ marginTop: 20, padding: 16, background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 16 }}>
                         <div>
                           <span style={{ fontSize: 11, color: 'var(--text-tertiary)', textTransform: 'uppercase', display: 'block', marginBottom: 2 }}>Action Recommandée</span>
                           <div style={{ fontWeight: 700, fontSize: 16, color: 'var(--accent-cyan)' }}>{result.recommendation.action}</div>

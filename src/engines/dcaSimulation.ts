@@ -107,8 +107,8 @@ export async function simulatePositionDCA(
 
   for (let i = 0; i < totalMonths; i++) {
     const monthKey = months[i];
-    const price = priceMap.get(monthKey);
-
+    const price = priceMap.get(monthKey) || (currentPriceFallback > 0 ? currentPriceFallback : undefined);
+    
     // Calculate if cash deposit occurs in this calendar month
     const monthNum = parseInt(monthKey.slice(5, 7), 10);
     let isDepositMonth = true;
@@ -120,9 +120,9 @@ export async function simulatePositionDCA(
     }
 
     const budgetForMonth = isDepositMonth ? monthlyBudget : 0;
-    
+
     // Check if asset existed on this date
-    const existsYet = price && price > 0;
+    const existsYet = price !== undefined && price > 0;
     const isPreInception = earliestDate && monthKey < earliestDate;
 
     if (isPreInception || !existsYet) {

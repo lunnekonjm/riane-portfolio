@@ -38,6 +38,8 @@ export interface Position {
   annualBudget?: number;
   /** Thematic tags */
   themes: string[];
+  /** Specific DCA start date for this position (YYYY-MM-DD) */
+  dcaStartDate?: string;
   /** Last update timestamp */
   updatedAt: number;
 }

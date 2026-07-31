@@ -56,8 +56,15 @@ export default function PositionEditor({ position, onSave, onClose, onDelete }: 
 
   const [themeInput, setThemeInput] = useState('');
 
-  // DCA Auto-Calculation State
-  const [dcaStartDate, setDcaStartDate] = useState<string>('2024-01');
+  // DCA Auto-Calculation State — default to position saved date, global saved date, or today's date
+  const [dcaStartDate, setDcaStartDate] = useState<string>(() => {
+    if (position?.dcaStartDate) return position.dcaStartDate;
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('riane_dca_start_date');
+      if (saved) return saved;
+    }
+    return new Date().toISOString().split('T')[0];
+  });
   const [isCalculatingDCA, setIsCalculatingDCA] = useState<boolean>(false);
   const [dcaResult, setDcaResult] = useState<DCASimulationResult | null>(null);
   const [showDCAHistory, setShowDCAHistory] = useState<boolean>(false);
@@ -376,7 +383,7 @@ function autoGenerateThemes(
       }
     }
 
-    onSave({ ...form, updatedAt: Date.now() });
+    onSave({ ...form, dcaStartDate, updatedAt: Date.now() });
   };
 
   const totalValue = form.quantity * (form.currentPrice || form.avgPrice);

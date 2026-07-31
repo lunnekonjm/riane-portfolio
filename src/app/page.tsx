@@ -799,10 +799,8 @@ export default function HomePage() {
                               pos.dcaDepositDay || 5
                             );
 
-                            const finalShares = sim.totalShares > 0 
-                              ? sim.totalShares 
-                              : Math.max(1, Math.floor((sim.uninvestedCash > 0 ? sim.uninvestedCash : monthlyBudget) / effectivePrice));
-                            const finalPRU = sim.avgPrice > 0 ? sim.avgPrice : effectivePrice;
+                            const finalShares = sim.totalShares;
+                            const finalPRU = sim.avgPrice > 0 ? sim.avgPrice : (pos.avgPrice || pos.currentPrice || effectivePrice);
 
                             await updatePosition({
                               ...pos,

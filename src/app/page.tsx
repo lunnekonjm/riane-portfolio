@@ -14,6 +14,7 @@ import ConfigEditor from '@/components/ConfigEditor';
 import EnvelopesTaxView from '@/components/EnvelopesTaxView';
 import NotificationCenterModal from '@/components/NotificationCenterModal';
 import GlossaryInfoModal from '@/components/GlossaryInfoModal';
+import MarkdownRenderer from '@/components/MarkdownRenderer';
 import ReportsView from '@/components/ReportsView';
 import { generatePortfolioNotifications } from '@/engines/notificationEngine';
 import type { AppNotification, NotificationSettings } from '@/types/notification';
@@ -1228,10 +1229,8 @@ export default function HomePage() {
                       )}
                     </div>
 
-                    {/* Rich Markdown Output */}
-                    <div style={{ whiteSpace: 'pre-wrap', fontSize: 14, lineHeight: 1.7, color: 'var(--text-primary)', minHeight: 120 }}>
-                      {result.synthesis}
-                    </div>
+                    {/* Rich Formatted Markdown Output */}
+                    <MarkdownRenderer content={result.synthesis} style={{ minHeight: 120, margin: '8px 0' }} />
 
                     {result.recommendation && (
                       <div style={{ marginTop: 20, padding: 16, background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)', display: 'flex', gap: 24, flexWrap: 'wrap' }}>

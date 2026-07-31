@@ -951,9 +951,10 @@ export default function HomePage() {
               <div className="card">
                 <div className="card-header">
                   <span className="card-title">Positions ({positions.length})</span>
-                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
                     <button
                       className="btn btn-primary"
+                      style={{ padding: '6px 12px', fontSize: 12, fontWeight: 700 }}
                       onClick={async () => {
                         setRefreshingPrices(true);
                         try {
@@ -980,16 +981,19 @@ export default function HomePage() {
                         }
                       }}
                       disabled={!canUndo || saving}
-                      title="Annuler la dernière modification et rétablir l'état précédent (Raccourci: Ctrl+Z)"
+                      title="Annuler la dernière modification (Ctrl+Z)"
                       style={{
                         opacity: canUndo ? 1 : 0.4,
                         borderColor: canUndo ? 'var(--accent-cyan)' : undefined,
                         color: canUndo ? 'var(--accent-cyan)' : undefined,
-                        fontWeight: 600,
+                        fontSize: 14,
+                        padding: '6px 10px',
+                        minWidth: 36,
+                        justifyContent: 'center',
                       }}
                       id="undo-action-btn"
                     >
-                      ↩️ Annuler {canUndo ? '(Ctrl+Z)' : ''}
+                      ↩️
                     </button>
                     <button
                       className="btn btn-secondary"
@@ -1000,30 +1004,35 @@ export default function HomePage() {
                         }
                       }}
                       disabled={!canRedo || saving}
-                      title="Rétablir l'action précédemment annulée (Raccourci: Ctrl+Y ou Cmd+Shift+Z)"
+                      title="Rétablir l'action précédemment annulée (Ctrl+Y / Cmd+Shift+Z)"
                       style={{
                         opacity: canRedo ? 1 : 0.4,
                         borderColor: canRedo ? 'var(--accent-emerald)' : undefined,
                         color: canRedo ? 'var(--accent-emerald)' : undefined,
-                        fontWeight: 600,
+                        fontSize: 14,
+                        padding: '6px 10px',
+                        minWidth: 36,
+                        justifyContent: 'center',
                       }}
                       id="redo-action-btn"
                     >
-                      ↪️ Rétablir {canRedo ? '(Ctrl+Y)' : ''}
+                      ↪️
                     </button>
                     <button
                       className="btn btn-secondary"
+                      style={{ padding: '6px 10px', fontSize: 12 }}
                       onClick={() => {
                         setSelectedHistoryTicker(undefined);
                         setShowTransactionModal(true);
                       }}
-                      title="Consulter l'historique de tous vos arbitrages et ajustements"
+                      title="Consulter le journal d'historique de tous vos arbitrages et ajustements"
                       id="transaction-history-btn"
                     >
                       📜 Arbitrages ({transactions.length})
                     </button>
                     <button
                       className="btn btn-secondary"
+                      style={{ padding: '6px 10px', fontSize: 12 }}
                       onClick={async () => {
                         if (confirm('Réinitialiser toutes les positions à zéro ?\nVous pourrez ensuite entrer vos données réelles.')) {
                           await resetPortfolio();
@@ -1039,6 +1048,7 @@ export default function HomePage() {
                     </button>
                     <button
                       className="btn btn-secondary"
+                      style={{ padding: '6px 10px', fontSize: 12 }}
                       onClick={openRebalanceModal}
                       disabled={positions.length === 0}
                       title="Calculer l'affectation optimale des nouveaux versements mensuels"
@@ -1048,6 +1058,7 @@ export default function HomePage() {
                     </button>
                     <button
                       className="btn btn-secondary"
+                      style={{ padding: '6px 10px', fontSize: 12 }}
                       onClick={() => exportPortfolioToCSV(positions, fxRates)}
                       disabled={positions.length === 0}
                       title="Exporter le portefeuille au format CSV"
@@ -1057,6 +1068,7 @@ export default function HomePage() {
                     </button>
                     <button
                       className="btn btn-primary"
+                      style={{ padding: '6px 12px', fontSize: 12, fontWeight: 700 }}
                       onClick={() => setEditingPosition('new')}
                       id="add-position-btn"
                     >

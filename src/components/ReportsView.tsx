@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import type { Position, PortfolioConfig } from '@/types/portfolio';
 import { generatePeriodicReport, type ReportPeriod } from '@/engines/periodicReportEngine';
+import MarkdownRenderer from './MarkdownRenderer';
 
 interface ReportsViewProps {
   positions: Position[];
@@ -130,17 +131,18 @@ export default function ReportsView({
               </button>
             </div>
 
-            {/* Markdown Body */}
+            {/* Executive Document Paper Wrapper */}
             <div
+              id="report-print-area"
               style={{
-                fontSize: 14,
-                lineHeight: 1.8,
-                color: 'var(--text-primary)',
-                whiteSpace: 'pre-wrap',
-                fontFamily: 'var(--font-sans)',
+                background: 'rgba(15, 23, 42, 0.95)',
+                border: '1px solid rgba(6, 182, 212, 0.3)',
+                borderRadius: 12,
+                padding: '32px 36px',
+                boxShadow: '0 10px 30px rgba(0, 0, 0, 0.5)',
               }}
             >
-              {reportMarkdown}
+              <MarkdownRenderer content={reportMarkdown} />
             </div>
           </div>
         )}

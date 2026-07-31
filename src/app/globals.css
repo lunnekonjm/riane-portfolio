@@ -1298,3 +1298,51 @@ select.input option {
   }
 }
 
+/* ── Print / PDF Export Styling ── */
+@media print {
+  body {
+    background: #ffffff !important;
+    color: #0f172a !important;
+  }
+
+  .no-print, nav, header, footer, button, .chat-input-area, .sidebar {
+    display: none !important;
+  }
+
+  #report-print-area {
+    background: #ffffff !important;
+    color: #0f172a !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+  }
+
+  #report-print-area h1,
+  #report-print-area h2,
+  #report-print-area h3,
+  #report-print-area strong {
+    color: #0f172a !important;
+  }
+
+  #report-print-area table {
+    border: 1px solid #cbd5e1 !important;
+  }
+
+  #report-print-area th {
+    background: #f1f5f9 !important;
+    color: #0f172a !important;
+    border-bottom: 2px solid #94a3b8 !important;
+  }
+
+  #report-print-area td {
+    color: #334155 !important;
+    border-bottom: 1px solid #e2e8f0 !important;
+  }
+
+  #report-print-area div[style*="background"] {
+    background: #f8fafc !important;
+    border-left: 4px solid #0284c7 !important;
+    color: #334155 !important;
+  }
+}
+

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import type { Position, PortfolioConfig } from '@/types/portfolio';
 import { generatePeriodicReport, type ReportPeriod } from '@/engines/periodicReportEngine';
 import MarkdownRenderer from './MarkdownRenderer';
@@ -48,19 +48,24 @@ export default function ReportsView({
     annual: 'Exercice 2025/2026',
   };
 
-  // Load saved report history from localStorage
+  // Load saved report history from localStorage on mount
   useEffect(() => {
     try {
       const raw = localStorage.getItem('riane_saved_reports');
       if (raw) {
-        setSavedReports(JSON.parse(raw));
+        const parsed: SavedReportItem[] = JSON.parse(raw);
+        setSavedReports(parsed);
+        if (parsed.length > 0) {
+          const match = parsed.find((r) => r.period === 'monthly') || parsed[0];
+          setReportMarkdown(match.content);
+        }
       }
     } catch {
       // ignore
     }
   }, []);
 
-  const handleGenerateReport = async (period: ReportPeriod) => {
+  const handleGenerateReport = useCallback(async (period: ReportPeriod, saveToHistory: boolean = false) => {
     setSelectedPeriod(period);
     setGenerating(true);
     try {
@@ -74,39 +79,43 @@ export default function ReportsView({
       });
       setReportMarkdown(md);
 
-      // Save report into persistent archives
-      const newReport: SavedReportItem = {
-        id: `report-${Date.now()}`,
-        period,
-        title: period === 'monthly' ? 'Rapport Mensuel (Juillet 2026)' :
-               period === 'quarterly' ? 'Bulletin Trimestriel (Q3 2026)' :
-               period === 'semestrial' ? 'Bilan Semestriel (S2 2026)' : 'Bilan Annuel (2025/2026)',
-        dateStr: new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
-        timestamp: Date.now(),
-        content: md,
-      };
+      if (saveToHistory) {
+        const newReport: SavedReportItem = {
+          id: `report-${period}-${Date.now()}`,
+          period,
+          title: period === 'monthly' ? 'Rapport Mensuel (Juillet 2026)' :
+                 period === 'quarterly' ? 'Bulletin Trimestriel (Q3 2026)' :
+                 period === 'semestrial' ? 'Bilan Semestriel (S2 2026)' : 'Bilan Annuel (2025/2026)',
+          dateStr: new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
+          timestamp: Date.now(),
+          content: md,
+        };
 
-      setSavedReports((prev) => {
-        const updated = [newReport, ...prev.filter((r) => r.id !== newReport.id)].slice(0, 30);
-        try {
-          localStorage.setItem('riane_saved_reports', JSON.stringify(updated));
-        } catch {
-          // ignore
-        }
-        return updated;
-      });
+        setSavedReports((prev) => {
+          const updated = [newReport, ...prev.filter((r) => r.period !== period)].slice(0, 30);
+          try {
+            localStorage.setItem('riane_saved_reports', JSON.stringify(updated));
+          } catch {
+            // ignore
+          }
+          return updated;
+        });
 
+        onShowToast(`Rapport ${periodLabels[period]} sauvegardé dans les archives !`);
+      }
     } catch {
       onShowToast('Erreur lors de la génération du rapport', 'error');
     } finally {
       setGenerating(false);
     }
-  };
+  }, [positions, config, fxRates, adjustInflation, cumulativeInflationFactor, inflationRate, yearsElapsed, onShowToast]);
 
+  // Initial load if no report present
   useEffect(() => {
-    handleGenerateReport('monthly');
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [adjustInflation]);
+    if (!reportMarkdown && savedReports.length === 0) {
+      handleGenerateReport('monthly', false);
+    }
+  }, [reportMarkdown, savedReports, handleGenerateReport]);
 
   const copyToClipboard = () => {
     navigator.clipboard.writeText(reportMarkdown);
@@ -118,16 +127,25 @@ export default function ReportsView({
   };
 
   const handleClearHistory = () => {
-    if (confirm('Effacer tout l\'historique des rapports archivés ?')) {
+    if (confirm('⚠️ Supprimer définitivement tout l\'historique des rapports archivés ?\nCette action supprimera toutes les archives sauvegardées.')) {
       setSavedReports([]);
+      setReportMarkdown('');
+      setShowHistoryModal(false);
       try {
         localStorage.removeItem('riane_saved_reports');
+        localStorage.setItem('riane_saved_reports', '[]');
       } catch {
         // ignore
       }
-      onShowToast('Historique des rapports effacé !');
+      onShowToast('Historique des rapports définitivement effacé !');
     }
   };
+
+  // Find latest report for each period in history
+  const latestMonthly = savedReports.find((r) => r.period === 'monthly');
+  const latestQuarterly = savedReports.find((r) => r.period === 'quarterly');
+  const latestSemestrial = savedReports.find((r) => r.period === 'semestrial');
+  const latestAnnual = savedReports.find((r) => r.period === 'annual');
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
@@ -151,7 +169,7 @@ export default function ReportsView({
           <div>
             <strong style={{ color: 'var(--text-primary)', fontSize: 14 }}>Rappel de Gestion Périodique Automatique</strong>
             <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>
-              Fin de période atteinte (Juillet 2026). Pensez à générer et archiver votre compte-rendu officiel.
+              Fin de période atteinte (Juillet 2026). Cliquez pour générer et archiver votre rapport officiel.
             </div>
           </div>
         </div>
@@ -159,10 +177,10 @@ export default function ReportsView({
           type="button"
           className="btn btn-primary btn-sm"
           style={{ padding: '6px 14px', fontWeight: 700 }}
-          onClick={() => handleGenerateReport(selectedPeriod)}
+          onClick={() => handleGenerateReport(selectedPeriod, true)}
           disabled={generating}
         >
-          ⚡ Générer {periodLabels[selectedPeriod]}
+          ⚡ Générer &amp; Archiver ({periodLabels[selectedPeriod]})
         </button>
       </div>
 
@@ -170,7 +188,7 @@ export default function ReportsView({
       <div className="card no-print" style={{ borderLeft: '4px solid var(--accent-violet)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
         <div>
           <h2 style={{ fontSize: 18, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 10 }}>
-            <span>📰</span> Rapports & Newsletters AI Périodiques
+            <span>📰</span> Rapports &amp; Newsletters AI Périodiques
           </h2>
           <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 4 }}>
             Comptes-rendus de gestion 360° automatisés (Mensuels, Trimestriels, Semestriels et Annuels).
@@ -181,28 +199,28 @@ export default function ReportsView({
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
           <button
             className={`btn ${selectedPeriod === 'monthly' ? 'btn-primary' : 'btn-secondary'}`}
-            onClick={() => handleGenerateReport('monthly')}
+            onClick={() => handleGenerateReport('monthly', true)}
             disabled={generating}
           >
             📅 Mensuel
           </button>
           <button
             className={`btn ${selectedPeriod === 'quarterly' ? 'btn-primary' : 'btn-secondary'}`}
-            onClick={() => handleGenerateReport('quarterly')}
+            onClick={() => handleGenerateReport('quarterly', true)}
             disabled={generating}
           >
             📊 Trimestriel
           </button>
           <button
             className={`btn ${selectedPeriod === 'semestrial' ? 'btn-primary' : 'btn-secondary'}`}
-            onClick={() => handleGenerateReport('semestrial')}
+            onClick={() => handleGenerateReport('semestrial', true)}
             disabled={generating}
           >
             🌓 Semestriel
           </button>
           <button
             className={`btn ${selectedPeriod === 'annual' ? 'btn-primary' : 'btn-secondary'}`}
-            onClick={() => handleGenerateReport('annual')}
+            onClick={() => handleGenerateReport('annual', true)}
             disabled={generating}
           >
             🏆 Annuel
@@ -230,7 +248,7 @@ export default function ReportsView({
               Collecte des cours, actualités boursières, analyse de risque &amp; recommandations d&apos;arbitrage...
             </div>
           </div>
-        ) : (
+        ) : reportMarkdown ? (
           <div>
             {/* Toolbar */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, marginBottom: 20 }} className="no-print">
@@ -241,7 +259,7 @@ export default function ReportsView({
                   style={{ color: 'var(--accent-rose)', fontSize: 12 }}
                   onClick={handleClearHistory}
                 >
-                  🗑️ Effacer l&apos;Historique des Rapports
+                  🗑️ Supprimer définitivement tout l&apos;historique
                 </button>
               ) : <div />}
 
@@ -269,19 +287,92 @@ export default function ReportsView({
               <MarkdownRenderer content={reportMarkdown} />
             </div>
           </div>
+        ) : (
+          <div style={{ textAlign: 'center', padding: '60px 20px', color: 'var(--text-muted)' }}>
+            <div style={{ fontSize: 40, marginBottom: 12 }}>📰</div>
+            <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--text-primary)' }}>Aucun rapport affiché</div>
+            <div style={{ fontSize: 13, marginTop: 4, marginBottom: 20 }}>Cliquez sur l&apos;un des boutons ci-dessus pour générer votre compte-rendu officiel.</div>
+            <button className="btn btn-primary" onClick={() => handleGenerateReport('monthly', true)}>
+              ⚡ Générer le Rapport Mensuel (Juillet 2026)
+            </button>
+          </div>
         )}
       </div>
 
       {/* Archives Modal */}
       {showHistoryModal && (
         <div className="modal-overlay" onClick={() => setShowHistoryModal(false)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 640 }}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 680 }}>
             <div className="modal-header">
               <h2>📚 Archives des Rapports Générés ({savedReports.length})</h2>
               <button className="modal-close-btn" onClick={() => setShowHistoryModal(false)} type="button">✕</button>
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, maxHeight: 400, overflowY: 'auto', marginTop: 16 }}>
+            {/* Quick Filter Access Shortcuts */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 8, marginTop: 14 }}>
+              {latestMonthly && (
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  style={{ fontSize: 11, color: 'var(--accent-emerald)', borderColor: 'rgba(16, 185, 129, 0.3)' }}
+                  onClick={() => {
+                    setReportMarkdown(latestMonthly.content);
+                    setSelectedPeriod('monthly');
+                    setShowHistoryModal(false);
+                    onShowToast('Dernier rapport mensuel chargé');
+                  }}
+                >
+                  📅 Dernier Mensuel
+                </button>
+              )}
+              {latestQuarterly && (
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  style={{ fontSize: 11, color: 'var(--accent-cyan)', borderColor: 'rgba(6, 182, 212, 0.3)' }}
+                  onClick={() => {
+                    setReportMarkdown(latestQuarterly.content);
+                    setSelectedPeriod('quarterly');
+                    setShowHistoryModal(false);
+                    onShowToast('Dernier rapport trimestriel chargé');
+                  }}
+                >
+                  📊 Dernier Trimestriel
+                </button>
+              )}
+              {latestSemestrial && (
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  style={{ fontSize: 11, color: 'var(--accent-amber)', borderColor: 'rgba(245, 158, 11, 0.3)' }}
+                  onClick={() => {
+                    setReportMarkdown(latestSemestrial.content);
+                    setSelectedPeriod('semestrial');
+                    setShowHistoryModal(false);
+                    onShowToast('Dernier rapport semestriel chargé');
+                  }}
+                >
+                  🌓 Dernier Semestriel
+                </button>
+              )}
+              {latestAnnual && (
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  style={{ fontSize: 11, color: 'var(--accent-rose)', borderColor: 'rgba(244, 63, 94, 0.3)' }}
+                  onClick={() => {
+                    setReportMarkdown(latestAnnual.content);
+                    setSelectedPeriod('annual');
+                    setShowHistoryModal(false);
+                    onShowToast('Dernier rapport annuel chargé');
+                  }}
+                >
+                  🏆 Dernier Annuel
+                </button>
+              )}
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, maxHeight: 380, overflowY: 'auto', marginTop: 16 }}>
               {savedReports.map((rep) => (
                 <div
                   key={rep.id}
@@ -317,7 +408,7 @@ export default function ReportsView({
 
             <div style={{ marginTop: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <button className="btn btn-ghost btn-sm" style={{ color: 'var(--accent-rose)' }} onClick={handleClearHistory}>
-                🗑️ Vider toutes les archives
+                🗑️ Supprimer définitivement tout l&apos;historique
               </button>
               <button className="btn btn-secondary" onClick={() => setShowHistoryModal(false)}>
                 Fermer

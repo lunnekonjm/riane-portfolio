@@ -18,6 +18,7 @@ import MonteCarloModal from '@/components/MonteCarloModal';
 import MarkdownRenderer from '@/components/MarkdownRenderer';
 import WelcomeBanner from '@/components/WelcomeBanner';
 import ReportsView from '@/components/ReportsView';
+import { clearAnalysisCache } from '@/utils/analysisCache';
 import { generatePortfolioNotifications } from '@/engines/notificationEngine';
 import type { AppNotification, NotificationSettings } from '@/types/notification';
 import { DEFAULT_NOTIFICATION_SETTINGS } from '@/types/notification';
@@ -1121,10 +1122,10 @@ export default function HomePage() {
             <div className="chat-container">
               <div className="chat-messages" id="chat-messages">
                 {/* User query */}
-                {result?.request && (
+                {(result?.request || isRunning) && (
                   <div className="chat-message user">
                     <strong>Votre requête :</strong><br />
-                    {result.request.query}
+                    {result?.request?.query || queryInput || "Analyse et recommandations de portefeuille..."}
                   </div>
                 )}
 
@@ -1641,6 +1642,8 @@ export default function HomePage() {
                       }
                     }
                   }
+                  clearAnalysisCache();
+                  setReadNotificationIds(notifications.map((n) => n.id));
                   showToast(`✅ Rebalancement appliqué avec succès (+${appliedCount} positions ajustées)`);
                   setShowFlowRebalanceModal(false);
                 }}

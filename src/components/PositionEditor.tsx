@@ -6,6 +6,7 @@ import { THEMES } from '@/data/themes';
 import { simulatePositionDCA, type DCASimulationResult } from '@/engines/dcaSimulation';
 import { searchAssets, ASSET_REGISTRY, type RegisteredAsset } from '@/data/assetRegistry';
 import { getQuote, getCompanyProfile, searchYahooFinance } from '@/services/market-data/provider';
+import CustomDatePicker from '@/components/CustomDatePicker';
 
 interface PositionEditorProps {
   position?: Position | null;
@@ -574,12 +575,9 @@ function autoGenerateThemes(
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 12, marginBottom: 14 }}>
               <div className="form-group">
                 <label className="form-label" style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.4px' }}>Début du DCA</label>
-                <input
-                  type="month"
-                  className="input mono"
-                  style={{ fontSize: 13, padding: '8px 10px' }}
+                <CustomDatePicker
                   value={dcaStartDate}
-                  onChange={(e) => setDcaStartDate(e.target.value)}
+                  onChange={setDcaStartDate}
                 />
               </div>
 

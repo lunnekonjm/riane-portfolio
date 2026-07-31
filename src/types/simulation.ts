@@ -118,6 +118,9 @@ export interface StressTestResult {
     name: string;
     contribution: number;
     contributionPercent: number;
+    inceptionYear?: number;
+    isProxySimulated?: boolean;
+    proxyNote?: string;
   }>;
   concentrationRevealed: string[];
   liquidityAvailable: number;

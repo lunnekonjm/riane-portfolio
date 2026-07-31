@@ -117,6 +117,17 @@ function calculatePositionImpact(
   return totalShock;
 }
 
+const ASSET_INCEPTION_YEARS: Record<string, number> = {
+  'GPEA.PA': 2024,
+  'PUST.PA': 2000,
+  '0P0001DKPM.F': 2018,
+  'ALRIB.PA': 1999,
+  'MEMS.PA': 2000,
+  'COHR': 2022,
+  'CEG': 2022,
+  'SYM': 2022,
+};
+
 /**
  * Run a stress test on the portfolio
  */
@@ -146,6 +157,10 @@ export function runStressTest(
     };
   }
 
+  // Extract scenario year from scenario name (e.g. "Crise financière mondiale (2008)" -> 2008)
+  const yearMatch = scenario.name.match(/\((20\d\d|19\d\d)\)/);
+  const scenarioYear = yearMatch ? parseInt(yearMatch[1], 10) : undefined;
+
   const lossByEnvelope: Record<string, number> = {};
   const contributionByAsset: StressTestResult['contributionByAsset'] = [];
   let totalLoss = 0;
@@ -161,11 +176,20 @@ export function runStressTest(
     const env = position.envelope;
     lossByEnvelope[env] = (lossByEnvelope[env] || 0) + loss;
 
+    const inceptionYear = ASSET_INCEPTION_YEARS[position.ticker] || 2020;
+    const isProxySimulated = scenarioYear ? inceptionYear > scenarioYear : false;
+    const proxyNote = isProxySimulated
+      ? `Coté à partir de ${inceptionYear} — Modélisé via indice proxy du secteur`
+      : undefined;
+
     contributionByAsset.push({
       ticker: position.ticker,
       name: position.name,
       contribution: loss,
       contributionPercent: totalValue > 0 ? (loss / totalValue) * 100 : 0,
+      inceptionYear,
+      isProxySimulated,
+      proxyNote,
     });
   }
 

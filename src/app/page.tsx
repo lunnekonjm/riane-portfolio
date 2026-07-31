@@ -180,6 +180,7 @@ export default function HomePage() {
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [refreshingPrices, setRefreshingPrices] = useState(false);
   const [showEmptyThemes, setShowEmptyThemes] = useState<boolean>(false);
+  const [hideProxyAssets, setHideProxyAssets] = useState<boolean>(false);
   const [showThemeInfoModal, setShowThemeInfoModal] = useState<boolean>(false);
   const [showGlossaryModal, setShowGlossaryModal] = useState<boolean>(false);
   const [showMonteCarloModal, setShowMonteCarloModal] = useState<boolean>(false);
@@ -1752,37 +1753,77 @@ export default function HomePage() {
                 const metrics = calculatePortfolioRiskMetrics(positions, fxRates);
                 return (
                   <div className="card" style={{ borderLeft: '4px solid var(--accent-cyan)' }}>
-                    <div className="card-header">
-                      <span className="card-title">⚡ Métriques de Risque Paramétrique & Volatilité</span>
-                      <span className="badge badge-cyan">Score Diversification : {metrics.diversificationScore}/100</span>
+                    <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
+                      <div>
+                        <span className="card-title">⚡ Métriques de Risque Paramétrique &amp; Volatilité</span>
+                        <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>
+                          Analyse statistique de la résilience de votre portefeuille face aux fluctuations de marché.
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                        <button type="button" className="btn btn-ghost btn-sm" style={{ fontSize: 11, color: 'var(--accent-cyan)' }} onClick={() => openGlossary('var')}>
+                          💡 Explication des Risques
+                        </button>
+                        <span className="badge badge-cyan" style={{ fontSize: 12, padding: '4px 10px' }}>
+                          Score Diversification : {metrics.diversificationScore}/100
+                        </span>
+                      </div>
                     </div>
 
-                    <div className="grid-4" style={{ marginBottom: 12 }}>
-                      <div>
-                        <span style={{ fontSize: 11, color: 'var(--text-muted)', display: 'block' }}>Volatilité Annuelle</span>
-                        <strong className="mono" style={{ fontSize: 20, color: 'var(--accent-amber)' }}>{metrics.annualVolatility}%</strong>
+                    <div className="grid-4" style={{ marginBottom: 8, marginTop: 12, gap: 16 }}>
+                      <div style={{ background: 'var(--bg-tertiary)', padding: 14, borderRadius: 10, border: '1px solid var(--border-subtle)' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span style={{ fontSize: 11, color: 'var(--text-tertiary)', fontWeight: 600, textTransform: 'uppercase' }}>Volatilité Annuelle</span>
+                          <span style={{ fontSize: 14 }}>📉</span>
+                        </div>
+                        <strong className="mono" style={{ fontSize: 22, color: 'var(--accent-amber)', display: 'block', margin: '4px 0' }}>{metrics.annualVolatility}%</strong>
+                        <div style={{ fontSize: 11, color: 'var(--text-secondary)', lineHeight: 1.3 }}>
+                          Amplitude moyenne des cours. 19% correspond à un profil dynamique équilibré.
+                        </div>
                       </div>
-                      <div>
-                        <span style={{ fontSize: 11, color: 'var(--text-muted)', display: 'block' }}>VaR 95% (1 an)</span>
-                        <strong className="mono" style={{ fontSize: 20, color: 'var(--accent-rose)' }}>-{metrics.var95EUR.toLocaleString('fr-FR')} €</strong>
-                        <span style={{ fontSize: 11, color: 'var(--accent-rose)', display: 'block' }}>-{metrics.var95Percent}%</span>
+
+                      <div style={{ background: 'var(--bg-tertiary)', padding: 14, borderRadius: 10, border: '1px solid var(--border-subtle)' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span style={{ fontSize: 11, color: 'var(--text-tertiary)', fontWeight: 600, textTransform: 'uppercase' }}>VaR 95% (Choc Normal)</span>
+                          <span style={{ fontSize: 14 }}>🛡️</span>
+                        </div>
+                        <strong className="mono" style={{ fontSize: 22, color: 'var(--accent-rose)', display: 'block', margin: '4px 0' }}>-{metrics.var95EUR.toLocaleString('fr-FR')} €</strong>
+                        <div style={{ fontSize: 11, color: 'var(--accent-rose)', fontWeight: 600 }}>-{metrics.var95Percent}% de perte max</div>
+                        <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 2, lineHeight: 1.3 }}>
+                          Pertes maximales estimées dans 95% des scénarios de marché normaux (1 an).
+                        </div>
                       </div>
-                      <div>
-                        <span style={{ fontSize: 11, color: 'var(--text-muted)', display: 'block' }}>VaR 99% (Crise 1 an)</span>
-                        <strong className="mono" style={{ fontSize: 20, color: 'var(--accent-rose)' }}>-{metrics.var99EUR.toLocaleString('fr-FR')} €</strong>
-                        <span style={{ fontSize: 11, color: 'var(--accent-rose)', display: 'block' }}>-{metrics.var99Percent}%</span>
+
+                      <div style={{ background: 'var(--bg-tertiary)', padding: 14, borderRadius: 10, border: '1px solid var(--border-subtle)' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span style={{ fontSize: 11, color: 'var(--text-tertiary)', fontWeight: 600, textTransform: 'uppercase' }}>VaR 99% (Krach 1%)</span>
+                          <span style={{ fontSize: 14 }}>⚡</span>
+                        </div>
+                        <strong className="mono" style={{ fontSize: 22, color: 'var(--accent-rose)', display: 'block', margin: '4px 0' }}>-{metrics.var99EUR.toLocaleString('fr-FR')} €</strong>
+                        <div style={{ fontSize: 11, color: 'var(--accent-rose)', fontWeight: 600 }}>-{metrics.var99Percent}% de perte max</div>
+                        <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 2, lineHeight: 1.3 }}>
+                          Choc extrême estimé lors du pire 1% des crises financières historiques.
+                        </div>
                       </div>
-                      <div>
-                        <span style={{ fontSize: 11, color: 'var(--text-muted)', display: 'block' }}>Ratio de Sharpe Estimé</span>
-                        <strong className="mono" style={{ fontSize: 20, color: 'var(--accent-emerald)' }}>{metrics.estimatedSharpeRatio}</strong>
+
+                      <div style={{ background: 'var(--bg-tertiary)', padding: 14, borderRadius: 10, border: '1px solid var(--border-subtle)' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span style={{ fontSize: 11, color: 'var(--text-tertiary)', fontWeight: 600, textTransform: 'uppercase' }}>Ratio de Sharpe Estimé</span>
+                          <span style={{ fontSize: 14 }}>⚖️</span>
+                        </div>
+                        <strong className="mono" style={{ fontSize: 22, color: 'var(--accent-emerald)', display: 'block', margin: '4px 0' }}>{metrics.estimatedSharpeRatio}</strong>
+                        <div style={{ fontSize: 11, color: 'var(--text-secondary)', lineHeight: 1.3 }}>
+                          Rendement obtenu par unité de risque pris (&gt; 0.3 = rendement positif).
+                        </div>
                       </div>
                     </div>
                   </div>
                 );
               })()}
+
               <div className="card">
                 <div className="card-header">
-                  <span className="card-title">Stress Tests Disponibles</span>
+                  <span className="card-title">Stress Tests &amp; Simulation de Crises Historiques</span>
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 12 }}>
                   {ALL_SCENARIOS.map((scenario, idx) => (
@@ -1807,59 +1848,112 @@ export default function HomePage() {
 
               {selectedStressResult && (
                 <div className="card" style={{ animation: 'fadeInUp 0.3s ease' }}>
-                  <div className="card-header">
-                    <span className="card-title">Résultat : {selectedStressResult.scenario.name}</span>
-                    <span className={`badge ${Math.abs(selectedStressResult.portfolioLossPercent) > 20 ? 'badge-rose' : 'badge-amber'}`}>
+                  <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
+                    <div>
+                      <span className="card-title">Résultat : {selectedStressResult.scenario.name}</span>
+                      <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>
+                        {selectedStressResult.scenario.description}
+                      </div>
+                    </div>
+                    <span className={`badge ${Math.abs(selectedStressResult.portfolioLossPercent) > 20 ? 'badge-rose' : 'badge-amber'}`} style={{ fontSize: 14, padding: '4px 12px' }}>
                       {selectedStressResult.portfolioLossPercent.toFixed(1)}%
                     </span>
                   </div>
 
                   <div className="grid-3" style={{ marginBottom: 20 }}>
-                    <div>
-                      <span style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>Perte Portefeuille</span>
-                      <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--accent-rose)', fontFamily: 'var(--font-mono)' }}>
+                    <div style={{ background: 'var(--bg-tertiary)', padding: 14, borderRadius: 10, border: '1px solid var(--border-subtle)' }}>
+                      <span style={{ fontSize: 12, color: 'var(--text-tertiary)', fontWeight: 600 }}>Perte Estimée sur le Portefeuille</span>
+                      <div style={{ fontSize: 24, fontWeight: 700, color: 'var(--accent-rose)', fontFamily: 'var(--font-mono)', margin: '4px 0' }}>
                         {selectedStressResult.portfolioLoss.toLocaleString('fr-FR')} €
                       </div>
+                      <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Montant nominal déprécié</div>
                     </div>
-                    <div>
-                      <span style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>Coût de Rééquilibrage</span>
-                      <div style={{ fontSize: 18, fontWeight: 600, fontFamily: 'var(--font-mono)' }}>
+                    <div style={{ background: 'var(--bg-tertiary)', padding: 14, borderRadius: 10, border: '1px solid var(--border-subtle)' }}>
+                      <span style={{ fontSize: 12, color: 'var(--text-tertiary)', fontWeight: 600 }}>Coût Estimé de Rééquilibrage</span>
+                      <div style={{ fontSize: 20, fontWeight: 700, fontFamily: 'var(--font-mono)', margin: '4px 0' }}>
                         {Math.round(selectedStressResult.rebalanceCostEstimate).toLocaleString('fr-FR')} €
                       </div>
+                      <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Frais et frottements d&apos;arbitrage</div>
                     </div>
-                    <div>
-                      <span style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>Impact Objectifs</span>
-                      <div style={{ fontSize: 14, color: 'var(--text-secondary)' }}>
+                    <div style={{ background: 'var(--bg-tertiary)', padding: 14, borderRadius: 10, border: '1px solid var(--border-subtle)' }}>
+                      <span style={{ fontSize: 12, color: 'var(--text-tertiary)', fontWeight: 600 }}>Impact sur vos Objectifs</span>
+                      <div style={{ fontSize: 13, color: 'var(--accent-amber)', fontWeight: 600, marginTop: 6 }}>
                         {selectedStressResult.objectiveImpact}
                       </div>
                     </div>
                   </div>
 
-                  {selectedStressResult.contributionByAsset.length > 0 && (
-                    <div>
-                      <h4 style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-tertiary)', marginBottom: 12, textTransform: 'uppercase' }}>Contribution par Actif</h4>
-                      {selectedStressResult.contributionByAsset.map((asset, i) => (
-                        <div key={i} className="theme-bar-row" style={{ marginBottom: 8 }}>
-                          <span className="theme-bar-label">{asset.name}</span>
-                          <div className="stress-bar" style={{ flex: 1 }}>
-                            <div
-                              className={`stress-bar-fill ${Math.abs(asset.contributionPercent) > 5 ? 'high' : Math.abs(asset.contributionPercent) > 2 ? 'medium' : 'low'}`}
-                              style={{ width: `${Math.min(Math.abs(asset.contributionPercent) * 3, 100)}%` }}
-                            />
+                  {selectedStressResult.contributionByAsset.length > 0 && (() => {
+                    const displayAssets = hideProxyAssets
+                      ? selectedStressResult.contributionByAsset.filter((a) => !a.isProxySimulated)
+                      : selectedStressResult.contributionByAsset;
+
+                    const proxyCount = selectedStressResult.contributionByAsset.filter((a) => a.isProxySimulated).length;
+
+                    return (
+                      <div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10, marginBottom: 14 }}>
+                          <div>
+                            <h4 style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', textTransform: 'uppercase', margin: 0 }}>
+                              Impact Détail par Actif ({displayAssets.length} titres)
+                            </h4>
+                            {proxyCount > 0 && (
+                              <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 2 }}>
+                                💡 {proxyCount} actif(s) créés après ce krach sont modélisés par leur indice sectoriel proxy.
+                              </div>
+                            )}
                           </div>
-                          <span style={{ width: 60, textAlign: 'right', fontSize: 13, fontFamily: 'var(--font-mono)', fontWeight: 600, color: asset.contribution < 0 ? 'var(--accent-rose)' : 'var(--text-secondary)' }}>
-                            {asset.contributionPercent.toFixed(1)}%
-                          </span>
+
+                          {proxyCount > 0 && (
+                            <button
+                              type="button"
+                              className="btn btn-secondary btn-sm"
+                              style={{ fontSize: 11 }}
+                              onClick={() => setHideProxyAssets(!hideProxyAssets)}
+                            >
+                              {hideProxyAssets ? '👁️ Afficher tous les actifs (avec Proxies)' : '🔒 Masquer les actifs créés après la crise'}
+                            </button>
+                          )}
                         </div>
-                      ))}
-                    </div>
-                  )}
+
+                        {displayAssets.map((asset, i) => (
+                          <div key={i} className="theme-bar-row" style={{ marginBottom: 12, padding: '8px 12px', background: 'var(--bg-tertiary)', borderRadius: 8, border: '1px solid var(--border-subtle)' }}>
+                            <div style={{ width: 220, display: 'flex', flexDirection: 'column' }}>
+                              <span className="theme-bar-label" style={{ fontWeight: 600 }}>{asset.name}</span>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
+                                <span style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--text-tertiary)' }}>{asset.ticker}</span>
+                                {asset.isProxySimulated && (
+                                  <span className="badge badge-amber" style={{ fontSize: 9, padding: '1px 5px' }} title={asset.proxyNote}>
+                                    🔒 Simulé via Proxy (Créé en {asset.inceptionYear})
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            <div className="stress-bar" style={{ flex: 1 }}>
+                              <div
+                                className={`stress-bar-fill ${Math.abs(asset.contributionPercent) > 5 ? 'high' : Math.abs(asset.contributionPercent) > 2 ? 'medium' : 'low'}`}
+                                style={{
+                                  width: `${Math.min(Math.abs(asset.contributionPercent) * 3, 100)}%`,
+                                  opacity: asset.isProxySimulated ? 0.75 : 1.0,
+                                }}
+                              />
+                            </div>
+                            <span style={{ width: 70, textAlign: 'right', fontSize: 13, fontFamily: 'var(--font-mono)', fontWeight: 700, color: asset.contribution < 0 ? 'var(--accent-rose)' : 'var(--text-secondary)' }}>
+                              {asset.contributionPercent.toFixed(1)}%
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })()}
 
                   {selectedStressResult.governanceActions.length > 0 && (
-                    <div style={{ marginTop: 20, padding: 16, background: 'var(--accent-amber-glow)', borderRadius: 'var(--radius-md)' }}>
-                      <h4 style={{ fontSize: 13, fontWeight: 600, color: 'var(--accent-amber)', marginBottom: 8 }}>Actions de Gouvernance</h4>
+                    <div style={{ marginTop: 20, padding: 16, background: 'rgba(245, 158, 11, 0.1)', border: '1px solid var(--accent-amber)', borderRadius: 'var(--radius-md)' }}>
+                      <h4 style={{ fontSize: 14, fontWeight: 700, color: 'var(--accent-amber)', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <span>📋</span> Plan d&apos;Action &amp; Recommandations de Gouvernance
+                      </h4>
                       {selectedStressResult.governanceActions.map((a, i) => (
-                        <p key={i} style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 4 }}>• {a}</p>
+                        <p key={i} style={{ fontSize: 13, color: 'var(--text-primary)', marginBottom: 4 }}>• {a}</p>
                       ))}
                     </div>
                   )}

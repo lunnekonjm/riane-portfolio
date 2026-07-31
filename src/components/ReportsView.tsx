@@ -48,7 +48,7 @@ export default function ReportsView({
     annual: 'Exercice 2025/2026',
   };
 
-  // Load saved report history from localStorage on mount
+  // Load saved report history from localStorage on mount (DO NOT auto-generate if empty)
   useEffect(() => {
     try {
       const raw = localStorage.getItem('riane_saved_reports');
@@ -65,7 +65,7 @@ export default function ReportsView({
     }
   }, []);
 
-  const handleGenerateReport = useCallback(async (period: ReportPeriod, saveToHistory: boolean = false) => {
+  const handleGenerateReport = useCallback(async (period: ReportPeriod, saveToHistory: boolean = true) => {
     setSelectedPeriod(period);
     setGenerating(true);
     try {
@@ -101,7 +101,7 @@ export default function ReportsView({
           return updated;
         });
 
-        onShowToast(`Rapport ${periodLabels[period]} sauvegardé dans les archives !`);
+        onShowToast(`Rapport ${periodLabels[period]} généré et sauvegardé !`);
       }
     } catch {
       onShowToast('Erreur lors de la génération du rapport', 'error');
@@ -110,24 +110,19 @@ export default function ReportsView({
     }
   }, [positions, config, fxRates, adjustInflation, cumulativeInflationFactor, inflationRate, yearsElapsed, onShowToast]);
 
-  // Initial load if no report present
-  useEffect(() => {
-    if (!reportMarkdown && savedReports.length === 0) {
-      handleGenerateReport('monthly', false);
-    }
-  }, [reportMarkdown, savedReports, handleGenerateReport]);
-
   const copyToClipboard = () => {
+    if (!reportMarkdown) return;
     navigator.clipboard.writeText(reportMarkdown);
     onShowToast('Rapport copié dans le presse-papier !');
   };
 
   const handlePrint = () => {
+    if (!reportMarkdown) return;
     window.print();
   };
 
   const handleClearHistory = () => {
-    if (confirm('⚠️ Supprimer définitivement tout l\'historique des rapports archivés ?\nCette action supprimera toutes les archives sauvegardées.')) {
+    if (confirm('⚠️ Supprimer définitivement tout l\'historique des rapports et effacer la vue ?\nTous les rapports sauvegardés et le document affiché seront purgés.')) {
       setSavedReports([]);
       setReportMarkdown('');
       setShowHistoryModal(false);
@@ -137,7 +132,7 @@ export default function ReportsView({
       } catch {
         // ignore
       }
-      onShowToast('Historique des rapports définitivement effacé !');
+      onShowToast('Tous les rapports ont été définitivement effacés !');
     }
   };
 
@@ -252,16 +247,14 @@ export default function ReportsView({
           <div>
             {/* Toolbar */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, marginBottom: 20 }} className="no-print">
-              {savedReports.length > 0 ? (
-                <button
-                  type="button"
-                  className="btn btn-ghost btn-sm"
-                  style={{ color: 'var(--accent-rose)', fontSize: 12 }}
-                  onClick={handleClearHistory}
-                >
-                  🗑️ Supprimer définitivement tout l&apos;historique
-                </button>
-              ) : <div />}
+              <button
+                type="button"
+                className="btn btn-ghost btn-sm"
+                style={{ color: 'var(--accent-rose)', fontSize: 12 }}
+                onClick={handleClearHistory}
+              >
+                🗑️ Supprimer définitivement tout l&apos;historique &amp; la vue
+              </button>
 
               <div style={{ display: 'flex', gap: 10 }}>
                 <button className="btn btn-secondary btn-sm" onClick={copyToClipboard}>
@@ -288,13 +281,20 @@ export default function ReportsView({
             </div>
           </div>
         ) : (
-          <div style={{ textAlign: 'center', padding: '60px 20px', color: 'var(--text-muted)' }}>
-            <div style={{ fontSize: 40, marginBottom: 12 }}>📰</div>
-            <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--text-primary)' }}>Aucun rapport affiché</div>
-            <div style={{ fontSize: 13, marginTop: 4, marginBottom: 20 }}>Cliquez sur l&apos;un des boutons ci-dessus pour générer votre compte-rendu officiel.</div>
-            <button className="btn btn-primary" onClick={() => handleGenerateReport('monthly', true)}>
-              ⚡ Générer le Rapport Mensuel (Juillet 2026)
-            </button>
+          <div style={{ textAlign: 'center', padding: '70px 20px', color: 'var(--text-muted)' }}>
+            <div style={{ fontSize: 44, marginBottom: 12 }}>📰</div>
+            <div style={{ fontSize: 17, fontWeight: 700, color: 'var(--text-primary)' }}>Aucun rapport affiché</div>
+            <div style={{ fontSize: 13, marginTop: 6, marginBottom: 24, color: 'var(--text-secondary)' }}>
+              L&apos;historique des rapports est vide. Cliquez sur l&apos;un des boutons ci-dessus pour générer un nouveau compte-rendu.
+            </div>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
+              <button className="btn btn-primary" onClick={() => handleGenerateReport('monthly', true)}>
+                ⚡ Générer le Rapport Mensuel
+              </button>
+              <button className="btn btn-secondary" onClick={() => handleGenerateReport('quarterly', true)}>
+                📊 Générer le Bulletin Trimestriel
+              </button>
+            </div>
           </div>
         )}
       </div>

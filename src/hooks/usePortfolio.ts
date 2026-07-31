@@ -364,6 +364,7 @@ export function usePortfolio() {
     if (typeof window !== 'undefined') {
       localStorage.removeItem('riane_transaction_history');
       localStorage.removeItem('riane_local_positions');
+      localStorage.removeItem('riane_saved_reports');
       localStorage.setItem('riane_local_positions', JSON.stringify(DEFAULT_POSITIONS));
     }
 

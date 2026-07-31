@@ -46,58 +46,58 @@ export default function MonteCarloModal({ initialCapital, monthlyDCA, onClose }:
           <button className="modal-close-btn" onClick={onClose}>✕</button>
         </div>
 
-        {/* Input Parameters Panel */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10, padding: 14, background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-md)', margin: '12px 0 16px 0', border: '1px solid var(--border-subtle)' }}>
-          <div>
+        {/* Input Parameters Panel — Optimized 1-Line Flex Layout */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: 12, background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-md)', margin: '12px 0 6px 0', border: '1px solid var(--border-subtle)', flexWrap: 'wrap' }}>
+          <div style={{ flex: '1 1 110px', minWidth: 100 }}>
             <label style={{ fontSize: 11, color: 'var(--text-tertiary)', display: 'block', marginBottom: 4 }}>Capital Initial (€)</label>
             <input
               type="number"
               className="input mono"
               value={capitalInput}
               onChange={(e) => setCapitalInput(Number(e.target.value))}
-              style={{ fontSize: 13, padding: '6px 10px', width: '100%' }}
+              style={{ fontSize: 13, padding: '6px 8px', width: '100%' }}
             />
           </div>
-          <div>
+          <div style={{ flex: '1 1 100px', minWidth: 90 }}>
             <label style={{ fontSize: 11, color: 'var(--text-tertiary)', display: 'block', marginBottom: 4 }}>DCA Mensuel (€)</label>
             <input
               type="number"
               className="input mono"
               value={dcaInput}
               onChange={(e) => setDcaInput(Number(e.target.value))}
-              style={{ fontSize: 13, padding: '6px 10px', width: '100%' }}
+              style={{ fontSize: 13, padding: '6px 8px', width: '100%' }}
             />
           </div>
-          <div>
+          <div style={{ flex: '1 1 130px', minWidth: 120 }}>
             <label style={{ fontSize: 11, color: 'var(--text-tertiary)', display: 'block', marginBottom: 4 }}>Horizon (Ans)</label>
-            <div style={{ display: 'flex', gap: 4 }}>
+            <div style={{ display: 'flex', gap: 2 }}>
               {[5, 10, 15, 20, 25].map((h) => (
                 <button
                   key={h}
                   type="button"
                   className={`btn btn-sm ${horizonYears === h ? 'btn-primary' : 'btn-secondary'}`}
                   onClick={() => setHorizonYears(h)}
-                  style={{ fontSize: 11, padding: '4px 6px', flex: 1 }}
+                  style={{ fontSize: 11, padding: '4px 4px', flex: 1 }}
                 >
                   {h}a
                 </button>
               ))}
             </div>
           </div>
-          <div style={{ minWidth: 170 }}>
+          <div style={{ flex: '1.2 1 150px', minWidth: 140 }}>
             <label style={{ fontSize: 11, color: 'var(--text-tertiary)', display: 'block', marginBottom: 4 }}>Fiscalité Enveloppe</label>
             <select
               className="input"
               value={taxEnvelope}
               onChange={(e) => setTaxEnvelope(e.target.value as TaxEnvelopeType)}
-              style={{ fontSize: 12, padding: '6px 8px', fontWeight: 700, width: '100%' }}
+              style={{ fontSize: 12, padding: '6px 6px', fontWeight: 700, width: '100%' }}
             >
-              <option value="MIXED">📊 Mixte (Portefeuille)</option>
+              <option value="MIXED">📊 Mixte (PEA + CTO)</option>
               <option value="PEA">🏛️ PEA (18.6% PS)</option>
               <option value="CTO">💼 CTO (31.4% PFU)</option>
             </select>
           </div>
-          <div>
+          <div style={{ flex: '0.8 1 80px', minWidth: 70 }}>
             <label style={{ fontSize: 11, color: 'var(--text-tertiary)', display: 'block', marginBottom: 4 }}>Rendement (%)</label>
             <input
               type="number"
@@ -105,9 +105,26 @@ export default function MonteCarloModal({ initialCapital, monthlyDCA, onClose }:
               className="input mono"
               value={expectedReturn}
               onChange={(e) => setExpectedReturn(Number(e.target.value))}
-              style={{ fontSize: 13, padding: '6px 10px', width: '100%' }}
+              style={{ fontSize: 13, padding: '6px 8px', width: '100%' }}
             />
           </div>
+        </div>
+
+        {/* 💡 Explicit Tax Allocation Explanation Banner */}
+        <div style={{ fontSize: 12, color: 'var(--text-secondary)', padding: '8px 12px', background: 'rgba(6, 182, 212, 0.06)', borderRadius: 'var(--radius-sm)', marginBottom: 14, borderLeft: '3px solid var(--accent-cyan)', lineHeight: 1.5 }}>
+          {taxEnvelope === 'MIXED' ? (
+            <span>
+              💡 <strong>Règle d&apos;Affectation Fiscale (Mode Mixte) :</strong> Vos versements sont affectés en priorité sur le <strong>PEA (exonéré d&apos;impôt à 0% IR)</strong> jusqu&apos;au plafond légal de <strong>150 000 €</strong>, puis tout surplus bascule automatiquement sur le <strong>CTO (Flat Tax 31.4%)</strong>.
+            </span>
+          ) : taxEnvelope === 'PEA' ? (
+            <span>
+              🏛️ <strong>Mode PEA Intégral :</strong> 100% du capital et du DCA sont appliqués au PEA (soumis uniquement aux prélèvements sociaux de 18.6% après 5 ans d&apos;ancienneté).
+            </span>
+          ) : (
+            <span>
+              💼 <strong>Mode CTO Intégral :</strong> 100% du capital et du DCA sont appliqués au Compte-Titres Ordinaire (soumis à la Flat Tax / PFU de 31.4%).
+            </span>
+          )}
         </div>
 
         <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 16, paddingRight: 4 }}>

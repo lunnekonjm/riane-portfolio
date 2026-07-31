@@ -51,16 +51,22 @@ function randomNormal(): number {
 }
 
 /**
- * Calculates effective French tax rate based on envelope
+ * Calculates effective French tax rate based on envelope & PEA 150,000 € deposit ceiling
  * PEA: 18.6% PS (0% IR after 5 years)
  * CTO: 31.4% PFU / Flat Tax (12.8% IR + 18.6% PS)
- * MIXED: Weighted by PEA vs CTO ratio
+ * MIXED: Allocates up to 150,000 € to PEA first, remaining surplus to CTO
  */
-export function getEffectiveTaxRate(envelope: TaxEnvelopeType, peaRatio = 0.75): number {
+export function getEffectiveTaxRate(envelope: TaxEnvelopeType, totalInvested = 100000, peaRatio = 0.75): number {
   if (envelope === 'PEA') return 0.186; // 18.6% Prélèvements sociaux
   if (envelope === 'CTO') return 0.314; // 31.4% Flat tax / PFU (12.8% IR + 18.6% PS)
-  // MIXED
-  return peaRatio * 0.186 + (1 - peaRatio) * 0.314;
+  
+  // MIXED Mode: Respect 150,000 € PEA deposit cap
+  if (totalInvested <= 0) return 0.186;
+  const peaPart = Math.min(150000, totalInvested);
+  const ctoPart = Math.max(0, totalInvested - 150000);
+  const calculatedPeaRatio = peaPart / totalInvested;
+  
+  return calculatedPeaRatio * 0.186 + (1 - calculatedPeaRatio) * 0.314;
 }
 
 /**
@@ -88,7 +94,8 @@ export function runMonteCarloSimulation(input: MonteCarloInput): MonteCarloResul
     peaRatio = 0.75,
   } = input;
 
-  const effectiveTaxRate = getEffectiveTaxRate(taxEnvelope, peaRatio);
+  const totalInvestedFinal = initialCapital + monthlyDCA * (horizonYears * 12);
+  const effectiveTaxRate = getEffectiveTaxRate(taxEnvelope, totalInvestedFinal, peaRatio);
   const realReturn = annualReturnMean - inflationRate;
   const dt = 1 / 12; // Monthly time step
   const totalMonths = horizonYears * 12;
@@ -139,7 +146,6 @@ export function runMonteCarloSimulation(input: MonteCarloInput): MonteCarloResul
   const finalP10 = finalYearValues[Math.floor(numSimulations * 0.1)];
   const finalP50 = finalYearValues[Math.floor(numSimulations * 0.5)];
   const finalP90 = finalYearValues[Math.floor(numSimulations * 0.9)];
-  const totalInvestedFinal = initialCapital + monthlyDCA * totalMonths;
 
   const finalP50Net = applyFrenchTax(finalP50, totalInvestedFinal, effectiveTaxRate);
 

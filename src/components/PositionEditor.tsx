@@ -337,7 +337,8 @@ function autoGenerateThemes(
         form.currentPrice || form.avgPrice || 100,
         isIntegerOnly,
         form.dcaFrequency || 'monthly',
-        form.dcaDepositMonth || 1
+        form.dcaDepositMonth || 1,
+        form.dcaDepositDay || 5
       );
       setDcaResult(result);
     } catch (err) {
@@ -619,6 +620,20 @@ function autoGenerateThemes(
                   </select>
                 </div>
               )}
+
+              <div className="form-group">
+                <label className="form-label" style={{ fontSize: 12 }}>Jour du mois</label>
+                <input
+                  type="number"
+                  min="1"
+                  max="31"
+                  className="input mono"
+                  style={{ fontSize: 12 }}
+                  value={form.dcaDepositDay || 5}
+                  onChange={(e) => handleChange('dcaDepositDay', Math.min(31, Math.max(1, parseInt(e.target.value) || 5)))}
+                  placeholder="5"
+                />
+              </div>
 
               <div className="form-group">
                 <label className="form-label" style={{ fontSize: 12 }}>Versement (€)</label>

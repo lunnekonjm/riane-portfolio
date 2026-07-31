@@ -32,6 +32,8 @@ export interface Position {
   dcaFrequency?: 'monthly' | 'quarterly' | 'annual';
   /** Target month of deposit for quarterly/annual DCA (1 = Jan, 6 = June, etc.) */
   dcaDepositMonth?: number;
+  /** Target day of the month for deposit (1-31, default 5) */
+  dcaDepositDay?: number;
   /** Annual budget in EUR (for CTO) */
   annualBudget?: number;
   /** Thematic tags */

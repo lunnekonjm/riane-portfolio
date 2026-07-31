@@ -69,7 +69,8 @@ export async function simulatePositionDCA(
   currentPriceFallback: number,
   isIntegerOnly: boolean = true,
   frequency: 'monthly' | 'quarterly' | 'annual' = 'monthly',
-  depositMonth: number = 1
+  depositMonth: number = 1,
+  depositDay: number = 5
 ): Promise<DCASimulationResult> {
   const months = getMonthlyDates(startDateStr);
 

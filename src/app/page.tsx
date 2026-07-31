@@ -793,7 +793,8 @@ export default function HomePage() {
                               pos.currentPrice || pos.avgPrice || 100,
                               isIntegerOnly,
                               pos.dcaFrequency || 'monthly',
-                              pos.dcaDepositMonth || 1
+                              pos.dcaDepositMonth || 1,
+                              pos.dcaDepositDay || 5
                             );
                             if (sim.totalShares > 0) {
                               await updatePosition({

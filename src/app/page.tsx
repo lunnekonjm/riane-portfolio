@@ -16,6 +16,7 @@ import NotificationCenterModal from '@/components/NotificationCenterModal';
 import GlossaryInfoModal from '@/components/GlossaryInfoModal';
 import MonteCarloModal from '@/components/MonteCarloModal';
 import MarkdownRenderer from '@/components/MarkdownRenderer';
+import WelcomeBanner from '@/components/WelcomeBanner';
 import ReportsView from '@/components/ReportsView';
 import { generatePortfolioNotifications } from '@/engines/notificationEngine';
 import type { AppNotification, NotificationSettings } from '@/types/notification';
@@ -458,6 +459,23 @@ export default function HomePage() {
           {/* ═══ DASHBOARD ═══ */}
           {currentView === 'dashboard' && (
             <>
+              {/* 👋 Dynamic Executive Welcome & Briefing Banner */}
+              <WelcomeBanner
+                userName={user.displayName || user.email || undefined}
+                totalValue={totalValue}
+                totalCost={totalCost}
+                monthlyDCA={monthlyDCATotal || (config?.monthlyBudget || 1000)}
+                positions={positions}
+                notifications={notifications}
+                onOpenAnalysis={() => setCurrentView('analysis')}
+                onOpenRebalance={() => {
+                  const monthlyBudget = config?.monthlyBudget || 1000;
+                  const result = calculateSmartFlowRebalance(positions, monthlyBudget, fxRates);
+                  setFlowRebalanceResult(result);
+                  setShowFlowRebalanceModal(true);
+                }}
+              />
+
               {/* 📅 Dashboard Date & Market Last Refresh Bar */}
               <div className="card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12, padding: '12px 18px', background: 'var(--bg-secondary)', marginBottom: 16, borderLeft: '4px solid var(--accent-cyan)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>

@@ -15,6 +15,7 @@ import { DEFAULT_POSITIONS } from '@/data/portfolio';
 import { getMultipleQuotes, getFxRates } from '@/services/market-data/provider';
 import type { Position, PortfolioConfig } from '@/types/portfolio';
 import type { User } from 'firebase/auth';
+import { clearAnalysisCache } from '@/utils/analysisCache';
 
 export function usePortfolio() {
   const [user, setUser] = useState<User | null>(null);
@@ -107,6 +108,7 @@ export function usePortfolio() {
   // ── CRUD ──
   const addPosition = useCallback(async (pos: Position) => {
     setSaving(true);
+    clearAnalysisCache();
     // Guarantee quantity >= 1 and valid PRU
     const validPos: Position = {
       ...pos,
@@ -138,6 +140,7 @@ export function usePortfolio() {
 
   const updatePosition = useCallback(async (pos: Position) => {
     setSaving(true);
+    clearAnalysisCache();
     setPositions((prev) => {
       const updated = prev.map((p) => (p.id === pos.id ? pos : p));
       try {
@@ -160,6 +163,7 @@ export function usePortfolio() {
 
   const removePosition = useCallback(async (positionId: string) => {
     setSaving(true);
+    clearAnalysisCache();
     setPositions((prev) => {
       const updated = prev.filter((p) => p.id !== positionId);
       try {
@@ -183,6 +187,7 @@ export function usePortfolio() {
   const updateConfig = useCallback(async (newConfig: PortfolioConfig) => {
     if (!user) return;
     setSaving(true);
+    clearAnalysisCache();
     try {
       await savePortfolioConfig(user.uid, newConfig);
       setConfig(newConfig);

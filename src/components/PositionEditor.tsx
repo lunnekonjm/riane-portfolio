@@ -554,7 +554,7 @@ function autoGenerateThemes(
             </div>
           </div>
 
-          {/* ⚡ Calculateur DCA Automatique Section */}
+          {/* Row 2.5: Auto-Calculateur DCA */}
           <div style={{
             background: 'var(--bg-tertiary)',
             border: '1px solid var(--border-accent)',
@@ -562,31 +562,32 @@ function autoGenerateThemes(
             padding: 16,
             marginBottom: 20
           }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
               <span style={{ fontWeight: 600, fontSize: 14, color: 'var(--accent-cyan)' }}>
-                ⚡ Auto-Calculateur DCA (Règle PEA : Actions entières)
+                ⚡ Auto-Calculateur DCA ({form.envelope === 'PEA' || form.envelope === 'PEA-PME' || form.envelope === 'CTO' ? 'Actions entières' : 'Parts décimales'})
               </span>
             </div>
-            <p style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 12 }}>
-              Indiquez quand vous avez commencé votre DCA. L&apos;application simule l&apos;accumulation mensuelle (actions entières + reliquat d&apos;espèces) jusqu&apos;à aujourd&apos;hui.
+            <p style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 14 }}>
+              Indiquez la date d&apos;entrée DCA et le jour de virement. L&apos;application simule l&apos;accumulation réelle (cours boursiers historiques + reliquat) jusqu&apos;à aujourd&apos;hui.
             </p>
 
-            <div className="form-row" style={{ marginBottom: 10 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 12, marginBottom: 14 }}>
               <div className="form-group">
-                <label className="form-label" style={{ fontSize: 12 }}>Début du DCA (Mois/Année)</label>
+                <label className="form-label" style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.4px' }}>Début du DCA</label>
                 <input
                   type="month"
                   className="input mono"
+                  style={{ fontSize: 13, padding: '8px 10px' }}
                   value={dcaStartDate}
                   onChange={(e) => setDcaStartDate(e.target.value)}
                 />
               </div>
 
               <div className="form-group">
-                <label className="form-label" style={{ fontSize: 12 }}>Fréquence</label>
+                <label className="form-label" style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.4px' }}>Fréquence</label>
                 <select
                   className="input"
-                  style={{ fontSize: 12 }}
+                  style={{ fontSize: 13, padding: '8px 10px' }}
                   value={form.dcaFrequency || 'monthly'}
                   onChange={(e) => handleChange('dcaFrequency', e.target.value)}
                 >
@@ -598,10 +599,10 @@ function autoGenerateThemes(
 
               {(form.dcaFrequency === 'annual' || form.dcaFrequency === 'quarterly') && (
                 <div className="form-group">
-                  <label className="form-label" style={{ fontSize: 12 }}>Mois du versement</label>
+                  <label className="form-label" style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.4px' }}>Mois du versement</label>
                   <select
                     className="input"
-                    style={{ fontSize: 12 }}
+                    style={{ fontSize: 13, padding: '8px 10px' }}
                     value={form.dcaDepositMonth || 1}
                     onChange={(e) => handleChange('dcaDepositMonth', parseInt(e.target.value))}
                   >
@@ -622,13 +623,13 @@ function autoGenerateThemes(
               )}
 
               <div className="form-group">
-                <label className="form-label" style={{ fontSize: 12 }}>Jour du mois</label>
+                <label className="form-label" style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.4px' }}>Jour du mois</label>
                 <input
                   type="number"
                   min="1"
                   max="31"
                   className="input mono"
-                  style={{ fontSize: 12 }}
+                  style={{ fontSize: 13, padding: '8px 10px' }}
                   value={form.dcaDepositDay || 5}
                   onChange={(e) => handleChange('dcaDepositDay', Math.min(31, Math.max(1, parseInt(e.target.value) || 5)))}
                   placeholder="5"
@@ -636,31 +637,41 @@ function autoGenerateThemes(
               </div>
 
               <div className="form-group">
-                <label className="form-label" style={{ fontSize: 12 }}>Versement (€)</label>
+                <label className="form-label" style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.4px' }}>Versement ({form.currency === 'USD' ? '$' : form.currency === 'GBP' ? '£' : '€'})</label>
                 <input
                   type="number"
                   className="input mono"
+                  style={{ fontSize: 13, padding: '8px 10px' }}
                   value={form.monthlyDCA || (form.annualBudget ? form.annualBudget / 12 : 100)}
                   onChange={(e) => handleOptionalNumber('monthlyDCA', e.target.value)}
                   placeholder="100"
                 />
               </div>
-
-              <div className="form-group" style={{ display: 'flex', alignItems: 'flex-end' }}>
-                <button
-                  type="button"
-                  className="btn btn-secondary"
-                  style={{ width: '100%', borderColor: 'var(--accent-cyan)' }}
-                  onClick={handleRunDCASimulation}
-                  disabled={isCalculatingDCA || !form.ticker}
-                >
-                  {isCalculatingDCA ? <span className="loading-spinner" /> : '⚡ Simuler DCA'}
-                </button>
-              </div>
             </div>
 
+            <button
+              type="button"
+              className="btn btn-secondary"
+              style={{
+                width: '100%',
+                padding: '10px 16px',
+                borderColor: 'var(--accent-cyan)',
+                color: 'var(--accent-cyan)',
+                fontWeight: 700,
+                fontSize: 13,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 8,
+              }}
+              onClick={handleRunDCASimulation}
+              disabled={isCalculatingDCA || !form.ticker}
+            >
+              {isCalculatingDCA ? <span className="loading-spinner" /> : '⚡ Calculer & Appliquer la Simulation DCA'}
+            </button>
+
             {dcaResult && (
-              <div style={{ background: 'var(--bg-secondary)', padding: 12, borderRadius: 8, border: '1px solid var(--border-subtle)', marginTop: 10 }}>
+              <div style={{ background: 'var(--bg-secondary)', padding: 12, borderRadius: 8, border: '1px solid var(--border-subtle)', marginTop: 14 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
                   <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--accent-emerald)' }}>
                     📊 Résultats DCA ({dcaResult.monthsCount} mois) :
@@ -677,30 +688,30 @@ function autoGenerateThemes(
 
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, textAlign: 'center', marginBottom: 10 }}>
                   <div>
-                    <span style={{ display: 'block', fontSize: 10, color: 'var(--text-muted)' }}>Actions entières</span>
+                    <span style={{ display: 'block', fontSize: 10, color: 'var(--text-muted)' }}>Parts/Actions</span>
                     <strong style={{ fontSize: 15, color: 'var(--accent-cyan)' }}>{dcaResult.totalShares}</strong>
                   </div>
                   <div>
                     <span style={{ display: 'block', fontSize: 10, color: 'var(--text-muted)' }}>PRU Estimé</span>
-                    <strong style={{ fontSize: 15 }}>{dcaResult.avgPrice.toFixed(2)} €</strong>
+                    <strong style={{ fontSize: 15 }}>{dcaResult.avgPrice.toFixed(2)} {form.currency === 'USD' ? '$' : '€'}</strong>
                   </div>
                   <div>
                     <span style={{ display: 'block', fontSize: 10, color: 'var(--text-muted)' }}>Total Investi</span>
-                    <strong style={{ fontSize: 15 }}>{dcaResult.totalInvested.toFixed(0)} €</strong>
+                    <strong style={{ fontSize: 15 }}>{dcaResult.totalInvested.toFixed(0)} {form.currency === 'USD' ? '$' : '€'}</strong>
                   </div>
                   <div>
-                    <span style={{ display: 'block', fontSize: 10, color: 'var(--text-muted)' }}>Reliquat Cash PEA</span>
-                    <strong style={{ fontSize: 15, color: 'var(--accent-amber)' }}>{dcaResult.uninvestedCash.toFixed(2)} €</strong>
+                    <span style={{ display: 'block', fontSize: 10, color: 'var(--text-muted)' }}>Reliquat Cash</span>
+                    <strong style={{ fontSize: 15, color: 'var(--accent-amber)' }}>{dcaResult.uninvestedCash.toFixed(2)} {form.currency === 'USD' ? '$' : '€'}</strong>
                   </div>
                 </div>
 
                 <button
                   type="button"
                   className="btn btn-primary"
-                  style={{ width: '100%', fontSize: 13, padding: '6px 12px' }}
+                  style={{ width: '100%', fontSize: 13, padding: '8px 12px' }}
                   onClick={handleApplyDCAResult}
                 >
-                  ✅ Appliquer ces {dcaResult.totalShares} actions & PRU ({dcaResult.avgPrice.toFixed(2)} €) au formulaire
+                  ✅ Appliquer ces {dcaResult.totalShares} actions & PRU ({dcaResult.avgPrice.toFixed(2)} {form.currency === 'USD' ? '$' : '€'}) au formulaire
                 </button>
 
                 {showDCAHistory && (
@@ -721,12 +732,12 @@ function autoGenerateThemes(
                         {dcaResult.logs.map((log) => (
                           <tr key={log.date} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
                             <td>{log.date}</td>
-                            <td>{log.sharePrice} €</td>
-                            <td>{log.cashAvailable} €</td>
+                            <td>{log.sharePrice} {form.currency === 'USD' ? '$' : '€'}</td>
+                            <td>{log.cashAvailable} {form.currency === 'USD' ? '$' : '€'}</td>
                             <td style={{ color: 'var(--accent-cyan)', fontWeight: 600 }}>+{log.sharesBought}</td>
-                            <td style={{ color: 'var(--accent-amber)' }}>{log.rolloverCash} €</td>
+                            <td style={{ color: 'var(--accent-amber)' }}>{log.rolloverCash} {form.currency === 'USD' ? '$' : '€'}</td>
                             <td>{log.cumulativeShares}</td>
-                            <td>{log.cumulativePRU} €</td>
+                            <td>{log.cumulativePRU} {form.currency === 'USD' ? '$' : '€'}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -740,7 +751,7 @@ function autoGenerateThemes(
           {/* Row 3: Quantity + Avg Price + Current Price */}
           <div className="form-row">
             <div className="form-group">
-              <label className="form-label">Quantité (Actions entières)</label>
+              <label className="form-label">Quantité ({form.assetType === 'STOCK' ? 'Actions' : 'Parts'})</label>
               <input
                 className="input mono"
                 type="number"
@@ -753,7 +764,7 @@ function autoGenerateThemes(
               />
             </div>
             <div className="form-group">
-              <label className="form-label">Prix moyen d&apos;achat (PRU €)</label>
+              <label className="form-label">Prix moyen d&apos;achat (PRU {form.currency === 'USD' ? '$' : form.currency === 'GBP' ? '£' : '€'})</label>
               <input
                 className="input mono"
                 type="number"
@@ -766,7 +777,7 @@ function autoGenerateThemes(
               />
             </div>
             <div className="form-group">
-              <label className="form-label">Prix actuel</label>
+              <label className="form-label">Prix actuel ({form.currency === 'USD' ? '$' : form.currency === 'GBP' ? '£' : '€'})</label>
               <input
                 className="input mono"
                 type="number"
@@ -793,7 +804,7 @@ function autoGenerateThemes(
           {/* Row 4: DCA + Annual Budget */}
           <div className="form-row">
             <div className="form-group">
-              <label className="form-label">DCA mensuel (€)</label>
+              <label className="form-label">DCA mensuel ({form.currency === 'USD' ? '$' : form.currency === 'GBP' ? '£' : '€'})</label>
               <input
                 className="input mono"
                 type="number"
@@ -806,7 +817,7 @@ function autoGenerateThemes(
               />
             </div>
             <div className="form-group">
-              <label className="form-label">Budget annuel (€)</label>
+              <label className="form-label">Budget annuel ({form.currency === 'USD' ? '$' : form.currency === 'GBP' ? '£' : '€'})</label>
               <input
                 className="input mono"
                 type="number"

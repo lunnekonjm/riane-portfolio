@@ -46,10 +46,32 @@ export default function MonteCarloModal({ initialCapital, monthlyDCA, onClose }:
           <button className="modal-close-btn" onClick={onClose}>✕</button>
         </div>
 
+        {/* Sync Button & Breakdown */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, flexWrap: 'wrap', gap: 8 }}>
+          <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
+            Versements projetés : <strong style={{ color: 'var(--accent-cyan)' }}>{capitalInput.toLocaleString('fr-FR')} €</strong> (Départ) + <strong style={{ color: 'var(--accent-emerald)' }}>{(dcaInput * horizonYears * 12).toLocaleString('fr-FR')} €</strong> ({dcaInput} €/mois × {horizonYears * 12}m) = <strong style={{ color: 'white' }}>{(capitalInput + dcaInput * horizonYears * 12).toLocaleString('fr-FR')} €</strong>
+          </div>
+          <button
+            type="button"
+            className="btn btn-secondary btn-sm"
+            style={{ fontSize: 11, color: 'var(--accent-cyan)', padding: '3px 8px' }}
+            onClick={() => {
+              setCapitalInput(initialCapital > 0 ? Math.round(initialCapital) : 10000);
+              setDcaInput(monthlyDCA > 0 ? Math.round(monthlyDCA) : 500);
+            }}
+            title="Réinitialiser les montants avec les valeurs réelles de votre portefeuille"
+          >
+            ⚡ Synchroniser portefeuille réel
+          </button>
+        </div>
+
         {/* Input Parameters Panel — Optimized 1-Line Flex Layout */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: 12, background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-md)', margin: '12px 0 6px 0', border: '1px solid var(--border-subtle)', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: 12, background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-md)', margin: '4px 0 6px 0', border: '1px solid var(--border-subtle)', flexWrap: 'wrap' }}>
           <div style={{ flex: '1 1 110px', minWidth: 100 }}>
-            <label style={{ fontSize: 11, color: 'var(--text-tertiary)', display: 'block', marginBottom: 4 }}>Capital Initial (€)</label>
+            <label style={{ fontSize: 11, color: 'var(--text-tertiary)', display: 'block', marginBottom: 4 }}>
+              Capital Initial (€)
+              <span style={{ fontSize: 9, color: 'var(--accent-cyan)', display: 'block', fontWeight: 400 }}>Placé au départ</span>
+            </label>
             <input
               type="number"
               className="input mono"
@@ -59,7 +81,10 @@ export default function MonteCarloModal({ initialCapital, monthlyDCA, onClose }:
             />
           </div>
           <div style={{ flex: '1 1 100px', minWidth: 90 }}>
-            <label style={{ fontSize: 11, color: 'var(--text-tertiary)', display: 'block', marginBottom: 4 }}>DCA Mensuel (€)</label>
+            <label style={{ fontSize: 11, color: 'var(--text-tertiary)', display: 'block', marginBottom: 4 }}>
+              DCA Mensuel (€)
+              <span style={{ fontSize: 9, color: 'var(--accent-emerald)', display: 'block', fontWeight: 400 }}>Ajout chaque mois</span>
+            </label>
             <input
               type="number"
               className="input mono"

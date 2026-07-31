@@ -133,7 +133,7 @@ export default function HomePage() {
     monthlyDCATotal, saving, pendingCount, filledPositions, fxRates, lastPricesUpdated, marketStatusLabel,
     addPosition, updatePosition, removePosition, updateConfig, refreshPrices, resetPortfolio,
   } = usePortfolio();
-  const { result, status, statusMessage, isRunning, runAnalysis, history, clearResult } = useAnalysis();
+  const { result, status, statusMessage, isRunning, isFromCache, runAnalysis, history, clearResult } = useAnalysis();
 
   const rawNotifications = useMemo(() => {
     const monthlyBudget = config?.monthlyBudget || 1000;
@@ -233,13 +233,13 @@ export default function HomePage() {
     horizonYears: 15,
   };
 
-  const handleRunAnalysis = () => {
+  const handleRunAnalysis = (bypassCache = false) => {
     if (!queryInput.trim() || isRunning) return;
     if (positions.length === 0) {
       showToast('Ajoutez au moins une position avant de lancer une analyse', 'error');
       return;
     }
-    runAnalysis(user.uid, queryInput.trim(), positions, config || defaultConfig);
+    runAnalysis(user.uid, queryInput.trim(), positions, config || defaultConfig, bypassCache);
     setCurrentView('analysis');
   };
 
@@ -653,7 +653,7 @@ export default function HomePage() {
                   disabled={isRunning}
                   id="quick-analysis-input"
                 />
-                <button className="btn btn-primary" onClick={handleRunAnalysis} disabled={isRunning || !queryInput.trim()} id="run-analysis-btn">
+                <button className="btn btn-primary" onClick={() => handleRunAnalysis(false)} disabled={isRunning || !queryInput.trim()} id="run-analysis-btn">
                   {isRunning ? <span className="loading-spinner" /> : 'Analyser'}
                 </button>
               </div>
@@ -1222,11 +1222,24 @@ export default function HomePage() {
                         <span style={{ fontSize: 24 }}>🎯</span>
                         <h3 style={{ fontSize: 18, fontWeight: 700, margin: 0 }}>Synthèse & Recommandation Stratégique</h3>
                       </div>
-                      {result.recommendation && (
-                        <span className={`confidence-badge ${result.recommendation.confidence}`} style={{ fontSize: 12, padding: '4px 12px' }}>
-                          Indice de Confiance : {result.recommendation.confidence.toUpperCase()}
-                        </span>
-                      )}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                        {isFromCache && (
+                          <button
+                            type="button"
+                            className="btn btn-secondary btn-sm"
+                            style={{ fontSize: 11, color: 'var(--accent-cyan)', borderColor: 'var(--border-accent)', background: 'rgba(6, 182, 212, 0.1)' }}
+                            onClick={() => handleRunAnalysis(true)}
+                            title="Relancer l'analyse en direct depuis les agents IA"
+                          >
+                            ⚡ En cache local (0ms) — 🔄 Actualiser en direct
+                          </button>
+                        )}
+                        {result.recommendation && (
+                          <span className={`confidence-badge ${result.recommendation.confidence}`} style={{ fontSize: 12, padding: '4px 12px' }}>
+                            Indice de Confiance : {result.recommendation.confidence.toUpperCase()}
+                          </span>
+                        )}
+                      </div>
                     </div>
 
                     {/* Rich Formatted Markdown Output */}
@@ -1274,7 +1287,7 @@ export default function HomePage() {
                   disabled={isRunning}
                   id="analysis-input"
                 />
-                <button className="btn btn-primary" onClick={handleRunAnalysis} disabled={isRunning || !queryInput.trim()} id="submit-analysis-btn">
+                <button className="btn btn-primary" onClick={() => handleRunAnalysis(false)} disabled={isRunning || !queryInput.trim()} id="submit-analysis-btn">
                   {isRunning ? <span className="loading-spinner" /> : '🔬 Analyser'}
                 </button>
                 {result && (

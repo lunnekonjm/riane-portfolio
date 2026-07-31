@@ -118,6 +118,17 @@ export default function MonteCarloModal({ initialCapital, monthlyDCA, onClose }:
                 <p style={{ margin: '4px 0 0 0', color: 'var(--text-secondary)' }}>L&apos;argent net que vous pouvez retirer chaque mois à la retraite SANS JAMAIS vider votre capital d&apos;origine.</p>
               </div>
             </div>
+
+            {/* ❓ Clear explanation of Average Return vs 10k Simulations */}
+            <div style={{ marginTop: 12, padding: 10, background: 'var(--bg-secondary)', borderRadius: 6, borderLeft: '3px solid var(--accent-amber)', fontSize: 12 }}>
+              <strong style={{ color: 'var(--accent-amber)', display: 'block', marginBottom: 2 }}>
+                ❓ Pourquoi indiquer un rendement moyen (ex: 7.5%) si la simulation sert aux rendements ?
+              </strong>
+              <p style={{ margin: 0, color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                Dans le monde réel, la bourse ne fait <strong>jamais +7.5% tous les ans de manière lisse</strong>. Une année elle fait +28%, l&apos;année suivante -18%, puis +12%...
+                Le taux de 7.5% fixe la <em>moyenne long terme</em>, mais les 10 000 simulations testent <strong>10 000 ordres aléatoires de crises et de hausses</strong> pour mesurer l&apos;impact réel des krachs sur vos versements mensuels (DCA).
+              </p>
+            </div>
           </div>
 
           {/* Key Summary Cards */}

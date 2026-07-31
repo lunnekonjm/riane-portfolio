@@ -212,6 +212,20 @@ export function usePortfolio() {
       updatedAt: Date.now(),
     };
 
+    if (validPos.quantity > 0) {
+      recordTransaction({
+        positionId: validPos.id,
+        ticker: validPos.ticker,
+        name: validPos.name,
+        type: 'BUY',
+        sharesDelta: validPos.quantity,
+        price: validPos.avgPrice || validPos.currentPrice || 1,
+        totalAmount: validPos.quantity * (validPos.avgPrice || validPos.currentPrice || 1),
+        currency: validPos.currency,
+        reason: 'Création initiale de position',
+      });
+    }
+
     setPositions((prev) => {
       const filtered = prev.filter((p) => p.id !== validPos.id);
       const updated = [...filtered, validPos];
@@ -231,12 +245,33 @@ export function usePortfolio() {
       }
     }
     setSaving(false);
-  }, [user, pushSnapshot]);
+  }, [user, pushSnapshot, recordTransaction]);
 
-  const updatePosition = useCallback(async (pos: Position) => {
+  const updatePosition = useCallback(async (pos: Position, customReason?: string) => {
     pushSnapshot();
     setSaving(true);
     clearAnalysisCache();
+
+    // Log transaction automatically if quantity or PRU changed
+    const existing = positions.find((p) => p.id === pos.id || p.ticker === pos.ticker);
+    const oldQty = existing ? existing.quantity : 0;
+    const sharesDelta = pos.quantity - oldQty;
+    const price = pos.currentPrice || pos.avgPrice || 1;
+
+    if (sharesDelta !== 0 || (existing && existing.avgPrice !== pos.avgPrice && pos.avgPrice > 0)) {
+      recordTransaction({
+        positionId: pos.id,
+        ticker: pos.ticker,
+        name: pos.name,
+        type: sharesDelta > 0 ? 'BUY' : sharesDelta < 0 ? 'SELL' : 'REBALANCE',
+        sharesDelta: sharesDelta !== 0 ? sharesDelta : pos.quantity,
+        price,
+        totalAmount: Math.abs((sharesDelta !== 0 ? sharesDelta : pos.quantity) * price),
+        currency: pos.currency,
+        reason: customReason || (sharesDelta > 0 ? `Ajustement / Achat ponctuel (+${sharesDelta} part${Math.abs(sharesDelta) > 1 ? 's' : ''})` : sharesDelta < 0 ? `Arbitrage / Vente (${sharesDelta} part${Math.abs(sharesDelta) > 1 ? 's' : ''})` : `Modification du PRU à ${pos.avgPrice} ${pos.currency}`),
+      });
+    }
+
     setPositions((prev) => {
       const updated = prev.map((p) => (p.id === pos.id ? pos : p));
       try {
@@ -255,12 +290,28 @@ export function usePortfolio() {
       }
     }
     setSaving(false);
-  }, [user, pushSnapshot]);
+  }, [user, positions, pushSnapshot, recordTransaction]);
 
   const removePosition = useCallback(async (positionId: string) => {
     pushSnapshot();
     setSaving(true);
     clearAnalysisCache();
+
+    const existing = positions.find((p) => p.id === positionId);
+    if (existing && existing.quantity > 0) {
+      recordTransaction({
+        positionId: existing.id,
+        ticker: existing.ticker,
+        name: existing.name,
+        type: 'SELL',
+        sharesDelta: -existing.quantity,
+        price: existing.currentPrice || existing.avgPrice || 1,
+        totalAmount: existing.quantity * (existing.currentPrice || existing.avgPrice || 1),
+        currency: existing.currency,
+        reason: 'Suppression / Liquidation de la position',
+      });
+    }
+
     setPositions((prev) => {
       const updated = prev.filter((p) => p.id !== positionId);
       try {
@@ -279,7 +330,7 @@ export function usePortfolio() {
       }
     }
     setSaving(false);
-  }, [user, pushSnapshot]);
+  }, [user, positions, pushSnapshot, recordTransaction]);
 
   const updateConfig = useCallback(async (newConfig: PortfolioConfig) => {
     if (!user) return;

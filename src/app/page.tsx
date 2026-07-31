@@ -19,6 +19,49 @@ import MarkdownRenderer from '@/components/MarkdownRenderer';
 import WelcomeBanner from '@/components/WelcomeBanner';
 import ReportsView from '@/components/ReportsView';
 import CustomDatePicker from '@/components/CustomDatePicker';
+import { getQuote } from '@/services/market-data/provider';
+
+function formatDCAElapsedTime(startDateStr: string): string {
+  if (!startDateStr) return '';
+  const parts = startDateStr.split('-');
+  const startYear = parseInt(parts[0], 10);
+  const startMonth = parseInt(parts[1], 10) - 1;
+  const startDay = parts[2] ? parseInt(parts[2], 10) : 5;
+
+  const startDate = new Date(startYear, startMonth, startDay);
+  const today = new Date();
+
+  if (isNaN(startDate.getTime()) || startDate > today) {
+    return '⏳ Début des versements à venir';
+  }
+
+  let years = today.getFullYear() - startDate.getFullYear();
+  let months = today.getMonth() - startDate.getMonth();
+  let days = today.getDate() - startDate.getDate();
+
+  if (days < 0) {
+    months -= 1;
+    const prevMonth = new Date(today.getFullYear(), today.getMonth(), 0);
+    days += prevMonth.getDate();
+  }
+
+  if (months < 0) {
+    years -= 1;
+    months += 12;
+  }
+
+  const totalMonths = years * 12 + months + (days >= 15 ? 1 : 0);
+
+  const partsStr: string[] = [];
+  if (years > 0) partsStr.push(`${years} an${years > 1 ? 's' : ''}`);
+  if (months > 0) partsStr.push(`${months} mois`);
+  if (days > 0 && years === 0) partsStr.push(`${days} jour${days > 1 ? 's' : ''}`);
+
+  const durationLabel = partsStr.length > 0 ? partsStr.join(' et ') : "moins d'un jour";
+  const depositsLabel = totalMonths > 0 ? `${totalMonths} versement${totalMonths > 1 ? 's' : ''}` : '1er versement en cours';
+
+  return `⏳ Début des versements il y a ${durationLabel} (${depositsLabel})`;
+}
 import { clearAnalysisCache } from '@/utils/analysisCache';
 import { generatePortfolioNotifications } from '@/engines/notificationEngine';
 import type { AppNotification, NotificationSettings } from '@/types/notification';
@@ -788,10 +831,15 @@ export default function HomePage() {
                     </button>
 
                     {/* Modern Custom Dark Theme Date Picker Component */}
-                    <CustomDatePicker
-                      value={dcaGlobalStartDate}
-                      onChange={handleUpdateDcaStartDate}
-                    />
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                      <CustomDatePicker
+                        value={dcaGlobalStartDate}
+                        onChange={handleUpdateDcaStartDate}
+                      />
+                      <span style={{ fontSize: 12, color: 'var(--accent-cyan)', fontWeight: 600, background: 'rgba(6, 182, 212, 0.1)', padding: '6px 12px', borderRadius: 8, border: '1px solid rgba(6, 182, 212, 0.2)' }}>
+                        {formatDCAElapsedTime(dcaGlobalStartDate)}
+                      </span>
+                    </div>
 
                     <button
                       className="btn btn-primary"
@@ -803,7 +851,18 @@ export default function HomePage() {
                           for (const pos of positions) {
                             const monthlyBudget = pos.monthlyDCA || (pos.annualBudget ? pos.annualBudget / 12 : 100);
                             const isIntegerOnly = pos.envelope === 'PEA' || pos.envelope === 'PEA-PME' || pos.envelope === 'CTO';
-                            const effectivePrice = pos.currentPrice || pos.avgPrice || (pos.ticker.includes('GPEA') ? 4.89 : 10);
+
+                            // Fetch real market quote if pos.currentPrice is missing or corrupted
+                            let realLivePrice = pos.currentPrice;
+                            if (!realLivePrice || realLivePrice === 10) {
+                              try {
+                                const q = await getQuote(pos.ticker);
+                                if (q && q.price > 0) realLivePrice = q.price;
+                              } catch {
+                                // keep existing
+                              }
+                            }
+                            const effectivePrice = realLivePrice || pos.avgPrice || (pos.ticker.includes('GPEA') ? 4.89 : 100);
 
                             const sim = await simulatePositionDCA(
                               pos.ticker,
@@ -817,13 +876,13 @@ export default function HomePage() {
                             );
 
                             const finalShares = sim.totalShares;
-                            const finalPRU = sim.avgPrice > 0 ? sim.avgPrice : (pos.avgPrice || pos.currentPrice || effectivePrice);
+                            const finalPRU = sim.avgPrice > 0 ? sim.avgPrice : (pos.avgPrice || realLivePrice || effectivePrice);
 
                             await updatePosition({
                               ...pos,
                               quantity: finalShares,
                               avgPrice: finalPRU,
-                              currentPrice: pos.currentPrice || effectivePrice,
+                              ...(realLivePrice && realLivePrice > 0 ? { currentPrice: realLivePrice } : {}),
                               updatedAt: Date.now(),
                             });
                             updatedCount++;
@@ -875,7 +934,9 @@ export default function HomePage() {
                       onClick={async () => {
                         if (confirm('Réinitialiser toutes les positions à zéro ?\nVous pourrez ensuite entrer vos données réelles.')) {
                           await resetPortfolio();
-                          showToast('Portefeuille réinitialisé — renseignez vos données réelles');
+                          const todayStr = new Date().toISOString().split('T')[0];
+                          handleUpdateDcaStartDate(todayStr);
+                          showToast('Portefeuille réinitialisé — remis à la date d\'aujourd\'hui');
                         }
                       }}
                       title="Remettre à zéro les quantités et PRU"

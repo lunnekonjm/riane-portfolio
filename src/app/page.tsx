@@ -687,9 +687,9 @@ export default function HomePage() {
                       </div>
                     )}
 
-                    {/* Summary Cards — only show real data */}
+                    {/* Summary Cards — with custom dark tooltips */}
                     <div className="grid-4">
-                      <div className="card">
+                      <div className="card" data-tooltip="Valeur marchande globale de votre patrimoine convertie en €">
                         <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                           <span className="card-title">
                             {adjustInflation ? 'Valeur Réelle (Ajustée Inflation)' : 'Valeur Totale'}
@@ -705,7 +705,7 @@ export default function HomePage() {
                           <span style={{ fontSize: 11, color: 'var(--accent-amber)' }}>{filledPositions.length}/{positions.length} positions renseignées</span>
                         )}
                       </div>
-                      <div className="card">
+                      <div className="card" data-tooltip="Total des capitaux réellement investis (somme des PRU)">
                         <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                           <span className="card-title">
                             {adjustInflation ? 'Coût Total Réel (Euros Constants)' : 'Coût Total (PRU)'}
@@ -715,7 +715,7 @@ export default function HomePage() {
                             className="btn btn-ghost btn-sm"
                             style={{ padding: '0 4px', fontSize: 12, color: 'var(--accent-cyan)' }}
                             onClick={() => openGlossary('PRU')}
-                            title="Qu'est-ce que le PRU (Prix Moyen d'Acquisition) ?"
+                            data-tooltip="Définition et calcul du PRU"
                           >
                             💡 PRU
                           </button>
@@ -727,7 +727,7 @@ export default function HomePage() {
                         </div>
                         {displayTotalCost === 0 && <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Entrez vos PRU réels</span>}
                       </div>
-                      <div className="card">
+                      <div className="card" data-tooltip="Plus ou moins-value latente globale du portefeuille (€ et %)">
                         <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                           <span className="card-title">
                             {adjustInflation ? 'Plus/Moins-Value Réelle' : 'Plus/Moins-Value'}
@@ -737,7 +737,7 @@ export default function HomePage() {
                             className="btn btn-ghost btn-sm"
                             style={{ padding: '0 4px', fontSize: 12, color: 'var(--accent-cyan)' }}
                             onClick={() => openGlossary('PFU')}
-                            title="Explications sur la fiscalité et le calcul du net"
+                            data-tooltip="Règles de fiscalité PEA (18.6%) et CTO (Flat Tax 30%)"
                           >
                             💡 Taxe
                           </button>
@@ -752,7 +752,7 @@ export default function HomePage() {
                                 {displayGainLossPercent >= 0 ? '↑' : '↓'} {Math.abs(displayGainLossPercent).toFixed(2)}%
                               </span>
                               {displayGainLoss > 0 && (
-                                <span style={{ fontSize: 11, color: 'var(--text-muted)' }} title="Après prélèvements sociaux PEA (18.6%) et Flat Tax CTO (30%)">
+                                <span style={{ fontSize: 11, color: 'var(--text-muted)' }} data-tooltip="Net d'impôts après PEA (18.6%) et CTO (30%)">
                                   Net: +{(filledPositions.reduce((sum, p) => {
                                     const price = p.currentPrice || p.avgPrice;
                                     const rateToEUR = (fxRates as any)[p.currency] || 1.0;
@@ -774,7 +774,7 @@ export default function HomePage() {
                           </>
                         )}
                       </div>
-                      <div className="card" style={{ cursor: 'pointer' }} onClick={() => setShowConfigEditor(true)}>
+                      <div className="card" style={{ cursor: 'pointer' }} onClick={() => setShowConfigEditor(true)} data-tooltip="Somme totale de vos versements d'accumulation mensuels">
                         <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                           <span className="card-title">DCA Mensuel</span>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -967,7 +967,7 @@ export default function HomePage() {
                         }
                       }}
                       disabled={refreshingPrices || positions.length === 0}
-                      title="Récupérer les cours actuels (Yahoo Finance)"
+                      data-tooltip="Actualiser les cours du marché en direct (Yahoo Finance)"
                       id="refresh-prices-btn"
                     >
                       {refreshingPrices ? <span className="loading-spinner" /> : '📈'} Cours actuels
@@ -981,7 +981,7 @@ export default function HomePage() {
                         }
                       }}
                       disabled={!canUndo || saving}
-                      title="Annuler la dernière modification (Ctrl+Z)"
+                      data-tooltip="Annuler la dernière modification (Ctrl+Z)"
                       style={{
                         opacity: canUndo ? 1 : 0.4,
                         borderColor: canUndo ? 'var(--accent-cyan)' : undefined,
@@ -1004,7 +1004,7 @@ export default function HomePage() {
                         }
                       }}
                       disabled={!canRedo || saving}
-                      title="Rétablir l'action précédemment annulée (Ctrl+Y / Cmd+Shift+Z)"
+                      data-tooltip="Rétablir l'action précédemment annulée (Ctrl+Y / Cmd+Shift+Z)"
                       style={{
                         opacity: canRedo ? 1 : 0.4,
                         borderColor: canRedo ? 'var(--accent-emerald)' : undefined,
@@ -1025,7 +1025,7 @@ export default function HomePage() {
                         setSelectedHistoryTicker(undefined);
                         setShowTransactionModal(true);
                       }}
-                      title="Consulter le journal d'historique de tous vos arbitrages et ajustements"
+                      data-tooltip="Consulter le journal d'historique de tous vos arbitrages et ajustements"
                       id="transaction-history-btn"
                     >
                       📜 Arbitrages ({transactions.length})
@@ -1041,7 +1041,7 @@ export default function HomePage() {
                           showToast('Portefeuille réinitialisé — remis à la date d\'aujourd\'hui');
                         }
                       }}
-                      title="Remettre à zéro les quantités et PRU"
+                      data-tooltip="Remettre à zéro les positions et la date DCA"
                       id="reset-portfolio-btn"
                     >
                       🔄 Réinitialiser
@@ -1051,7 +1051,7 @@ export default function HomePage() {
                       style={{ padding: '6px 10px', fontSize: 12 }}
                       onClick={openRebalanceModal}
                       disabled={positions.length === 0}
-                      title="Calculer l'affectation optimale des nouveaux versements mensuels"
+                      data-tooltip="Calculer la répartition optimale du versement mensuel"
                       id="smart-rebalance-btn"
                     >
                       🎯 Flux DCA
@@ -1061,7 +1061,7 @@ export default function HomePage() {
                       style={{ padding: '6px 10px', fontSize: 12 }}
                       onClick={() => exportPortfolioToCSV(positions, fxRates)}
                       disabled={positions.length === 0}
-                      title="Exporter le portefeuille au format CSV"
+                      data-tooltip="Exporter le portefeuille complet au format CSV"
                       id="export-csv-btn"
                     >
                       📥 CSV
@@ -1070,6 +1070,7 @@ export default function HomePage() {
                       className="btn btn-primary"
                       style={{ padding: '6px 12px', fontSize: 12, fontWeight: 700 }}
                       onClick={() => setEditingPosition('new')}
+                      data-tooltip="Ajouter une nouvelle ligne d'actif au portefeuille"
                       id="add-position-btn"
                     >
                       ➕ Ajouter
@@ -1087,16 +1088,16 @@ export default function HomePage() {
                     <table className="portfolio-table">
                     <thead>
                       <tr>
-                        <th>Actif</th>
-                        <th>Ticker</th>
-                        <th>Enveloppe</th>
-                        <th>Qté</th>
-                        <th>PRU</th>
-                        <th>Prix</th>
-                        <th>Valeur</th>
-                        <th>P&L</th>
-                        <th>DCA</th>
-                        <th></th>
+                        <th data-tooltip="Nom complet de l'actif ou de l'ETF">Actif</th>
+                        <th data-tooltip="Code de cotation boursière (ex: PUST.PA, COHR)">Ticker</th>
+                        <th data-tooltip="Enveloppe fiscale d'investissement (PEA, PEA-PME, CTO)">Enveloppe</th>
+                        <th data-tooltip="Nombre total de parts actuellement détenues">Qté</th>
+                        <th data-tooltip="Prix de Revient Unitaire moyen d'achat">PRU</th>
+                        <th data-tooltip="Cours du marché en direct (Yahoo Finance)">Prix</th>
+                        <th data-tooltip="Valeur totale actuelle en portefeuille (Quantité × Prix)">Valeur</th>
+                        <th data-tooltip="Plus ou Moins-value latente totale (% et montant €/$)">P&L</th>
+                        <th data-tooltip="Budget mensuel ou annuel d'accumulation DCA">DCA</th>
+                        <th data-tooltip="Actions rapides : Édition, Historique des arbitrages, Suppression">Actions</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1175,12 +1176,12 @@ export default function HomePage() {
                                     setSelectedHistoryTicker(pos.ticker);
                                     setShowTransactionModal(true);
                                   }}
-                                  title={`Consulter l'historique des arbitrages et opérations pour ${pos.name}`}
+                                  data-tooltip={`Historique des arbitrages pour ${pos.name}`}
                                 >
                                   📜
                                 </button>
-                                <button className="row-action-btn" onClick={() => setEditingPosition(pos)} title="Modifier">✏️</button>
-                                <button className="row-action-btn danger" onClick={() => { if (confirm(`Supprimer ${pos.name} ?`)) handleDeletePosition(pos.id); }} title="Supprimer">🗑</button>
+                                <button className="row-action-btn" onClick={() => setEditingPosition(pos)} data-tooltip="Éditer la position (Quantité, PRU, DCA)">✏️</button>
+                                <button className="row-action-btn danger" onClick={() => { if (confirm(`Supprimer ${pos.name} ?`)) handleDeletePosition(pos.id); }} data-tooltip="Supprimer cette ligne du portefeuille">🗑</button>
                               </div>
                             </td>
                           </tr>

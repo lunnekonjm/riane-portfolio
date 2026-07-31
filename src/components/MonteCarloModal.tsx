@@ -47,7 +47,7 @@ export default function MonteCarloModal({ initialCapital, monthlyDCA, onClose }:
         </div>
 
         {/* Input Parameters Panel */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10, padding: 14, background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-md)', margin: '12px 0 16px 0', border: '1px solid var(--border-subtle)' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10, padding: 14, background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-md)', margin: '12px 0 16px 0', border: '1px solid var(--border-subtle)' }}>
           <div>
             <label style={{ fontSize: 11, color: 'var(--text-tertiary)', display: 'block', marginBottom: 4 }}>Capital Initial (€)</label>
             <input
@@ -55,7 +55,7 @@ export default function MonteCarloModal({ initialCapital, monthlyDCA, onClose }:
               className="input mono"
               value={capitalInput}
               onChange={(e) => setCapitalInput(Number(e.target.value))}
-              style={{ fontSize: 13, padding: '6px 10px' }}
+              style={{ fontSize: 13, padding: '6px 10px', width: '100%' }}
             />
           </div>
           <div>
@@ -65,7 +65,7 @@ export default function MonteCarloModal({ initialCapital, monthlyDCA, onClose }:
               className="input mono"
               value={dcaInput}
               onChange={(e) => setDcaInput(Number(e.target.value))}
-              style={{ fontSize: 13, padding: '6px 10px' }}
+              style={{ fontSize: 13, padding: '6px 10px', width: '100%' }}
             />
           </div>
           <div>
@@ -84,17 +84,17 @@ export default function MonteCarloModal({ initialCapital, monthlyDCA, onClose }:
               ))}
             </div>
           </div>
-          <div>
+          <div style={{ minWidth: 170 }}>
             <label style={{ fontSize: 11, color: 'var(--text-tertiary)', display: 'block', marginBottom: 4 }}>Fiscalité Enveloppe</label>
             <select
               className="input"
               value={taxEnvelope}
               onChange={(e) => setTaxEnvelope(e.target.value as TaxEnvelopeType)}
-              style={{ fontSize: 12, padding: '6px 8px', fontWeight: 700 }}
+              style={{ fontSize: 12, padding: '6px 8px', fontWeight: 700, width: '100%' }}
             >
-              <option value="MIXED">📊 Prorata Portefeuille</option>
-              <option value="PEA">🏛️ PEA (17.2% PS / 0% IR)</option>
-              <option value="CTO">💼 CTO (30.0% Flat Tax)</option>
+              <option value="MIXED">📊 Mixte (Portefeuille)</option>
+              <option value="PEA">🏛️ PEA (17.2% PS)</option>
+              <option value="CTO">💼 CTO (30% PFU)</option>
             </select>
           </div>
           <div>
@@ -105,7 +105,7 @@ export default function MonteCarloModal({ initialCapital, monthlyDCA, onClose }:
               className="input mono"
               value={expectedReturn}
               onChange={(e) => setExpectedReturn(Number(e.target.value))}
-              style={{ fontSize: 13, padding: '6px 10px' }}
+              style={{ fontSize: 13, padding: '6px 10px', width: '100%' }}
             />
           </div>
         </div>

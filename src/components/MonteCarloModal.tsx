@@ -96,6 +96,30 @@ export default function MonteCarloModal({ initialCapital, monthlyDCA, onClose }:
         </div>
 
         <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 16, paddingRight: 4 }}>
+          {/* 📘 Beginner Educational Explanation Box */}
+          <div style={{ padding: 14, background: 'rgba(6, 182, 212, 0.08)', borderRadius: 'var(--radius-md)', border: '1px solid rgba(6, 182, 212, 0.25)', fontSize: 13, lineHeight: 1.6, color: 'var(--text-primary)' }}>
+            <div style={{ fontWeight: 700, color: 'var(--accent-cyan)', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span>💡</span> Comment lire ce simulateur sans être un expert ?
+            </div>
+            <p style={{ margin: '0 0 8px 0' }}>
+              Plutôt que d&apos;utiliser une formule magique irréelle, ce simulateur rejoue <strong>10 000 scénarios de marché virtuels</strong> (crises financières, années de forte hausse, ralentissements) sur vos versements mensuels (DCA).
+            </p>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 10, marginTop: 10, fontSize: 12 }}>
+              <div style={{ background: 'var(--bg-tertiary)', padding: 10, borderRadius: 6 }}>
+                <strong style={{ color: 'var(--accent-rose)' }}>🔴 Scénario Baissier (P10)</strong>
+                <p style={{ margin: '4px 0 0 0', color: 'var(--text-secondary)' }}>Dans 90% des cas, vous aurez PLUS que cette somme. C&apos;est le filet de sécurité en cas de décennie difficile.</p>
+              </div>
+              <div style={{ background: 'var(--bg-tertiary)', padding: 10, borderRadius: 6 }}>
+                <strong style={{ color: 'var(--accent-cyan)' }}>🟦 Médiane Attendue (P50)</strong>
+                <p style={{ margin: '4px 0 0 0', color: 'var(--text-secondary)' }}>La valeur la plus probable de votre patrimoine. 50% de chance de faire mieux, 50% de faire moins.</p>
+              </div>
+              <div style={{ background: 'var(--bg-tertiary)', padding: 10, borderRadius: 6 }}>
+                <strong style={{ color: 'var(--accent-emerald)' }}>💰 Rente Mensuelle (Règle des 4%)</strong>
+                <p style={{ margin: '4px 0 0 0', color: 'var(--text-secondary)' }}>L&apos;argent net que vous pouvez retirer chaque mois à la retraite SANS JAMAIS vider votre capital d&apos;origine.</p>
+              </div>
+            </div>
+          </div>
+
           {/* Key Summary Cards */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12 }}>
             <div className="card" style={{ background: 'var(--bg-tertiary)', borderLeft: '4px solid var(--text-tertiary)', padding: 12 }}>

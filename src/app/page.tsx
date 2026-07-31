@@ -14,6 +14,7 @@ import ConfigEditor from '@/components/ConfigEditor';
 import EnvelopesTaxView from '@/components/EnvelopesTaxView';
 import NotificationCenterModal from '@/components/NotificationCenterModal';
 import GlossaryInfoModal from '@/components/GlossaryInfoModal';
+import MonteCarloModal from '@/components/MonteCarloModal';
 import MarkdownRenderer from '@/components/MarkdownRenderer';
 import ReportsView from '@/components/ReportsView';
 import { generatePortfolioNotifications } from '@/engines/notificationEngine';
@@ -121,6 +122,7 @@ export default function HomePage() {
   const [showEmptyThemes, setShowEmptyThemes] = useState<boolean>(false);
   const [showThemeInfoModal, setShowThemeInfoModal] = useState<boolean>(false);
   const [showGlossaryModal, setShowGlossaryModal] = useState<boolean>(false);
+  const [showMonteCarloModal, setShowMonteCarloModal] = useState<boolean>(false);
   const [glossaryInitialTerm, setGlossaryInitialTerm] = useState<string | undefined>(undefined);
 
   const openGlossary = (term?: string) => {
@@ -384,6 +386,28 @@ export default function HomePage() {
               title="Ouvrir le dictionnaire financier et les explications sans abréviations"
             >
               📚 Lexique & Explications
+            </button>
+
+            {/* 🎲 Simulateur Monte Carlo (FIRE) Button */}
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm"
+              style={{
+                color: 'var(--accent-emerald)',
+                fontSize: 12,
+                fontWeight: 700,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+                border: '1px solid rgba(16, 185, 129, 0.3)',
+                padding: '6px 12px',
+                borderRadius: 10,
+                background: 'rgba(16, 185, 129, 0.08)',
+              }}
+              onClick={() => setShowMonteCarloModal(true)}
+              title="Lancer la simulation stochastique Monte Carlo (10 000 scénarios)"
+            >
+              🎲 Monte Carlo & FIRE
             </button>
 
             {/* Global Inflation Toggle Switch */}
@@ -1748,6 +1772,15 @@ export default function HomePage() {
         <GlossaryInfoModal
           onClose={() => setShowGlossaryModal(false)}
           initialTerm={glossaryInitialTerm}
+        />
+      )}
+
+      {/* 🎲 Modal Simulation Monte Carlo & Indépendance (FIRE) */}
+      {showMonteCarloModal && (
+        <MonteCarloModal
+          initialCapital={totalValue}
+          monthlyDCA={monthlyDCATotal || (config?.monthlyBudget || 1000)}
+          onClose={() => setShowMonteCarloModal(false)}
         />
       )}
 

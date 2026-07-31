@@ -358,6 +358,15 @@ function autoGenerateThemes(
         form.dcaDepositDay || 5
       );
       setDcaResult(result);
+
+      // AUTOMATICALLY APPLY result to form quantity and avgPrice
+      if (result.totalShares > 0) {
+        setForm((prev) => ({
+          ...prev,
+          quantity: result.totalShares,
+          avgPrice: result.avgPrice,
+        }));
+      }
     } catch (err) {
       console.error('DCA Simulation failed:', err);
     } finally {

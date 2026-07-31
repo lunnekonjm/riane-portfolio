@@ -14,6 +14,7 @@ export interface MonteCarloInput {
 
 export interface MonteCarloYearSummary {
   year: number;
+  p1: number;  // 1st percentile (Extreme Tail Crash)
   p10: number; // 10th percentile (Bear market)
   p50: number; // Median expected
   p90: number; // 90th percentile (Bull market)
@@ -23,9 +24,12 @@ export interface MonteCarloYearSummary {
 
 export interface MonteCarloResult {
   horizonYears: number;
+  numSimulations: number;
+  executionTimeMs: number;
   taxEnvelope: TaxEnvelopeType;
   effectiveTaxRate: number; // e.g. 0.172 for PEA, 0.30 for CTO
   totalInvestedFinal: number;
+  finalP1: number;  // 1st percentile (Worst 1% Crash)
   finalP10: number;
   finalP50: number;
   finalP90: number;
@@ -83,9 +87,11 @@ export function applyFrenchTax(grossWealth: number, totalInvested: number, taxRa
 }
 
 /**
- * Runs 10,000 Stochastic Monte Carlo Simulations for Wealth Projection with French Tax Rules
+ * Runs Adaptive Stochastic Monte Carlo Simulations for Wealth Projection with French Tax Rules
  */
 export function runMonteCarloSimulation(input: MonteCarloInput): MonteCarloResult {
+  const startTime = typeof performance !== 'undefined' ? performance.now() : Date.now();
+
   const {
     initialCapital,
     monthlyDCA,
@@ -106,7 +112,7 @@ export function runMonteCarloSimulation(input: MonteCarloInput): MonteCarloResul
   const drift = (realReturn - 0.5 * Math.pow(annualVolatility, 2)) * dt;
   const volSqrtDt = annualVolatility * Math.sqrt(dt);
 
-  // Track month-by-month results for 10,000 runs
+  // Track month-by-month results for N runs
   const simulationResults: number[][] = Array.from({ length: numSimulations }, () => new Array(totalMonths + 1));
 
   for (let sim = 0; sim < numSimulations; sim++) {
@@ -128,6 +134,7 @@ export function runMonteCarloSimulation(input: MonteCarloInput): MonteCarloResul
     const monthIdx = year * 12;
     const yearValues = simulationResults.map((sim) => sim[monthIdx]).sort((a, b) => a - b);
 
+    const p1Idx = Math.max(0, Math.floor(numSimulations * 0.01));
     const p10Idx = Math.floor(numSimulations * 0.1);
     const p50Idx = Math.floor(numSimulations * 0.5);
     const p90Idx = Math.floor(numSimulations * 0.9);
@@ -138,6 +145,7 @@ export function runMonteCarloSimulation(input: MonteCarloInput): MonteCarloResul
 
     yearlySummaries.push({
       year,
+      p1: yearValues[p1Idx],
       p10: yearValues[p10Idx],
       p50: p50Gross,
       p90: yearValues[p90Idx],
@@ -147,6 +155,7 @@ export function runMonteCarloSimulation(input: MonteCarloInput): MonteCarloResul
   }
 
   const finalYearValues = simulationResults.map((sim) => sim[totalMonths]).sort((a, b) => a - b);
+  const finalP1 = finalYearValues[Math.max(0, Math.floor(numSimulations * 0.01))];
   const finalP10 = finalYearValues[Math.floor(numSimulations * 0.1)];
   const finalP50 = finalYearValues[Math.floor(numSimulations * 0.5)];
   const finalP90 = finalYearValues[Math.floor(numSimulations * 0.9)];
@@ -170,11 +179,17 @@ export function runMonteCarloSimulation(input: MonteCarloInput): MonteCarloResul
     };
   });
 
+  const endTime = typeof performance !== 'undefined' ? performance.now() : Date.now();
+  const executionTimeMs = Math.round(endTime - startTime);
+
   return {
     horizonYears,
+    numSimulations,
+    executionTimeMs,
     taxEnvelope,
     effectiveTaxRate,
     totalInvestedFinal,
+    finalP1,
     finalP10,
     finalP50,
     finalP90,

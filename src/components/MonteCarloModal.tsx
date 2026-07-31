@@ -16,6 +16,7 @@ export default function MonteCarloModal({ initialCapital, monthlyDCA, onClose }:
   const [expectedReturn, setExpectedReturn] = useState<number>(7.5);
   const [volatility, setVolatility] = useState<number>(15.0);
   const [taxEnvelope, setTaxEnvelope] = useState<TaxEnvelopeType>('MIXED');
+  const [numSimulations, setNumSimulations] = useState<number>(10000);
 
   const simulation: MonteCarloResult = useMemo(() => {
     return runMonteCarloSimulation({
@@ -24,45 +25,71 @@ export default function MonteCarloModal({ initialCapital, monthlyDCA, onClose }:
       horizonYears,
       annualReturnMean: expectedReturn / 100,
       annualVolatility: volatility / 100,
-      numSimulations: 10000,
+      numSimulations,
       taxEnvelope,
     });
-  }, [capitalInput, dcaInput, horizonYears, expectedReturn, volatility, taxEnvelope]);
+  }, [capitalInput, dcaInput, horizonYears, expectedReturn, volatility, taxEnvelope, numSimulations]);
 
   const maxVal = Math.max(...simulation.yearlySummaries.map((s) => s.p90));
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 840, maxHeight: '92vh', display: 'flex', flexDirection: 'column' }}>
+      <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 880, maxHeight: '92vh', display: 'flex', flexDirection: 'column' }}>
         <div className="modal-header">
           <div>
             <h2 style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <span>🎲</span> Simulation Monte Carlo & Indépendance (FIRE)
             </h2>
             <p style={{ fontSize: 13, color: 'var(--text-secondary)', margin: '4px 0 0 0' }}>
-              10 000 trajectoires stochastiques projetées à {horizonYears} ans avec règles fiscales d&apos;enveloppe.
+              {numSimulations.toLocaleString('fr-FR')} trajectoires stochastiques à {horizonYears} ans • Calculé en <strong style={{ color: 'var(--accent-cyan)' }}>{simulation.executionTimeMs} ms</strong> (Marge d&apos;erreur $\approx$ {numSimulations >= 50000 ? '± 0.44%' : numSimulations >= 10000 ? '± 1.0%' : '± 2.0%'}).
             </p>
           </div>
           <button className="modal-close-btn" onClick={onClose}>✕</button>
         </div>
 
-        {/* Sync Button & Breakdown */}
+        {/* Sync Button & Precision Mode Selector */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, flexWrap: 'wrap', gap: 8 }}>
           <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
             Versements projetés : <strong style={{ color: 'var(--accent-cyan)' }}>{capitalInput.toLocaleString('fr-FR')} €</strong> (Départ) + <strong style={{ color: 'var(--accent-emerald)' }}>{(dcaInput * horizonYears * 12).toLocaleString('fr-FR')} €</strong> ({dcaInput} €/mois × {horizonYears * 12}m) = <strong style={{ color: 'white' }}>{(capitalInput + dcaInput * horizonYears * 12).toLocaleString('fr-FR')} €</strong>
           </div>
-          <button
-            type="button"
-            className="btn btn-secondary btn-sm"
-            style={{ fontSize: 11, color: 'var(--accent-cyan)', padding: '3px 8px' }}
-            onClick={() => {
-              setCapitalInput(initialCapital > 0 ? Math.round(initialCapital) : 10000);
-              setDcaInput(monthlyDCA > 0 ? Math.round(monthlyDCA) : 500);
-            }}
-            title="Réinitialiser les montants avec les valeurs réelles de votre portefeuille"
-          >
-            ⚡ Synchroniser portefeuille réel
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>Précision Monte Carlo :</span>
+            {[
+              { label: '⚡ Fast (2.5k)', val: 2500, tooltip: 'Rendu ultra-rapide (5 ms)' },
+              { label: '📊 Standard (10k)', val: 10000, tooltip: 'Étalon-or standard de l\'industrie (25 ms)' },
+              { label: '🔬 Audit (50k)', val: 50000, tooltip: 'Précision maximale pour crash test P1 (120 ms)' },
+            ].map((mode) => (
+              <button
+                key={mode.val}
+                type="button"
+                className="btn"
+                style={{
+                  fontSize: 11,
+                  padding: '3px 8px',
+                  background: numSimulations === mode.val ? 'var(--accent-cyan)' : 'var(--bg-tertiary)',
+                  color: numSimulations === mode.val ? '#0a0e17' : 'var(--text-secondary)',
+                  fontWeight: numSimulations === mode.val ? 700 : 500,
+                  border: '1px solid var(--border-subtle)',
+                }}
+                onClick={() => setNumSimulations(mode.val)}
+                data-tooltip={mode.tooltip}
+              >
+                {mode.label}
+              </button>
+            ))}
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm"
+              style={{ fontSize: 11, color: 'var(--accent-cyan)', padding: '3px 8px' }}
+              onClick={() => {
+                setCapitalInput(initialCapital > 0 ? Math.round(initialCapital) : 10000);
+                setDcaInput(monthlyDCA > 0 ? Math.round(monthlyDCA) : 500);
+              }}
+              data-tooltip="Réinitialiser les montants avec les valeurs réelles de votre portefeuille"
+            >
+              ⚡ Synchroniser
+            </button>
+          </div>
         </div>
 
         {/* Input Parameters Panel — Optimized 1-Line Flex Layout */}

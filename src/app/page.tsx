@@ -256,7 +256,6 @@ export default function HomePage() {
     if (typeof window !== 'undefined') {
       localStorage.setItem('riane_dca_start_date', newDate);
     }
-    handleRunGlobalDCACalculation(newDate);
   };
 
   const dcaBreakdown = useMemo(() => {

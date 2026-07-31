@@ -454,19 +454,18 @@ button.card:hover {
 .chat-container {
   display: flex;
   flex-direction: column;
-  height: calc(100vh - var(--header-height) - 20px);
+  min-height: calc(100vh - var(--header-height) - 40px);
   gap: 16px;
   position: relative;
 }
 
 .chat-messages {
   flex: 1;
-  overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: 16px;
-  padding-right: 8px;
-  padding-bottom: 240px;
+  padding-right: 4px;
+  padding-bottom: 40px;
 }
 
 .chat-message {
@@ -480,7 +479,7 @@ button.card:hover {
   width: 100%;
   max-width: 100%;
   box-sizing: border-box;
-  margin-bottom: 40px;
+  margin-bottom: 24px;
 }
 
 .chat-message.user {
@@ -505,12 +504,19 @@ button.card:hover {
 }
 
 .chat-input-area {
+  position: sticky;
+  bottom: 20px;
   display: flex;
   gap: 12px;
-  padding: 14px 0;
-  border-top: 1px solid var(--border-accent);
-  background: var(--bg-primary);
-  z-index: 20;
+  padding: 14px 18px;
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--border-accent);
+  background: rgba(10, 14, 23, 0.92);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  z-index: 50;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.5);
+  margin-top: 16px;
 }
 
 /* ── Portfolio Table ── */
@@ -1052,5 +1058,144 @@ select.input option {
   font-size: 15px;
   margin-bottom: 20px;
   line-height: 1.6;
+}
+
+/* 📱 ── Comprehensive Mobile Responsive Overhaul (< 768px) ── */
+@media (max-width: 768px) {
+  .app-layout {
+    flex-direction: column;
+  }
+
+  .sidebar {
+    position: fixed !important;
+    bottom: 0 !important;
+    top: auto !important;
+    left: 0 !important;
+    right: 0 !important;
+    width: 100% !important;
+    height: 64px !important;
+    flex-direction: row !important;
+    justify-content: space-around !important;
+    align-items: center !important;
+    padding: 4px 8px !important;
+    background: rgba(10, 14, 23, 0.96) !important;
+    backdrop-filter: blur(20px) !important;
+    -webkit-backdrop-filter: blur(20px) !important;
+    border-right: none !important;
+    border-top: 1px solid var(--border-medium) !important;
+    z-index: 1000 !important;
+  }
+
+  .sidebar-logo {
+    display: none !important;
+  }
+
+  .sidebar-nav-item {
+    flex-direction: column !important;
+    gap: 2px !important;
+    padding: 6px 4px !important;
+    font-size: 10px !important;
+    border-radius: 8px !important;
+    justify-content: center !important;
+    align-items: center !important;
+    text-align: center !important;
+    flex: 1 !important;
+    min-width: 0 !important;
+  }
+
+  .sidebar-nav-item .nav-icon {
+    font-size: 18px !important;
+    width: auto !important;
+  }
+
+  .sidebar > div:last-child {
+    padding: 0 !important;
+    border: none !important;
+  }
+
+  .sidebar > div:last-child > div {
+    display: none !important;
+  }
+
+  .main-content {
+    margin-left: 0 !important;
+    width: 100% !important;
+    padding-bottom: 80px !important;
+  }
+
+  .page-header {
+    padding: 12px 16px !important;
+    height: auto !important;
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 12px !important;
+  }
+
+  .page-title {
+    font-size: 16px !important;
+  }
+
+  .page-body {
+    padding: 12px !important;
+  }
+
+  .grid-4, .grid-3, .grid-2 {
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
+  }
+
+  .card {
+    padding: 14px !important;
+    border-radius: var(--radius-md) !important;
+  }
+
+  .theme-bar-row {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 6px !important;
+  }
+
+  .theme-bar-row > div:first-child {
+    width: 100% !important;
+  }
+
+  .theme-bar-track {
+    width: 100% !important;
+  }
+
+  .theme-bar-value {
+    align-self: flex-end !important;
+  }
+
+  .chat-container {
+    height: auto !important;
+    min-height: auto !important;
+  }
+
+  .chat-messages {
+    padding-bottom: 20px !important;
+  }
+
+  .chat-input-area {
+    position: sticky !important;
+    bottom: 72px !important;
+    background: rgba(17, 24, 39, 0.96) !important;
+    padding: 10px 12px !important;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.7) !important;
+  }
+
+  .portfolio-table {
+    display: block !important;
+    overflow-x: auto !important;
+    white-space: nowrap !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+
+  .modal-content {
+    width: 95% !important;
+    max-width: 95% !important;
+    padding: 16px !important;
+    margin: 10px !important;
+  }
 }
 

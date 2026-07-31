@@ -1737,6 +1737,14 @@ export default function HomePage() {
           onMarkAllAsRead={() => setReadNotificationIds(notifications.map((n) => n.id))}
           onClearAll={() => setClearedNotificationIds(notifications.map((n) => n.id))}
           onUpdateSettings={(newSettings) => setNotificationSettings(newSettings)}
+          onOpenAnalysis={() => setCurrentView('analysis')}
+          onNavigateView={setCurrentView}
+          onOpenRebalance={() => {
+            const monthlyBudget = config?.monthlyBudget || 1000;
+            const result = calculateSmartFlowRebalance(positions, monthlyBudget, fxRates);
+            setFlowRebalanceResult(result);
+            setShowFlowRebalanceModal(true);
+          }}
         />
       )}
 

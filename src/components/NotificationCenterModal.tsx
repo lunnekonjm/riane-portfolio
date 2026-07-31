@@ -10,6 +10,9 @@ interface NotificationCenterModalProps {
   onMarkAllAsRead: () => void;
   onClearAll: () => void;
   onUpdateSettings: (newSettings: NotificationSettings) => void;
+  onOpenRebalance?: () => void;
+  onOpenAnalysis?: () => void;
+  onNavigateView?: (view: 'dashboard' | 'envelopes' | 'analysis' | 'risk' | 'reports') => void;
 }
 
 export default function NotificationCenterModal({
@@ -19,6 +22,9 @@ export default function NotificationCenterModal({
   onMarkAllAsRead,
   onClearAll,
   onUpdateSettings,
+  onOpenRebalance,
+  onOpenAnalysis,
+  onNavigateView,
 }: NotificationCenterModalProps) {
   const [activeTab, setActiveTab] = useState<'alerts' | 'settings'>('alerts');
   const [selectedCategory, setSelectedCategory] = useState<NotificationCategory | 'all'>('all');
@@ -161,6 +167,9 @@ export default function NotificationCenterModal({
                             style={{ fontSize: 10, padding: '3px 8px', whiteSpace: 'nowrap' }}
                             onClick={() => {
                               onClose();
+                              if (n.actionType === 'open-envelopes') onNavigateView?.('envelopes');
+                              else if (n.actionType === 'open-analysis') onOpenAnalysis?.();
+                              else onOpenRebalance?.();
                             }}
                           >
                             {n.actionCtaLabel}

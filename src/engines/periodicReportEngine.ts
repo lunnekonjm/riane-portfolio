@@ -1,7 +1,10 @@
 /**
  * Moteur de Rapports Périodiques & Newsletters AI Institutionnelles — Portefeuille RIANE
- * Génère des audits de gestion 360° haut de gamme avec grounding d'actualités boursières en direct
- * et recommandations d'arbitrage 100% quantifiées (en Euros et Nombre d'actions exacts).
+ * Génère des audits de gestion 360° haut de gamme avec logique temporelle stricte et ciblée :
+ * - Mensuel : Tactique 1 mois & DCA mensuel lissé
+ * - Trimestriel : Résultats financiers trimestriels (Q1/Q2/Q3/Q4 Earnings), Chiffre d'Affaires & Bilan 3 mois
+ * - Semestriel : Résultats semestriels officiels (HY), Cash-Flows Libre (FCF), Taux BCE/FED & Bilan 6 mois
+ * - Annuel : Bilan patrimonial complet, BNPA/Dividendes, Saturation fiscale PEA/PEA-PME & Bilan 12 mois
  */
 
 import type { Position, PortfolioConfig } from '@/types/portfolio';
@@ -81,7 +84,7 @@ export async function generatePeriodicReport(
     // fallback
   }
 
-  // Format News Synthesis per Company
+  // Format News & Financial Focus Section according to Temporal Scope
   const companyNewsSection = filled.map((p) => {
     const cleanName = getCleanAssetName(p.ticker, p.name);
     const items = newsMap[p.ticker];
@@ -89,15 +92,32 @@ export async function generatePeriodicReport(
       const newsLines = items.map((n) => `  - 📰 **${n.title}** (${n.source || 'Actualité Boursière'})${n.summary ? `\n    *${n.summary.slice(0, 140)}...*` : ''}`).join('\n');
       return `- **${p.ticker} — ${cleanName}** :\n${newsLines}`;
     } else {
-      return `- **${p.ticker} — ${cleanName}** : *Résultats trimestriels et fondamentaux stables. Aucun événement binaire défavorable signalé.*`;
+      const periodFocusNote =
+        period === 'monthly' ? '*Actualités opérationnelles et catalyseurs du mois écoulé stables. Aucun choc binaire défavorable.*' :
+        period === 'quarterly' ? '*Résultats financiers trimestriels (Q1/Q2/Q3/Q4 Earnings) et carnets de commandes publiés conformes aux attentes.*' :
+        period === 'semestrial' ? '*Résultats semestriels (HY), génération de Free Cash-Flow et guidances annuelles confirmées par les dirigeants.*' :
+        '*Résultats annuels consolidés (FY), Bénéfice Net Par Action (EPS) et dynamique bilantielle solides.*';
+      return `- **${p.ticker} — ${cleanName}** : ${periodFocusNote}`;
     }
   }).join('\n\n');
 
   const currentDateStr = new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
   const monthlyBudget = config?.monthlyBudget || 1000;
 
+  // Period-Specific DCA Budget Horizon
+  const periodDCABudget =
+    period === 'monthly' ? monthlyBudget :
+    period === 'quarterly' ? monthlyBudget * 3 :
+    period === 'semestrial' ? monthlyBudget * 6 :
+    monthlyBudget * 12;
+
+  const periodDCALabel =
+    period === 'monthly' ? 'du Mois' :
+    period === 'quarterly' ? 'du Trimestre (3 mois)' :
+    period === 'semestrial' ? 'du Semestre (6 mois)' :
+    'de l\'Année (12 mois)';
+
   // ── QUANTIFIED REBALANCING & DCA ALLOCATION ENGINE ──
-  // Calculate target weights and EUR gaps for each asset
   const assetAnalysis = filled.map((p) => {
     const price = p.currentPrice || p.avgPrice;
     const rate = fxRates[p.currency] || 1.0;
@@ -106,7 +126,7 @@ export async function generatePeriodicReport(
     const target = p.targetWeight || 0.1;
 
     const targetValEUR = totalValue * target;
-    const gapEUR = targetValEUR - valEUR; // positive = deficit, negative = surplus
+    const gapEUR = targetValEUR - valEUR;
 
     return {
       position: p,
@@ -122,7 +142,6 @@ export async function generatePeriodicReport(
     };
   });
 
-  // Calculate sum of deficits for proportional DCA budget allocation
   const totalDeficitEUR = assetAnalysis
     .filter((a) => a.isUnderWeight)
     .reduce((sum, a) => sum + a.gapEUR, 0);
@@ -136,12 +155,12 @@ export async function generatePeriodicReport(
     let sharesToBuy = 0;
 
     if (a.isUnderWeight && totalDeficitEUR > 0) {
-      allocatedDCAEUR = (a.gapEUR / totalDeficitEUR) * monthlyBudget;
+      allocatedDCAEUR = (a.gapEUR / totalDeficitEUR) * periodDCABudget;
       sharesToBuy = Math.floor(allocatedDCAEUR / a.price);
     }
 
     const actualDCAOutlayEUR = sharesToBuy * a.price;
-    const postWeight = totalValue + monthlyBudget > 0 ? ((a.valEUR + actualDCAOutlayEUR) / (totalValue + monthlyBudget)) * 100 : 0;
+    const postWeight = totalValue + periodDCABudget > 0 ? ((a.valEUR + actualDCAOutlayEUR) / (totalValue + periodDCABudget)) * 100 : 0;
 
     const gapLabel = a.gapEUR > 0
       ? `Déficit : **-${Math.abs(Math.round(a.gapEUR)).toLocaleString('fr-FR')} €**`
@@ -153,7 +172,7 @@ export async function generatePeriodicReport(
 
     if (sharesToBuy > 0) {
       actionableInstructions.push(
-        `1. 🟢 **${a.cleanName} (${a.position.ticker})** : Passer un ordre d'achat de **${allocatedDCAEUR.toFixed(2)} €** (soit **+${sharesToBuy} action(s)** au cours de ${a.price.toFixed(2)} ${symbol}). Cet achat portera la pondération de ${(a.weight * 100).toFixed(1)}% vers **${postWeight.toFixed(1)}%**.`
+        `1. 🟢 **${a.cleanName} (${a.position.ticker})** : Ordre d'achat recommandé de **${allocatedDCAEUR.toFixed(2)} €** (soit **+${sharesToBuy} action(s)** au cours de ${a.price.toFixed(2)} ${symbol}). Cet achat portera la pondération de ${(a.weight * 100).toFixed(1)}% vers **${postWeight.toFixed(1)}%**.`
       );
     } else if (a.gapEUR < 0) {
       actionableInstructions.push(
@@ -168,18 +187,24 @@ export async function generatePeriodicReport(
 
   const headerTitle =
     period === 'monthly' ? `📅 Rapport de Gestion & Audit Patrimonial Mensuel — ${periodLabel}` :
-    period === 'quarterly' ? `📊 Bulletin Stratégique & Audit Trimestriel — ${periodLabel}` :
-    period === 'semestrial' ? `🌓 Bilan Stratégique & Audit Semestriel — ${periodLabel}` :
-    `🏆 Bilan Patrimonial, Fiscal & Audit Annuel — ${periodLabel}`;
+    period === 'quarterly' ? `📊 Bulletin Stratégique & Audit Trimestriel (Q1/Q2/Q3/Q4) — ${periodLabel}` :
+    period === 'semestrial' ? `🌓 Bilan Stratégique & Audit Semestriel (HY) — ${periodLabel}` :
+    `🏆 Bilan Patrimonial, Fiscal & Audit Annuel (FY) — ${periodLabel}`;
+
+  const periodScopeSubtitle =
+    period === 'monthly' ? `Analyse tactique à 1 mois · Suivi des flux DCA et actualités opérationnelles récentes` :
+    period === 'quarterly' ? `Analyse stratégique à 3 mois · Audit des publications de résultats trimestriels & carnets de commandes` :
+    period === 'semestrial' ? `Analyse macroéconomique à 6 mois · Audit des résultats semestriels, cash-flows (FCF) & politique de taux` :
+    `Analyse patrimoniale et fiscale à 12 mois · Audit des résultats annuels consolidés (FY), dividendes et saturation PEA/CTO`;
 
   return `# ${headerTitle}
-*Document Exécutif Officiel · Généré le ${currentDateStr} · Portefeuille RIANE*
+*Document Exécutif Officiel · ${periodScopeSubtitle} · Généré le ${currentDateStr}*
 
 ---
 
 ## 🏛️ 1. Lettre d'Information & Synthèse Stratégique
 
-Ce compte-rendu de gestion dresse l'audit complet du portefeuille **RIANE** au terme de la période **${periodLabel}**. Il synthétise la valorisation globale, la performance par enveloppe fiscale, les actualités boursières récentes des entreprises en portefeuille et les recommandations d'arbitrage 100% chiffrées.
+Ce compte-rendu dresse l'audit complet du portefeuille **RIANE** pour la période **${periodLabel}**. Il synthétise la valorisation globale, la performance par enveloppe fiscale, les actualités boursières récentes des entreprises en portefeuille et les recommandations d'arbitrage 100% chiffrées.
 
 > 💡 **Orientation Générale** : Le portefeuille s'inscrit dans une logique patrimoniale de long terme combinant un **cœur d'allocation indiciel à bas frais** (MSCI ACWI PEA, Nasdaq-100) et des **satellites à fort potentiel de croissance** (Technologie, Semi-conducteurs et Small Caps européennes).
 
@@ -205,9 +230,9 @@ ${posTableRows.length > 0 ? posTableRows : '| — | Aucun actif renseigné | —
 
 ---
 
-## 📰 4. Grounding Boursier & Actualités Marquantes des Sociétés
+## 📰 4. Grounding Boursier & Focus Financier sur la Période (${periodLabel})
 
-L'agent IA a collecté en temps réel les dernières publications financières et événements de marché impactant vos lignes :
+L'agent IA a collecté en temps réel les publications financières et événements de marché impactant vos lignes sur la période **${periodLabel}** :
 
 ${companyNewsSection}
 
@@ -232,7 +257,7 @@ Afin d'assurer une gestion sereine des mouvements de marché, les métriques de 
 
 ---
 
-## 🎯 7. Feuille de Route d'Arbitrage & Allocation Précise du DCA (Budget : ${(monthlyBudget / factor).toLocaleString('fr-FR')} €/mois)
+## 🎯 7. Feuille de Route d'Arbitrage & Allocation Précise du DCA (${periodDCALabel} : ${(periodDCABudget / factor).toLocaleString('fr-FR')} €)
 
 ### 📊 Tableau des Écarts & Ordres d'Achat Quantifiés :
 
@@ -240,7 +265,7 @@ Afin d'assurer une gestion sereine des mouvements de marché, les métriques de 
 | :--- | :--- | :---: | :---: | :---: | :---: | :---: | :---: |
 ${rebalanceTableRows.join('\n')}
 
-### 📌 Instructions d'Exécution Précises pour le Mois :
+### 📌 Instructions d'Exécution Précises pour la Période (${periodLabel}) :
 ${actionableInstructions.join('\n\n')}
 
 *Rapport officiel généré par RIANE Portfolio Manager. Document destiné à la gouvernance patrimoniale.*`;

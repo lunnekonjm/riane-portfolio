@@ -37,7 +37,9 @@ export default function PositionEditor({ position, onSave, onClose, onDelete }: 
     avgPrice: position?.avgPrice || 0,
     currentPrice: position?.currentPrice,
     themes: position?.themes || [],
-    monthlyDCA: position?.monthlyDCA,
+    monthlyDCA: position?.monthlyDCA !== undefined 
+      ? position.monthlyDCA 
+      : (position?.annualBudget ? Math.round(position.annualBudget / 12) : undefined),
     annualBudget: position?.annualBudget,
     targetWeight: position?.targetWeight,
     maxWeight: position?.maxWeight,
@@ -640,7 +642,7 @@ function autoGenerateThemes(
                   type="number"
                   className="input mono"
                   style={{ fontSize: 13, padding: '8px 10px' }}
-                  value={form.monthlyDCA || (form.annualBudget ? form.annualBudget / 12 : 100)}
+                  value={form.monthlyDCA ?? ''}
                   onChange={(e) => handleOptionalNumber('monthlyDCA', e.target.value)}
                   placeholder="100"
                 />

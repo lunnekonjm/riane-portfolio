@@ -154,6 +154,10 @@ export default function CustomDatePicker({ value, onChange, showDaySelector = tr
                   onChange={(e) => {
                     const day = Math.min(31, Math.max(1, parseInt(e.target.value) || 1));
                     setSelectedDay(day);
+                    const mm = String(currentMonth + 1).padStart(2, '0');
+                    const dd = String(day).padStart(2, '0');
+                    const yyyy = String(currentYear);
+                    onChange(`${yyyy}-${mm}-${dd}`);
                   }}
                   style={{
                     width: 48,

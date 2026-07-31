@@ -119,12 +119,17 @@ export default function HomePage() {
   const [flowRebalanceResult, setFlowRebalanceResult] = useState<FlowRebalanceResult | null>(null);
   const [activeRebalanceResult, setActiveRebalanceResult] = useState<ActiveRebalanceResult | null>(null);
   const [rebalanceTab, setRebalanceTab] = useState<'dca' | 'active'>('dca');
-  const [dcaGlobalStartDate, setDcaGlobalStartDate] = useState<string>(() => {
+  const [dcaGlobalStartDate, setDcaGlobalStartDate] = useState<string>('2024-01-05');
+
+  // Sync saved DCA start date from localStorage on client mount
+  useEffect(() => {
     if (typeof window !== 'undefined') {
-      return localStorage.getItem('riane_dca_start_date') || '2024-01-05';
+      const savedDate = localStorage.getItem('riane_dca_start_date');
+      if (savedDate) {
+        setDcaGlobalStartDate(savedDate);
+      }
     }
-    return '2024-01-05';
-  });
+  }, []);
 
   const handleUpdateDcaStartDate = (newDate: string) => {
     setDcaGlobalStartDate(newDate);

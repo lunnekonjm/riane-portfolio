@@ -764,7 +764,7 @@ function autoGenerateThemes(
               />
             </div>
             <div className="form-group">
-              <label className="form-label">Prix moyen d&apos;achat (PRU {form.currency === 'USD' ? '$' : form.currency === 'GBP' ? '£' : '€'})</label>
+              <label className="form-label">PRU d&apos;Achat ({form.currency === 'USD' ? '$' : form.currency === 'GBP' ? '£' : '€'})</label>
               <input
                 className="input mono"
                 type="number"

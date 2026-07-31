@@ -93,8 +93,8 @@ export default function MonteCarloModal({ initialCapital, monthlyDCA, onClose }:
               style={{ fontSize: 12, padding: '6px 8px', fontWeight: 700, width: '100%' }}
             >
               <option value="MIXED">📊 Mixte (Portefeuille)</option>
-              <option value="PEA">🏛️ PEA (17.2% PS)</option>
-              <option value="CTO">💼 CTO (30% PFU)</option>
+              <option value="PEA">🏛️ PEA (18.6% PS)</option>
+              <option value="CTO">💼 CTO (31.4% PFU)</option>
             </select>
           </div>
           <div>

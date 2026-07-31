@@ -52,15 +52,15 @@ function randomNormal(): number {
 
 /**
  * Calculates effective French tax rate based on envelope
- * PEA: 17.2% PS (0% IR after 5 years)
- * CTO: 30.0% PFU / Flat Tax
+ * PEA: 18.6% PS (0% IR after 5 years)
+ * CTO: 31.4% PFU / Flat Tax (12.8% IR + 18.6% PS)
  * MIXED: Weighted by PEA vs CTO ratio
  */
 export function getEffectiveTaxRate(envelope: TaxEnvelopeType, peaRatio = 0.75): number {
-  if (envelope === 'PEA') return 0.172; // 17.2% Prélèvements sociaux
-  if (envelope === 'CTO') return 0.30;  // 30% Flat tax / PFU
+  if (envelope === 'PEA') return 0.186; // 18.6% Prélèvements sociaux
+  if (envelope === 'CTO') return 0.314; // 31.4% Flat tax / PFU (12.8% IR + 18.6% PS)
   // MIXED
-  return peaRatio * 0.172 + (1 - peaRatio) * 0.30;
+  return peaRatio * 0.186 + (1 - peaRatio) * 0.314;
 }
 
 /**

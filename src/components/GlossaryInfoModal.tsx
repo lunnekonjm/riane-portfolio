@@ -48,10 +48,10 @@ export const GLOSSARY_TERMS: GlossaryTerm[] = [
   },
   {
     term: 'PFU / Flat Tax',
-    fullName: 'Prélèvement Forfaitaire Unique (30.0%)',
+    fullName: 'Prélèvement Forfaitaire Unique (31.4%)',
     category: 'Fiscalité',
-    definition: 'Taxe forfaitaire de 30% prélevée sur les plus-values et dividendes du CTO. Elle se compose de 12.8% d\'Impôt sur le Revenu (IR) et 18.6% de Prélèvements Sociaux (PS).',
-    example: 'Sur 1 000 € de gain en CTO, l\'impôt est de 300 € (700 € nets).',
+    definition: 'Taxe forfaitaire de 31.4% prélevée sur les plus-values et dividendes du CTO. Elle se compose de 12.8% d\'Impôt sur le Revenu (IR) et 18.6% de Prélèvements Sociaux (PS).',
+    example: 'Sur 1 000 € de gain en CTO, l\'impôt est de 314 € (686 € nets).',
   },
   {
     term: 'Prélèvements Sociaux (PS)',

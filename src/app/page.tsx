@@ -272,23 +272,29 @@ export default function HomePage() {
 
     positions.forEach((p) => {
       const freqStr = (p.dcaFrequency || (p.annualBudget && p.annualBudget > 0 ? 'annual' : 'monthly')) as string;
-      const monthlyEquiv = p.monthlyDCA || (p.annualBudget ? p.annualBudget / 12 : 0);
 
       if (freqStr === 'annual' || (p.annualBudget && p.annualBudget > 0)) {
         annualCount++;
-        annualSum += p.annualBudget || (p.monthlyDCA ? p.monthlyDCA * 12 : 0);
+        const val = p.annualBudget || (p.monthlyDCA ? p.monthlyDCA * 12 : 0);
+        annualSum += val;
       } else if (freqStr === 'quarterly') {
         quarterlyCount++;
-        quarterlySum += (p.monthlyDCA ? p.monthlyDCA * 3 : 0);
+        const val = p.monthlyDCA ? p.monthlyDCA * 3 : (p.annualBudget ? p.annualBudget / 4 : 0);
+        quarterlySum += val;
       } else if (freqStr === 'semestrial') {
         semestrialCount++;
-        semestrialSum += (p.monthlyDCA ? p.monthlyDCA * 6 : 0);
+        const val = p.monthlyDCA ? p.monthlyDCA * 6 : (p.annualBudget ? p.annualBudget / 2 : 0);
+        semestrialSum += val;
       } else {
         monthlyCount++;
-        monthlySum += monthlyEquiv;
+        const val = p.monthlyDCA || (p.annualBudget ? p.annualBudget / 12 : 0);
+        monthlySum += val;
       }
     });
 
+    // Total Annual Cumulative = (Monthly * 12) + (Quarterly * 4) + (Semestrial * 2) + Annual
+    const totalAnnualCumulative = (monthlySum * 12) + (quarterlySum * 4) + (semestrialSum * 2) + annualSum;
+    const monthlyEquivalent = totalAnnualCumulative > 0 ? totalAnnualCumulative / 12 : 0;
     const activeFrequenciesCount = [monthlyCount, quarterlyCount, semestrialCount, annualCount].filter(c => c > 0).length;
 
     return {
@@ -300,6 +306,8 @@ export default function HomePage() {
       semestrialCount,
       annualSum,
       annualCount,
+      totalAnnualCumulative,
+      monthlyEquivalent,
       activeFrequenciesCount,
     };
   }, [positions]);
@@ -895,11 +903,11 @@ export default function HomePage() {
 
                         <div className="card-value" style={{ color: 'var(--accent-emerald)', display: 'flex', alignItems: 'baseline', gap: 4, flexWrap: 'wrap' }}>
                           <span>
-                            {monthlyDCATotal > 0
-                              ? (monthlyDCATotal / cumulativeInflationFactor).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })
+                            {dcaBreakdown.monthlyEquivalent > 0
+                              ? (dcaBreakdown.monthlyEquivalent / cumulativeInflationFactor).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })
                               : ((config?.monthlyBudget || 1000) / cumulativeInflationFactor).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
                           </span>
-                          <span style={{ fontSize: 12, color: 'var(--text-tertiary)', fontWeight: 500 }}>/mois (équiv.)</span>
+                          <span style={{ fontSize: 12, color: 'var(--text-tertiary)', fontWeight: 500 }}>/mois (lissés)</span>
                         </div>
 
                         {/* Interactive Mini Dropdown Badge Button */}
@@ -985,7 +993,7 @@ export default function HomePage() {
 
                               <div style={{ borderTop: '1px dashed var(--border-subtle)', paddingTop: 6, marginTop: 2, display: 'flex', justifyContent: 'space-between', fontWeight: 700, color: 'white' }}>
                                 <span>💰 Cumul Annuel Global</span>
-                                <span style={{ color: 'var(--accent-emerald)' }}>{((monthlyDCATotal || (config?.monthlyBudget || 1000)) * 12).toLocaleString('fr-FR', { maximumFractionDigits: 0 })} € / an</span>
+                                <span style={{ color: 'var(--accent-emerald)' }}>{dcaBreakdown.totalAnnualCumulative.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} € / an</span>
                               </div>
                             </div>
                           )}

@@ -468,6 +468,7 @@ export default function HomePage() {
                 positions={positions}
                 notifications={notifications}
                 onOpenAnalysis={() => setCurrentView('analysis')}
+                onNavigateView={setCurrentView}
                 onOpenRebalance={() => {
                   const monthlyBudget = config?.monthlyBudget || 1000;
                   const result = calculateSmartFlowRebalance(positions, monthlyBudget, fxRates);

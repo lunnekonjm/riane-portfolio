@@ -14,6 +14,7 @@ export interface AppNotification {
   priority: 'low' | 'medium' | 'high';
   actionHint?: string; // Explicit step on what the user should do to resolve
   actionCtaLabel?: string; // Text for direct CTA button
+  actionType?: 'open-rebalance' | 'open-analysis' | 'open-envelopes' | 'open-reports'; // Interactive navigation action
   actionUrl?: string;
 }
 

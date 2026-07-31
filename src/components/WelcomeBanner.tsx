@@ -13,6 +13,7 @@ interface WelcomeBannerProps {
   notifications: AppNotification[];
   onOpenAnalysis: () => void;
   onOpenRebalance: () => void;
+  onNavigateView: (view: 'dashboard' | 'envelopes' | 'analysis' | 'risk' | 'reports') => void;
 }
 
 export default function WelcomeBanner({
@@ -24,6 +25,7 @@ export default function WelcomeBanner({
   notifications,
   onOpenAnalysis,
   onOpenRebalance,
+  onNavigateView,
 }: WelcomeBannerProps) {
   const [dismissed, setDismissed] = useState(false);
 
@@ -94,7 +96,11 @@ export default function WelcomeBanner({
               type="button"
               className="btn btn-primary btn-sm"
               style={{ fontSize: 11, background: 'var(--accent-rose)', color: 'white' }}
-              onClick={onOpenRebalance}
+              onClick={() => {
+                if (topAlert.actionType === 'open-envelopes') onNavigateView('envelopes');
+                else if (topAlert.actionType === 'open-analysis') onOpenAnalysis();
+                else onOpenRebalance();
+              }}
             >
               {topAlert.actionCtaLabel || '🎯 Corriger via DCA'}
             </button>

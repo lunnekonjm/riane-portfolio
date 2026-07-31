@@ -38,6 +38,7 @@ export function generatePortfolioNotifications(
         message: `Votre PEA classique a atteint son plafond légal de versement de 150 000 €. Les versements DCA mensuels excédentaires basculent automatiquement vers votre CTO.`,
         actionHint: `Action Recommandée : Redirigez vos prochains versements DCA vers votre Compte-Titres Ordinaire (CTO) pour continuer à investir en toute légalité.`,
         actionCtaLabel: `💼 Configurer DCA sur CTO`,
+        actionType: 'open-envelopes',
         timestamp: now,
         read: false,
         priority: 'high',
@@ -50,6 +51,7 @@ export function generatePortfolioNotifications(
         message: `Vos versements PEA s'élèvent à ${Math.round(peaCost).toLocaleString('fr-FR')} €. Il vous reste ${(150000 - peaCost).toLocaleString('fr-FR')} € de capacité de versement avant saturation.`,
         actionHint: `Action Recommandée : Calibrez votre DCA pour ne pas dépasser les ${(150000 - peaCost).toLocaleString('fr-FR')} € restants sur votre PEA.`,
         actionCtaLabel: `🏛️ Voir Enveloppe PEA`,
+        actionType: 'open-envelopes',
         timestamp: now,
         read: false,
         priority: 'medium',
@@ -64,6 +66,7 @@ export function generatePortfolioNotifications(
         message: `Le cumul de vos versements sur PEA (${Math.round(peaCost).toLocaleString('fr-FR')} €) et PEA-PME (${Math.round(peaPmeCost).toLocaleString('fr-FR')} €) a atteint la limite légale absolue de 225 000 €.`,
         actionHint: `Action Recommandée : Ouvrez ou alimentez un Compte-Titres Ordinaire (CTO) pour accueillir la suite de vos investissements.`,
         actionCtaLabel: `💼 Basculer sur le CTO`,
+        actionType: 'open-envelopes',
         timestamp: now,
         read: false,
         priority: 'high',
@@ -82,6 +85,7 @@ export function generatePortfolioNotifications(
         message: `C'est la période de versement ! Votre budget DCA configuré est de ${monthlyBudget.toLocaleString('fr-FR')} €/mois. Pensez à exécuter vos ordres.`,
         actionHint: `Action Recommandée : Exécutez le rééquilibrage automatique pour orienter votre DCA de ${monthlyBudget.toLocaleString('fr-FR')} € vers les lignes sous-pondérées.`,
         actionCtaLabel: `🎯 Répartir mon DCA (${monthlyBudget}€)`,
+        actionType: 'open-rebalance',
         timestamp: now,
         read: false,
         priority: 'medium',
@@ -89,8 +93,29 @@ export function generatePortfolioNotifications(
     }
   }
 
-  // ── 3. Thematic Risk & Allocation Drift ──
+  // ── 3. Thematic Risk & Single Position Over-Concentration ──
   if (settings.allocationDriftEnabled && totalPortfolioValue > 0) {
+    // 3a. Single asset over-concentration check (> 20%)
+    filled.forEach((p) => {
+      const posVal = p.quantity * (p.currentPrice || p.avgPrice) * (fxRates[p.currency] || 1);
+      const posWeight = (posVal / totalPortfolioValue) * 100;
+      if (posWeight >= 20.0) {
+        notifications.push({
+          id: `notif-single-pos-drift-${p.id}`,
+          category: 'risk',
+          title: `⚠️ Sur-concentration Ligne Unique : ${p.name} (${posWeight.toFixed(1)}%)`,
+          message: `La ligne ${p.name} (${p.ticker}) représente ${posWeight.toFixed(1)}% de la valeur totale de votre patrimoine.`,
+          actionHint: `Action Recommandée : Suspendez temporairement les achats DCA sur cette ligne et orientez vos nouveaux flux vers les autres actifs pour diluer ce risque sous 15%.`,
+          actionCtaLabel: `⚖️ Rééquilibrer la Ligne`,
+          actionType: 'open-rebalance',
+          timestamp: now,
+          read: false,
+          priority: 'medium',
+        });
+      }
+    });
+
+    // 3b. Thematic exposure check
     THEMES.forEach((theme) => {
       const themePositions = filled.filter((p) => theme.tickers.includes(p.ticker) || p.themes.includes(theme.id));
       const themeValueEUR = themePositions.reduce((sum, p) => {
@@ -110,6 +135,7 @@ export function generatePortfolioNotifications(
           message: `L'exposition à la thématique '${theme.label}' (${exposure.toFixed(1)}%) dépasse la limite maximale recommandée (${maxPct.toFixed(0)}%).`,
           actionHint: `Action Recommandée : Fléchez vos prochains DCA mensuels vers les autres thématiques sous-exposées pour diluer la thématique ${theme.label} de ${exposure.toFixed(1)}% vers ${maxPct.toFixed(0)}%.`,
           actionCtaLabel: `🎯 Diluer par DCA`,
+          actionType: 'open-rebalance',
           timestamp: now,
           read: false,
           priority: 'high',
@@ -134,6 +160,7 @@ export function generatePortfolioNotifications(
             message: `Le cours de ${p.name} (${p.currentPrice.toFixed(2)} ${p.currency}) enregistre une baisse marquée de ${movePct.toFixed(1)}% par rapport à votre PRU (${p.avgPrice.toFixed(2)} ${p.currency}).`,
             actionHint: `Action Recommandée : Lancez une analyse IA pour vérifier si le fondamental de la société reste intact avant de renforcer à bon compte.`,
             actionCtaLabel: `🔬 Lancer l'Analyse IA sur ${p.ticker}`,
+            actionType: 'open-analysis',
             timestamp: now,
             read: false,
             priority: 'high',
@@ -146,6 +173,7 @@ export function generatePortfolioNotifications(
             message: `Surperformance majeure ! ${p.name} affiche un gain de +${movePct.toFixed(1)}% par rapport à votre PRU (${p.avgPrice.toFixed(2)} ${p.currency}).`,
             actionHint: `Action Recommandée : Évaluez une prise de bénéfice partielle (10 à 20%) pour sécuriser vos gains et réallouer sur vos opportunités en retard.`,
             actionCtaLabel: `⚖️ Voir le Rééquilibrage`,
+            actionType: 'open-rebalance',
             timestamp: now,
             read: false,
             priority: 'medium',

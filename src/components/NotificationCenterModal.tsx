@@ -150,8 +150,22 @@ export default function NotificationCenterModal({
                       {n.message}
                     </p>
                     {n.actionHint && (
-                      <div style={{ fontSize: 11, color: 'var(--text-primary)', background: 'rgba(255, 255, 255, 0.05)', padding: '6px 10px', borderRadius: 6, marginTop: 8, borderLeft: '3px solid var(--accent-cyan)', lineHeight: 1.4 }}>
-                        <strong>👉 Que faire :</strong> {n.actionHint}
+                      <div style={{ fontSize: 11, color: 'var(--text-primary)', background: 'rgba(255, 255, 255, 0.05)', padding: '6px 10px', borderRadius: 6, marginTop: 8, borderLeft: '3px solid var(--accent-cyan)', lineHeight: 1.4, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 6 }}>
+                        <div>
+                          <strong>👉 Que faire :</strong> {n.actionHint}
+                        </div>
+                        {n.actionCtaLabel && (
+                          <button
+                            type="button"
+                            className="btn btn-primary btn-sm"
+                            style={{ fontSize: 10, padding: '3px 8px', whiteSpace: 'nowrap' }}
+                            onClick={() => {
+                              onClose();
+                            }}
+                          >
+                            {n.actionCtaLabel}
+                          </button>
+                        )}
                       </div>
                     )}
                   </div>

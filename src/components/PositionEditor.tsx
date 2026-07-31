@@ -335,7 +335,9 @@ function autoGenerateThemes(
         monthlyAmount,
         dcaStartDate,
         form.currentPrice || form.avgPrice || 100,
-        isIntegerOnly
+        isIntegerOnly,
+        form.dcaFrequency || 'monthly',
+        form.dcaDepositMonth || 1
       );
       setDcaResult(result);
     } catch (err) {
@@ -578,8 +580,48 @@ function autoGenerateThemes(
                   onChange={(e) => setDcaStartDate(e.target.value)}
                 />
               </div>
+
               <div className="form-group">
-                <label className="form-label" style={{ fontSize: 12 }}>Versement mensuel (€)</label>
+                <label className="form-label" style={{ fontSize: 12 }}>Fréquence</label>
+                <select
+                  className="input"
+                  style={{ fontSize: 12 }}
+                  value={form.dcaFrequency || 'monthly'}
+                  onChange={(e) => handleChange('dcaFrequency', e.target.value)}
+                >
+                  <option value="monthly">Mensuel</option>
+                  <option value="quarterly">Trimestriel</option>
+                  <option value="annual">Annuel</option>
+                </select>
+              </div>
+
+              {(form.dcaFrequency === 'annual' || form.dcaFrequency === 'quarterly') && (
+                <div className="form-group">
+                  <label className="form-label" style={{ fontSize: 12 }}>Mois du versement</label>
+                  <select
+                    className="input"
+                    style={{ fontSize: 12 }}
+                    value={form.dcaDepositMonth || 1}
+                    onChange={(e) => handleChange('dcaDepositMonth', parseInt(e.target.value))}
+                  >
+                    <option value={1}>Janvier</option>
+                    <option value={2}>Février</option>
+                    <option value={3}>Mars</option>
+                    <option value={4}>Avril</option>
+                    <option value={5}>Mai</option>
+                    <option value={6}>Juin</option>
+                    <option value={7}>Juillet</option>
+                    <option value={8}>Août</option>
+                    <option value={9}>Septembre</option>
+                    <option value={10}>Octobre</option>
+                    <option value={11}>Novembre</option>
+                    <option value={12}>Décembre</option>
+                  </select>
+                </div>
+              )}
+
+              <div className="form-group">
+                <label className="form-label" style={{ fontSize: 12 }}>Versement (€)</label>
                 <input
                   type="number"
                   className="input mono"
@@ -588,6 +630,7 @@ function autoGenerateThemes(
                   placeholder="100"
                 />
               </div>
+
               <div className="form-group" style={{ display: 'flex', alignItems: 'flex-end' }}>
                 <button
                   type="button"

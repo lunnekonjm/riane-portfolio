@@ -28,6 +28,10 @@ export interface Position {
   maxWeight?: number;
   /** Monthly DCA amount in EUR */
   monthlyDCA?: number;
+  /** DCA Frequency ('monthly' | 'quarterly' | 'annual') */
+  dcaFrequency?: 'monthly' | 'quarterly' | 'annual';
+  /** Target month of deposit for quarterly/annual DCA (1 = Jan, 6 = June, etc.) */
+  dcaDepositMonth?: number;
   /** Annual budget in EUR (for CTO) */
   annualBudget?: number;
   /** Thematic tags */

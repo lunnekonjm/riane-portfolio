@@ -791,7 +791,9 @@ export default function HomePage() {
                               monthlyBudget,
                               dcaGlobalStartDate,
                               pos.currentPrice || pos.avgPrice || 100,
-                              isIntegerOnly
+                              isIntegerOnly,
+                              pos.dcaFrequency || 'monthly',
+                              pos.dcaDepositMonth || 1
                             );
                             if (sim.totalShares > 0) {
                               await updatePosition({

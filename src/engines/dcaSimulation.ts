@@ -67,7 +67,9 @@ export async function simulatePositionDCA(
   monthlyBudget: number,
   startDateStr: string,
   currentPriceFallback: number,
-  isIntegerOnly: boolean = true
+  isIntegerOnly: boolean = true,
+  frequency: 'monthly' | 'quarterly' | 'annual' = 'monthly',
+  depositMonth: number = 1
 ): Promise<DCASimulationResult> {
   const months = getMonthlyDates(startDateStr);
 
@@ -105,6 +107,18 @@ export async function simulatePositionDCA(
   for (let i = 0; i < totalMonths; i++) {
     const monthKey = months[i];
     const price = priceMap.get(monthKey);
+
+    // Calculate if cash deposit occurs in this calendar month
+    const monthNum = parseInt(monthKey.slice(5, 7), 10);
+    let isDepositMonth = true;
+
+    if (frequency === 'annual') {
+      isDepositMonth = monthNum === depositMonth;
+    } else if (frequency === 'quarterly') {
+      isDepositMonth = ((monthNum - depositMonth) % 3 + 3) % 3 === 0;
+    }
+
+    const budgetForMonth = isDepositMonth ? monthlyBudget : 0;
     
     // Check if asset existed on this date
     const existsYet = price && price > 0;
@@ -112,13 +126,12 @@ export async function simulatePositionDCA(
 
     if (isPreInception || !existsYet) {
       // Asset did NOT exist yet on this date:
-      // Do NOT invent fake negative prices or purchases!
       // Money is accumulated in uninvested cash buffer until launch.
-      rolloverCash += monthlyBudget;
+      rolloverCash += budgetForMonth;
       logs.push({
         date: monthKey,
         sharePrice: 0,
-        monthlyBudget,
+        monthlyBudget: budgetForMonth,
         cashAvailable: parseFloat(rolloverCash.toFixed(2)),
         sharesBought: 0,
         spent: 0,
@@ -131,7 +144,7 @@ export async function simulatePositionDCA(
       continue;
     }
 
-    const cashAvailable = rolloverCash + monthlyBudget;
+    const cashAvailable = rolloverCash + budgetForMonth;
     
     let sharesBought = 0;
     if (isIntegerOnly) {

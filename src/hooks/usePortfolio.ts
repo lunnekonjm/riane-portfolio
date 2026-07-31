@@ -105,8 +105,40 @@ export function usePortfolio() {
     }
   };
 
+  const [historyStack, setHistoryStack] = useState<Position[][]>([]);
+
+  const pushSnapshot = useCallback(() => {
+    if (positions.length > 0) {
+      setHistoryStack((prev) => [JSON.parse(JSON.stringify(positions)), ...prev].slice(0, 10));
+    }
+  }, [positions]);
+
+  const undoLastAction = useCallback(async () => {
+    if (historyStack.length === 0) return false;
+    const previousState = historyStack[0];
+    setHistoryStack((prev) => prev.slice(1));
+    setPositions(previousState);
+
+    try {
+      localStorage.setItem('riane_local_positions', JSON.stringify(previousState));
+    } catch {
+      // ignore
+    }
+
+    if (user) {
+      try {
+        await saveAllPositions(user.uid, previousState);
+      } catch (err) {
+        console.warn('[Portfolio] Undo save failed:', err);
+      }
+    }
+    clearAnalysisCache();
+    return true;
+  }, [historyStack, user]);
+
   // ── CRUD ──
   const addPosition = useCallback(async (pos: Position) => {
+    pushSnapshot();
     setSaving(true);
     clearAnalysisCache();
     // Guarantee quantity >= 1 and valid PRU
@@ -136,9 +168,10 @@ export function usePortfolio() {
       }
     }
     setSaving(false);
-  }, [user]);
+  }, [user, pushSnapshot]);
 
   const updatePosition = useCallback(async (pos: Position) => {
+    pushSnapshot();
     setSaving(true);
     clearAnalysisCache();
     setPositions((prev) => {
@@ -159,9 +192,10 @@ export function usePortfolio() {
       }
     }
     setSaving(false);
-  }, [user]);
+  }, [user, pushSnapshot]);
 
   const removePosition = useCallback(async (positionId: string) => {
+    pushSnapshot();
     setSaving(true);
     clearAnalysisCache();
     setPositions((prev) => {
@@ -182,7 +216,7 @@ export function usePortfolio() {
       }
     }
     setSaving(false);
-  }, [user]);
+  }, [user, pushSnapshot]);
 
   const updateConfig = useCallback(async (newConfig: PortfolioConfig) => {
     if (!user) return;
@@ -267,6 +301,8 @@ export function usePortfolio() {
     pendingCount,
     filledPositions,
     positionsByEnvelope,
+    canUndo: historyStack.length > 0,
+    undoLastAction,
     addPosition,
     updatePosition,
     removePosition,

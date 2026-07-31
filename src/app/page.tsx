@@ -198,8 +198,30 @@ export default function HomePage() {
   const {
     positions, config, totalValue, totalCost, gainLoss, gainLossPercent,
     monthlyDCATotal, saving, pendingCount, filledPositions, fxRates, lastPricesUpdated, marketStatusLabel,
+    canUndo, undoLastAction,
     addPosition, updatePosition, removePosition, updateConfig, refreshPrices, resetPortfolio,
   } = usePortfolio();
+
+  // Global Ctrl+Z / Cmd+Z Keyboard Undo Shortcut
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't trigger when typing inside text inputs / textareas
+      const targetTag = (e.target as HTMLElement)?.tagName?.toUpperCase();
+      if (targetTag === 'INPUT' || targetTag === 'TEXTAREA' || targetTag === 'SELECT') return;
+
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z' && canUndo && !saving) {
+        e.preventDefault();
+        undoLastAction().then((success) => {
+          if (success) {
+            setToast({ message: '↩️ Annulation (Ctrl+Z) — État précédent rétabli !', type: 'success' });
+            setTimeout(() => setToast(null), 5000);
+          }
+        });
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [canUndo, saving, undoLastAction]);
   const { result, status, statusMessage, isRunning, isFromCache, runAnalysis, history, clearResult } = useAnalysis();
 
   const rawNotifications = useMemo(() => {
@@ -928,6 +950,26 @@ export default function HomePage() {
                       id="refresh-prices-btn"
                     >
                       {refreshingPrices ? <span className="loading-spinner" /> : '📈'} Cours actuels
+                    </button>
+                    <button
+                      className="btn btn-secondary"
+                      onClick={async () => {
+                        const ok = await undoLastAction();
+                        if (ok) {
+                          showToast('↩️ Action annulée — État précédent du portefeuille rétabli !');
+                        }
+                      }}
+                      disabled={!canUndo || saving}
+                      title="Annuler la dernière modification et rétablir l'état précédent (Raccourci: Ctrl+Z)"
+                      style={{
+                        opacity: canUndo ? 1 : 0.4,
+                        borderColor: canUndo ? 'var(--accent-cyan)' : undefined,
+                        color: canUndo ? 'var(--accent-cyan)' : undefined,
+                        fontWeight: 600,
+                      }}
+                      id="undo-action-btn"
+                    >
+                      ↩️ Annuler {canUndo ? '(Ctrl+Z)' : ''}
                     </button>
                     <button
                       className="btn btn-secondary"
@@ -2001,10 +2043,32 @@ export default function HomePage() {
         />
       )}
 
-      {/* Toast */}
+      {/* Toast with Undo Action Button */}
       {toast && (
-        <div className={`toast ${toast.type}`}>
-          {toast.type === 'success' ? '✅' : '❌'} {toast.message}
+        <div className={`toast ${toast.type}`} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <span>{toast.type === 'success' ? '✅' : '❌'} {toast.message}</span>
+          {canUndo && !toast.message.includes('Annulation') && (
+            <button
+              type="button"
+              className="btn btn-sm btn-secondary"
+              style={{
+                fontSize: 11,
+                padding: '3px 8px',
+                borderColor: 'var(--accent-cyan)',
+                color: 'var(--accent-cyan)',
+                fontWeight: 700,
+                background: 'rgba(6, 182, 212, 0.15)',
+              }}
+              onClick={async () => {
+                const ok = await undoLastAction();
+                if (ok) {
+                  setToast({ message: '↩️ Action annulée — État précédent du portefeuille rétabli !', type: 'success' });
+                }
+              }}
+            >
+              ↩️ Annuler l&apos;action
+            </button>
+          )}
         </div>
       )}
     </div>

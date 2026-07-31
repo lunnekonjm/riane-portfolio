@@ -26,10 +26,10 @@ interface ReportsViewProps {
 }
 
 const PIPELINE_LOADING_STEPS = [
-  { step: 1, label: '🔍 Grounding Live News & Web Search sur vos 8 lignes...' },
-  { step: 2, label: '📊 Audit de Valuation, P&L Latentes & Enveloppes Fiscales...' },
-  { step: 3, label: '🛡️ Analyse de Risque & Volatilité en langage exécutif...' },
-  { step: 4, label: '✍️ Édition de la Synthèse Stratégique & Feuille de Route...' },
+  { step: 1, label: '🔍 Grounding Live News & Web Search sur vos 8 lignes (Collecte des annonces et résultats)...' },
+  { step: 2, label: '📊 Audit de Valuation & Calcul des 8 Écarts de Pondération (Nominal & Inflation)...' },
+  { step: 3, label: '🛡️ Calcul des Risques, VaR 95% & Tirage Maximal en langage clair...' },
+  { step: 4, label: '🎯 Calcul Mathématique du DCA : Allocation exacte en Euros et Nombre d\'Actions à acheter...' },
 ];
 
 export default function ReportsView({
@@ -91,10 +91,10 @@ export default function ReportsView({
     setGenerating(true);
     setLoadingStepIndex(0);
 
-    // Simulate real multi-agent pipeline steps
+    // Simulate real multi-agent pipeline steps (1.4s per step -> ~5.6s total deep audit)
     const stepInterval = setInterval(() => {
       setLoadingStepIndex((prev) => (prev < PIPELINE_LOADING_STEPS.length - 1 ? prev + 1 : prev));
-    }, 700);
+    }, 1400);
 
     try {
       const md = await generatePeriodicReport(positions, config, fxRates, {

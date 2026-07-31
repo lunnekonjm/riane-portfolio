@@ -81,14 +81,12 @@ export default function AssetBadge({ ticker, name, showTicker = true, style, cla
           {meta.ticker}
         </span>
         <span
+          className={`envelope-tag ${meta.envelope.toLowerCase()}`}
           style={{
             fontSize: 10,
             fontWeight: 700,
-            color: 'var(--accent-amber)',
-            background: 'rgba(245, 158, 11, 0.12)',
             padding: '2px 8px',
             borderRadius: 6,
-            border: '1px solid rgba(245, 158, 11, 0.3)',
           }}
         >
           {meta.envelope} ({meta.currency})

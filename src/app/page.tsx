@@ -24,7 +24,7 @@ import type { AppNotification, NotificationSettings } from '@/types/notification
 import { DEFAULT_NOTIFICATION_SETTINGS } from '@/types/notification';
 import { simulatePositionDCA } from '@/engines/dcaSimulation';
 import { calculatePortfolioRiskMetrics } from '@/engines/riskAnalytics';
-import { calculateSmartFlowRebalance, type FlowRebalanceResult } from '@/engines/flowRebalancer';
+import { calculateSmartFlowRebalance, calculateActiveRebalance, type FlowRebalanceResult, type ActiveRebalanceResult } from '@/engines/flowRebalancer';
 import { exportPortfolioToCSV } from '@/utils/export';
 import type { User } from 'firebase/auth';
 import type { Position, PortfolioConfig } from '@/types/portfolio';
@@ -116,6 +116,8 @@ export default function HomePage() {
   const [clearedNotificationIds, setClearedNotificationIds] = useState<string[]>([]);
 
   const [flowRebalanceResult, setFlowRebalanceResult] = useState<FlowRebalanceResult | null>(null);
+  const [activeRebalanceResult, setActiveRebalanceResult] = useState<ActiveRebalanceResult | null>(null);
+  const [rebalanceTab, setRebalanceTab] = useState<'dca' | 'active'>('dca');
   const [dcaGlobalStartDate, setDcaGlobalStartDate] = useState<string>('2024-01');
   const [adjustInflation, setAdjustInflation] = useState<boolean>(false);
   const [inflationRate, setInflationRate] = useState<number>(0.021); // 2.1% annual CPI inflation default
@@ -255,6 +257,15 @@ export default function HomePage() {
     setQueryInput(promptText);
     setCurrentView('analysis');
     runAnalysis(user.uid, promptText, positions, config || defaultConfig, bypassCache);
+  };
+
+  const openRebalanceModal = () => {
+    const monthlyBudget = config?.monthlyBudget || 1000;
+    const flowResult = calculateSmartFlowRebalance(positions, monthlyBudget, fxRates);
+    const activeResult = calculateActiveRebalance(positions, fxRates);
+    setFlowRebalanceResult(flowResult);
+    setActiveRebalanceResult(activeResult);
+    setShowFlowRebalanceModal(true);
   };
 
   const handleRunStressTest = (scenarioIdx: number) => {
@@ -480,12 +491,7 @@ export default function HomePage() {
                 notifications={notifications}
                 onOpenAnalysis={() => setCurrentView('analysis')}
                 onNavigateView={setCurrentView}
-                onOpenRebalance={() => {
-                  const monthlyBudget = config?.monthlyBudget || 1000;
-                  const result = calculateSmartFlowRebalance(positions, monthlyBudget, fxRates);
-                  setFlowRebalanceResult(result);
-                  setShowFlowRebalanceModal(true);
-                }}
+                onOpenRebalance={openRebalanceModal}
               />
 
               {/* 📅 Dashboard Date & Market Last Refresh Bar */}
@@ -867,12 +873,7 @@ export default function HomePage() {
                     </button>
                     <button
                       className="btn btn-secondary"
-                      onClick={() => {
-                        const monthlyBudget = config?.monthlyBudget || 1000;
-                        const result = calculateSmartFlowRebalance(positions, monthlyBudget, fxRates);
-                        setFlowRebalanceResult(result);
-                        setShowFlowRebalanceModal(true);
-                      }}
+                      onClick={openRebalanceModal}
                       disabled={positions.length === 0}
                       title="Calculer l'affectation optimale des nouveaux versements mensuels"
                       id="smart-rebalance-btn"
@@ -1581,76 +1582,180 @@ export default function HomePage() {
         <div className="modal-overlay" onClick={() => setShowFlowRebalanceModal(false)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 640 }}>
             <div className="modal-header">
-              <h2>🎯 Rebalancement Intelligent par les Flux</h2>
+              <h2>🎯 Moteur de Rééquilibrage du Portefeuille</h2>
               <button className="modal-close-btn" onClick={() => setShowFlowRebalanceModal(false)} type="button" aria-label="Fermer">✕</button>
             </div>
 
-            <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 16 }}>
-              Ce moteur calcule l&apos;affectation optimale de votre versement mensuel ({flowRebalanceResult.totalDCA} €) pour rééquilibrer vos sous-pondérations <strong>sans vendre aucun actif</strong> (zéro frottement fiscal).
-            </p>
-
-            <div style={{ maxHeight: '50vh', overflowY: 'auto', paddingRight: 6, display: 'flex', flexDirection: 'column', gap: 10, margin: '14px 0 16px 0' }}>
-              {flowRebalanceResult.instructions.map((inst) => (
-                <div key={inst.positionId} style={{ padding: 12, background: 'var(--bg-tertiary)', borderRadius: 10, border: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div>
-                    <div style={{ fontWeight: 600, fontSize: 14 }}>{inst.name} ({inst.ticker})</div>
-                    <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-                      Poids actuel : {inst.currentWeight}% → Cible : {inst.targetWeight}% (Écart : {inst.weightGap > 0 ? '+' : ''}{inst.weightGap}%)
-                    </div>
-                  </div>
-
-                  <div style={{ textAlign: 'right' }}>
-                    {inst.recommendedShares > 0 ? (
-                      <>
-                        <span className="badge badge-emerald" style={{ fontSize: 13, padding: '4px 10px', fontWeight: 700 }}>
-                          Acheter +{inst.recommendedShares} part{inst.recommendedShares > 1 ? 's' : ''} ({inst.recommendedCost} €)
-                        </span>
-                        <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>
-                          Nouveau poids : {inst.newWeightAfter}%
-                        </div>
-                      </>
-                    ) : (
-                      <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Conserver (conforme)</span>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <div style={{ padding: 12, background: 'var(--bg-secondary)', borderRadius: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-              <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Reliquat non investi (trésorerie)</span>
-              <strong className="mono" style={{ color: 'var(--accent-amber)' }}>{flowRebalanceResult.uninvestedCash} €</strong>
-            </div>
-
-            <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end', alignItems: 'center' }}>
-              <button className="btn btn-secondary" onClick={() => setShowFlowRebalanceModal(false)}>Annuler</button>
+            {/* Mode Switcher Tabs */}
+            <div style={{ display: 'flex', gap: 6, margin: '12px 0', background: 'var(--bg-secondary)', padding: 4, borderRadius: 'var(--radius-sm)' }}>
               <button
-                className="btn btn-primary"
-                style={{ padding: '10px 18px', fontSize: 13, background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', boxShadow: '0 4px 14px rgba(16, 185, 129, 0.4)', fontWeight: 700 }}
-                onClick={async () => {
-                  let appliedCount = 0;
-                  for (const inst of flowRebalanceResult.instructions) {
-                    if (inst.recommendedShares > 0) {
-                      const pos = positions.find((p) => p.id === inst.positionId);
-                      if (pos) {
-                        await updatePosition({
-                          ...pos,
-                          quantity: pos.quantity + inst.recommendedShares,
-                          updatedAt: Date.now(),
-                        });
-                        appliedCount++;
-                      }
-                    }
-                  }
-                  clearAnalysisCache();
-                  setReadNotificationIds(notifications.map((n) => n.id));
-                  showToast(`✅ Rebalancement appliqué avec succès (+${appliedCount} positions ajustées)`);
-                  setShowFlowRebalanceModal(false);
-                }}
+                type="button"
+                className={`btn btn-sm ${rebalanceTab === 'dca' ? 'btn-primary' : 'btn-ghost'}`}
+                onClick={() => setRebalanceTab('dca')}
+                style={{ flex: 1, fontSize: 12, fontWeight: 700 }}
               >
-                ⚡ APPLIQUER CES ACHATS À MON PORTEFEUILLE
+                🎯 DCA Mensuel (Achats Seuls)
+              </button>
+              <button
+                type="button"
+                className={`btn btn-sm ${rebalanceTab === 'active' ? 'btn-primary' : 'btn-ghost'}`}
+                onClick={() => setRebalanceTab('active')}
+                style={{ flex: 1, fontSize: 12, fontWeight: 700, background: rebalanceTab === 'active' ? 'linear-gradient(135deg, #f43f5e 0%, #e11d48 100%)' : undefined }}
+              >
+                ⚖️ Allègements & Ventes (Rééquilibrage Actif)
               </button>
             </div>
+
+            {rebalanceTab === 'dca' ? (
+              <>
+                <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 12 }}>
+                  Ce mode affecte votre versement mensuel ({flowRebalanceResult.totalDCA} €) pour résorber vos sous-pondérations <strong>sans vendre aucun actif</strong> (zéro frottement fiscal).
+                </p>
+
+                <div style={{ maxHeight: '45vh', overflowY: 'auto', paddingRight: 6, display: 'flex', flexDirection: 'column', gap: 10, margin: '10px 0 14px 0' }}>
+                  {flowRebalanceResult.instructions.map((inst) => (
+                    <div key={inst.positionId} style={{ padding: 12, background: 'var(--bg-tertiary)', borderRadius: 10, border: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div>
+                        <div style={{ fontWeight: 600, fontSize: 14 }}>{inst.name} ({inst.ticker})</div>
+                        <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                          Poids actuel : {inst.currentWeight}% → Cible : {inst.targetWeight}% (Écart : {inst.weightGap > 0 ? '+' : ''}{inst.weightGap}%)
+                        </div>
+                      </div>
+
+                      <div style={{ textAlign: 'right' }}>
+                        {inst.recommendedShares > 0 ? (
+                          <>
+                            <span className="badge badge-emerald" style={{ fontSize: 13, padding: '4px 10px', fontWeight: 700 }}>
+                              Acheter +{inst.recommendedShares} part{inst.recommendedShares > 1 ? 's' : ''} ({inst.recommendedCost} €)
+                            </span>
+                            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>
+                              Nouveau poids : {inst.newWeightAfter}%
+                            </div>
+                          </>
+                        ) : (
+                          <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Conserver (conforme)</span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <div style={{ padding: 12, background: 'var(--bg-secondary)', borderRadius: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                  <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Reliquat non investi (trésorerie)</span>
+                  <strong className="mono" style={{ color: 'var(--accent-amber)' }}>{flowRebalanceResult.uninvestedCash} €</strong>
+                </div>
+
+                <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end', alignItems: 'center' }}>
+                  <button className="btn btn-secondary" onClick={() => setShowFlowRebalanceModal(false)}>Annuler</button>
+                  <button
+                    className="btn btn-primary"
+                    style={{ padding: '10px 18px', fontSize: 13, background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', boxShadow: '0 4px 14px rgba(16, 185, 129, 0.4)', fontWeight: 700 }}
+                    onClick={async () => {
+                      let appliedCount = 0;
+                      for (const inst of flowRebalanceResult.instructions) {
+                        if (inst.recommendedShares > 0) {
+                          const pos = positions.find((p) => p.id === inst.positionId);
+                          if (pos) {
+                            await updatePosition({
+                              ...pos,
+                              quantity: pos.quantity + inst.recommendedShares,
+                              updatedAt: Date.now(),
+                            });
+                            appliedCount++;
+                          }
+                        }
+                      }
+                      clearAnalysisCache();
+                      setReadNotificationIds(notifications.map((n) => n.id));
+                      showToast(`✅ Rebalancement DCA appliqué avec succès (+${appliedCount} positions ajustées)`);
+                      setShowFlowRebalanceModal(false);
+                    }}
+                  >
+                    ⚡ APPLIQUER LES ACHATS AU PORTEFEUILLE
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 12 }}>
+                  Ce mode calcule les <strong>ventes d&apos;allègement (lignes sur-concentrées)</strong> et les <strong>achats de réalignement</strong> pour ramener votre portefeuille exactement sur ses cibles.
+                </p>
+
+                <div style={{ maxHeight: '45vh', overflowY: 'auto', paddingRight: 6, display: 'flex', flexDirection: 'column', gap: 10, margin: '10px 0 14px 0' }}>
+                  {activeRebalanceResult?.instructions.map((inst) => (
+                    <div key={inst.positionId} style={{ padding: 12, background: 'var(--bg-tertiary)', borderRadius: 10, border: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div>
+                        <div style={{ fontWeight: 600, fontSize: 14 }}>{inst.name} ({inst.ticker})</div>
+                        <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                          Poids actuel : {inst.currentWeight}% → Cible : {inst.targetWeight}% (Écart : {inst.weightGap > 0 ? '+' : ''}{inst.weightGap}%)
+                        </div>
+                      </div>
+
+                      <div style={{ textAlign: 'right' }}>
+                        {inst.action === 'SELL' ? (
+                          <>
+                            <span className="badge badge-rose" style={{ fontSize: 13, padding: '4px 10px', fontWeight: 700, background: 'rgba(244, 63, 94, 0.2)', color: 'var(--accent-rose)' }}>
+                              🔻 Vendre {Math.abs(inst.deltaShares)} part{Math.abs(inst.deltaShares) > 1 ? 's' : ''} ({inst.deltaCostEUR.toLocaleString('fr-FR')} €)
+                            </span>
+                            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>
+                              Nouveau poids : {inst.newWeightAfter}%
+                            </div>
+                          </>
+                        ) : inst.action === 'BUY' ? (
+                          <>
+                            <span className="badge badge-emerald" style={{ fontSize: 13, padding: '4px 10px', fontWeight: 700 }}>
+                              🟢 Acheter +{inst.deltaShares} part{inst.deltaShares > 1 ? 's' : ''} ({inst.deltaCostEUR.toLocaleString('fr-FR')} €)
+                            </span>
+                            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>
+                              Nouveau poids : {inst.newWeightAfter}%
+                            </div>
+                          </>
+                        ) : (
+                          <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Conserver (conforme)</span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <div style={{ padding: 12, background: 'var(--bg-secondary)', borderRadius: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                  <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Cash débloqué par les ventes</span>
+                  <strong className="mono" style={{ color: 'var(--accent-emerald)' }}>+{activeRebalanceResult?.totalCashFreedEUR.toLocaleString('fr-FR')} €</strong>
+                </div>
+
+                <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end', alignItems: 'center' }}>
+                  <button className="btn btn-secondary" onClick={() => setShowFlowRebalanceModal(false)}>Annuler</button>
+                  <button
+                    className="btn btn-primary"
+                    style={{ padding: '10px 18px', fontSize: 13, background: 'linear-gradient(135deg, #f43f5e 0%, #e11d48 100%)', boxShadow: '0 4px 14px rgba(244, 63, 94, 0.4)', fontWeight: 700 }}
+                    onClick={async () => {
+                      if (!activeRebalanceResult) return;
+                      let appliedCount = 0;
+                      for (const inst of activeRebalanceResult.instructions) {
+                        if (inst.deltaShares !== 0) {
+                          const pos = positions.find((p) => p.id === inst.positionId);
+                          if (pos) {
+                            const newQty = Math.max(0, pos.quantity + inst.deltaShares);
+                            await updatePosition({
+                              ...pos,
+                              quantity: newQty,
+                              updatedAt: Date.now(),
+                            });
+                            appliedCount++;
+                          }
+                        }
+                      }
+                      clearAnalysisCache();
+                      setReadNotificationIds(notifications.map((n) => n.id));
+                      showToast(`✅ Rééquilibrage actif appliqué (+${appliedCount} positions ajustées)`);
+                      setShowFlowRebalanceModal(false);
+                    }}
+                  >
+                    ⚡ APPLIQUER LE RÉÉQUILIBRAGE ACTIF (VENTES & ACHATS)
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
@@ -1756,12 +1861,7 @@ export default function HomePage() {
             handleDirectAnalysis(query);
           }}
           onNavigateView={setCurrentView}
-          onOpenRebalance={() => {
-            const monthlyBudget = config?.monthlyBudget || 1000;
-            const result = calculateSmartFlowRebalance(positions, monthlyBudget, fxRates);
-            setFlowRebalanceResult(result);
-            setShowFlowRebalanceModal(true);
-          }}
+          onOpenRebalance={openRebalanceModal}
         />
       )}
 

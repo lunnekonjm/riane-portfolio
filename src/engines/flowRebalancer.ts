@@ -155,3 +155,112 @@ export function calculateSmartFlowRebalance(
     instructions,
   };
 }
+
+export interface ActiveRebalanceInstruction {
+  positionId: string;
+  ticker: string;
+  name: string;
+  envelope: string;
+  currentWeight: number;
+  targetWeight: number;
+  weightGap: number;
+  sharePrice: number;
+  currency: string;
+  action: 'SELL' | 'BUY' | 'HOLD';
+  deltaShares: number; // negative for SELL, positive for BUY
+  deltaCostEUR: number;
+  newWeightAfter: number;
+}
+
+export interface ActiveRebalanceResult {
+  totalValueEUR: number;
+  totalCashFreedEUR: number;
+  totalCashReinvestedEUR: number;
+  instructions: ActiveRebalanceInstruction[];
+}
+
+/**
+ * Moteur de Rééquilibrage Actif (Avec Ventes & Achats de Réalignement)
+ * Calcule exactement combien de parts VENDRE (sur-concentrées) et ACHETER (sous-pondérées)
+ * pour réaligner à 100% le portefeuille sur ses cibles d'allocation.
+ */
+export function calculateActiveRebalance(
+  positions: Position[],
+  fxRates: Record<string, number> = { EUR: 1.0, USD: 0.92 }
+): ActiveRebalanceResult {
+  const filledPositions = positions.filter((p) => p.quantity > 0 || (p.targetWeight && p.targetWeight > 0));
+
+  const totalValueEUR = filledPositions.reduce((sum, p) => {
+    const price = p.currentPrice || p.avgPrice || 1;
+    const rate = fxRates[p.currency] || 1.0;
+    return sum + p.quantity * price * rate;
+  }, 0);
+
+  if (totalValueEUR <= 0) {
+    return {
+      totalValueEUR: 0,
+      totalCashFreedEUR: 0,
+      totalCashReinvestedEUR: 0,
+      instructions: [],
+    };
+  }
+
+  let totalCashFreedEUR = 0;
+  let totalCashReinvestedEUR = 0;
+
+  const instructions: ActiveRebalanceInstruction[] = filledPositions.map((p) => {
+    const priceNative = p.currentPrice || p.avgPrice || 1;
+    const rate = fxRates[p.currency] || 1.0;
+    const priceEUR = priceNative * rate;
+    const currentValEUR = p.quantity * priceEUR;
+    const currentWeight = currentValEUR / totalValueEUR;
+    const targetWeight = p.targetWeight || (1 / filledPositions.length);
+    const targetValEUR = totalValueEUR * targetWeight;
+    const diffEUR = targetValEUR - currentValEUR; // negative = over-weighted (SELL), positive = under-weighted (BUY)
+
+    let action: 'SELL' | 'BUY' | 'HOLD' = 'HOLD';
+    let deltaShares = 0;
+    let deltaCostEUR = 0;
+
+    if (diffEUR < -priceEUR) {
+      // Overweighted: SELL shares to reach target weight
+      action = 'SELL';
+      deltaShares = Math.floor(Math.abs(diffEUR) / priceEUR);
+      deltaCostEUR = deltaShares * priceEUR;
+      totalCashFreedEUR += deltaCostEUR;
+    } else if (diffEUR > priceEUR) {
+      // Underweighted: BUY shares to reach target weight
+      action = 'BUY';
+      deltaShares = Math.floor(diffEUR / priceEUR);
+      deltaCostEUR = deltaShares * priceEUR;
+      totalCashReinvestedEUR += deltaCostEUR;
+    }
+
+    const newQty = action === 'SELL' ? p.quantity - deltaShares : action === 'BUY' ? p.quantity + deltaShares : p.quantity;
+    const newValEUR = newQty * priceEUR;
+    const newWeightAfter = (newValEUR / totalValueEUR) * 100;
+
+    return {
+      positionId: p.id,
+      ticker: p.ticker,
+      name: p.name,
+      envelope: p.envelope,
+      currentWeight: parseFloat((currentWeight * 100).toFixed(1)),
+      targetWeight: parseFloat((targetWeight * 100).toFixed(1)),
+      weightGap: parseFloat(((targetWeight - currentWeight) * 100).toFixed(1)),
+      sharePrice: parseFloat(priceNative.toFixed(2)),
+      currency: p.currency,
+      action,
+      deltaShares: action === 'SELL' ? -deltaShares : deltaShares,
+      deltaCostEUR: parseFloat(deltaCostEUR.toFixed(2)),
+      newWeightAfter: parseFloat(newWeightAfter.toFixed(1)),
+    };
+  });
+
+  return {
+    totalValueEUR: parseFloat(totalValueEUR.toFixed(2)),
+    totalCashFreedEUR: parseFloat(totalCashFreedEUR.toFixed(2)),
+    totalCashReinvestedEUR: parseFloat(totalCashReinvestedEUR.toFixed(2)),
+    instructions,
+  };
+}

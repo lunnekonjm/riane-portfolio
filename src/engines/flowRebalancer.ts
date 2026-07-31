@@ -88,37 +88,47 @@ export function calculateSmartFlowRebalance(
 
   // Iteratively allocate cash to most underweight items
   let iterations = 0;
-  while (remainingCashEUR > 0 && iterations < 50) {
+  while (remainingCashEUR > 0 && iterations < 500) {
     iterations++;
+
+    // Re-evaluate current weight gaps dynamically based on cash spent so far
+    const currentSpentEUR = monthlyBudget - remainingCashEUR;
+    const currentSimulatedTotalEUR = totalValueEUR + currentSpentEUR;
+
+    items.forEach((item) => {
+      const currentValEUR = (item.position.quantity + item.sharesBought) * item.priceEUR;
+      const currentWeight = currentSimulatedTotalEUR > 0 ? currentValEUR / currentSimulatedTotalEUR : 0;
+      item.weightGap = item.targetWeight - currentWeight;
+    });
+
+    // Sort by most underweight first
+    items.sort((a, b) => b.weightGap - a.weightGap);
+
     let allocatedInRound = false;
 
     for (const item of items) {
+      // Only allocate if position is underweight (weightGap > 0)
+      if (item.weightGap <= 0 && items.some(i => i.weightGap > 0)) continue;
+
       const isIntegerOnly = item.position.envelope === 'PEA' || item.position.envelope === 'PEA-PME' || item.position.envelope === 'CTO';
-      
+
       if (remainingCashEUR >= item.priceEUR) {
         let targetEnvelope: string = item.position.envelope;
         if (item.position.envelope === 'PEA' && (currentPeaDeposits + peaDepositsAllocated + item.priceEUR) > 150000) {
           targetEnvelope = 'CTO (PEA plein)';
         }
 
-        const canBuy = isIntegerOnly
-          ? Math.floor(remainingCashEUR / item.priceEUR)
-          : remainingCashEUR / item.priceEUR;
-
-        if (canBuy >= 1) {
-          // Buy 1 or more shares
-          const buyCount = isIntegerOnly ? 1 : Math.min(canBuy, 1);
-          const costEUR = buyCount * item.priceEUR;
-          item.sharesBought += buyCount;
-          item.spentEUR += costEUR;
-          if (item.position.envelope === 'PEA' && targetEnvelope === 'PEA') {
-            peaDepositsAllocated += costEUR;
-          }
-          (item as any).effectiveEnvelope = targetEnvelope;
-          remainingCashEUR -= costEUR;
-          allocatedInRound = true;
-          break;
+        const buyCount = 1;
+        const costEUR = buyCount * item.priceEUR;
+        item.sharesBought += buyCount;
+        item.spentEUR += costEUR;
+        if (item.position.envelope === 'PEA' && targetEnvelope === 'PEA') {
+          peaDepositsAllocated += costEUR;
         }
+        (item as any).effectiveEnvelope = targetEnvelope;
+        remainingCashEUR -= costEUR;
+        allocatedInRound = true;
+        break;
       }
     }
 

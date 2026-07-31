@@ -95,18 +95,21 @@ export function generatePortfolioNotifications(
 
   // ── 3. Thematic Risk & Single Position Over-Concentration ──
   if (settings.allocationDriftEnabled && totalPortfolioValue > 0) {
-    // 3a. Single asset over-concentration check (> 20%)
+    // 3a. Single asset over-concentration check (> 40% for individual stocks, > 60% for broad ETFs)
     filled.forEach((p) => {
       const posVal = p.quantity * (p.currentPrice || p.avgPrice) * (fxRates[p.currency] || 1);
       const posWeight = (posVal / totalPortfolioValue) * 100;
-      if (posWeight >= 20.0) {
+      const isBroadEtf = p.ticker.includes('GPEA') || p.ticker.includes('CW8') || p.ticker.includes('ACWI') || p.ticker.includes('PUST');
+      const maxAllowedSingleWeight = isBroadEtf ? 60.0 : 35.0;
+
+      if (posWeight >= maxAllowedSingleWeight) {
         notifications.push({
-          id: `notif-single-pos-drift-${p.id}`,
+          id: `notif-single-pos-drift-${p.ticker.replace(/[^a-zA-Z0-9]/g, '')}`,
           category: 'risk',
-          title: `⚠️ Sur-concentration Ligne Unique : ${p.name} (${posWeight.toFixed(1)}%)`,
-          message: `La ligne ${p.name} (${p.ticker}) représente ${posWeight.toFixed(1)}% de la valeur totale de votre patrimoine.`,
-          actionHint: `Action Recommandée : Suspendez temporairement les achats DCA sur cette ligne et orientez vos nouveaux flux vers les autres actifs pour diluer ce risque sous 15%.`,
-          actionCtaLabel: `⚖️ Rééquilibrer la Ligne`,
+          title: `⚠️ Fort Poids Ligne : ${p.name} (${posWeight.toFixed(1)}%)`,
+          message: `La ligne ${p.name} (${p.ticker}) représente ${posWeight.toFixed(1)}% de votre portefeuille (seuil : ${maxAllowedSingleWeight}%).`,
+          actionHint: `Action Recommandée (Horizon 15-20 ans) : Pas de vente nécessaire. Orientez simplement vos prochains versements DCA vers les autres actifs pour lisser l'allocation.`,
+          actionCtaLabel: `🎯 Ajuster les Flux DCA`,
           actionType: 'open-rebalance',
           timestamp: now,
           read: false,
@@ -115,7 +118,7 @@ export function generatePortfolioNotifications(
       }
     });
 
-    // 3b. Thematic exposure check
+    // 3b. Thematic exposure check (Tolerance buffer = +10.0% to avoid noise on minor 1-2% fluctuations)
     THEMES.forEach((theme) => {
       const themePositions = filled.filter((p) => theme.tickers.includes(p.ticker) || p.themes.includes(theme.id));
       const themeValueEUR = themePositions.reduce((sum, p) => {
@@ -127,56 +130,43 @@ export function generatePortfolioNotifications(
       const exposure = (themeValueEUR / totalPortfolioValue) * 100;
       const maxPct = theme.maxExposure * 100;
 
-      if (exposure > maxPct + 1.0) {
+      // Only trigger if drift exceeds limit by more than 10.0%
+      if (exposure > maxPct + 10.0) {
         notifications.push({
           id: `notif-drift-${theme.id}`,
           category: 'risk',
-          title: `⚡ Alerte Dérive Thématique : ${theme.label}`,
-          message: `L'exposition à la thématique '${theme.label}' (${exposure.toFixed(1)}%) dépasse la limite maximale recommandée (${maxPct.toFixed(0)}%).`,
-          actionHint: `Action Recommandée : Fléchez vos prochains DCA mensuels vers les autres thématiques sous-exposées pour diluer la thématique ${theme.label} de ${exposure.toFixed(1)}% vers ${maxPct.toFixed(0)}%.`,
+          title: `⚡ Alerte Dérive Thématique Forte : ${theme.label}`,
+          message: `L'exposition à la thématique '${theme.label}' (${exposure.toFixed(1)}%) dépasse significativement la cible (${maxPct.toFixed(0)}%).`,
+          actionHint: `Action Recommandée : Fléchez vos prochains DCA mensuels vers les autres thématiques sans vendre vos actifs long terme.`,
           actionCtaLabel: `🎯 Diluer par DCA`,
           actionType: 'open-rebalance',
           timestamp: now,
           read: false,
-          priority: 'high',
+          priority: 'medium',
         });
       }
     });
   }
 
-  // ── 4. Krach & Outlier Price Move Alerts ──
+  // ── 4. Krach & Outlier Price Move Alerts (No sell alerts for long-term holdings) ──
   if (settings.outlierAlertsEnabled ?? true) {
-    const threshold = settings.outlierThresholdPct || 3.0;
-
     filled.forEach((p) => {
       if (p.currentPrice && p.avgPrice && p.avgPrice > 0) {
         const movePct = ((p.currentPrice - p.avgPrice) / p.avgPrice) * 100;
 
-        if (movePct <= -threshold * 2) {
+        // Major Krach / Dip (-20% or worse): Opportunity check only
+        if (movePct <= -20.0) {
           notifications.push({
-            id: `notif-crash-${p.id}`,
+            id: `notif-crash-${p.ticker.replace(/[^a-zA-Z0-9]/g, '')}`,
             category: 'outlier',
-            title: `🚨 Alerte Baisse Anormale : ${p.name} (${p.ticker})`,
-            message: `Le cours de ${p.name} (${p.currentPrice.toFixed(2)} ${p.currency}) enregistre une baisse marquée de ${movePct.toFixed(1)}% par rapport à votre PRU (${p.avgPrice.toFixed(2)} ${p.currency}).`,
-            actionHint: `Action Recommandée : Lancez une analyse IA pour vérifier si le fondamental de la société reste intact avant de renforcer à bon compte.`,
+            title: `🚨 Baisse Marquée : ${p.name} (${p.ticker})`,
+            message: `Le cours de ${p.name} (${p.currentPrice.toFixed(2)} ${p.currency}) est en repli de ${movePct.toFixed(1)}% par rapport à votre PRU.`,
+            actionHint: `Action Recommandée : Analysez si le fondamental de la société reste intact pour éventuellement renforcer à bon compte.`,
             actionCtaLabel: `🔬 Lancer l'Analyse IA sur ${p.ticker}`,
             actionType: 'open-analysis',
             timestamp: now,
             read: false,
             priority: 'high',
-          });
-        } else if (movePct >= threshold * 3) {
-          notifications.push({
-            id: `notif-surge-${p.id}`,
-            category: 'outlier',
-            title: `🚀 Alerte Envolée Exceptionnelle : ${p.name} (${p.ticker})`,
-            message: `Surperformance majeure ! ${p.name} affiche un gain de +${movePct.toFixed(1)}% par rapport à votre PRU (${p.avgPrice.toFixed(2)} ${p.currency}).`,
-            actionHint: `Action Recommandée : Évaluez une prise de bénéfice partielle (10 à 20%) pour sécuriser vos gains et réallouer sur vos opportunités en retard.`,
-            actionCtaLabel: `⚖️ Voir le Rééquilibrage`,
-            actionType: 'open-rebalance',
-            timestamp: now,
-            read: false,
-            priority: 'medium',
           });
         }
       }

@@ -119,7 +119,19 @@ export default function HomePage() {
   const [flowRebalanceResult, setFlowRebalanceResult] = useState<FlowRebalanceResult | null>(null);
   const [activeRebalanceResult, setActiveRebalanceResult] = useState<ActiveRebalanceResult | null>(null);
   const [rebalanceTab, setRebalanceTab] = useState<'dca' | 'active'>('dca');
-  const [dcaGlobalStartDate, setDcaGlobalStartDate] = useState<string>('2024-01');
+  const [dcaGlobalStartDate, setDcaGlobalStartDate] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('riane_dca_start_date') || '2024-01-05';
+    }
+    return '2024-01-05';
+  });
+
+  const handleUpdateDcaStartDate = (newDate: string) => {
+    setDcaGlobalStartDate(newDate);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('riane_dca_start_date', newDate);
+    }
+  };
   const [adjustInflation, setAdjustInflation] = useState<boolean>(false);
   const [inflationRate, setInflationRate] = useState<number>(0.021); // 2.1% annual CPI inflation default
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
@@ -739,32 +751,32 @@ export default function HomePage() {
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                     <button
                       type="button"
-                      className={`btn btn-sm ${dcaGlobalStartDate === '2025-01' ? 'btn-primary' : 'btn-secondary'}`}
-                      onClick={() => setDcaGlobalStartDate('2025-01')}
+                      className={`btn btn-sm ${dcaGlobalStartDate.startsWith('2025-01') ? 'btn-primary' : 'btn-secondary'}`}
+                      onClick={() => handleUpdateDcaStartDate('2025-01-05')}
                       style={{ fontSize: 12 }}
                     >
                       1 An (2025)
                     </button>
                     <button
                       type="button"
-                      className={`btn btn-sm ${dcaGlobalStartDate === '2023-01' ? 'btn-primary' : 'btn-secondary'}`}
-                      onClick={() => setDcaGlobalStartDate('2023-01')}
+                      className={`btn btn-sm ${dcaGlobalStartDate.startsWith('2023-01') ? 'btn-primary' : 'btn-secondary'}`}
+                      onClick={() => handleUpdateDcaStartDate('2023-01-05')}
                       style={{ fontSize: 12 }}
                     >
                       3 Ans (2023)
                     </button>
                     <button
                       type="button"
-                      className={`btn btn-sm ${dcaGlobalStartDate === '2021-01' ? 'btn-primary' : 'btn-secondary'}`}
-                      onClick={() => setDcaGlobalStartDate('2021-01')}
+                      className={`btn btn-sm ${dcaGlobalStartDate.startsWith('2021-01') ? 'btn-primary' : 'btn-secondary'}`}
+                      onClick={() => handleUpdateDcaStartDate('2021-01-05')}
                       style={{ fontSize: 12 }}
                     >
                       5 Ans (2021)
                     </button>
                     <button
                       type="button"
-                      className={`btn btn-sm ${dcaGlobalStartDate === '2003-01' ? 'btn-primary' : 'btn-secondary'}`}
-                      onClick={() => setDcaGlobalStartDate('2003-01')}
+                      className={`btn btn-sm ${dcaGlobalStartDate.startsWith('2003-01') ? 'btn-primary' : 'btn-secondary'}`}
+                      onClick={() => handleUpdateDcaStartDate('2003-01-05')}
                       style={{ fontSize: 12 }}
                     >
                       23 Ans (2003)
@@ -773,7 +785,7 @@ export default function HomePage() {
                     {/* Modern Custom Dark Theme Date Picker Component */}
                     <CustomDatePicker
                       value={dcaGlobalStartDate}
-                      onChange={setDcaGlobalStartDate}
+                      onChange={handleUpdateDcaStartDate}
                     />
 
                     <button

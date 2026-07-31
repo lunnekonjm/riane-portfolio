@@ -202,7 +202,7 @@ function autoGenerateThemes(
       assetType: asset.assetType,
       currency: asset.currency,
       themes: asset.themes,
-      quantity: prev.quantity > 0 ? prev.quantity : 1,
+      quantity: prev.quantity || 0,
     }));
 
     try {
@@ -221,7 +221,7 @@ function autoGenerateThemes(
           avgPrice: prev.avgPrice > 0 ? prev.avgPrice : (price || 100),
           currency: (profile?.currency as any) || (quote?.currency as any) || prev.currency,
           themes: autoThemes.length > 0 ? autoThemes : asset.themes,
-          quantity: prev.quantity > 0 ? prev.quantity : 1,
+          quantity: prev.quantity || 0,
         };
       });
 
@@ -283,7 +283,7 @@ function autoGenerateThemes(
             avgPrice: prev.avgPrice > 0 ? prev.avgPrice : (quote.price || 100),
             currency: (profile?.currency as any) || (quote.currency as any) || prev.currency,
             themes: autoThemes.length > 0 ? autoThemes : prev.themes,
-            quantity: prev.quantity > 0 ? prev.quantity : 1,
+            quantity: prev.quantity || 0,
           };
         });
         setVerifiedQuoteText(`✓ Actif officiel vérifié : ${profile?.name || rawQuery.toUpperCase()} (${profile?.sector || 'Marché Direct'}) — Prix : ${quote.price.toFixed(2)} ${quote.currency}`);

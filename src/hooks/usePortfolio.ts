@@ -112,8 +112,8 @@ export function usePortfolio() {
     // Guarantee quantity >= 1 and valid PRU
     const validPos: Position = {
       ...pos,
-      quantity: pos.quantity > 0 ? pos.quantity : 1,
-      avgPrice: pos.avgPrice > 0 ? pos.avgPrice : (pos.currentPrice || 100),
+      quantity: pos.quantity || 0,
+      avgPrice: pos.avgPrice || 0,
       updatedAt: Date.now(),
     };
 

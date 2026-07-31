@@ -18,6 +18,7 @@ import MonteCarloModal from '@/components/MonteCarloModal';
 import MarkdownRenderer from '@/components/MarkdownRenderer';
 import WelcomeBanner from '@/components/WelcomeBanner';
 import ReportsView from '@/components/ReportsView';
+import CustomDatePicker from '@/components/CustomDatePicker';
 import { clearAnalysisCache } from '@/utils/analysisCache';
 import { generatePortfolioNotifications } from '@/engines/notificationEngine';
 import type { AppNotification, NotificationSettings } from '@/types/notification';
@@ -769,26 +770,11 @@ export default function HomePage() {
                       23 Ans (2003)
                     </button>
 
-                    {/* Styled Date Picker Input */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'var(--bg-tertiary)', padding: '6px 12px', borderRadius: 8, border: '1px solid var(--border-accent)' }}>
-                      <span style={{ fontSize: 13 }}>📅</span>
-                      <input
-                        type="month"
-                        className="mono"
-                        style={{
-                          background: 'transparent',
-                          border: 'none',
-                          color: 'var(--accent-cyan)',
-                          fontSize: 13,
-                          fontWeight: 700,
-                          cursor: 'pointer',
-                          outline: 'none',
-                        }}
-                        value={dcaGlobalStartDate}
-                        onChange={(e) => setDcaGlobalStartDate(e.target.value)}
-                        title="Sélectionner un mois personnalisé"
-                      />
-                    </div>
+                    {/* Modern Custom Dark Theme Date Picker Component */}
+                    <CustomDatePicker
+                      value={dcaGlobalStartDate}
+                      onChange={setDcaGlobalStartDate}
+                    />
 
                     <button
                       className="btn btn-primary"

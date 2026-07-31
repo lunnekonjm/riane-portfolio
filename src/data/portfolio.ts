@@ -11,7 +11,7 @@ export const DEFAULT_POSITIONS: Position[] = [
   {
     id: 'pea-acwi',
     ticker: 'GPEA.PA',
-    name: 'Amundi PEA Global MSCI ACWI (FR0014017NX3)',
+    name: 'Amundi PEA Global ACWI',
     envelope: 'PEA',
     assetType: 'ETF',
     currency: 'EUR',
@@ -25,7 +25,7 @@ export const DEFAULT_POSITIONS: Position[] = [
   {
     id: 'pea-nasdaq',
     ticker: 'PUST.PA',
-    name: 'Nasdaq-100 (Amundi)',
+    name: 'Amundi Nasdaq-100',
     envelope: 'PEA',
     assetType: 'ETF',
     currency: 'EUR',
@@ -41,7 +41,7 @@ export const DEFAULT_POSITIONS: Position[] = [
   {
     id: 'pea-pme-ies',
     ticker: '0P0001DKPM.F',
-    name: 'Indépendance Europe Small A (C) (LU1832174962)',
+    name: 'Indépendance Europe Small',
     envelope: 'PEA-PME',
     assetType: 'FUND',
     currency: 'EUR',

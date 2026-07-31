@@ -7,6 +7,7 @@ import type { Position, PortfolioConfig } from '@/types/portfolio';
 import { getNews } from '@/services/market-data/provider';
 import type { NewsItem } from '@/services/market-data/types';
 import { calculatePortfolioRiskMetrics } from './riskAnalytics';
+import { getCleanAssetName } from '@/utils/assetMetadata';
 
 export type ReportPeriod = 'monthly' | 'quarterly' | 'semestrial' | 'annual';
 
@@ -56,7 +57,8 @@ export async function generatePeriodicReport(
     const symbol = p.currency === 'USD' ? '$' : '€';
     const weight = totalValue > 0 ? (valEUR / totalValue) * 100 : 0;
 
-    return `| **${p.ticker}** | ${p.name} | \`${p.envelope}\` | ${p.quantity} | ${p.avgPrice.toFixed(2)} ${symbol} | ${price.toFixed(2)} ${symbol} | **${valEUR.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} €** | **${weight.toFixed(1)}%** | **${pnlPct >= 0 ? '+' : ''}${pnlPct.toFixed(1)}%** |`;
+    const cleanName = getCleanAssetName(p.ticker, p.name);
+    return `| **${p.ticker}** | ${cleanName} | \`${p.envelope}\` | ${p.quantity} | ${p.avgPrice.toFixed(2)} ${symbol} | ${price.toFixed(2)} ${symbol} | **${valEUR.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} €** | **${weight.toFixed(1)}%** | **${pnlPct >= 0 ? '+' : ''}${pnlPct.toFixed(1)}%** |`;
   }).join('\n');
 
   // Real-Time Grounding: Fetch company news for all active positions

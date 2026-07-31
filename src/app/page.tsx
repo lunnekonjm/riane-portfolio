@@ -21,6 +21,8 @@ import ReportsView from '@/components/ReportsView';
 import CustomDatePicker from '@/components/CustomDatePicker';
 import { getQuote } from '@/services/market-data/provider';
 import TransactionHistoryModal from '@/components/TransactionHistoryModal';
+import AssetBadge from '@/components/AssetBadge';
+import { getCleanAssetName } from '@/utils/assetMetadata';
 
 function formatDCAElapsedTime(startDateStr: string): string {
   if (!startDateStr) return '';
@@ -1319,7 +1321,7 @@ export default function HomePage() {
                             onClick={() => setEditingPosition(pos)}
                           >
                             <td style={{ fontWeight: 600 }}>
-                              {pos.name}
+                              <AssetBadge ticker={pos.ticker} name={pos.name} showTicker={false} />
                               {!hasFilled && (
                                 <span style={{ display: 'block', fontSize: 11, color: 'var(--accent-amber)', fontWeight: 400 }}>
                                   ✍️ Cliquez pour renseigner
@@ -1919,7 +1921,7 @@ export default function HomePage() {
                         {displayAssets.map((asset, i) => (
                           <div key={i} className="theme-bar-row" style={{ marginBottom: 12, padding: '8px 12px', background: 'var(--bg-tertiary)', borderRadius: 8, border: '1px solid var(--border-subtle)' }}>
                             <div style={{ width: 220, display: 'flex', flexDirection: 'column' }}>
-                              <span className="theme-bar-label" style={{ fontWeight: 600 }}>{asset.name}</span>
+                              <AssetBadge ticker={asset.ticker} name={asset.name} showTicker={false} />
                               <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
                                 <span style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--text-tertiary)' }}>{asset.ticker}</span>
                                 {asset.isProxySimulated && (

@@ -5,6 +5,7 @@
 
 import type { StressScenario, StressTestResult } from '@/types/simulation';
 import type { Position } from '@/types/portfolio';
+import { getCleanAssetName } from '@/utils/assetMetadata';
 
 /** Map des sensibilités actif → facteur de choc (connus) */
 const KNOWN_SENSITIVITY: Record<string, Record<string, number>> = {
@@ -184,7 +185,7 @@ export function runStressTest(
 
     contributionByAsset.push({
       ticker: position.ticker,
-      name: position.name,
+      name: getCleanAssetName(position.ticker, position.name),
       contribution: loss,
       contributionPercent: totalValue > 0 ? (loss / totalValue) * 100 : 0,
       inceptionYear,

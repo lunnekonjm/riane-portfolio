@@ -196,7 +196,8 @@ export default function HomePage() {
   }, [toast]);
 
   const showToast = (message: string, type: 'success' | 'error' = 'success') => {
-    setToast({ message, type });
+    const cleanMessage = message.replace(/^[✅❌]\s*/, '');
+    setToast({ message: cleanMessage, type });
   };
 
   const handleSavePosition = async (pos: Position) => {

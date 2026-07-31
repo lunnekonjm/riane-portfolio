@@ -13,7 +13,7 @@ import {
 } from '@/services/firebase/firestore';
 import { DEFAULT_POSITIONS } from '@/data/portfolio';
 import { getMultipleQuotes, getFxRates } from '@/services/market-data/provider';
-import type { Position, PortfolioConfig } from '@/types/portfolio';
+import type { Position, PortfolioConfig, TransactionRecord } from '@/types/portfolio';
 import type { User } from 'firebase/auth';
 import { clearAnalysisCache } from '@/utils/analysisCache';
 
@@ -106,17 +106,54 @@ export function usePortfolio() {
   };
 
   const [historyStack, setHistoryStack] = useState<Position[][]>([]);
+  const [redoStack, setRedoStack] = useState<Position[][]>([]);
+  const [transactions, setTransactions] = useState<TransactionRecord[]>([]);
+
+  // Load transactions from localStorage on mount
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('riane_transaction_history');
+      if (raw) setTransactions(JSON.parse(raw));
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  const recordTransaction = useCallback((record: Omit<TransactionRecord, 'id' | 'date' | 'timestamp'>) => {
+    const newRecord: TransactionRecord = {
+      ...record,
+      id: `tx-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      timestamp: Date.now(),
+      date: new Date().toLocaleDateString('fr-FR', {
+        day: '2-digit', month: '2-digit', year: 'numeric',
+        hour: '2-digit', minute: '2-digit'
+      }),
+    };
+    setTransactions((prev) => {
+      const updated = [newRecord, ...prev].slice(0, 100);
+      try {
+        localStorage.setItem('riane_transaction_history', JSON.stringify(updated));
+      } catch {
+        // ignore
+      }
+      return updated;
+    });
+  }, []);
 
   const pushSnapshot = useCallback(() => {
     if (positions.length > 0) {
-      setHistoryStack((prev) => [JSON.parse(JSON.stringify(positions)), ...prev].slice(0, 10));
+      setHistoryStack((prev) => [JSON.parse(JSON.stringify(positions)), ...prev].slice(0, 15));
+      setRedoStack([]); // Clear redo stack on new explicit action
     }
   }, [positions]);
 
   const undoLastAction = useCallback(async () => {
     if (historyStack.length === 0) return false;
     const previousState = historyStack[0];
-    setHistoryStack((prev) => prev.slice(1));
+    const newHistory = historyStack.slice(1);
+
+    setRedoStack((prev) => [JSON.parse(JSON.stringify(positions)), ...prev].slice(0, 15));
+    setHistoryStack(newHistory);
     setPositions(previousState);
 
     try {
@@ -134,7 +171,33 @@ export function usePortfolio() {
     }
     clearAnalysisCache();
     return true;
-  }, [historyStack, user]);
+  }, [historyStack, positions, user]);
+
+  const redoLastAction = useCallback(async () => {
+    if (redoStack.length === 0) return false;
+    const nextState = redoStack[0];
+    const newRedo = redoStack.slice(1);
+
+    setHistoryStack((prev) => [JSON.parse(JSON.stringify(positions)), ...prev].slice(0, 15));
+    setRedoStack(newRedo);
+    setPositions(nextState);
+
+    try {
+      localStorage.setItem('riane_local_positions', JSON.stringify(nextState));
+    } catch {
+      // ignore
+    }
+
+    if (user) {
+      try {
+        await saveAllPositions(user.uid, nextState);
+      } catch (err) {
+        console.warn('[Portfolio] Redo save failed:', err);
+      }
+    }
+    clearAnalysisCache();
+    return true;
+  }, [redoStack, positions, user]);
 
   // ── CRUD ──
   const addPosition = useCallback(async (pos: Position) => {
@@ -303,6 +366,10 @@ export function usePortfolio() {
     positionsByEnvelope,
     canUndo: historyStack.length > 0,
     undoLastAction,
+    canRedo: redoStack.length > 0,
+    redoLastAction,
+    transactions,
+    recordTransaction,
     addPosition,
     updatePosition,
     removePosition,

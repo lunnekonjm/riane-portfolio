@@ -20,6 +20,7 @@ import WelcomeBanner from '@/components/WelcomeBanner';
 import ReportsView from '@/components/ReportsView';
 import CustomDatePicker from '@/components/CustomDatePicker';
 import { getQuote } from '@/services/market-data/provider';
+import TransactionHistoryModal from '@/components/TransactionHistoryModal';
 
 function formatDCAElapsedTime(startDateStr: string): string {
   if (!startDateStr) return '';
@@ -188,6 +189,8 @@ export default function HomePage() {
   const [showThemeInfoModal, setShowThemeInfoModal] = useState<boolean>(false);
   const [showGlossaryModal, setShowGlossaryModal] = useState<boolean>(false);
   const [showMonteCarloModal, setShowMonteCarloModal] = useState<boolean>(false);
+  const [showTransactionModal, setShowTransactionModal] = useState<boolean>(false);
+  const [selectedHistoryTicker, setSelectedHistoryTicker] = useState<string | undefined>(undefined);
   const [glossaryInitialTerm, setGlossaryInitialTerm] = useState<string | undefined>(undefined);
 
   const openGlossary = (term?: string) => {
@@ -198,17 +201,34 @@ export default function HomePage() {
   const {
     positions, config, totalValue, totalCost, gainLoss, gainLossPercent,
     monthlyDCATotal, saving, pendingCount, filledPositions, fxRates, lastPricesUpdated, marketStatusLabel,
-    canUndo, undoLastAction,
+    canUndo, undoLastAction, canRedo, redoLastAction, transactions, recordTransaction,
     addPosition, updatePosition, removePosition, updateConfig, refreshPrices, resetPortfolio,
   } = usePortfolio();
 
-  // Global Ctrl+Z / Cmd+Z Keyboard Undo Shortcut
+  // Global Ctrl+Z (Undo) / Ctrl+Y (Redo) Keyboard Shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Don't trigger when typing inside text inputs / textareas
       const targetTag = (e.target as HTMLElement)?.tagName?.toUpperCase();
       if (targetTag === 'INPUT' || targetTag === 'TEXTAREA' || targetTag === 'SELECT') return;
 
+      // Redo: Ctrl+Y or Cmd+Shift+Z
+      if (
+        ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'y') ||
+        ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'z')
+      ) {
+        if (canRedo && !saving) {
+          e.preventDefault();
+          redoLastAction().then((success) => {
+            if (success) {
+              setToast({ message: '↪️ Rétablissement (Ctrl+Y) effectué avec succès !', type: 'success' });
+              setTimeout(() => setToast(null), 5000);
+            }
+          });
+        }
+        return;
+      }
+
+      // Undo: Ctrl+Z
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z' && canUndo && !saving) {
         e.preventDefault();
         undoLastAction().then((success) => {
@@ -221,7 +241,7 @@ export default function HomePage() {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [canUndo, saving, undoLastAction]);
+  }, [canUndo, canRedo, saving, undoLastAction, redoLastAction]);
   const { result, status, statusMessage, isRunning, isFromCache, runAnalysis, history, clearResult } = useAnalysis();
 
   const rawNotifications = useMemo(() => {
@@ -974,6 +994,37 @@ export default function HomePage() {
                     <button
                       className="btn btn-secondary"
                       onClick={async () => {
+                        const ok = await redoLastAction();
+                        if (ok) {
+                          showToast('↪️ Action rétablie avec succès !');
+                        }
+                      }}
+                      disabled={!canRedo || saving}
+                      title="Rétablir l'action précédemment annulée (Raccourci: Ctrl+Y ou Cmd+Shift+Z)"
+                      style={{
+                        opacity: canRedo ? 1 : 0.4,
+                        borderColor: canRedo ? 'var(--accent-emerald)' : undefined,
+                        color: canRedo ? 'var(--accent-emerald)' : undefined,
+                        fontWeight: 600,
+                      }}
+                      id="redo-action-btn"
+                    >
+                      ↪️ Rétablir {canRedo ? '(Ctrl+Y)' : ''}
+                    </button>
+                    <button
+                      className="btn btn-secondary"
+                      onClick={() => {
+                        setSelectedHistoryTicker(undefined);
+                        setShowTransactionModal(true);
+                      }}
+                      title="Consulter l'historique de tous vos arbitrages et ajustements"
+                      id="transaction-history-btn"
+                    >
+                      📜 Arbitrages ({transactions.length})
+                    </button>
+                    <button
+                      className="btn btn-secondary"
+                      onClick={async () => {
                         if (confirm('Réinitialiser toutes les positions à zéro ?\nVous pourrez ensuite entrer vos données réelles.')) {
                           await resetPortfolio();
                           const todayStr = new Date().toISOString().split('T')[0];
@@ -1106,6 +1157,16 @@ export default function HomePage() {
                             <td className="mono" style={{ fontSize: 12 }}>{pos.monthlyDCA ? `${pos.monthlyDCA}€` : pos.annualBudget ? `${pos.annualBudget}€/an` : '—'}</td>
                             <td onClick={(e) => e.stopPropagation()}>
                               <div className="row-actions">
+                                <button
+                                  className="row-action-btn"
+                                  onClick={() => {
+                                    setSelectedHistoryTicker(pos.ticker);
+                                    setShowTransactionModal(true);
+                                  }}
+                                  title={`Consulter l'historique des arbitrages et opérations pour ${pos.name}`}
+                                >
+                                  📜
+                                </button>
                                 <button className="row-action-btn" onClick={() => setEditingPosition(pos)} title="Modifier">✏️</button>
                                 <button className="row-action-btn danger" onClick={() => { if (confirm(`Supprimer ${pos.name} ?`)) handleDeletePosition(pos.id); }} title="Supprimer">🗑</button>
                               </div>
@@ -2040,6 +2101,15 @@ export default function HomePage() {
           initialCapital={totalValue}
           monthlyDCA={monthlyDCATotal || (config?.monthlyBudget || 1000)}
           onClose={() => setShowMonteCarloModal(false)}
+        />
+      )}
+
+      {/* 📜 Modal Historique des Arbitrages & Transaction Journal */}
+      {showTransactionModal && (
+        <TransactionHistoryModal
+          transactions={transactions}
+          initialTicker={selectedHistoryTicker}
+          onClose={() => setShowTransactionModal(false)}
         />
       )}
 

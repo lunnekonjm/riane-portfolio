@@ -42,6 +42,22 @@ export interface Position {
   updatedAt: number;
 }
 
+export interface TransactionRecord {
+  id: string;
+  positionId: string;
+  ticker: string;
+  name: string;
+  type: 'BUY' | 'SELL' | 'REBALANCE' | 'DCA_AUTO' | 'CTA_ALERT' | 'MANUAL_EDIT';
+  sharesDelta: number;
+  price: number;
+  totalAmount: number;
+  currency: Currency;
+  date: string;
+  timestamp: number;
+  reason: string;
+  source?: string;
+}
+
 export interface PortfolioConfig {
   /** Monthly total contribution budget */
   monthlyBudget: number;

@@ -199,6 +199,8 @@ export default function HomePage() {
     addPosition, updatePosition, removePosition, updateConfig, refreshPrices, resetPortfolio,
   } = usePortfolio();
 
+  const [showDcaFrequencyDropdown, setShowDcaFrequencyDropdown] = useState<boolean>(false);
+
   const handleRunGlobalDCACalculation = async (startDate: string) => {
     if (!startDate) return;
     setRefreshingPrices(true);
@@ -260,25 +262,45 @@ export default function HomePage() {
 
   const dcaBreakdown = useMemo(() => {
     let monthlySum = 0;
-    let nonMonthlySum = 0;
-    let nonMonthlyCount = 0;
+    let monthlyCount = 0;
+    let quarterlySum = 0;
+    let quarterlyCount = 0;
+    let semestrialSum = 0;
+    let semestrialCount = 0;
+    let annualSum = 0;
+    let annualCount = 0;
 
     positions.forEach((p) => {
-      const isNonMonthly = p.dcaFrequency === 'annual' || p.dcaFrequency === 'quarterly' || (p.annualBudget && p.annualBudget > 0);
+      const freqStr = (p.dcaFrequency || (p.annualBudget && p.annualBudget > 0 ? 'annual' : 'monthly')) as string;
       const monthlyEquiv = p.monthlyDCA || (p.annualBudget ? p.annualBudget / 12 : 0);
-      if (isNonMonthly) {
-        nonMonthlyCount++;
-        const annualPart = p.annualBudget || (p.monthlyDCA ? p.monthlyDCA * 12 : 0);
-        nonMonthlySum += annualPart;
+
+      if (freqStr === 'annual' || (p.annualBudget && p.annualBudget > 0)) {
+        annualCount++;
+        annualSum += p.annualBudget || (p.monthlyDCA ? p.monthlyDCA * 12 : 0);
+      } else if (freqStr === 'quarterly') {
+        quarterlyCount++;
+        quarterlySum += (p.monthlyDCA ? p.monthlyDCA * 3 : 0);
+      } else if (freqStr === 'semestrial') {
+        semestrialCount++;
+        semestrialSum += (p.monthlyDCA ? p.monthlyDCA * 6 : 0);
       } else {
+        monthlyCount++;
         monthlySum += monthlyEquiv;
       }
     });
 
+    const activeFrequenciesCount = [monthlyCount, quarterlyCount, semestrialCount, annualCount].filter(c => c > 0).length;
+
     return {
       monthlySum,
-      nonMonthlySum,
-      nonMonthlyCount,
+      monthlyCount,
+      quarterlySum,
+      quarterlyCount,
+      semestrialSum,
+      semestrialCount,
+      annualSum,
+      annualCount,
+      activeFrequenciesCount,
     };
   }, [positions]);
 
@@ -851,7 +873,7 @@ export default function HomePage() {
                           </>
                         )}
                       </div>
-                      <div className="card" style={{ cursor: 'pointer' }} onClick={() => setShowConfigEditor(true)} data-tooltip="Somme totale de vos versements d'accumulation (mensuels & lissés)">
+                      <div className="card" style={{ cursor: 'pointer', position: 'relative' }} onClick={() => setShowConfigEditor(true)} data-tooltip="Somme totale de vos versements d'accumulation">
                         <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                           <span className="card-title">DCA &amp; Épargne</span>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -870,6 +892,7 @@ export default function HomePage() {
                             <span style={{ fontSize: 14, color: 'var(--text-muted)' }}>⚙️</span>
                           </div>
                         </div>
+
                         <div className="card-value" style={{ color: 'var(--accent-emerald)', display: 'flex', alignItems: 'baseline', gap: 4, flexWrap: 'wrap' }}>
                           <span>
                             {monthlyDCATotal > 0
@@ -878,14 +901,93 @@ export default function HomePage() {
                           </span>
                           <span style={{ fontSize: 12, color: 'var(--text-tertiary)', fontWeight: 500 }}>/mois (équiv.)</span>
                         </div>
-                        <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 4, display: 'flex', flexDirection: 'column', gap: 2 }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <span>Cumul Annuel : <strong>{((monthlyDCATotal || (config?.monthlyBudget || 1000)) * 12).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })}/an</strong></span>
-                          </div>
-                          {dcaBreakdown.nonMonthlyCount > 0 && (
-                            <span style={{ color: 'var(--accent-cyan)', fontSize: 10, fontWeight: 500 }}>
-                              🔄 {dcaBreakdown.nonMonthlyCount} {dcaBreakdown.nonMonthlyCount > 1 ? 'versements non-mensuels' : 'versement non-mensuel'} ({dcaBreakdown.nonMonthlySum.toLocaleString('fr-FR')} €/an lissés)
-                            </span>
+
+                        {/* Interactive Mini Dropdown Badge Button */}
+                        <div style={{ marginTop: 6, position: 'relative' }}>
+                          <button
+                            type="button"
+                            className="btn btn-secondary btn-sm"
+                            style={{
+                              fontSize: 10,
+                              padding: '3px 8px',
+                              borderRadius: 6,
+                              background: 'rgba(6, 182, 212, 0.12)',
+                              color: 'var(--accent-cyan)',
+                              border: '1px solid rgba(6, 182, 212, 0.3)',
+                              fontWeight: 600,
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 5,
+                            }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setShowDcaFrequencyDropdown(!showDcaFrequencyDropdown);
+                            }}
+                          >
+                            <span>📊 Détail des Fréquences ({dcaBreakdown.activeFrequenciesCount})</span>
+                            <span style={{ fontSize: 9 }}>{showDcaFrequencyDropdown ? '▴' : '▾'}</span>
+                          </button>
+
+                          {/* Dropdown Popover */}
+                          {showDcaFrequencyDropdown && (
+                            <div
+                              onClick={(e) => e.stopPropagation()}
+                              style={{
+                                position: 'absolute',
+                                top: '120%',
+                                left: 0,
+                                minWidth: 240,
+                                background: 'rgba(15, 23, 42, 0.98)',
+                                border: '1px solid var(--accent-cyan)',
+                                borderRadius: 10,
+                                padding: 12,
+                                boxShadow: '0 10px 25px rgba(0, 0, 0, 0.6)',
+                                backdropFilter: 'blur(16px)',
+                                zIndex: 100,
+                                fontSize: 11,
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: 6,
+                              }}
+                            >
+                              <div style={{ fontWeight: 700, color: 'white', borderBottom: '1px solid var(--border-subtle)', paddingBottom: 4, marginBottom: 2, display: 'flex', justifyContent: 'space-between' }}>
+                                <span>Ventilation des Versements</span>
+                                <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>{positions.length} positions</span>
+                              </div>
+
+                              {dcaBreakdown.monthlyCount > 0 && (
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                  <span style={{ color: 'var(--text-secondary)' }}>📅 Mensuel ({dcaBreakdown.monthlyCount})</span>
+                                  <strong style={{ color: 'var(--accent-emerald)' }}>{dcaBreakdown.monthlySum.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} € / mois</strong>
+                                </div>
+                              )}
+
+                              {dcaBreakdown.quarterlyCount > 0 && (
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                  <span style={{ color: 'var(--text-secondary)' }}>📆 Trimestriel ({dcaBreakdown.quarterlyCount})</span>
+                                  <strong style={{ color: 'var(--accent-cyan)' }}>{dcaBreakdown.quarterlySum.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} € / trim</strong>
+                                </div>
+                              )}
+
+                              {dcaBreakdown.semestrialCount > 0 && (
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                  <span style={{ color: 'var(--text-secondary)' }}>🌓 Semestriel ({dcaBreakdown.semestrialCount})</span>
+                                  <strong style={{ color: 'var(--accent-amber)' }}>{dcaBreakdown.semestrialSum.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} € / sem</strong>
+                                </div>
+                              )}
+
+                              {dcaBreakdown.annualCount > 0 && (
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                  <span style={{ color: 'var(--text-secondary)' }}>🎆 Annuel ({dcaBreakdown.annualCount})</span>
+                                  <strong style={{ color: 'var(--accent-rose)' }}>{dcaBreakdown.annualSum.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} € / an</strong>
+                                </div>
+                              )}
+
+                              <div style={{ borderTop: '1px dashed var(--border-subtle)', paddingTop: 6, marginTop: 2, display: 'flex', justifyContent: 'space-between', fontWeight: 700, color: 'white' }}>
+                                <span>💰 Cumul Annuel Global</span>
+                                <span style={{ color: 'var(--accent-emerald)' }}>{((monthlyDCATotal || (config?.monthlyBudget || 1000)) * 12).toLocaleString('fr-FR', { maximumFractionDigits: 0 })} € / an</span>
+                              </div>
+                            </div>
                           )}
                         </div>
                       </div>

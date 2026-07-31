@@ -25,6 +25,13 @@ interface ReportsViewProps {
   onShowToast: (msg: string, type?: 'success' | 'error') => void;
 }
 
+const PIPELINE_LOADING_STEPS = [
+  { step: 1, label: '🔍 Grounding Live News & Web Search sur vos 8 lignes...' },
+  { step: 2, label: '📊 Audit de Valuation, P&L Latentes & Enveloppes Fiscales...' },
+  { step: 3, label: '🛡️ Analyse de Risque & Volatilité en langage exécutif...' },
+  { step: 4, label: '✍️ Édition de la Synthèse Stratégique & Feuille de Route...' },
+];
+
 export default function ReportsView({
   positions,
   config,
@@ -36,17 +43,23 @@ export default function ReportsView({
   onShowToast,
 }: ReportsViewProps) {
   const [selectedPeriod, setSelectedPeriod] = useState<ReportPeriod>('monthly');
+  const [selectedPeriodLabel, setSelectedPeriodLabel] = useState<string>('Juillet 2026');
   const [reportMarkdown, setReportMarkdown] = useState<string>('');
   const [generating, setGenerating] = useState<boolean>(false);
+  const [loadingStepIndex, setLoadingStepIndex] = useState<number>(0);
   const [savedReports, setSavedReports] = useState<SavedReportItem[]>([]);
   const [showHistoryModal, setShowHistoryModal] = useState<boolean>(false);
 
-  const periodLabels: Record<ReportPeriod, string> = {
-    monthly: 'Juillet 2026',
-    quarterly: 'Q3 2026',
-    semestrial: 'S2 2026',
-    annual: 'Exercice 2025/2026',
-  };
+  // Period Options Definition with Elapsed Lock Logic
+  const periodOptions = [
+    { period: 'monthly' as ReportPeriod, label: 'Juillet 2026', isLocked: false, note: 'Mois clôturé — Disponible' },
+    { period: 'quarterly' as ReportPeriod, label: 'Q2 2026 (Clôturé)', isLocked: false, note: 'Trimestre révolu — Disponible' },
+    { period: 'quarterly' as ReportPeriod, label: 'Q3 2026', isLocked: true, note: '🔒 Q3 2026 en cours (Clôture le 30 Septembre 2026)' },
+    { period: 'semestrial' as ReportPeriod, label: 'S1 2026 (Clôturé)', isLocked: false, note: 'Semestre révolu — Disponible' },
+    { period: 'semestrial' as ReportPeriod, label: 'S2 2026', isLocked: true, note: '🔒 S2 2026 en cours (Clôture le 31 Décembre 2026)' },
+    { period: 'annual' as ReportPeriod, label: 'Exercice 2025 (Clôturé)', isLocked: false, note: 'Exercice révolu — Disponible' },
+    { period: 'annual' as ReportPeriod, label: 'Exercice 2026', isLocked: true, note: '🔒 Exercice 2026 en cours (Clôture le 31 Décembre 2026)' },
+  ];
 
   // Load saved report history from localStorage on mount (DO NOT auto-generate if empty)
   useEffect(() => {
@@ -65,34 +78,49 @@ export default function ReportsView({
     }
   }, []);
 
-  const handleGenerateReport = useCallback(async (period: ReportPeriod, saveToHistory: boolean = true) => {
+  const handleGenerateReport = useCallback(async (period: ReportPeriod, label: string, saveToHistory: boolean = true) => {
+    // Check if period is locked
+    const option = periodOptions.find((o) => o.period === period && o.label === label);
+    if (option?.isLocked) {
+      onShowToast(`🔒 ${option.note}`, 'error');
+      return;
+    }
+
     setSelectedPeriod(period);
+    setSelectedPeriodLabel(label);
     setGenerating(true);
+    setLoadingStepIndex(0);
+
+    // Simulate real multi-agent pipeline steps
+    const stepInterval = setInterval(() => {
+      setLoadingStepIndex((prev) => (prev < PIPELINE_LOADING_STEPS.length - 1 ? prev + 1 : prev));
+    }, 700);
+
     try {
       const md = await generatePeriodicReport(positions, config, fxRates, {
         period,
-        periodLabel: periodLabels[period],
+        periodLabel: label,
         adjustInflation,
         cumulativeInflationFactor,
         inflationRate,
         yearsElapsed,
       });
+
+      clearInterval(stepInterval);
       setReportMarkdown(md);
 
       if (saveToHistory) {
         const newReport: SavedReportItem = {
           id: `report-${period}-${Date.now()}`,
           period,
-          title: period === 'monthly' ? 'Rapport Mensuel (Juillet 2026)' :
-                 period === 'quarterly' ? 'Bulletin Trimestriel (Q3 2026)' :
-                 period === 'semestrial' ? 'Bilan Semestriel (S2 2026)' : 'Bilan Annuel (2025/2026)',
+          title: `Rapport ${label}`,
           dateStr: new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
           timestamp: Date.now(),
           content: md,
         };
 
         setSavedReports((prev) => {
-          const updated = [newReport, ...prev.filter((r) => r.period !== period)].slice(0, 30);
+          const updated = [newReport, ...prev.filter((r) => r.title !== newReport.title)].slice(0, 30);
           try {
             localStorage.setItem('riane_saved_reports', JSON.stringify(updated));
           } catch {
@@ -101,9 +129,10 @@ export default function ReportsView({
           return updated;
         });
 
-        onShowToast(`Rapport ${periodLabels[period]} généré et sauvegardé !`);
+        onShowToast(`Rapport "${label}" généré et archivé !`);
       }
     } catch {
+      clearInterval(stepInterval);
       onShowToast('Erreur lors de la génération du rapport', 'error');
     } finally {
       setGenerating(false);
@@ -136,12 +165,6 @@ export default function ReportsView({
     }
   };
 
-  // Find latest report for each period in history
-  const latestMonthly = savedReports.find((r) => r.period === 'monthly');
-  const latestQuarterly = savedReports.find((r) => r.period === 'quarterly');
-  const latestSemestrial = savedReports.find((r) => r.period === 'semestrial');
-  const latestAnnual = savedReports.find((r) => r.period === 'annual');
-
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       {/* Periodic Reminder Banner */}
@@ -162,9 +185,9 @@ export default function ReportsView({
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <span style={{ fontSize: 20 }}>🔔</span>
           <div>
-            <strong style={{ color: 'var(--text-primary)', fontSize: 14 }}>Rappel de Gestion Périodique Automatique</strong>
+            <strong style={{ color: 'var(--text-primary)', fontSize: 14 }}>Rappel de Clôture Périodique Automatique</strong>
             <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>
-              Fin de période atteinte (Juillet 2026). Cliquez pour générer et archiver votre rapport officiel.
+              Fin de période mensuelle atteinte (Juillet 2026). Cliquez pour déclencher le grounding IA et archiver votre audit.
             </div>
           </div>
         </div>
@@ -172,10 +195,10 @@ export default function ReportsView({
           type="button"
           className="btn btn-primary btn-sm"
           style={{ padding: '6px 14px', fontWeight: 700 }}
-          onClick={() => handleGenerateReport(selectedPeriod, true)}
+          onClick={() => handleGenerateReport('monthly', 'Juillet 2026', true)}
           disabled={generating}
         >
-          ⚡ Générer &amp; Archiver ({periodLabels[selectedPeriod]})
+          ⚡ Lancer l&apos;Audit IA (Juillet 2026)
         </button>
       </div>
 
@@ -183,42 +206,71 @@ export default function ReportsView({
       <div className="card no-print" style={{ borderLeft: '4px solid var(--accent-violet)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
         <div>
           <h2 style={{ fontSize: 18, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 10 }}>
-            <span>📰</span> Rapports &amp; Newsletters AI Périodiques
+            <span>📰</span> Rapports &amp; Audits AI Institutionnels
           </h2>
           <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 4 }}>
-            Comptes-rendus de gestion 360° automatisés (Mensuels, Trimestriels, Semestriels et Annuels).
+            Audits 360° avec grounding d&apos;actualités boursières en direct et verrouillage des périodes non échues.
           </p>
         </div>
 
-        {/* Preset Generation Buttons */}
+        {/* Preset Generation Buttons with Locking */}
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
           <button
             className={`btn ${selectedPeriod === 'monthly' ? 'btn-primary' : 'btn-secondary'}`}
-            onClick={() => handleGenerateReport('monthly', true)}
+            onClick={() => handleGenerateReport('monthly', 'Juillet 2026', true)}
             disabled={generating}
           >
-            📅 Mensuel
+            📅 Mensuel (Juillet 2026)
           </button>
           <button
-            className={`btn ${selectedPeriod === 'quarterly' ? 'btn-primary' : 'btn-secondary'}`}
-            onClick={() => handleGenerateReport('quarterly', true)}
+            className="btn btn-secondary"
+            onClick={() => handleGenerateReport('quarterly', 'Q2 2026 (Clôturé)', true)}
             disabled={generating}
+            title="Trimestre révolu — Générer le bilan Q2 2026"
           >
-            📊 Trimestriel
+            📊 Trimestriel (Q2 2026)
           </button>
           <button
-            className={`btn ${selectedPeriod === 'semestrial' ? 'btn-primary' : 'btn-secondary'}`}
-            onClick={() => handleGenerateReport('semestrial', true)}
-            disabled={generating}
+            className="btn btn-secondary"
+            style={{ opacity: 0.6, cursor: 'not-allowed' }}
+            onClick={() => onShowToast('🔒 Le trimestre Q3 2026 est en cours. Clôture le 30 Septembre 2026.', 'error')}
+            title="🔒 Période non échue — Clôture le 30 Septembre 2026"
           >
-            🌓 Semestriel
+            🔒 Trimestriel (Q3 2026)
+          </button>
+
+          <button
+            className="btn btn-secondary"
+            onClick={() => handleGenerateReport('semestrial', 'S1 2026 (Clôturé)', true)}
+            disabled={generating}
+            title="Semestre révolu — Générer le bilan S1 2026"
+          >
+            🌓 Semestriel (S1 2026)
           </button>
           <button
-            className={`btn ${selectedPeriod === 'annual' ? 'btn-primary' : 'btn-secondary'}`}
-            onClick={() => handleGenerateReport('annual', true)}
-            disabled={generating}
+            className="btn btn-secondary"
+            style={{ opacity: 0.6, cursor: 'not-allowed' }}
+            onClick={() => onShowToast('🔒 Le semestre S2 2026 est en cours. Clôture le 31 Décembre 2026.', 'error')}
+            title="🔒 Période non échue — Clôture le 31 Décembre 2026"
           >
-            🏆 Annuel
+            🔒 Semestriel (S2 2026)
+          </button>
+
+          <button
+            className="btn btn-secondary"
+            onClick={() => handleGenerateReport('annual', 'Exercice 2025 (Clôturé)', true)}
+            disabled={generating}
+            title="Exercice révolu — Générer le bilan 2025"
+          >
+            🏆 Annuel (2025)
+          </button>
+          <button
+            className="btn btn-secondary"
+            style={{ opacity: 0.6, cursor: 'not-allowed' }}
+            onClick={() => onShowToast('🔒 L\'exercice 2026 est en cours. Clôture le 31 Décembre 2026.', 'error')}
+            title="🔒 Exercice en cours — Clôture le 31 Décembre 2026"
+          >
+            🔒 Annuel (2026)
           </button>
 
           {savedReports.length > 0 && (
@@ -237,10 +289,23 @@ export default function ReportsView({
       <div className="card" style={{ padding: 24, background: 'var(--bg-secondary)', minHeight: 400 }}>
         {generating ? (
           <div style={{ textAlign: 'center', padding: '60px 20px' }}>
-            <div className="loading-spinner" style={{ width: 32, height: 32, margin: '0 auto 16px auto' }} />
-            <div style={{ fontWeight: 600, fontSize: 15 }}>Génération du rapport en cours...</div>
-            <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 6 }}>
-              Collecte des cours, actualités boursières, analyse de risque &amp; recommandations d&apos;arbitrage...
+            <div className="loading-spinner" style={{ width: 36, height: 36, margin: '0 auto 20px auto' }} />
+            <div style={{ fontWeight: 700, fontSize: 16, color: 'var(--accent-cyan)' }}>
+              {PIPELINE_LOADING_STEPS[loadingStepIndex].label}
+            </div>
+            <div style={{ display: 'flex', gap: 6, justifyContent: 'center', marginTop: 16 }}>
+              {PIPELINE_LOADING_STEPS.map((s, idx) => (
+                <div
+                  key={s.step}
+                  style={{
+                    width: 10,
+                    height: 10,
+                    borderRadius: '50%',
+                    background: idx <= loadingStepIndex ? 'var(--accent-cyan)' : 'var(--border-subtle)',
+                    transition: 'background 0.3s ease',
+                  }}
+                />
+              ))}
             </div>
           </div>
         ) : reportMarkdown ? (
@@ -285,14 +350,14 @@ export default function ReportsView({
             <div style={{ fontSize: 44, marginBottom: 12 }}>📰</div>
             <div style={{ fontSize: 17, fontWeight: 700, color: 'var(--text-primary)' }}>Aucun rapport affiché</div>
             <div style={{ fontSize: 13, marginTop: 6, marginBottom: 24, color: 'var(--text-secondary)' }}>
-              L&apos;historique des rapports est vide. Cliquez sur l&apos;un des boutons ci-dessus pour générer un nouveau compte-rendu.
+              L&apos;historique des rapports est vide. Cliquez sur l&apos;un des boutons ci-dessus pour déclencher le grounding et générer un audit.
             </div>
             <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
-              <button className="btn btn-primary" onClick={() => handleGenerateReport('monthly', true)}>
-                ⚡ Générer le Rapport Mensuel
+              <button className="btn btn-primary" onClick={() => handleGenerateReport('monthly', 'Juillet 2026', true)}>
+                ⚡ Générer l&apos;Audit Mensuel (Juillet 2026)
               </button>
-              <button className="btn btn-secondary" onClick={() => handleGenerateReport('quarterly', true)}>
-                📊 Générer le Bulletin Trimestriel
+              <button className="btn btn-secondary" onClick={() => handleGenerateReport('quarterly', 'Q2 2026 (Clôturé)', true)}>
+                📊 Générer le Bilan Q2 2026 (Clôturé)
               </button>
             </div>
           </div>
@@ -304,72 +369,8 @@ export default function ReportsView({
         <div className="modal-overlay" onClick={() => setShowHistoryModal(false)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 680 }}>
             <div className="modal-header">
-              <h2>📚 Archives des Rapports Générés ({savedReports.length})</h2>
+              <h2>📚 Archives des Audits &amp; Rapports Générés ({savedReports.length})</h2>
               <button className="modal-close-btn" onClick={() => setShowHistoryModal(false)} type="button">✕</button>
-            </div>
-
-            {/* Quick Filter Access Shortcuts */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 8, marginTop: 14 }}>
-              {latestMonthly && (
-                <button
-                  type="button"
-                  className="btn btn-secondary btn-sm"
-                  style={{ fontSize: 11, color: 'var(--accent-emerald)', borderColor: 'rgba(16, 185, 129, 0.3)' }}
-                  onClick={() => {
-                    setReportMarkdown(latestMonthly.content);
-                    setSelectedPeriod('monthly');
-                    setShowHistoryModal(false);
-                    onShowToast('Dernier rapport mensuel chargé');
-                  }}
-                >
-                  📅 Dernier Mensuel
-                </button>
-              )}
-              {latestQuarterly && (
-                <button
-                  type="button"
-                  className="btn btn-secondary btn-sm"
-                  style={{ fontSize: 11, color: 'var(--accent-cyan)', borderColor: 'rgba(6, 182, 212, 0.3)' }}
-                  onClick={() => {
-                    setReportMarkdown(latestQuarterly.content);
-                    setSelectedPeriod('quarterly');
-                    setShowHistoryModal(false);
-                    onShowToast('Dernier rapport trimestriel chargé');
-                  }}
-                >
-                  📊 Dernier Trimestriel
-                </button>
-              )}
-              {latestSemestrial && (
-                <button
-                  type="button"
-                  className="btn btn-secondary btn-sm"
-                  style={{ fontSize: 11, color: 'var(--accent-amber)', borderColor: 'rgba(245, 158, 11, 0.3)' }}
-                  onClick={() => {
-                    setReportMarkdown(latestSemestrial.content);
-                    setSelectedPeriod('semestrial');
-                    setShowHistoryModal(false);
-                    onShowToast('Dernier rapport semestriel chargé');
-                  }}
-                >
-                  🌓 Dernier Semestriel
-                </button>
-              )}
-              {latestAnnual && (
-                <button
-                  type="button"
-                  className="btn btn-secondary btn-sm"
-                  style={{ fontSize: 11, color: 'var(--accent-rose)', borderColor: 'rgba(244, 63, 94, 0.3)' }}
-                  onClick={() => {
-                    setReportMarkdown(latestAnnual.content);
-                    setSelectedPeriod('annual');
-                    setShowHistoryModal(false);
-                    onShowToast('Dernier rapport annuel chargé');
-                  }}
-                >
-                  🏆 Dernier Annuel
-                </button>
-              )}
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10, maxHeight: 380, overflowY: 'auto', marginTop: 16 }}>

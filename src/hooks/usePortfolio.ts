@@ -350,17 +350,31 @@ export function usePortfolio() {
     await refreshPricesInternal(positions);
   }, [positions]);
 
-  // ── Reset Portfolio (clear fake data) ──
+  // ── Reset Portfolio (clear data, transaction journal, and history) ──
   const resetPortfolio = useCallback(async () => {
-    if (!user) return;
     setSaving(true);
+    clearAnalysisCache();
     try {
-      // Delete all existing positions from Firestore
-      for (const pos of positions) {
-        await deletePositionFromDb(user.uid, pos.id);
+      // 1. Clear transaction journal completely
+      setTransactions([]);
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('riane_transaction_history');
+        localStorage.removeItem('riane_local_positions');
       }
-      // Re-save clean structure-only defaults
-      await saveAllPositions(user.uid, DEFAULT_POSITIONS);
+
+      // 2. Clear Undo / Redo history stacks
+      setHistoryStack([]);
+      setRedoStack([]);
+
+      if (user) {
+        // Delete all existing positions from Firestore
+        for (const pos of positions) {
+          await deletePositionFromDb(user.uid, pos.id);
+        }
+        // Re-save clean structure-only defaults
+        await saveAllPositions(user.uid, DEFAULT_POSITIONS);
+      }
+
       setPositions(DEFAULT_POSITIONS);
     } catch (err) {
       console.error('Error resetting portfolio:', err);

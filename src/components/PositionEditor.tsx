@@ -338,12 +338,19 @@ function autoGenerateThemes(
     const monthlyAmount = form.monthlyDCA || (form.annualBudget ? form.annualBudget / 12 : 100);
     setIsCalculatingDCA(true);
     try {
+      // If start date is current month or in future, fallback to 2024-01-01 for historical simulation
+      let effectiveStartDate = dcaStartDate;
+      const todayStr = new Date().toISOString().slice(0, 7);
+      if (!dcaStartDate || dcaStartDate.slice(0, 7) >= todayStr) {
+        effectiveStartDate = '2024-01-01';
+      }
+
       // PEA / PEA-PME / CTO require integer shares (no fractional shares!)
       const isIntegerOnly = form.envelope === 'PEA' || form.envelope === 'PEA-PME' || form.envelope === 'CTO';
       const result = await simulatePositionDCA(
         form.ticker,
         monthlyAmount,
-        dcaStartDate,
+        effectiveStartDate,
         form.currentPrice || form.avgPrice || 100,
         isIntegerOnly,
         form.dcaFrequency || 'monthly',
@@ -359,12 +366,17 @@ function autoGenerateThemes(
   };
 
   const handleApplyDCAResult = () => {
-    if (!dcaResult) return;
-    setForm((prev) => ({
-      ...prev,
+    if (!dcaResult || dcaResult.totalShares <= 0) return;
+    const updated: Position = {
+      ...form,
       quantity: dcaResult.totalShares,
       avgPrice: dcaResult.avgPrice,
-    }));
+      dcaStartDate,
+      updatedAt: Date.now(),
+    };
+    setForm(updated);
+    onSave(updated);
+    onClose();
   };
 
   const handleSubmit = (e: React.FormEvent) => {

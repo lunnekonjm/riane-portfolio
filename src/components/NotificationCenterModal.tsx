@@ -11,7 +11,7 @@ interface NotificationCenterModalProps {
   onClearAll: () => void;
   onUpdateSettings: (newSettings: NotificationSettings) => void;
   onOpenRebalance?: () => void;
-  onOpenAnalysis?: () => void;
+  onOpenAnalysis?: (query?: string) => void;
   onNavigateView?: (view: 'dashboard' | 'envelopes' | 'analysis' | 'risk' | 'reports') => void;
 }
 
@@ -168,7 +168,7 @@ export default function NotificationCenterModal({
                             onClick={() => {
                               onClose();
                               if (n.actionType === 'open-envelopes') onNavigateView?.('envelopes');
-                              else if (n.actionType === 'open-analysis') onOpenAnalysis?.();
+                              else if (n.actionType === 'open-analysis') onOpenAnalysis?.(`Analyse et recommandations pour : ${n.title}`);
                               else onOpenRebalance?.();
                             }}
                           >

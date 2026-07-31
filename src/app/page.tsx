@@ -246,6 +246,16 @@ export default function HomePage() {
     setCurrentView('analysis');
   };
 
+  const handleDirectAnalysis = (promptText: string, bypassCache = false) => {
+    if (positions.length === 0) {
+      showToast('Ajoutez au moins une position avant de lancer une analyse', 'error');
+      return;
+    }
+    setQueryInput(promptText);
+    setCurrentView('analysis');
+    runAnalysis(user.uid, promptText, positions, config || defaultConfig, bypassCache);
+  };
+
   const handleRunStressTest = (scenarioIdx: number) => {
     if (positions.length === 0) {
       showToast('Ajoutez des positions pour lancer un stress test', 'error');
@@ -1578,7 +1588,7 @@ export default function HomePage() {
               Ce moteur calcule l&apos;affectation optimale de votre versement mensuel ({flowRebalanceResult.totalDCA} €) pour rééquilibrer vos sous-pondérations <strong>sans vendre aucun actif</strong> (zéro frottement fiscal).
             </p>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 20 }}>
+            <div style={{ maxHeight: '50vh', overflowY: 'auto', paddingRight: 6, display: 'flex', flexDirection: 'column', gap: 10, margin: '14px 0 16px 0' }}>
               {flowRebalanceResult.instructions.map((inst) => (
                 <div key={inst.positionId} style={{ padding: 12, background: 'var(--bg-tertiary)', borderRadius: 10, border: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div>
@@ -1591,7 +1601,7 @@ export default function HomePage() {
                   <div style={{ textAlign: 'right' }}>
                     {inst.recommendedShares > 0 ? (
                       <>
-                        <span className="badge badge-emerald" style={{ fontSize: 13, padding: '4px 10px' }}>
+                        <span className="badge badge-emerald" style={{ fontSize: 13, padding: '4px 10px', fontWeight: 700 }}>
                           Acheter +{inst.recommendedShares} part{inst.recommendedShares > 1 ? 's' : ''} ({inst.recommendedCost} €)
                         </span>
                         <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>
@@ -1606,15 +1616,16 @@ export default function HomePage() {
               ))}
             </div>
 
-            <div style={{ padding: 12, background: 'var(--bg-secondary)', borderRadius: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+            <div style={{ padding: 12, background: 'var(--bg-secondary)', borderRadius: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
               <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Reliquat non investi (trésorerie)</span>
               <strong className="mono" style={{ color: 'var(--accent-amber)' }}>{flowRebalanceResult.uninvestedCash} €</strong>
             </div>
 
-            <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end' }}>
-              <button className="btn btn-secondary" onClick={() => setShowFlowRebalanceModal(false)}>Fermer</button>
+            <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end', alignItems: 'center' }}>
+              <button className="btn btn-secondary" onClick={() => setShowFlowRebalanceModal(false)}>Annuler</button>
               <button
                 className="btn btn-primary"
+                style={{ padding: '10px 18px', fontSize: 13, background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', boxShadow: '0 4px 14px rgba(16, 185, 129, 0.4)', fontWeight: 700 }}
                 onClick={async () => {
                   let appliedCount = 0;
                   for (const inst of flowRebalanceResult.instructions) {
@@ -1630,11 +1641,11 @@ export default function HomePage() {
                       }
                     }
                   }
-                  showToast(`Rebalancement appliqué : +${appliedCount} positions mises à jour`);
+                  showToast(`✅ Rebalancement appliqué avec succès (+${appliedCount} positions ajustées)`);
                   setShowFlowRebalanceModal(false);
                 }}
               >
-                ✅ Appliquer les achats au versement mensuel
+                ⚡ APPLIQUER CES ACHATS À MON PORTEFEUILLE
               </button>
             </div>
           </div>
@@ -1737,7 +1748,10 @@ export default function HomePage() {
           onMarkAllAsRead={() => setReadNotificationIds(notifications.map((n) => n.id))}
           onClearAll={() => setClearedNotificationIds(notifications.map((n) => n.id))}
           onUpdateSettings={(newSettings) => setNotificationSettings(newSettings)}
-          onOpenAnalysis={() => setCurrentView('analysis')}
+          onOpenAnalysis={(promptQuery?: string) => {
+            const query = promptQuery || "Analyse globale de mon portefeuille";
+            handleDirectAnalysis(query);
+          }}
           onNavigateView={setCurrentView}
           onOpenRebalance={() => {
             const monthlyBudget = config?.monthlyBudget || 1000;

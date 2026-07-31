@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { ASSET_METADATA, getCleanAssetName } from '@/utils/assetMetadata';
 
 interface AssetBadgeProps {
@@ -13,21 +13,44 @@ interface AssetBadgeProps {
 
 export default function AssetBadge({ ticker, name, showTicker = true, style, className }: AssetBadgeProps) {
   const [isHovered, setIsHovered] = useState(false);
+  const [coords, setCoords] = useState<{ top: number; left: number; positionBelow: boolean }>({ top: 0, left: 0, positionBelow: false });
+  const spanRef = useRef<HTMLSpanElement>(null);
+
   const meta = ASSET_METADATA[ticker];
   const displayName = getCleanAssetName(ticker, name);
 
+  const handleMouseEnter = (e: React.MouseEvent<HTMLSpanElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const tooltipWidth = 295;
+    const tooltipHeight = 180;
+
+    // Check vertical space: if near top of window (< 220px), position below
+    const positionBelow = rect.top < tooltipHeight + 20;
+
+    const calculatedTop = positionBelow ? rect.bottom + 8 : rect.top - tooltipHeight - 8;
+    // Keep horizontally within window bounds
+    const calculatedLeft = Math.max(12, Math.min(rect.left, window.innerWidth - tooltipWidth - 16));
+
+    setCoords({
+      top: calculatedTop,
+      left: calculatedLeft,
+      positionBelow,
+    });
+    setIsHovered(true);
+  };
+
   return (
     <span
+      ref={spanRef}
       className={className}
       style={{
-        position: 'relative',
         display: 'inline-flex',
         alignItems: 'center',
         gap: 6,
         cursor: 'pointer',
         ...style,
       }}
-      onMouseEnter={() => setIsHovered(true)}
+      onMouseEnter={handleMouseEnter}
       onMouseLeave={() => setIsHovered(false)}
     >
       <span style={{ fontWeight: 600, borderBottom: '1px dotted rgba(6, 182, 212, 0.5)' }}>
@@ -49,15 +72,14 @@ export default function AssetBadge({ ticker, name, showTicker = true, style, cla
         </span>
       )}
 
-      {/* Premium Glassmorphism Custom Tooltip Card */}
+      {/* Viewport-Fixed Glassmorphism Custom Tooltip Card */}
       {isHovered && meta && (
         <div
           style={{
-            position: 'absolute',
-            bottom: '100%',
-            left: 0,
-            transform: 'translateY(-8px)',
-            width: 290,
+            position: 'fixed',
+            top: coords.top,
+            left: coords.left,
+            width: 295,
             background: 'rgba(15, 23, 42, 0.98)',
             backdropFilter: 'blur(16px)',
             WebkitBackdropFilter: 'blur(16px)',

@@ -786,25 +786,32 @@ export default function HomePage() {
                           for (const pos of positions) {
                             const monthlyBudget = pos.monthlyDCA || (pos.annualBudget ? pos.annualBudget / 12 : 100);
                             const isIntegerOnly = pos.envelope === 'PEA' || pos.envelope === 'PEA-PME' || pos.envelope === 'CTO';
+                            const effectivePrice = pos.currentPrice || pos.avgPrice || (pos.ticker.includes('GPEA') ? 4.89 : 10);
+
                             const sim = await simulatePositionDCA(
                               pos.ticker,
                               monthlyBudget,
                               dcaGlobalStartDate,
-                              pos.currentPrice || pos.avgPrice || 100,
+                              effectivePrice,
                               isIntegerOnly,
                               pos.dcaFrequency || 'monthly',
                               pos.dcaDepositMonth || 1,
                               pos.dcaDepositDay || 5
                             );
-                            if (sim.totalShares > 0) {
-                              await updatePosition({
-                                ...pos,
-                                quantity: sim.totalShares,
-                                avgPrice: sim.avgPrice,
-                                updatedAt: Date.now(),
-                              });
-                              updatedCount++;
-                            }
+
+                            const finalShares = sim.totalShares > 0 
+                              ? sim.totalShares 
+                              : Math.max(1, Math.floor((sim.uninvestedCash > 0 ? sim.uninvestedCash : monthlyBudget) / effectivePrice));
+                            const finalPRU = sim.avgPrice > 0 ? sim.avgPrice : effectivePrice;
+
+                            await updatePosition({
+                              ...pos,
+                              quantity: finalShares,
+                              avgPrice: finalPRU,
+                              currentPrice: pos.currentPrice || effectivePrice,
+                              updatedAt: Date.now(),
+                            });
+                            updatedCount++;
                           }
                           showToast(`DCA calculé automatiquement pour ${updatedCount} positions depuis ${dcaGlobalStartDate}`);
                         } catch (err) {

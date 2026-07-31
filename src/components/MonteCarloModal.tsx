@@ -110,22 +110,32 @@ export default function MonteCarloModal({ initialCapital, monthlyDCA, onClose }:
           </div>
         </div>
 
-        {/* 💡 Explicit Tax Allocation Explanation Banner */}
-        <div style={{ fontSize: 12, color: 'var(--text-secondary)', padding: '8px 12px', background: 'rgba(6, 182, 212, 0.06)', borderRadius: 'var(--radius-sm)', marginBottom: 14, borderLeft: '3px solid var(--accent-cyan)', lineHeight: 1.5 }}>
-          {taxEnvelope === 'MIXED' ? (
-            <span>
-              💡 <strong>Règle d&apos;Affectation Fiscale (Mode Mixte) :</strong> Vos versements sont affectés en priorité sur le <strong>PEA (exonéré d&apos;impôt à 0% IR)</strong> jusqu&apos;au plafond légal de <strong>150 000 €</strong>, puis tout surplus bascule automatiquement sur le <strong>CTO (Flat Tax 31.4%)</strong>.
-            </span>
-          ) : taxEnvelope === 'PEA' ? (
-            <span>
-              🏛️ <strong>Mode PEA Intégral :</strong> 100% du capital et du DCA sont appliqués au PEA (soumis uniquement aux prélèvements sociaux de 18.6% après 5 ans d&apos;ancienneté).
-            </span>
-          ) : (
-            <span>
-              💼 <strong>Mode CTO Intégral :</strong> 100% du capital et du DCA sont appliqués au Compte-Titres Ordinaire (soumis à la Flat Tax / PFU de 31.4%).
-            </span>
-          )}
-        </div>
+        {/* 💡 Explicit Tax Allocation Explanation & Plafond Legal Alert Banner */}
+        {taxEnvelope === 'PEA' && simulation.totalInvestedFinal > 150000 ? (
+          <div style={{ fontSize: 12, color: 'var(--accent-amber)', padding: '8px 12px', background: 'rgba(245, 158, 11, 0.12)', borderRadius: 'var(--radius-sm)', marginBottom: 14, borderLeft: '4px solid var(--accent-amber)', lineHeight: 1.5 }}>
+            ⚠️ <strong>Plafond Légal du PEA Atteint (150 000 € max de versements) :</strong> Vos versements totaux projetés ({(simulation.totalInvestedFinal).toLocaleString('fr-FR')} €) dépassent le plafond légal français du PEA. Les <strong>{(simulation.totalInvestedFinal - 150000).toLocaleString('fr-FR')} € de versements supplémentaires</strong> sont automatiquement soumis à la Flat Tax de 31.4% du CTO, car la loi interdit de verser plus de 150 000 € sur un PEA.
+          </div>
+        ) : taxEnvelope === 'MIXED' && simulation.totalInvestedFinal > 225000 ? (
+          <div style={{ fontSize: 12, color: 'var(--accent-amber)', padding: '8px 12px', background: 'rgba(245, 158, 11, 0.12)', borderRadius: 'var(--radius-sm)', marginBottom: 14, borderLeft: '4px solid var(--accent-amber)', lineHeight: 1.5 }}>
+            ⚠️ <strong>Plafond PEA + PEA-PME Atteint (225 000 € max cumulés) :</strong> Les <strong>{(simulation.totalInvestedFinal - 225000).toLocaleString('fr-FR')} € au-dessus de 225 000 €</strong> sont automatiquement imposés au taux CTO de 31.4% (Flat Tax).
+          </div>
+        ) : (
+          <div style={{ fontSize: 12, color: 'var(--text-secondary)', padding: '8px 12px', background: 'rgba(6, 182, 212, 0.06)', borderRadius: 'var(--radius-sm)', marginBottom: 14, borderLeft: '3px solid var(--accent-cyan)', lineHeight: 1.5 }}>
+            {taxEnvelope === 'MIXED' ? (
+              <span>
+                💡 <strong>Règle d&apos;Affectation Fiscale (Mode Mixte) :</strong> Vos versements s&apos;affectent en priorité sur le <strong>PEA (0% IR)</strong> jusqu&apos;au plafond de <strong>150 000 €</strong>, puis le surplus bascule sur le <strong>CTO (Flat Tax 31.4%)</strong>.
+              </span>
+            ) : taxEnvelope === 'PEA' ? (
+              <span>
+                🏛️ <strong>Mode PEA Intégral :</strong> Versements jusqu&apos;à 150 000 € appliqués au PEA (exonérés à 0% IR, 18.6% PS).
+              </span>
+            ) : (
+              <span>
+                💼 <strong>Mode CTO Intégral :</strong> 100% des versements appliqués au CTO (Flat Tax 31.4%).
+              </span>
+            )}
+          </div>
+        )}
 
         <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 16, paddingRight: 4 }}>
           {/* 📘 Beginner Educational Explanation Box */}

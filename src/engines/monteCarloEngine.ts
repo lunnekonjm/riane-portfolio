@@ -51,22 +51,26 @@ function randomNormal(): number {
 }
 
 /**
- * Calculates effective French tax rate based on envelope & PEA 150,000 € deposit ceiling
- * PEA: 18.6% PS (0% IR after 5 years)
- * CTO: 31.4% PFU / Flat Tax (12.8% IR + 18.6% PS)
- * MIXED: Allocates up to 150,000 € to PEA first, remaining surplus to CTO
+ * Calculates effective French tax rate based on envelope & strict legal deposit caps:
+ * PEA: 150,000 € max deposits (18.6% PS on gains). Surplus > 150k is legally taxed at 31.4% CTO Flat Tax.
+ * CTO: 31.4% PFU / Flat Tax (12.8% IR + 18.6% PS) on all gains.
+ * MIXED: Allocates up to 150,000 € to PEA first, remaining surplus to CTO.
  */
 export function getEffectiveTaxRate(envelope: TaxEnvelopeType, totalInvested = 100000, peaRatio = 0.75): number {
-  if (envelope === 'PEA') return 0.186; // 18.6% Prélèvements sociaux
   if (envelope === 'CTO') return 0.314; // 31.4% Flat tax / PFU (12.8% IR + 18.6% PS)
   
-  // MIXED Mode: Respect 150,000 € PEA deposit cap
-  if (totalInvested <= 0) return 0.186;
-  const peaPart = Math.min(150000, totalInvested);
-  const ctoPart = Math.max(0, totalInvested - 150000);
-  const calculatedPeaRatio = peaPart / totalInvested;
+  const maxPeaDeposit = envelope === 'PEA' ? 150000 : 225000;
   
-  return calculatedPeaRatio * 0.186 + (1 - calculatedPeaRatio) * 0.314;
+  if (totalInvested <= maxPeaDeposit) {
+    return 0.186; // 18.6% PS (0% IR)
+  }
+
+  // Legal Enforcement: Any deposits exceeding 150 000 € (PEA) or 225 000 € (MIXED) overflow into CTO
+  const peaPart = maxPeaDeposit;
+  const ctoPart = totalInvested - maxPeaDeposit;
+  const realPeaRatio = peaPart / totalInvested;
+
+  return realPeaRatio * 0.186 + (1 - realPeaRatio) * 0.314;
 }
 
 /**

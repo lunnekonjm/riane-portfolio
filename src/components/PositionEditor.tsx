@@ -774,7 +774,7 @@ function autoGenerateThemes(
               <input
                 className="input mono"
                 type="number"
-                step="1"
+                step="any"
                 min="0"
                 value={form.quantity || ''}
                 onChange={(e) => handleNumberChange('quantity', e.target.value)}
@@ -787,7 +787,7 @@ function autoGenerateThemes(
               <input
                 className="input mono"
                 type="number"
-                step="0.01"
+                step="any"
                 min="0"
                 value={form.avgPrice || ''}
                 onChange={(e) => handleNumberChange('avgPrice', e.target.value)}
@@ -800,7 +800,7 @@ function autoGenerateThemes(
               <input
                 className="input mono"
                 type="number"
-                step="0.01"
+                step="any"
                 min="0"
                 value={form.currentPrice || ''}
                 onChange={(e) => handleOptionalNumber('currentPrice', e.target.value)}

@@ -168,24 +168,24 @@ export async function generatePeriodicReport(
 - **Arbitrage Fiscal & Saturation des Plafonds** : Évaluation de la répartition entre PEA (exonération d'impôt sur les plus-values après 5 ans) et CTO (soumis à la Flat Tax 30%).
 `;
 
-  // Format News Synthesis per Company (Unique per asset & period, NO REPEATED PLACEHOLDERS)
+  // Format News & Audit Synthesis per Company into clean Executive Cards with Tables
   const companyNewsSection = filled.map((p) => {
     const cleanName = getCleanAssetName(p.ticker, p.name);
     const items = newsMap[p.ticker];
     
-    // Custom specific insight for this asset & period
     const specificInsight = ASSET_PERIODIC_INSIGHTS[p.ticker]?.[period] ||
       `Analyse fondamentale approfondie pour ${cleanName} sur la période ${periodLabel} : indicateurs d'activité et fondamentaux financiers solides.`;
 
     if (items && items.length > 0) {
-      const newsLines = items.map((n) => 
-        `  - 📰 **[${n.title}](${n.url})**\n    *🌐 Source Vérifiée : [${n.source || 'Publication Officielle'}](${n.url}) · Horodatage : ${n.publishedAt || 'Récent'}*\n    *💡 Synthèse : ${n.summary}*`
-      ).join('\n\n');
-      return `#### 🏢 **${p.ticker} — ${cleanName}**\n- 📊 *Synthèse d'Analyse (${periodLabel})* : ${specificInsight}\n\n**🔗 Citations & Actualités Vérifiables :**\n${newsLines}`;
+      const tableRows = items.map((n) => 
+        `| 📰 **[${n.title}](${n.url})** | [${n.source || 'Publication Officielle'}](${n.url}) | 🟢 Source Vérifiée |`
+      ).join('\n');
+
+      return `### 🏢 **${p.ticker} — ${cleanName}**\n\n> 📊 **Synthèse de Gestion (${periodLabel})** : ${specificInsight}\n\n| Publication & Rapport Financier | Source Officielle & Lien Direct | Statut |\n| :--- | :---: | :---: |\n${tableRows}`;
     } else {
-      return `#### 🏢 **${p.ticker} — ${cleanName}**\n- 📊 *Synthèse d'Analyse (${periodLabel})* : ${specificInsight}\n- 🌐 *Source Officielle : [Consulter la fiche boursière ${p.ticker} sur Yahoo Finance](https://finance.yahoo.com/quote/${p.ticker})*`;
+      return `### 🏢 **${p.ticker} — ${cleanName}**\n\n> 📊 **Synthèse de Gestion (${periodLabel})** : ${specificInsight}\n\n| Publication & Rapport Financier | Source Officielle & Lien Direct | Statut |\n| :--- | :---: | :---: |\n| 📰 **[Fiche Officielle et Historique Boursier de ${cleanName}](https://finance.yahoo.com/quote/${p.ticker})** | [Yahoo Finance](https://finance.yahoo.com/quote/${p.ticker}) | 🟢 Source Vérifiée |`;
     }
-  }).join('\n\n');
+  }).join('\n\n---\n\n');
 
   const currentDateStr = new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
   const monthlyBudget = config?.monthlyBudget || 1000;

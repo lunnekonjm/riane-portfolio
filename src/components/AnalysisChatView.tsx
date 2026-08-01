@@ -12,6 +12,7 @@ export interface ChatMessage {
   status: AnalysisStatus;
   statusMessage: string;
   createdAt: number;
+  appliedAction?: boolean;
 }
 
 export interface ChatSession {
@@ -21,20 +22,86 @@ export interface ChatSession {
   messages: ChatMessage[];
 }
 
+export interface ActionableIntent {
+  type: 'UPDATE_TARGET_WEIGHTS' | 'UPDATE_MONTHLY_DCA' | 'APPLY_REBALANCE';
+  title: string;
+  description: string;
+  changes: Array<{
+    ticker: string;
+    label: string;
+    field: 'targetWeight' | 'monthlyDCA';
+    newValue: number;
+    formattedValue: string;
+  }>;
+}
+
 interface AnalysisChatViewProps {
   userUid: string;
   positions: any[];
   config: any;
+  updatePosition: (pos: any, customReason?: string) => Promise<any>;
+  updateConfig: (cfg: any) => Promise<any>;
   onOpenGlossary: (term?: string) => void;
   showToast: (msg: string, type?: 'success' | 'error') => void;
 }
 
 const LOCAL_STORAGE_KEY = 'riane_chat_sessions_v1';
 
+/**
+ * Détecte les intentions d'actions concrètes à partir de la synthèse de l'IA
+ */
+function extractActionableIntent(synthesisText: string, positions: any[]): ActionableIntent | null {
+  if (!synthesisText) return null;
+
+  const text = synthesisText.toLowerCase();
+
+  // Détection des propositions de ciblage de poids (Memscap, Riber, ETF Cœur, etc.)
+  if (text.includes('cible') || text.includes('répartition') || text.includes('poids') || text.includes('allocation')) {
+    const changes: ActionableIntent['changes'] = [];
+
+    // Recherche de pourcentages cibles associés à des tickers dans le texte
+    positions.forEach((pos) => {
+      const nameClean = pos.name.toLowerCase();
+      const tickerClean = pos.ticker.toLowerCase().replace('.pa', '').replace('.f', '');
+
+      if (text.includes(tickerClean) || text.includes(nameClean)) {
+        // Regex pour trouver des % cibles proches du ticker
+        const pctRegex = new RegExp(`(?:${tickerClean}|${nameClean})[\\s\\S]{0,80}?(\\d+(?:[.,]\\d+)?)\\s*%`, 'i');
+        const match = synthesisText.match(pctRegex);
+        if (match && match[1]) {
+          const val = parseFloat(match[1].replace(',', '.'));
+          if (val > 0 && val <= 100) {
+            changes.push({
+              ticker: pos.ticker,
+              label: pos.name,
+              field: 'targetWeight',
+              newValue: val / 100, // Stocké en décimal (ex: 0.05 pour 5%)
+              formattedValue: `${val.toFixed(1)}%`,
+            });
+          }
+        }
+      }
+    });
+
+    if (changes.length > 0) {
+      return {
+        type: 'UPDATE_TARGET_WEIGHTS',
+        title: 'Mise à jour automatique des Poids Cibles',
+        description: `L'analyse IA préconise d'ajuster les cibles de répartition de vos positions pour optimiser le profil de risque :`,
+        changes,
+      };
+    }
+  }
+
+  return null;
+}
+
 export function AnalysisChatView({
   userUid,
   positions,
   config,
+  updatePosition,
+  updateConfig,
   onOpenGlossary,
   showToast,
 }: AnalysisChatViewProps) {
@@ -42,9 +109,9 @@ export function AnalysisChatView({
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [queryInput, setQueryInput] = useState('');
   const [isRunning, setIsRunning] = useState(false);
+  const [applyingActionMsgId, setApplyingActionMsgId] = useState<string | null>(null);
   const chatBottomRef = useRef<HTMLDivElement>(null);
 
-  // Charger les sessions sauvegardées depuis localStorage au montage
   useEffect(() => {
     if (typeof window !== 'undefined') {
       try {
@@ -61,11 +128,9 @@ export function AnalysisChatView({
         console.warn('[AnalysisChatView] Erreur de chargement du localStorage:', err);
       }
     }
-    // Si aucune session n'existe, en créer une nouvelle par défaut
     createNewSession();
   }, []);
 
-  // Sauvegarder dans localStorage dès que la liste des sessions change
   useEffect(() => {
     if (typeof window !== 'undefined' && sessions.length > 0) {
       try {
@@ -76,7 +141,6 @@ export function AnalysisChatView({
     }
   }, [sessions]);
 
-  // Fait défiler automatiquement vers le bas de la discussion
   const scrollToBottom = () => {
     setTimeout(() => {
       chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -113,6 +177,56 @@ export function AnalysisChatView({
 
   const activeSession = sessions.find((s) => s.id === activeSessionId) || sessions[0];
 
+  const handleApplyAction = async (msgId: string, action: ActionableIntent) => {
+    setApplyingActionMsgId(msgId);
+    try {
+      let updatedCount = 0;
+
+      for (const change of action.changes) {
+        const pos = positions.find((p) => p.ticker.toUpperCase() === change.ticker.toUpperCase());
+        if (pos) {
+          if (change.field === 'targetWeight') {
+            await updatePosition({
+              ...pos,
+              targetWeight: change.newValue,
+              updatedAt: Date.now(),
+            });
+            updatedCount++;
+          } else if (change.field === 'monthlyDCA') {
+            await updatePosition({
+              ...pos,
+              monthlyDCA: change.newValue,
+              updatedAt: Date.now(),
+            });
+            updatedCount++;
+          }
+        }
+      }
+
+      // Marquer le message comme ayant appliqué l'action
+      setSessions((prev) =>
+        prev.map((session) => {
+          if (session.id === activeSession?.id) {
+            return {
+              ...session,
+              messages: session.messages.map((m) =>
+                m.id === msgId ? { ...m, appliedAction: true } : m
+              ),
+            };
+          }
+          return session;
+        })
+      );
+
+      showToast(`🎉 Succès ! ${updatedCount} paramètre(s) du portefeuille mis à jour selon la recommandation IA !`);
+    } catch (err: any) {
+      console.error(err);
+      showToast('Erreur lors de l\'application automatique de l\'action', 'error');
+    } finally {
+      setApplyingActionMsgId(null);
+    }
+  };
+
   const handleSendMessage = async (customPrompt?: string) => {
     const textToSend = (customPrompt || queryInput).trim();
     if (!textToSend || isRunning) return;
@@ -122,7 +236,6 @@ export function AnalysisChatView({
       return;
     }
 
-    // 1. EFFACER IMMÉDIATEMENT LA BARRE DE SAISIE (Subtilité UI/UX demandée)
     if (!customPrompt) {
       setQueryInput('');
     }
@@ -139,7 +252,6 @@ export function AnalysisChatView({
       createdAt: Date.now(),
     };
 
-    // Mettre à jour le titre de la session si c'est le premier message
     setSessions((prev) =>
       prev.map((s) => {
         if (s.id === (activeSession?.id || activeSessionId)) {
@@ -235,9 +347,9 @@ export function AnalysisChatView({
   };
 
   const suggestedPrompts = [
+    'Analyse mon portefeuille et les répartitions par cible pourcentage',
     'Analyse Coherent (COHR) et son exposition IA',
     'Faut-il rééquilibrer Riber ou accumuler sur baisse ?',
-    'Évalue le risque global de mon portefeuille PEA',
     'Compare Constellation Energy à mon allocation ACWI',
   ];
 
@@ -251,7 +363,7 @@ export function AnalysisChatView({
         alignItems: 'stretch',
       }}
     >
-      {/* 📜 SIDEBAR HISTORIQUE DES DISCUSSIONS (Style Gemini / Claude / ChatGPT) */}
+      {/* 📜 SIDEBAR HISTORIQUE DES DISCUSSIONS */}
       <div
         style={{
           background: 'var(--bg-secondary)',
@@ -357,7 +469,6 @@ export function AnalysisChatView({
           overflow: 'hidden',
         }}
       >
-        {/* En-tête de la discussion active */}
         <div
           style={{
             padding: '14px 20px',
@@ -388,7 +499,6 @@ export function AnalysisChatView({
           </button>
         </div>
 
-        {/* Fil des messages multi-tours */}
         <div
           style={{
             flex: 1,
@@ -434,104 +544,161 @@ export function AnalysisChatView({
             </div>
           )}
 
-          {activeSession?.messages.map((msg, index) => (
-            <div key={msg.id} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              {/* Message de l'utilisateur */}
-              <div
-                style={{
-                  alignSelf: 'flex-end',
-                  maxWidth: '80%',
-                  background: 'linear-gradient(135deg, rgba(6, 182, 212, 0.2), rgba(124, 58, 237, 0.2))',
-                  border: '1px solid var(--accent-cyan)',
-                  padding: '12px 16px',
-                  borderRadius: '16px 16px 4px 16px',
-                  color: 'white',
-                  fontSize: 14,
-                  fontWeight: 600,
-                  boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
-                }}
-              >
-                👤 {msg.query}
-              </div>
+          {activeSession?.messages.map((msg) => {
+            const action = msg.result?.synthesis ? extractActionableIntent(msg.result.synthesis, positions) : null;
 
-              {/* Statut de chargement pendant l'analyse */}
-              {msg.status !== 'synthesis' && msg.status !== 'error' && (
+            return (
+              <div key={msg.id} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                 <div
                   style={{
-                    alignSelf: 'flex-start',
-                    maxWidth: '85%',
-                    background: 'var(--bg-tertiary)',
+                    alignSelf: 'flex-end',
+                    maxWidth: '80%',
+                    background: 'linear-gradient(135deg, rgba(6, 182, 212, 0.2), rgba(124, 58, 237, 0.2))',
+                    border: '1px solid var(--accent-cyan)',
                     padding: '12px 16px',
-                    borderRadius: '16px 16px 16px 4px',
-                    border: '1px solid var(--border-subtle)',
-                    fontSize: 13,
-                    color: 'var(--accent-cyan)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 8,
+                    borderRadius: '16px 16px 4px 16px',
+                    color: 'white',
+                    fontSize: 14,
+                    fontWeight: 600,
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
                   }}
                 >
-                  <span className="loading-spinner" style={{ width: 16, height: 16 }} />
-                  {msg.statusMessage || 'Analyse multi-agents en cours...'}
+                  👤 {msg.query}
                 </div>
-              )}
 
-              {/* Réponse de l'Assistant IA (Synthèse Générée) */}
-              {msg.result && (
-                <div
-                  style={{
-                    alignSelf: 'flex-start',
-                    maxWidth: '90%',
-                    background: 'var(--bg-tertiary)',
-                    padding: 20,
-                    borderRadius: '16px 16px 16px 4px',
-                    border: '1px solid var(--border-accent)',
-                    boxShadow: '0 8px 24px rgba(0,0,0,0.3)',
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14, borderBottom: '1px solid var(--border-subtle)', paddingBottom: 10 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <span className="badge badge-cyan">🎯 Synthèse Analyste IA</span>
-                      {msg.result.research?.isGrounded && <span className="badge badge-emerald">✨ Ancrage Web Direct</span>}
-                    </div>
-                    <span style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>
-                      {new Date(msg.createdAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
-                    </span>
+                {msg.status !== 'synthesis' && msg.status !== 'error' && (
+                  <div
+                    style={{
+                      alignSelf: 'flex-start',
+                      maxWidth: '85%',
+                      background: 'var(--bg-tertiary)',
+                      padding: '12px 16px',
+                      borderRadius: '16px 16px 16px 4px',
+                      border: '1px solid var(--border-subtle)',
+                      fontSize: 13,
+                      color: 'var(--accent-cyan)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 8,
+                    }}
+                  >
+                    <span className="loading-spinner" style={{ width: 16, height: 16 }} />
+                    {msg.statusMessage || 'Analyse multi-agents en cours...'}
                   </div>
+                )}
 
-                  {/* Formatage Markdown propre */}
-                  {msg.result.synthesis ? (
-                    <MarkdownRenderer content={msg.result.synthesis} />
-                  ) : (
-                    <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
-                      {msg.result.research?.fundamentals?.summary || 'Analyse terminée avec succès.'}
-                    </p>
-                  )}
-
-                  {msg.result.recommendation && (
-                    <div style={{ marginTop: 14, padding: 12, background: 'var(--bg-secondary)', borderRadius: 10, border: '1px solid var(--border-subtle)', display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-                      <div>
-                        <span style={{ fontSize: 10, color: 'var(--text-tertiary)', textTransform: 'uppercase' }}>Action</span>
-                        <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--accent-cyan)' }}>{msg.result.recommendation.action}</div>
+                {msg.result && (
+                  <div
+                    style={{
+                      alignSelf: 'flex-start',
+                      maxWidth: '90%',
+                      background: 'var(--bg-tertiary)',
+                      padding: 20,
+                      borderRadius: '16px 16px 16px 4px',
+                      border: '1px solid var(--border-accent)',
+                      boxShadow: '0 8px 24px rgba(0,0,0,0.3)',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14, borderBottom: '1px solid var(--border-subtle)', paddingBottom: 10 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span className="badge badge-cyan">🎯 Synthèse Analyste IA</span>
+                        {msg.result.research?.isGrounded && <span className="badge badge-emerald">✨ Ancrage Web Direct</span>}
                       </div>
-                      <div>
-                        <span style={{ fontSize: 10, color: 'var(--text-tertiary)', textTransform: 'uppercase' }}>Poids Cible</span>
-                        <div style={{ fontSize: 14, fontWeight: 700 }}>{(msg.result.recommendation.weight * 100).toFixed(1)}%</div>
-                      </div>
-                      <div>
-                        <span style={{ fontSize: 10, color: 'var(--text-tertiary)', textTransform: 'uppercase' }}>Confiance</span>
-                        <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--accent-emerald)' }}>{msg.result.recommendation.confidence.toUpperCase()}</div>
-                      </div>
+                      <span style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>
+                        {new Date(msg.createdAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                      </span>
                     </div>
-                  )}
-                </div>
-              )}
-            </div>
-          ))}
+
+                    {msg.result.synthesis ? (
+                      <MarkdownRenderer content={msg.result.synthesis} />
+                    ) : (
+                      <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
+                        {msg.result.research?.fundamentals?.summary || 'Analyse terminée avec succès.'}
+                      </p>
+                    )}
+
+                    {/* ⚡ BANNIÈRE D'ACTION INTERACTIVE 1-CLICK (SI UNE ACTION EST SUGGÉRÉE) */}
+                    {action && (
+                      <div
+                        style={{
+                          marginTop: 18,
+                          padding: 16,
+                          background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.12), rgba(6, 182, 212, 0.12))',
+                          borderRadius: 12,
+                          border: '1px solid var(--accent-emerald)',
+                          boxShadow: '0 4px 16px rgba(16, 185, 129, 0.15)',
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+                          <span style={{ fontSize: 20 }}>⚡</span>
+                          <strong style={{ fontSize: 14, color: 'var(--accent-emerald)' }}>{action.title}</strong>
+                        </div>
+
+                        <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 12, lineHeight: 1.4 }}>
+                          {action.description}
+                        </p>
+
+                        <div style={{ background: 'var(--bg-secondary)', padding: 12, borderRadius: 8, border: '1px solid var(--border-subtle)', marginBottom: 14 }}>
+                          {action.changes.map((c, i) => (
+                            <div key={i} style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 4 }}>
+                              • <span style={{ color: 'var(--accent-cyan)' }}>{c.label} ({c.ticker})</span> ➔ Cible préconisée : <span style={{ color: 'var(--accent-emerald)' }}>{c.formattedValue}</span>
+                            </div>
+                          ))}
+                        </div>
+
+                        {msg.appliedAction ? (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 700, color: 'var(--accent-emerald)' }}>
+                            <span>✅</span> Paramètres mis à jour automatiquement sur votre portefeuille !
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            className="btn btn-primary"
+                            onClick={() => handleApplyAction(msg.id, action)}
+                            disabled={applyingActionMsgId === msg.id}
+                            style={{
+                              width: '100%',
+                              justifyContent: 'center',
+                              padding: '10px 16px',
+                              fontWeight: 700,
+                              fontSize: 13,
+                              background: 'linear-gradient(135deg, var(--accent-emerald), var(--accent-cyan))',
+                            }}
+                          >
+                            {applyingActionMsgId === msg.id ? (
+                              <span className="loading-spinner" />
+                            ) : (
+                              '⚡ Appliquer automatiquement cette configuration au portefeuille'
+                            )}
+                          </button>
+                        )}
+                      </div>
+                    )}
+
+                    {msg.result.recommendation && (
+                      <div style={{ marginTop: 14, padding: 12, background: 'var(--bg-secondary)', borderRadius: 10, border: '1px solid var(--border-subtle)', display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+                        <div>
+                          <span style={{ fontSize: 10, color: 'var(--text-tertiary)', textTransform: 'uppercase' }}>Action</span>
+                          <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--accent-cyan)' }}>{msg.result.recommendation.action}</div>
+                        </div>
+                        <div>
+                          <span style={{ fontSize: 10, color: 'var(--text-tertiary)', textTransform: 'uppercase' }}>Poids Cible</span>
+                          <div style={{ fontSize: 14, fontWeight: 700 }}>{(msg.result.recommendation.weight * 100).toFixed(1)}%</div>
+                        </div>
+                        <div>
+                          <span style={{ fontSize: 10, color: 'var(--text-tertiary)', textTransform: 'uppercase' }}>Confiance</span>
+                          <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--accent-emerald)' }}>{msg.result.recommendation.confidence.toUpperCase()}</div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
           <div ref={chatBottomRef} />
         </div>
 
-        {/* ✏️ BARRE D'ÉCRITURE & ENVOI DE QUESTION */}
         <div
           style={{
             padding: 16,

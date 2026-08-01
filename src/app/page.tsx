@@ -1510,12 +1510,14 @@ export default function HomePage() {
             );
           })()}
 
-          {/* ═══ ANALYSIS (Modern AI Chat with Sidebar History & Multi-turn Threads) ═══ */}
+          {/* ═══ ANALYSIS (Modern AI Chat with 1-Click Interactive Actions & Sidebar History) ═══ */}
           {currentView === 'analysis' && (
             <AnalysisChatView
               userUid={user.uid}
               positions={positions}
               config={config}
+              updatePosition={updatePosition}
+              updateConfig={updateConfig}
               onOpenGlossary={openGlossary}
               showToast={(msg, type) => showToast(msg, type)}
             />

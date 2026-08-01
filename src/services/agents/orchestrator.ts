@@ -103,46 +103,37 @@ function buildDeterministicSynthesis(
   const ticker = context.ticker || 'L\'actif';
   const name = dataResult.data?.marketData?.name || ticker;
   const price = dataResult.data?.marketData?.price;
-  const currency = dataResult.data?.marketData?.currency || 'USD';
-  const action = portfolioResult.data?.proposedAction || 'avoid';
-  const explanation = portfolioResult.data?.marginalUtility?.explanation || 'Cet actif présente une redondance significative avec les ETF indiciels de votre portefeuille.';
+  const currency = dataResult.data?.marketData?.currency || 'EUR';
+  const explanation = portfolioResult.data?.marginalUtility?.explanation || 'Votre portefeuille présente actuellement une structure équilibrée.';
 
-  const actionLabel =
-    action === 'avoid' ? '🔴 Non recommandé (Redondance ou Éligibilité)' :
-    action === 'initiate' ? '🟢 Pertinent — Opportunité d\'investissement identifiée' :
-    action === 'wait' ? '🟡 À surveiller — Attendre une meilleure opportunité' :
-    '🟡 À privilégier via vos ETF indiciels en PEA';
-
-  return `# 🎯 Recommandation & Pertinence
-**${actionLabel}** pour ${name} (${ticker}${price ? ` à ${price} ${currency}` : ''}).
+  // Si c'est une question générale sur le portefeuille sans besoin d'action immédiate
+  if (!context.ticker) {
+    return `# 🛡️ Diagnostic du Portefeuille
 
 ${explanation}
 
----
+✅ **Structure globale** : Votre socle indiciel (ETF MSCI ACWI / PEA) assure la diversification. Vos lignes satellites sont correctement ventilées entre vos enveloppes PEA, PEA-PME et CTO.
 
-### 📊 1. Analyse de Redondance & Recouvrement (Overlap)
-L'analyse de votre portefeuille indique que **${name} (${ticker})** fait déjà partie des principales pondérations de vos ETF indiciels (notamment l'**ETF Nasdaq-100 PUST.PA** et l'**ETF MSCI ACWI GPEA.PA**). Ajouter cette ligne séparée en direct augmenterait votre risque spécifique sans gain d'utilité marginale.
+💡 **Recommandation** : Aucun rééquilibrage immédiat n'est requis. Poursuivez votre versement DCA mensuel habituel sur le socle stabilisateur.`;
+  }
 
----
+  const action = portfolioResult.data?.proposedAction || 'avoid';
+  const actionLabel =
+    action === 'avoid' ? '🔴 Non recommandé (Redondance ou Éligibilité)' :
+    action === 'initiate' ? '🟢 Pertinent — Opportunité d\'accumulation' :
+    '🟡 Conserver via vos ETF PEA';
 
-### 🏛️ 2. Éligibilité & Optimisation Enveloppe Fiscale (PEA vs CTO)
-- **Éligibilité PEA** : Les actions américaines/étrangères ne sont pas éligibles au PEA en direct. Une détention en Compte-Titres Ordinaire (CTO) entraîne la **Flat Tax / PFU de 30.0%** (12.8% IR + 18.6% PS).
-- **Avantage Fiscal PEA** : Passer par vos ETF indiciels en PEA vous fait bénéficier d'une **exonération totale d'impôt sur le revenu (0% IR)** après 5 ans, ne laissant que 18.6% de prélèvements sociaux.
+  return `# 🎯 Analyse : ${name} (${ticker})
 
----
+**Verdict** : ${actionLabel}${price ? ` (Cours actuel : ${price} ${currency})` : ''}
 
-### 💸 3. Stratégie DCA & Allocation des Flux
-En conservant un plan d'accumulation mensuel axé sur vos piliers indiciels (**GPEA.PA** et **PUST.PA**), vous réalisez un rééquilibrage automatique par les flux sans surcharger la gestion de votre portefeuille.
+${explanation}
 
----
-
-### 🛡️ 4. Alternative Optimale Recommandée
-Conservez et renforcez votre exposition à **${name}** à travers votre **ETF PEA Nasdaq-100 (PUST.PA)** plutôt que d'acheter l'action en direct en CTO.`;
+### 💡 Recommandation Synthétique :
+- **Recouvrement** : Cet actif est déjà représenté dans la poche indicielle de votre PEA.
+- **Enveloppe** : Privilégier les versements DCA sur vos ETF PEA pour bénéficier de l'exonération d'impôt sur le revenu après 5 ans.`;
 }
 
-/**
- * Generate synthesis from all agent results
- */
 async function generateSynthesis(
   context: AgentContext,
   dataResult: AgentResult,
@@ -163,30 +154,28 @@ async function generateSynthesis(
     const model = getGenerativeModel(ai, {
       model: selection.modelId,
       generationConfig: { maxOutputTokens: 2048 },
-      systemInstruction: `Tu es l'analyste stratégique en chef du portefeuille de RIANE.
-Tu produis une réponse hyper-structurée, claire, proactive et directement actionnable pour l'utilisateur.
+      systemInstruction: `Tu es l'analyste financier stratégique du portefeuille RIANE.
+RÈGLE D'OR : SOIS CONCIS, DIRECT, ADAPTATIF ET SANS BAVARDAGE OU TITRES FIGÉS INUTILES.
 
-STRUCTURE OBLIGATOIRE DE LA RÉPONSE :
+CONSIGNES DE RÉPONSE ADAPTATIVE :
 
-# 🎯 Recommandation & Pertinence
-Donne un verdict clair dès la première ligne (ex: 🟢 Pertinent / 🟡 À privilégier via ETF / 🔴 Non recommandé). Explique brièvement pourquoi.
+1. SI LE PORTEFEUILLE EST DÉJÀ OPTIMAL OU QU'IL N'Y A RIEN À RÉÉQUILIBRER :
+   - Dis-le directement et clairement en 2 à 4 phrases maximum.
+   - Exemple : "✅ Votre portefeuille PEA est actuellement parfaitement équilibré. Votre socle Amundi MSCI ACWI (GPEA.PA) assure la stabilité globale et aucun rééquilibrage n'est nécessaire ce mois-ci."
+   - NE GÉNÈRE PAS de grands plans rigides en 4 étapes si tout est en ordre !
 
-### 📊 1. Analyse de Redondance & Recouvrement (Overlap)
-Explique précisément dans quelle mesure cet actif est DÉJÀ détenu indirectement via les ETF existants du portefeuille (ex: ETF Nasdaq PUST.PA ou ETF MSCI ACWI GPEA.PA). Donne des chiffres concrets.
+2. SI L'UTILISATEUR POSE UNE QUESTION SPÉCIFIQUE (ex: Niveau de prix, Risque, Fiscalité, Cours d'un actif) :
+   - Réponds DIRECTEMENT à sa question précise en premier paragraphe.
+   - Pour une question de niveau de prix (ex: "À quel prix racheter Riber ?") : Donne directement les zones de support, le PRU cible et la recommandation d'accumulation DCA. Ne force pas de pavés génériques sur l'overlap ou la Flat Tax si la question porte sur le prix d'entrée.
 
-### 🏛️ 2. Éligibilité & Optimisation Enveloppe Fiscale (PEA vs CTO)
-Précise l'enveloppe éligible (PEA, PEA-PME ou CTO). Si l'actif est uniquement éligible au CTO, explique l'impact de la Flat Tax 30% par rapport à l'exonération PEA (18.6% PS seuls).
+3. SI L'UTILISATEUR DEMANDE L'ANALYSE D'UN NOUVEL ACTIF OU UN RÉÉQUILIBRAGE COMPLET :
+   - Donne un verdict clair dès le début (🟢 Pertinent / 🟡 À surveiller / 🔴 Non recommandé).
+   - Aborde synthétiquement les points essentiels SANS blabla inutile.
 
-### 💸 3. Stratégie DCA & Allocation des Flux
-Explique comment cet achat s'intègre avec le budget DCA mensuel du portefeuille.
-
-### 🛡️ 4. Alternative Optimale Recommandée
-Donne la meilleure alternative d'investissement (ex: "Conserver l'exposition via l'ETF PUST.PA en PEA plutôt qu'acheter l'action en direct en CTO").
-
-Style : Professionnel, pédagogue, structuré avec des émoticônes claires et des titres lisibles.`,
+Style : Professionnel, pédagogue, fluide, concis, structuré uniquement quand c'est nécessaire.`,
     });
 
-    const prompt = `Analyse stratégique pour "${context.ticker || context.query}" — Requête utilisateur : "${context.query}"
+    const prompt = `Analyse pour la requête utilisateur : "${context.query}"
 
 PORTEFEUILLE ACTUEL DE L'UTILISATEUR :
 ${JSON.stringify(context.portfolioPositions.map(p => ({ ticker: p.ticker, name: p.name, envelope: p.envelope, qty: p.quantity, pru: p.avgPrice })), null, 2)}
@@ -203,7 +192,7 @@ ${JSON.stringify(portfolioResult?.data || {}, null, 2)}
 RÉSERVES DU CONTRADICTEUR :
 ${JSON.stringify(criticResult?.data || {}, null, 2)}
 
-Produis la synthèse finale proactive et structurée.`;
+Produis la réponse adaptative, directe et concise sans blabla rigide.`;
 
     const result = await model.generateContent(prompt);
     await recordUsage(selection.modelId, 'generation', 'success');

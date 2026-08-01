@@ -1,7 +1,7 @@
 /**
  * Gemini AI Client — RIANE Portfolio
- * Utilise les modèles actifs gemini-3.6-flash et gemini-3.5-flash avec la clé utilisateur
- * pour générer une VRAIE synthèse d'analyse financière et de gestion institutionnelle.
+ * Génère une analyse financière approfondie et une synthèse de gestion pour chaque position.
+ * Élimine toute liste à puces redondante avec le tableau des sources.
  */
 
 import { GoogleGenerativeAI } from '@google/generative-ai';
@@ -45,23 +45,22 @@ export async function generateGroundedNewsSummary(
           model: modelName,
         });
 
-        const prompt = `Tu es un Analyste Financier Institutionnel et Gérant de Portefeuille Senior (BlackRock / Amundi).
-Rédige une analyse financière approfondie et une synthèse de gestion pour la société "${cleanName}" (${ticker}).
+        const prompt = `Tu es un Analyste Financier Institutionnel et Gérant de Portefeuille Senior.
+Rédige une analyse financière approfondie pour la société "${cleanName}" (${ticker}).
 
 Données de la position dans le portefeuille RIANE :
 - Valorisation actuelle : ${Math.round(valEUR)} € (${weight.toFixed(1)}% du portefeuille)
 - Performance Latente : ${pnlEUR >= 0 ? '+' : ''}${Math.round(pnlEUR)} € (${pnlPct.toFixed(1)}%)
 
-Articles de presse réels recueillis en direct sur la société :
+Articles de presse réels recueillis en direct :
 ${articlesContext}
 
-Consignes strictes :
-1. Rédige un paragraphe de synthèse financière d'expert de 3 à 4 phrases résumant la situation opérationnelle, la tendance du secteur et le sentiment de marché.
-2. Si des articles sont présents, récapitule les faits sous la forme :
-• **[Média]** ([Date]) : « **[Titre]** »
-3. Termine obligatoirement par une phrase de conclusion sous la forme :
-*Synthèse de la Gestion* : [Ta recommandation claire d'arbitrage ou de conservation].
-4. Ne mets AUCUNE balise HTML (<a href...>) ni aucune URL brute. Rédige avec rigueur en français.`;
+Consignes de rédaction strictes :
+1. Rédige un paragraphe de synthèse financière d'expert de 4 à 5 phrases fluides et cohérentes analysant l'impact des actualités récentes, du secteur et des catalyseurs de marché sur le cours et les fondamentaux.
+2. Ne fais AUCUNE liste à puces de titres d'articles (car les articles sont déjà détaillés dans un tableau dédié juste en dessous).
+3. Termine par une phrase de conclusion sous la forme :
+*Synthèse de la Gestion* : [Ta recommandation claire de gestion ou d'arbitrage].
+4. Ne mets AUCUNE balise HTML (<a href...>) ni aucune URL brute dans le texte. Rédige avec rigueur en français.`;
 
         const result = await model.generateContent(prompt);
         const text = result.response.text();
@@ -70,6 +69,7 @@ Consignes strictes :
           const cleanedText = text
             .replace(/<[^>]*>/g, '')
             .replace(/https?:\/\/\S+/gi, '')
+            .replace(/Revue de la Presse.*?:/gi, '')
             .trim();
 
           return {

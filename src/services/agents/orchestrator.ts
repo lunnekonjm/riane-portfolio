@@ -549,16 +549,20 @@ export async function runAnalysisPipeline(
           { success: true, data: result.critique } as any
         );
 
-    // Build recommendation (Always guaranteed)
-    const expiresIn = 30 * 24 * 60 * 60 * 1000; // 30 days
-    result.recommendation = {
-      action: result.portfolioEval?.proposedAction || 'wait',
-      weight: result.portfolioEval?.proposedWeight || 0.05,
-      fundingSource: result.portfolioEval?.fundingSource || 'DCA Mensuel',
-      conditions: result.portfolioEval?.conditions || [],
-      confidence: result.portfolioEval?.confidence || 'high',
-      expiresAt: Date.now() + expiresIn,
-    };
+    // Build recommendation card ONLY for single-asset queries
+    if (ticker && result.portfolioEval) {
+      const expiresIn = 30 * 24 * 60 * 60 * 1000; // 30 days
+      result.recommendation = {
+        action: result.portfolioEval.proposedAction || 'wait',
+        weight: result.portfolioEval.proposedWeight || 0.05,
+        fundingSource: result.portfolioEval.fundingSource || 'DCA Mensuel',
+        conditions: result.portfolioEval.conditions || [],
+        confidence: result.portfolioEval.confidence || 'high',
+        expiresAt: Date.now() + expiresIn,
+      };
+    } else {
+      result.recommendation = undefined;
+    }
 
     request.status = 'complete';
     result.completedAt = Date.now();

@@ -232,14 +232,15 @@ export async function POST(request: NextRequest) {
         ? `🟢 Plus-value latente de **+${p.pnlEUR.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} €** (+${p.pnlPct.toFixed(1)}%)`
         : `🔴 Moins-value latente de **${p.pnlEUR.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} €** (${p.pnlPct.toFixed(1)}%)`;
 
-      // Attempt AI Google Search Grounding first
+      // Attempt AI Gemini Synthesis using active models (gemini-3.6-flash / gemini-3.5-flash)
       const groundedResult = await generateGroundedNewsSummary(
         p.ticker,
         p.cleanName,
         p.valEUR,
         p.weight,
         p.pnlEUR,
-        p.pnlPct
+        p.pnlPct,
+        articles
       );
 
       if (groundedResult && groundedResult.summaryText) {

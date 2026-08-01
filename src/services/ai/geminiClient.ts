@@ -1,9 +1,11 @@
 /**
- * Gemini AI Client with Google Search Grounding — RIANE Portfolio
- * Génère une synthèse d'actualité et d'analyse financière ancrée en direct sur Google Search
+ * Gemini AI Client — RIANE Portfolio
+ * Utilise les modèles actifs gemini-3.6-flash et gemini-3.5-flash avec la clé utilisateur
+ * pour générer une VRAIE synthèse d'analyse financière et de gestion institutionnelle.
  */
 
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import type { NewsItem } from '../market-data/types';
 
 export interface GroundedNewsSummary {
   ticker: string;
@@ -18,7 +20,8 @@ export async function generateGroundedNewsSummary(
   valEUR: number,
   weight: number,
   pnlEUR: number,
-  pnlPct: number
+  pnlPct: number,
+  articles: NewsItem[]
 ): Promise<GroundedNewsSummary | null> {
   const apiKey = process.env.GEMINI_API_KEY || process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
 
@@ -29,36 +32,41 @@ export async function generateGroundedNewsSummary(
   try {
     const genAI = new GoogleGenerativeAI(apiKey);
     
-    // Test native models with Google Search grounding tool
-    const modelNames = ['gemini-2.0-flash', 'gemini-1.5-pro', 'gemini-1.5-flash'];
+    // Modèles avec quotas actifs (gemini-3.6-flash, gemini-3.5-flash)
+    const activeModels = ['gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-2.5-pro', 'gemini-flash-latest'];
     
-    for (const modelName of modelNames) {
+    const articlesContext = articles.length > 0
+      ? articles.map((a) => `- ${a.source} (${a.publishedAt}) : ${a.title}`).join('\n')
+      : 'Aucun article spécifique récent. Analyse basée sur la santé financière globale.';
+
+    for (const modelName of activeModels) {
       try {
         const model = genAI.getGenerativeModel({
           model: modelName,
-          tools: [{ googleSearch: {} }] as any,
         });
 
-        const prompt = `Tu es un Analyste Financier Institutionnel et Gérant de Portefeuille.
-Fais une analyse récente et vérifiée sur la société "${cleanName}" (${ticker}).
+        const prompt = `Tu es un Analyste Financier Institutionnel et Gérant de Portefeuille Senior (BlackRock / Amundi).
+Rédige une analyse financière approfondie et une synthèse de gestion pour la société "${cleanName}" (${ticker}).
 
-Données de la position actuelle :
-- Valorisation : ${Math.round(valEUR)} € (${weight.toFixed(1)}% du portefeuille)
+Données de la position dans le portefeuille RIANE :
+- Valorisation actuelle : ${Math.round(valEUR)} € (${weight.toFixed(1)}% du portefeuille)
 - Performance Latente : ${pnlEUR >= 0 ? '+' : ''}${Math.round(pnlEUR)} € (${pnlPct.toFixed(1)}%)
 
+Articles de presse réels recueillis en direct sur la société :
+${articlesContext}
+
 Consignes strictes :
-1. Recherche sur Google en direct les actualités récentes, résultats financiers, contrats ou recommandations d'analystes sur ${cleanName}.
-2. Rédige 3 à 4 puces concises sous le format :
-• **[Nom de la Source ou Journal]** : « **[Titre ou Fait Marquant]** » — *[Explication synthétique]*
-3. Termine par une phrase de conclusion sous le format :
-*Synthèse de la Gestion* : [Ta conclusion sur l'impact opérationnel et boursier].
-4. Ne mets AUCUNE balise HTML (<a href...>) ni URL brute dans le texte. Résume le fond avec rigueur en français.`;
+1. Rédige un paragraphe de synthèse financière d'expert de 3 à 4 phrases résumant la situation opérationnelle, la tendance du secteur et le sentiment de marché.
+2. Si des articles sont présents, récapitule les faits sous la forme :
+• **[Média]** ([Date]) : « **[Titre]** »
+3. Termine obligatoirement par une phrase de conclusion sous la forme :
+*Synthèse de la Gestion* : [Ta recommandation claire d'arbitrage ou de conservation].
+4. Ne mets AUCUNE balise HTML (<a href...>) ni aucune URL brute. Rédige avec rigueur en français.`;
 
         const result = await model.generateContent(prompt);
         const text = result.response.text();
 
         if (text && text.trim().length > 40) {
-          // Clean any stray raw URL or HTML artifacts
           const cleanedText = text
             .replace(/<[^>]*>/g, '')
             .replace(/https?:\/\/\S+/gi, '')
@@ -72,7 +80,7 @@ Consignes strictes :
           };
         }
       } catch (err: any) {
-        console.warn(`[GeminiClient] Grounding attempt failed for ${modelName}:`, err?.message || err);
+        console.warn(`[GeminiClient] Generation failed for model ${modelName}:`, err?.message || err);
       }
     }
   } catch (err: any) {

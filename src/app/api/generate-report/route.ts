@@ -228,9 +228,11 @@ export async function POST(request: NextRequest) {
       const articles = newsMap[p.ticker] || [];
       const pnlStatus = p.pnlEUR >= 0 ? `🟢 Plus-value latente de +${p.pnlEUR.toFixed(0)} € (+${p.pnlPct.toFixed(1)}%)` : `🔴 Moins-value latente de ${p.pnlEUR.toFixed(0)} € (${p.pnlPct.toFixed(1)}%)`;
 
-      const articleTableRows = articles.map((art) => 
-        `| 📰 **[${art.title}](${art.url})** | [${art.source}](${art.url}) | 🕒 ${art.publishedAt} | 🟢 Source Directe |`
-      ).join('\n');
+      const articleTableRows = articles.length > 0
+        ? articles.map((art) => 
+            `| 📰 **[${art.title}](${art.url})** | [${art.source}](${art.url}) | 🕒 ${art.publishedAt} | 🟢 Presse en Direct |`
+          ).join('\n')
+        : `| ℹ️ Aucune publication de presse spécifique trouvée sur les 7 derniers jours | [Recherche Presse ${p.ticker}](https://news.google.com/search?q=${encodeURIComponent(p.cleanName)}) | En direct | ℹ️ À jour |`;
 
       return `### 🏢 **${p.ticker} — ${p.cleanName}**
 

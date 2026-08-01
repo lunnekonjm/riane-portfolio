@@ -243,21 +243,23 @@ export async function POST(request: NextRequest) {
       );
 
       if (groundedResult && groundedResult.summaryText) {
-        // Render 100% Grounded AI Synthesis
+        // Render 100% Real Grounded AI Synthesis from Gemini API
         const articleTableRows = articles.length > 0
           ? articles
               .map((art) => {
                 let displayTitle = art.title
                   .replace(/<[^>]*>/g, '')
                   .replace(/https?:\/\/\S+/gi, '')
+                  .replace(/[\[\]|]/g, '')
                   .trim();
                 if (!displayTitle) {
                   displayTitle = `Article de Presse Financière (${p.cleanName})`;
                 }
-                if (displayTitle.length > 85) {
-                  displayTitle = `${displayTitle.slice(0, 85)}...`;
+                if (displayTitle.length > 80) {
+                  displayTitle = `${displayTitle.slice(0, 80)}...`;
                 }
-                return `| 📰 **[${displayTitle}](${art.url})** | **${art.source}** | 🕒 ${art.publishedAt} · 🟢 Direct |`;
+                const cleanSource = art.source.replace(/[\[\]|]/g, '').trim();
+                return `| 📰 **[${displayTitle}](${art.url})** | **${cleanSource}** | 🕒 ${art.publishedAt} · 🟢 Direct |`;
               })
               .join('\n')
           : '';
@@ -272,31 +274,11 @@ export async function POST(request: NextRequest) {
 
 #### 📰 **Synthèse du Climat Média & Analyse de la Presse :**
 
+✨ *Analyse par Ancrage IA Google Search Grounding*
+
 ${groundedResult.summaryText}${tableSection}`;
       } else if (articles.length > 0) {
-        // Build Substantive Financial Executive Press Synthesis
-        const titlesText = articles.map((a) => a.title).join(' ; ');
-        const mainTopics: string[] = [];
-
-        if (/cède|vendu|insider|dirigeant|sec|sold|vp/i.test(titlesText)) {
-          mainTopics.push("des transactions d'initiés et cessions d'actions par les dirigeants (déclarations officielles SEC)");
-        }
-        if (/earnings|résultats|chiffre d'affaires|croissance|revenus|bénéfices/i.test(titlesText)) {
-          mainTopics.push("les publications de résultats financiers et les révisions de prévisions d'activité");
-        }
-        if (/jpmorgan|goldman|downgrade|upgrade|objectif|analyste|price target/i.test(titlesText)) {
-          mainTopics.push("les ajustements d'objectifs de cours et de recommandations par les grands bureaux d'études (JPMorgan, Goldman Sachs)");
-        }
-        if (/commande|contrat|rosie|mbe|semi-conducteur|optics|laser|ia|tech/i.test(titlesText)) {
-          mainTopics.push("la dynamique de commandes industrielles et les opportunités liées aux semi-conducteurs et à l'IA");
-        }
-
-        const topicSummary = mainTopics.length > 0
-          ? mainTopics.join(' ainsi que ')
-          : "l'évolution récente du sentiment de marché et des catalyseurs sectoriels";
-
-        const sourcesList = Array.from(new Set(articles.map((a) => a.source))).join(', ');
-
+        // Raw RSS Articles List without ANY fake AI synthesis template
         const bulletPoints = articles
           .map((a) => {
             const cleanTitle = a.title
@@ -307,8 +289,6 @@ ${groundedResult.summaryText}${tableSection}`;
             return `• **${a.source}** (${a.publishedAt}) : « **${cleanTitle}** »`;
           })
           .join('\n\n');
-
-        const pressSummary = `La couverture médiatique récente répertoriée par la presse financière spécialisée (**${sourcesList}**) sur **${p.cleanName} (${p.ticker})** est marquée par **${topicSummary}** :\n\n${bulletPoints}\n\n*Synthèse de la Gestion* : L'analyse combinée de ces publications met en évidence l'impact de ces facteurs sur la trajectoire récente du titre. La gestion maintient un suivi rigoureux des fondamentaux et de la discipline de pondération du portefeuille.`;
 
         const articleTableRows = articles
           .map((art) => {
@@ -334,7 +314,9 @@ ${groundedResult.summaryText}${tableSection}`;
 
 #### 📰 **Synthèse du Climat Média & Analyse de la Presse :**
 
-${pressSummary}
+> ℹ️ **Note de Transparence Média** : Clé \`GEMINI_API_KEY\` non configurée sur Vercel. L'analyse IA ancrée n'a pas pu s'exécuter. Voici la liste brute des articles réels récupérés en direct :
+
+${bulletPoints}
 
 #### 🔗 **Articles de Presse à l'Appui (Sources & Preuves Vérifiables) :**
 

@@ -48,49 +48,62 @@ interface AnalysisChatViewProps {
 const LOCAL_STORAGE_KEY = 'riane_chat_sessions_v1';
 
 /**
- * Détecte les intentions d'actions concrètes à partir de la synthèse de l'IA
+ * Détecte les intentions d'actions concrètes UNIQUEMENT si l'utilisateur a explicitement demandé une modification d'allocation ou de rééquilibrage.
+ * Ne génère PAS de bannière d'action sur des questions de prix, de valorisation, d'audit ou de fiscalité.
  */
-function extractActionableIntent(synthesisText: string, positions: any[]): ActionableIntent | null {
-  if (!synthesisText) return null;
+function extractActionableIntent(query: string, synthesisText: string, positions: any[]): ActionableIntent | null {
+  if (!synthesisText || !query) return null;
 
-  const text = synthesisText.toLowerCase();
+  const queryLower = query.toLowerCase();
 
-  // Détection des propositions de ciblage de poids (Memscap, Riber, ETF Cœur, etc.)
-  if (text.includes('cible') || text.includes('répartition') || text.includes('poids') || text.includes('allocation')) {
-    const changes: ActionableIntent['changes'] = [];
+  // Mots-clés stricts indiquant que l'utilisateur veut modifier l'allocation de son portefeuille
+  const isExplicitAllocationRequest =
+    queryLower.includes('rééquilibrer') ||
+    queryLower.includes('poids cible') ||
+    queryLower.includes('modifier la cible') ||
+    queryLower.includes('changer l\'allocation') ||
+    queryLower.includes('répartir la cible');
 
-    // Recherche de pourcentages cibles associés à des tickers dans le texte
-    positions.forEach((pos) => {
-      const nameClean = pos.name.toLowerCase();
-      const tickerClean = pos.ticker.toLowerCase().replace('.pa', '').replace('.f', '');
+  // Si l'utilisateur pose une question de prix, de cours, de niveau d'achat, de risque ou de fiscalité -> AUCUNE ACTION BANNER
+  if (!isExplicitAllocationRequest) {
+    return null;
+  }
 
-      if (text.includes(tickerClean) || text.includes(nameClean)) {
-        // Regex pour trouver des % cibles proches du ticker
-        const pctRegex = new RegExp(`(?:${tickerClean}|${nameClean})[\\s\\S]{0,80}?(\\d+(?:[.,]\\d+)?)\\s*%`, 'i');
-        const match = synthesisText.match(pctRegex);
-        if (match && match[1]) {
-          const val = parseFloat(match[1].replace(',', '.'));
-          if (val > 0 && val <= 100) {
-            changes.push({
-              ticker: pos.ticker,
-              label: pos.name,
-              field: 'targetWeight',
-              newValue: val / 100, // Stocké en décimal (ex: 0.05 pour 5%)
-              formattedValue: `${val.toFixed(1)}%`,
-            });
-          }
-        }
+  // Ne parser que si la synthèse contient un bloc d'allocation explicite
+  if (!synthesisText.includes('Poids Cible Recommandé') && !synthesisText.includes('Target Weight')) {
+    return null;
+  }
+
+  const changes: ActionableIntent['changes'] = [];
+
+  positions.forEach((pos) => {
+    const tickerClean = pos.ticker.toLowerCase().replace('.pa', '').replace('.f', '');
+
+    // Cherche uniquement dans les lignes contenant explicitement "Cible" ou "Target"
+    const targetLineRegex = new RegExp(`(?:${tickerClean}|${pos.name.toLowerCase()})[\\s\\S]{0,40}?(?:cible|target)[\\s\\S]{0,20}?(\\d+(?:[.,]\\d+)?)\\s*%`, 'i');
+    const match = synthesisText.match(targetLineRegex);
+
+    if (match && match[1]) {
+      const val = parseFloat(match[1].replace(',', '.'));
+      if (val > 0 && val <= 50) { // Plafond de sécurité raisonnable à 50%
+        changes.push({
+          ticker: pos.ticker,
+          label: pos.name,
+          field: 'targetWeight',
+          newValue: val / 100,
+          formattedValue: `${val.toFixed(1)}%`,
+        });
       }
-    });
-
-    if (changes.length > 0) {
-      return {
-        type: 'UPDATE_TARGET_WEIGHTS',
-        title: 'Mise à jour automatique des Poids Cibles',
-        description: `L'analyse IA préconise d'ajuster les cibles de répartition de vos positions pour optimiser le profil de risque :`,
-        changes,
-      };
     }
+  });
+
+  if (changes.length > 0) {
+    return {
+      type: 'UPDATE_TARGET_WEIGHTS',
+      title: 'Mise à jour des Poids Cibles du Portefeuille',
+      description: `Sur la base de votre demande de rééquilibrage, voici les modifications de poids cibles préconisées :`,
+      changes,
+    };
   }
 
   return null;
@@ -554,7 +567,7 @@ export function AnalysisChatView({
           )}
 
           {activeSession?.messages.map((msg) => {
-            const action = msg.result?.synthesis ? extractActionableIntent(msg.result.synthesis, positions) : null;
+            const action = msg.result?.synthesis ? extractActionableIntent(msg.query, msg.result.synthesis, positions) : null;
 
             return (
               <div key={msg.id} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>

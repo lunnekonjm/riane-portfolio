@@ -236,9 +236,25 @@ export async function POST(request: NextRequest) {
         // Build clean, professional Markdown bullet points (NO raw HTML tags, NO raw URL strings in paragraph text!)
         const bulletPoints = articles
           .map((a) => {
-            const cleanTitle = a.title.replace(/https?:\/\/\S+/g, '').trim();
-            const snippet = a.summary && a.summary !== a.title ? ` — *${a.summary.slice(0, 140)}...*` : '';
-            return `• **${a.source}** : « **${cleanTitle}** »${snippet}`;
+            const cleanTitle = a.title
+              .replace(/<[^>]*>/g, '')
+              .replace(/https?:\/\/\S+/gi, '')
+              .trim();
+
+            let cleanSnippet = (a.summary || '')
+              .replace(/<[^>]*>/g, '')
+              .replace(/https?:\/\/\S+/gi, '')
+              .trim();
+
+            if (cleanSnippet.toLowerCase() === cleanTitle.toLowerCase() || cleanSnippet.length < 15) {
+              return `• **${a.source}** : « **${cleanTitle}** »`;
+            }
+
+            if (cleanSnippet.length > 120) {
+              cleanSnippet = `${cleanSnippet.slice(0, 120)}...`;
+            }
+
+            return `• **${a.source}** : « **${cleanTitle}** »\n  *Résumé : ${cleanSnippet}*`;
           })
           .join('\n\n');
 
@@ -247,8 +263,11 @@ export async function POST(request: NextRequest) {
         // 3-Column Table with EXACT Column Matching between Header & Data Rows
         const articleTableRows = articles
           .map((art) => {
-            let displayTitle = art.title.replace(/https?:\/\/\S+/g, '').trim();
-            if (!displayTitle || displayTitle.startsWith('http')) {
+            let displayTitle = art.title
+              .replace(/<[^>]*>/g, '')
+              .replace(/https?:\/\/\S+/gi, '')
+              .trim();
+            if (!displayTitle) {
               displayTitle = `Article de Presse Financière (${p.cleanName})`;
             }
             if (displayTitle.length > 85) {

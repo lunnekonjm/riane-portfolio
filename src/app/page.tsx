@@ -162,6 +162,7 @@ export default function HomePage() {
   const [notificationSettings, setNotificationSettings] = useState<NotificationSettings>(DEFAULT_NOTIFICATION_SETTINGS);
   const [readNotificationIds, setReadNotificationIds] = useState<string[]>([]);
   const [clearedNotificationIds, setClearedNotificationIds] = useState<string[]>([]);
+  const [activeProxyModalAsset, setActiveProxyModalAsset] = useState<any | null>(null);
 
   const [flowRebalanceResult, setFlowRebalanceResult] = useState<FlowRebalanceResult | null>(null);
   const [activeRebalanceResult, setActiveRebalanceResult] = useState<ActiveRebalanceResult | null>(null);
@@ -1701,9 +1702,15 @@ export default function HomePage() {
                               <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
                                 <span style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--text-tertiary)' }}>{asset.ticker}</span>
                                 {asset.isProxySimulated && (
-                                  <span className="badge badge-amber" style={{ fontSize: 9, padding: '1px 5px' }} title={asset.proxyNote}>
-                                    🔒 Simulé via Proxy (Créé en {asset.inceptionYear})
-                                  </span>
+                                  <button
+                                    type="button"
+                                    className="badge badge-amber"
+                                    style={{ fontSize: 9, padding: '1px 6px', cursor: 'pointer', border: '1px solid rgba(245, 158, 11, 0.4)' }}
+                                    onClick={() => setActiveProxyModalAsset(asset)}
+                                    title="Cliquer pour voir l'explication de la simulation par proxy"
+                                  >
+                                    🔒 Simulé via Proxy ({asset.inceptionYear}) 💡
+                                  </button>
                                 )}
                               </div>
                             </div>
@@ -1725,54 +1732,100 @@ export default function HomePage() {
                     );
                   })()}
 
+                  {/* 🎯 NOUVELLE ARCHITECTURE DES RECOMMANDATIONS ET ACTIONS DE GOUVERNANCE CONCRÈTES 1-CLICK */}
                   {selectedStressResult.governanceActions.length > 0 && (
-                    <div style={{ marginTop: 20, padding: 18, background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.12), rgba(6, 182, 212, 0.08))', border: '1px solid var(--accent-amber)', borderRadius: 'var(--radius-md)', boxShadow: '0 4px 20px rgba(0,0,0,0.2)' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
-                        <h4 style={{ fontSize: 15, fontWeight: 700, color: 'var(--accent-amber)', margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <span>🤖</span> Plan d&apos;Action Anti-Crise &amp; Recommandations Multi-Agents
-                        </h4>
+                    <div style={{ marginTop: 24, padding: 20, background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.1), rgba(6, 182, 212, 0.08))', border: '1px solid var(--accent-amber)', borderRadius: 'var(--radius-lg)', boxShadow: '0 8px 32px rgba(0,0,0,0.3)' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, borderBottom: '1px solid var(--border-subtle)', paddingBottom: 12, flexWrap: 'wrap', gap: 10 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                          <span style={{ fontSize: 24 }}>🛡️</span>
+                          <div>
+                            <h4 style={{ fontSize: 16, fontWeight: 700, color: 'var(--accent-amber)', margin: 0 }}>
+                              Plan d&apos;Action &amp; Décisions Stratégiques Anti-Crise
+                            </h4>
+                            <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
+                              Recommandations d&apos;arbitrage concrètes dérivées du comportement de votre portefeuille
+                            </div>
+                          </div>
+                        </div>
                         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                          <span className="badge badge-amber" style={{ fontSize: 10 }}>Modèle Risk Multi-Agents</span>
+                          <span className="badge badge-amber" style={{ fontSize: 10 }}>Moteur de Risque Paramétrique</span>
                           <span className="badge badge-cyan" style={{ fontSize: 10 }}>Gemini 3.5 Lite / 3.6 Flash</span>
                         </div>
                       </div>
 
-                      <div style={{ background: 'var(--bg-tertiary)', padding: 12, borderRadius: 8, border: '1px solid var(--border-subtle)', marginBottom: 14 }}>
-                        {selectedStressResult.governanceActions.map((a, i) => (
-                          <p key={i} style={{ fontSize: 13, color: 'var(--text-primary)', marginBottom: 6, lineHeight: 1.4 }}>
-                            • {a}
-                          </p>
+                      {/* CARTES D'ACTIONS CONCRÈTES 1-CLICK */}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                        {selectedStressResult.actionableGovernancePlans?.map((plan) => (
+                          <div
+                            key={plan.id}
+                            style={{
+                              background: 'var(--bg-tertiary)',
+                              borderRadius: 'var(--radius-md)',
+                              border: '1px solid var(--border-subtle)',
+                              padding: 16,
+                              display: 'flex',
+                              flexDirection: 'column',
+                              gap: 10,
+                            }}
+                          >
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                              <strong style={{ fontSize: 14, color: 'var(--accent-cyan)' }}>🎯 {plan.title}</strong>
+                              <span className="badge badge-amber" style={{ fontSize: 10 }}>Action Recommandée</span>
+                            </div>
+
+                            <p style={{ fontSize: 13, color: 'var(--text-secondary)', margin: 0, lineHeight: 1.4 }}>
+                              <strong>Constat :</strong> {plan.diagnostic}
+                            </p>
+                            <p style={{ fontSize: 13, color: 'var(--text-primary)', margin: 0, lineHeight: 1.4 }}>
+                              <strong>Solution :</strong> {plan.concreteAction}
+                            </p>
+
+                            <button
+                              type="button"
+                              className="btn btn-primary"
+                              style={{
+                                alignSelf: 'flex-start',
+                                marginTop: 6,
+                                padding: '8px 16px',
+                                fontSize: 12,
+                                fontWeight: 700,
+                                background: 'linear-gradient(135deg, var(--accent-emerald), var(--accent-cyan))',
+                              }}
+                              onClick={async () => {
+                                if (plan.actionType === 'UPDATE_TARGET_WEIGHT' && plan.targetTicker && plan.targetValue) {
+                                  const targetPos = positions.find((p) => p.ticker.toUpperCase() === plan.targetTicker?.toUpperCase());
+                                  if (targetPos) {
+                                    await updatePosition({
+                                      ...targetPos,
+                                      targetWeight: plan.targetValue,
+                                      updatedAt: Date.now(),
+                                    });
+                                    showToast(`🎉 Poids cible de ${targetPos.name} ajusté à ${(plan.targetValue * 100).toFixed(1)}% avec succès !`);
+                                  }
+                                } else if (plan.actionType === 'INCREASE_DCA' && plan.targetTicker && plan.targetValue) {
+                                  const acwiPos = positions.find((p) => p.ticker.includes('GPEA') || p.ticker.includes('CW8') || p.name.toLowerCase().includes('acwi'));
+                                  if (acwiPos) {
+                                    await updatePosition({
+                                      ...acwiPos,
+                                      monthlyDCA: (acwiPos.monthlyDCA || 0) + plan.targetValue,
+                                      updatedAt: Date.now(),
+                                    });
+                                    showToast(`🎉 Versment DCA mensuel sur ${acwiPos.name} augmenté à ${(acwiPos.monthlyDCA || 0) + plan.targetValue} €/mois !`);
+                                  }
+                                } else if (plan.actionType === 'CAP_CTO_BUDGET' && plan.targetValue) {
+                                  await updateConfig({
+                                    ...(config || {}),
+                                    annualCTOBudget: plan.targetValue,
+                                  } as any);
+                                  showToast(`🎉 Budget annuel CTO plafonné à ${plan.targetValue} €/an dans la configuration RIANE !`);
+                                }
+                              }}
+                            >
+                              {plan.buttonLabel}
+                            </button>
+                          </div>
                         ))}
                       </div>
-
-                      {/* ⚡ BANNIÈRE D'ACTION INTERACTIVE 1-CLICK DE RÉÉQUILIBRAGE DE SÉCURITÉ */}
-                      <button
-                        type="button"
-                        className="btn btn-primary"
-                        style={{
-                          width: '100%',
-                          justifyContent: 'center',
-                          padding: '10px 16px',
-                          fontWeight: 700,
-                          fontSize: 13,
-                          background: 'linear-gradient(135deg, var(--accent-amber), var(--accent-cyan))',
-                        }}
-                        onClick={async () => {
-                          const acwiPos = positions.find((p) => p.ticker.includes('GPEA') || p.ticker.includes('CW8') || p.name.toLowerCase().includes('acwi'));
-                          if (acwiPos) {
-                            await updatePosition({
-                              ...acwiPos,
-                              monthlyDCA: (acwiPos.monthlyDCA || 0) + 150,
-                              updatedAt: Date.now(),
-                            });
-                            showToast(`🎉 DCA mensuel de ${acwiPos.name} augmenté de 150 € pour sécuriser le portefeuille face au choc !`);
-                          } else {
-                            showToast('Aucun ETF Cœur (ACWI/CW8) identifié pour l\'arbitrage.', 'error');
-                          }
-                        }}
-                      >
-                        ⚡ Appliquer le rééquilibrage de sécurité 1-Click (+150 €/mois sur ETF Cœur ACWI)
-                      </button>
                     </div>
                   )}
                 </div>
@@ -2163,6 +2216,47 @@ export default function HomePage() {
           onNavigateView={setCurrentView}
           onOpenRebalance={openRebalanceModal}
         />
+      )}
+
+      {/* 🔒 Modal d'Explication de la Simulation par Proxy */}
+      {activeProxyModalAsset && (
+        <div className="modal-overlay" onClick={() => setActiveProxyModalAsset(null)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 620, border: '1px solid var(--accent-amber)', boxShadow: '0 8px 32px rgba(245, 158, 11, 0.25)' }}>
+            <div className="modal-header" style={{ borderBottom: '1px solid var(--border-subtle)', paddingBottom: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span style={{ fontSize: 24 }}>🔒</span>
+                <div>
+                  <h2 style={{ fontSize: 17, margin: 0, color: 'var(--accent-amber)' }}>Simulation par Proxy &amp; Reconstitution Historique</h2>
+                  <div style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>{activeProxyModalAsset.name} ({activeProxyModalAsset.ticker})</div>
+                </div>
+              </div>
+              <button className="modal-close-btn" onClick={() => setActiveProxyModalAsset(null)}>✕</button>
+            </div>
+            
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14, fontSize: 13, lineHeight: 1.6, color: 'var(--text-primary)', marginTop: 14 }}>
+              <div style={{ padding: 14, background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)' }}>
+                <h4 style={{ color: 'var(--accent-cyan)', margin: '0 0 6px 0', fontSize: 14 }}>💡 Pourquoi cet actif est-il simulé par Proxy ?</h4>
+                <p style={{ margin: 0, color: 'var(--text-secondary)' }}>
+                  <strong>{activeProxyModalAsset.name}</strong> a été introduit en bourse en <strong>{activeProxyModalAsset.inceptionYear}</strong>, soit <i>après</i> la survenue de ce krach historique.
+                </p>
+              </div>
+
+              <div style={{ padding: 14, background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)' }}>
+                <h4 style={{ color: 'var(--accent-amber)', margin: '0 0 6px 0', fontSize: 14 }}>📐 Méthodologie du Moteur de Risque RIANE</h4>
+                <p style={{ margin: 0, color: 'var(--text-secondary)' }}>
+                  Pour estimer le comportement de vos capitaux actuels pendant cette crise sans laisser de trou dans les données, le moteur RIANE applique au cours de cet actif les variations réelles de son <strong>indice sectoriel de référence (Proxy Benchmark)</strong>.
+                </p>
+                <div style={{ marginTop: 10, padding: 10, background: 'var(--bg-secondary)', borderRadius: 6, border: '1px solid var(--border-subtle)', fontSize: 12, color: 'var(--text-muted)' }}>
+                  {activeProxyModalAsset.proxyNote || 'Modélisation basée sur la sensibilité sectorielle et le risque de change.'}
+                </div>
+              </div>
+
+              <button className="btn btn-primary" onClick={() => setActiveProxyModalAsset(null)} style={{ alignSelf: 'flex-end', marginTop: 6 }}>
+                Fermer l&apos;explication
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* 💡 Modal Justification Thématiques */}

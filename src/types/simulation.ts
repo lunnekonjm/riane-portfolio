@@ -128,6 +128,16 @@ export interface StressTestResult {
   rebalanceCostEstimate: number;
   objectiveImpact: string;
   governanceActions: string[];
+  actionableGovernancePlans?: Array<{
+    id: string;
+    title: string;
+    diagnostic: string;
+    concreteAction: string;
+    buttonLabel: string;
+    actionType: 'UPDATE_TARGET_WEIGHT' | 'INCREASE_DCA' | 'CAP_CTO_BUDGET';
+    targetTicker?: string;
+    targetValue?: number;
+  }>;
   executedAt: number;
 }
 

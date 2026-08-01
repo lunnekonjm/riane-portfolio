@@ -218,6 +218,7 @@ export function runStressTest(
 
   // Dynamic Governance actions based on actual position contributions
   const governanceActions: string[] = [];
+  const actionableGovernancePlans: StressTestResult['actionableGovernancePlans'] = [];
   const lossRatio = Math.abs(totalLoss / totalValue);
 
   // Find top loss contributors
@@ -226,33 +227,52 @@ export function runStressTest(
     .slice(0, 2);
 
   if (worstAssets.length > 0 && worstAssets[0].contributionPercent < -3) {
+    const worst = worstAssets[0];
     governanceActions.push(
-      `Réduire le poids cible de ${worstAssets[0].name} (${worstAssets[0].ticker}) d'au moins 5% pour atténuer l'impact direct du choc.`
+      `Réduire la cible de ${worst.name} (${worst.ticker}) à 5% maximum pour ramener sa contribution à la perte sous les 3%.`
     );
+    actionableGovernancePlans.push({
+      id: `act_${Date.now()}_1`,
+      title: `Fixer un plafond de 5% sur ${worst.name}`,
+      diagnostic: `En cas de krach ${scenario.name}, ${worst.name} génère à lui seul ${Math.abs(worst.contributionPercent).toFixed(1)}% de dépréciation de votre patrimoine.`,
+      concreteAction: `Réduire la cible de ${worst.name} (${worst.ticker}) à 5.0% dans votre allocation d'actifs.`,
+      buttonLabel: `⚡ Appliquer le plafond de 5% sur ${worst.ticker}`,
+      actionType: 'UPDATE_TARGET_WEIGHT',
+      targetTicker: worst.ticker,
+      targetValue: 0.05,
+    });
   }
 
-  if (techExposure > 25) {
+  if (techExposure > 20) {
     governanceActions.push(
-      `Plafonner l'exposition cumulée de la poche Tech / IA (COHR, SYM, PUST) à 30% du portefeuille global pour limiter la contagion.`
+      `Canaliser les prochains versements DCA vers l'ETF Cœur Amundi MSCI ACWI pour diluer la sur-concentration Tech.`
     );
+    actionableGovernancePlans.push({
+      id: `act_${Date.now()}_2`,
+      title: `Renforcer l'ETF Cœur stabilisateur ACWI (+150 €/mois)`,
+      diagnostic: `La poche Technologique / IA génère ${techExposure.toFixed(1)}% des pertes cumulées du krach.`,
+      concreteAction: `Augmenter le DCA mensuel sur l'ETF MSCI ACWI (GPEA.PA) de +150 €/mois pour accélérer le lissage.`,
+      buttonLabel: `⚡ Augmenter le DCA ACWI (+150 €/mois)`,
+      actionType: 'INCREASE_DCA',
+      targetTicker: 'GPEA.PA',
+      targetValue: 150,
+    });
   }
 
-  if (lossRatio > 0.20) {
+  if (lossRatio > 0.15) {
     governanceActions.push(
-      `Canaliser 100% des prochains flux DCA mensuels vers le socle stabilisateur Amundi MSCI ACWI (GPEA.PA).`
+      `Plafonner le budget annuel des titres vifs CTO (COHR, CEG, SYM) à 2 000 €/an.`
     );
-    governanceActions.push(
-      `Activer le seuil d'alerte de liquidité et suspendre les achats d'actions vives à forte volatilité.`
-    );
-  } else {
-    governanceActions.push(
-      `Absorber le choc par rééquilibrage passif lors des versements DCA mensuels habituels.`
-    );
+    actionableGovernancePlans.push({
+      id: `act_${Date.now()}_3`,
+      title: `Plafonner les versements CTO à 2 000 €/an`,
+      diagnostic: `Les titres vifs hors PEA subissent une dépréciation exacerbée combinée au risque de change EUR/USD.`,
+      concreteAction: `Restreindre le budget annuel CTO et réorienter l'excédent vers le PEA.`,
+      buttonLabel: `⚡ Activer la bride de budget CTO (2 000 €/an)`,
+      actionType: 'CAP_CTO_BUDGET',
+      targetValue: 2000,
+    });
   }
-
-  governanceActions.push(
-    `Consigner cette simulation dans le Registre de Risque RIANE avec un indice d'acceptation à 30 jours.`
-  );
 
   return {
     scenario,
@@ -270,6 +290,7 @@ export function runStressTest(
       ? 'Impact majeur sur les objectifs datés — réévaluation nécessaire'
       : 'Impact modéré — plan viable avec ajustements',
     governanceActions,
+    actionableGovernancePlans,
     executedAt: Date.now(),
   };
 }

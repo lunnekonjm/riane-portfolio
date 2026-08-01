@@ -1,12 +1,12 @@
 import type { ModelEntry, QuotaKind } from './modelRegistry';
 
 export type FeatureId =
-  | 'research'           // Analyse fondamentale avec Google Search Grounding
+  | 'research'           // Analyse fondamentale avec Ancrage & Live News Scraper
   | 'portfolio-analysis' // Évaluation utilité marginale portefeuille
   | 'risk-assessment'    // Évaluation risque et stress
   | 'critic'             // Contre-analyse et conformité
   | 'synthesis'          // Synthèse orchestrateur
-  | 'news-scan'          // Scan d'actualités (Google Search obligatoire)
+  | 'news-scan'          // Scan d'actualités
   | 'intent-classifier'; // Guardrail de sécurité et périmètre
 
 export interface FeatureRequirement {
@@ -18,20 +18,28 @@ export interface FeatureRequirement {
 
 export const FEATURE_CHAINS: Record<FeatureId, FeatureRequirement> = {
   research: {
-    requiredCapability: 'grounding',
-    requiredQuotaKind: 'groundingSearch',
-    degradeInsteadOfFallback: true,
-    chain: ['gemini-2.5-flash', 'gemini-flash-latest'],
+    requiredCapability: 'text',
+    requiredQuotaKind: 'generation',
+    degradeInsteadOfFallback: false,
+    chain: [
+      'gemini-3.5-flash-lite',
+      'gemini-3.1-flash-lite',
+      'gemini-3.6-flash',
+      'gemini-3.5-flash',
+      'gemma-4-31b-it',
+      'gemini-flash-latest',
+    ],
   },
   'portfolio-analysis': {
     requiredCapability: 'text',
     requiredQuotaKind: 'generation',
     degradeInsteadOfFallback: false,
     chain: [
+      'gemini-3.5-flash-lite',
+      'gemini-3.1-flash-lite',
       'gemini-3.6-flash',
       'gemini-3.5-flash',
-      'gemini-2.5-flash',
-      'gemini-3.5-flash-lite',
+      'gemma-4-31b-it',
       'gemini-flash-latest',
     ],
   },
@@ -40,10 +48,11 @@ export const FEATURE_CHAINS: Record<FeatureId, FeatureRequirement> = {
     requiredQuotaKind: 'generation',
     degradeInsteadOfFallback: false,
     chain: [
+      'gemini-3.5-flash-lite',
+      'gemini-3.1-flash-lite',
       'gemini-3.6-flash',
       'gemini-3.5-flash',
-      'gemini-2.5-flash',
-      'gemini-3.5-flash-lite',
+      'gemma-4-31b-it',
       'gemini-flash-latest',
     ],
   },
@@ -52,9 +61,11 @@ export const FEATURE_CHAINS: Record<FeatureId, FeatureRequirement> = {
     requiredQuotaKind: 'generation',
     degradeInsteadOfFallback: false,
     chain: [
+      'gemini-3.5-flash-lite',
+      'gemini-3.1-flash-lite',
       'gemini-3.6-flash',
       'gemini-3.5-flash',
-      'gemini-2.5-flash',
+      'gemma-4-31b-it',
       'gemini-flash-latest',
     ],
   },
@@ -63,23 +74,38 @@ export const FEATURE_CHAINS: Record<FeatureId, FeatureRequirement> = {
     requiredQuotaKind: 'generation',
     degradeInsteadOfFallback: false,
     chain: [
+      'gemini-3.5-flash-lite',
+      'gemini-3.1-flash-lite',
       'gemini-3.6-flash',
       'gemini-3.5-flash',
-      'gemini-2.5-flash',
-      'gemini-3.5-flash-lite',
+      'gemma-4-31b-it',
       'gemini-flash-latest',
     ],
   },
   'news-scan': {
-    requiredCapability: 'grounding',
-    requiredQuotaKind: 'groundingSearch',
-    degradeInsteadOfFallback: true,
-    chain: ['gemini-2.5-flash', 'gemini-flash-latest'],
+    requiredCapability: 'text',
+    requiredQuotaKind: 'generation',
+    degradeInsteadOfFallback: false,
+    chain: [
+      'gemini-3.5-flash-lite',
+      'gemini-3.1-flash-lite',
+      'gemini-3.6-flash',
+      'gemini-3.5-flash',
+      'gemma-4-31b-it',
+      'gemini-flash-latest',
+    ],
   },
   'intent-classifier': {
     requiredCapability: 'text',
     requiredQuotaKind: 'generation',
     degradeInsteadOfFallback: false,
-    chain: ['gemini-3.5-flash-lite', 'gemini-2.5-flash', 'gemini-flash-latest'],
+    chain: [
+      'gemini-3.5-flash-lite',
+      'gemini-3.1-flash-lite',
+      'gemini-3.6-flash',
+      'gemini-3.5-flash',
+      'gemma-4-31b-it',
+      'gemini-flash-latest',
+    ],
   },
 };

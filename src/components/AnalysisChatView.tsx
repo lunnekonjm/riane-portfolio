@@ -180,10 +180,15 @@ export function AnalysisChatView({
   const handleApplyAction = async (msgId: string, action: ActionableIntent) => {
     setApplyingActionMsgId(msgId);
     try {
-      let updatedCount = 0;
+      const updatedLabels: string[] = [];
 
       for (const change of action.changes) {
-        const pos = positions.find((p) => p.ticker.toUpperCase() === change.ticker.toUpperCase());
+        const pos = positions.find(
+          (p) =>
+            p.ticker.toUpperCase() === change.ticker.toUpperCase() ||
+            p.name.toLowerCase().includes(change.label.toLowerCase()) ||
+            change.label.toLowerCase().includes(p.name.toLowerCase())
+        );
         if (pos) {
           if (change.field === 'targetWeight') {
             await updatePosition({
@@ -191,14 +196,14 @@ export function AnalysisChatView({
               targetWeight: change.newValue,
               updatedAt: Date.now(),
             });
-            updatedCount++;
+            updatedLabels.push(`${pos.name} (${change.formattedValue})`);
           } else if (change.field === 'monthlyDCA') {
             await updatePosition({
               ...pos,
               monthlyDCA: change.newValue,
               updatedAt: Date.now(),
             });
-            updatedCount++;
+            updatedLabels.push(`${pos.name} (${change.formattedValue} €/mois)`);
           }
         }
       }
@@ -218,7 +223,11 @@ export function AnalysisChatView({
         })
       );
 
-      showToast(`🎉 Succès ! ${updatedCount} paramètre(s) du portefeuille mis à jour selon la recommandation IA !`);
+      if (updatedLabels.length > 0) {
+        showToast(`🎉 Portefeuille mis à jour : ${updatedLabels.join(' · ')}`);
+      } else {
+        showToast('Aucune position correspondante n\'a pu être identifiée dans votre portefeuille.', 'error');
+      }
     } catch (err: any) {
       console.error(err);
       showToast('Erreur lors de l\'application automatique de l\'action', 'error');
@@ -675,22 +684,7 @@ export function AnalysisChatView({
                       </div>
                     )}
 
-                    {msg.result.recommendation && (
-                      <div style={{ marginTop: 14, padding: 12, background: 'var(--bg-secondary)', borderRadius: 10, border: '1px solid var(--border-subtle)', display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-                        <div>
-                          <span style={{ fontSize: 10, color: 'var(--text-tertiary)', textTransform: 'uppercase' }}>Action</span>
-                          <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--accent-cyan)' }}>{msg.result.recommendation.action}</div>
-                        </div>
-                        <div>
-                          <span style={{ fontSize: 10, color: 'var(--text-tertiary)', textTransform: 'uppercase' }}>Poids Cible</span>
-                          <div style={{ fontSize: 14, fontWeight: 700 }}>{(msg.result.recommendation.weight * 100).toFixed(1)}%</div>
-                        </div>
-                        <div>
-                          <span style={{ fontSize: 10, color: 'var(--text-tertiary)', textTransform: 'uppercase' }}>Confiance</span>
-                          <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--accent-emerald)' }}>{msg.result.recommendation.confidence.toUpperCase()}</div>
-                        </div>
-                      </div>
-                    )}
+                    {/* End of synthesis message */}
                   </div>
                 )}
               </div>

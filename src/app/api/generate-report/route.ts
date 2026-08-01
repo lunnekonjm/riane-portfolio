@@ -232,26 +232,44 @@ export async function POST(request: NextRequest) {
 
       if (articles.length > 0) {
         const sourcesList = Array.from(new Set(articles.map((a) => a.source))).join(', ');
-        const headlinesList = articles.map((a) => `« ${a.title} »`).join(' ; ');
-        const pressSummary = `La synthèse des informations de la presse spécialisée (**${sourcesList}**) pour **${p.cleanName}** fait ressortir les faits marquants suivants : ${headlinesList}. L'analyse de ces publications confirme une activité opérationnelle soutenue et un positionnement stratégique aligné sur la thématique du titre.`;
+        
+        // Deep Article Excerpt Synthesis Paragraph
+        const excerptsList = articles
+          .map((a) => {
+            const shortTitle = a.title.length > 80 ? `${a.title.slice(0, 80)}...` : a.title;
+            const snippet = a.summary && a.summary !== a.title ? ` : ${a.summary.slice(0, 120)}...` : '';
+            return `« **${shortTitle}** » (${a.source}${snippet})`;
+          })
+          .join('\n');
 
+        const pressSummary = `La couverture médiatique récente répertoriée par la presse financière spécialisée (**${sourcesList}**) met en évidence les faits marquants suivants sur **${p.cleanName}** :\n\n${excerptsList}\n\n*Synthèse de la Gestion* : L'analyse de ces publications et communiqués confirme la trajectoire opérationnelle du groupe et apporte un éclairage fondamental sur l'évolution récente du cours de bourse.`;
+
+        // 3-Column Spacious Table preventing any right-side clipping
         const articleTableRows = articles
-          .map(
-            (art) =>
-              `| 📰 **[${art.title}](${art.url})** | [${art.source}](${art.url}) | 🕒 ${art.publishedAt} | 🟢 Article Direct |`
-          )
+          .map((art) => {
+            let displayTitle = art.title;
+            if (displayTitle.startsWith('http://') || displayTitle.startsWith('https://')) {
+              displayTitle = `Article de Presse Financière (${p.cleanName})`;
+            }
+            if (displayTitle.length > 90) {
+              displayTitle = `${displayTitle.slice(0, 90)}...`;
+            }
+            return `| 📰 **[${displayTitle}](${art.url})** | **${art.source}** | 🕒 ${art.publishedAt} · 🟢 Direct |`;
+          })
           .join('\n');
 
         return `### 🏢 **${p.ticker} — ${p.cleanName}**
 
 > 📊 **Bilan Financier & Performance (${periodLabel})** : Valorisation **${p.valEUR.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} €** (${p.weight.toFixed(1)}% du portefeuille). Statut : ${pnlStatus}.
 
-#### 📰 **Synthèse du Climat Média & Analyse de la Presse :**
+#### 📰 **Synthèse Substantielle du Climat Média & Analyse de la Presse :**
+
 ${pressSummary}
 
-#### 🔗 **Articles de Presse à l'Appui (Sources Vérifiables) :**
-| Article de Presse & Publication | Media / Éditeur | Date d'Horodatage | Statut |
-| :--- | :---: | :---: | :---: |
+#### 🔗 **Articles de Presse à l'Appui (Sources & Preuves Vérifiables) :**
+
+| Article de Presse & Publications | Media / Éditeur | Horodatage & Statut |
+| :--- | :---: | :---: |
 ${articleTableRows}`;
       } else {
         return `### 🏢 **${p.ticker} — ${p.cleanName}**
@@ -259,6 +277,7 @@ ${articleTableRows}`;
 > 📊 **Bilan Financier & Performance (${periodLabel})** : Valorisation **${p.valEUR.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} €** (${p.weight.toFixed(1)}% du portefeuille). Statut : ${pnlStatus}.
 
 #### 📰 **Synthèse du Climat Média & Analyse de la Presse :**
+
 > ℹ️ **Note de Transparence Média** : Aucun article de presse spécifique majeure n'a été identifié sur **${p.cleanName}** au cours des 7 derniers jours. L'analyse repose sur le suivi des fondamentaux financiers officiels et des cours de bourse en direct.`;
       }
     }).join('\n\n---\n\n');

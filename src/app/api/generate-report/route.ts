@@ -13,6 +13,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import type { Position, PortfolioConfig } from '@/types/portfolio';
 import { fetchRealLiveNews } from '@/services/market-data/realNewsScraper';
+import { generateGroundedNewsSummary } from '@/services/ai/geminiClient';
+import type { NewsItem } from '@/services/market-data/types';
 import { calculatePortfolioRiskMetrics } from '@/engines/riskAnalytics';
 import { getCleanAssetName } from '@/utils/assetMetadata';
 
@@ -224,16 +226,57 @@ export async function POST(request: NextRequest) {
     });
 
     // 5. Build Company Audit Section — Executive Press Synthesis & Article Evidence
-    const companyNewsSection = posPerformance.map((p) => {
+    const companyNewsPromises = posPerformance.map(async (p) => {
       const articles = newsMap[p.ticker] || [];
       const pnlStatus = p.pnlEUR >= 0
         ? `🟢 Plus-value latente de **+${p.pnlEUR.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} €** (+${p.pnlPct.toFixed(1)}%)`
         : `🔴 Moins-value latente de **${p.pnlEUR.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} €** (${p.pnlPct.toFixed(1)}%)`;
 
-      if (articles.length > 0) {
+      // Attempt AI Google Search Grounding first
+      const groundedResult = await generateGroundedNewsSummary(
+        p.ticker,
+        p.cleanName,
+        p.valEUR,
+        p.weight,
+        p.pnlEUR,
+        p.pnlPct
+      );
+
+      if (groundedResult && groundedResult.summaryText) {
+        // Render 100% Grounded AI Synthesis
+        const articleTableRows = articles.length > 0
+          ? articles
+              .map((art) => {
+                let displayTitle = art.title
+                  .replace(/<[^>]*>/g, '')
+                  .replace(/https?:\/\/\S+/gi, '')
+                  .trim();
+                if (!displayTitle) {
+                  displayTitle = `Article de Presse Financière (${p.cleanName})`;
+                }
+                if (displayTitle.length > 85) {
+                  displayTitle = `${displayTitle.slice(0, 85)}...`;
+                }
+                return `| 📰 **[${displayTitle}](${art.url})** | **${art.source}** | 🕒 ${art.publishedAt} · 🟢 Direct |`;
+              })
+              .join('\n')
+          : '';
+
+        const tableSection = articleTableRows
+          ? `\n\n#### 🔗 **Articles de Presse à l'Appui (Sources & Preuves Vérifiables) :**\n\n| Article & Publication de Presse | Média / Éditeur | Date & Statut |\n| :--- | :---: | :---: |\n${articleTableRows}`
+          : '';
+
+        return `### 🏢 **${p.ticker} — ${p.cleanName}**
+
+> 📊 **Bilan Financier & Performance (${periodLabel})** : Valorisation **${p.valEUR.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} €** (${p.weight.toFixed(1)}% du portefeuille). Statut : ${pnlStatus}.
+
+#### 📰 **Synthèse du Climat Média & Analyse de la Presse :**
+
+${groundedResult.summaryText}${tableSection}`;
+      } else if (articles.length > 0) {
+        // Fallback to Cleaned Live RSS Scraper
         const sourcesList = Array.from(new Set(articles.map((a) => a.source))).join(', ');
         
-        // Build clean, professional Markdown bullet points (NO raw HTML tags, NO raw URL strings in paragraph text!)
         const bulletPoints = articles
           .map((a) => {
             const cleanTitle = a.title
@@ -260,7 +303,6 @@ export async function POST(request: NextRequest) {
 
         const pressSummary = `La presse financière spécialisée (**${sourcesList}**) a publié récemment les articles et communiqués suivants concernant **${p.cleanName}** :\n\n${bulletPoints}\n\n*Synthèse de la Gestion* : L'analyse de ces publications confirme la dynamique opérationnelle et les catalyseurs de marché de la société.`;
 
-        // 3-Column Table with EXACT Column Matching between Header & Data Rows
         const articleTableRows = articles
           .map((art) => {
             let displayTitle = art.title
@@ -299,7 +341,10 @@ ${articleTableRows}`;
 
 > ℹ️ **Note de Transparence Média** : Aucun article de presse spécifique récente n'a été publié sur **${p.cleanName}** au cours des 7 derniers jours. L'analyse repose sur le suivi des fondamentaux financiers officiels et des cours de bourse en direct.`;
       }
-    }).join('\n\n---\n\n');
+    });
+
+    const companyNewsResults = await Promise.all(companyNewsPromises);
+    const companyNewsSection = companyNewsResults.join('\n\n---\n\n');
 
     // 6. Build Performance Attribution Section
     const winnersText = topWinners.length > 0

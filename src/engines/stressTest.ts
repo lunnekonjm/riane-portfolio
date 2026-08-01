@@ -221,21 +221,28 @@ export function runStressTest(
   const actionableGovernancePlans: StressTestResult['actionableGovernancePlans'] = [];
   const lossRatio = Math.abs(totalLoss / totalValue);
 
-  // Find top loss contributors
-  const worstAssets = [...contributionByAsset]
-    .sort((a, b) => a.contribution - b.contribution)
-    .slice(0, 2);
+  // Helper: check if asset is a Core Index Stabilizer ETF (ACWI / CW8 / WPEA)
+  const isCoreETF = (ticker: string, name: string) => {
+    const t = ticker.toUpperCase();
+    const n = name.toLowerCase();
+    return t.includes('GPEA') || t.includes('CW8') || t.includes('WPEA') || t.includes('ACWI') || n.includes('world') || n.includes('acwi');
+  };
 
-  if (worstAssets.length > 0 && worstAssets[0].contributionPercent < -3) {
-    const worst = worstAssets[0];
+  // Find top SATELLITE loss contributors (EXCLUDING core index ETFs like ACWI/CW8 which are the stabilizing core!)
+  const worstSatelliteAssets = [...contributionByAsset]
+    .filter((a) => !isCoreETF(a.ticker, a.name))
+    .sort((a, b) => a.contribution - b.contribution);
+
+  if (worstSatelliteAssets.length > 0 && worstSatelliteAssets[0].contributionPercent < -3) {
+    const worst = worstSatelliteAssets[0];
     governanceActions.push(
-      `Réduire la cible de ${worst.name} (${worst.ticker}) à 5% maximum pour ramener sa contribution à la perte sous les 3%.`
+      `Plafonner la ligne satellite ${worst.name} (${worst.ticker}) à 5% maximum pour contenir son risque idiosyncratique en cas de krach.`
     );
     actionableGovernancePlans.push({
       id: `act_${Date.now()}_1`,
-      title: `Fixer un plafond de 5% sur ${worst.name}`,
-      diagnostic: `En cas de krach ${scenario.name}, ${worst.name} génère à lui seul ${Math.abs(worst.contributionPercent).toFixed(1)}% de dépréciation de votre patrimoine.`,
-      concreteAction: `Réduire la cible de ${worst.name} (${worst.ticker}) à 5.0% dans votre allocation d'actifs.`,
+      title: `Fixer un plafond de 5% sur l'action satellite ${worst.name}`,
+      diagnostic: `En cas de krach ${scenario.name}, l'action satellite ${worst.name} subit une perte nominale significative de ${Math.abs(worst.contributionPercent).toFixed(1)}%.`,
+      concreteAction: `Réduire le poids cible de l'action satellite ${worst.name} (${worst.ticker}) à 5.0% maximum.`,
       buttonLabel: `⚡ Appliquer le plafond de 5% sur ${worst.ticker}`,
       actionType: 'UPDATE_TARGET_WEIGHT',
       targetTicker: worst.ticker,
@@ -243,31 +250,34 @@ export function runStressTest(
     });
   }
 
-  if (techExposure > 20) {
+  // Always offer the Core ETF Strengthening Action (ACWI) to absorb satellite volatility
+  const coreAsset = contributionByAsset.find((a) => isCoreETF(a.ticker, a.name)) || { ticker: 'GPEA.PA', name: 'Amundi PEA Global ACWI' };
+  
+  if (techExposure > 15 || lossRatio > 0.15) {
     governanceActions.push(
-      `Canaliser les prochains versements DCA vers l'ETF Cœur Amundi MSCI ACWI pour diluer la sur-concentration Tech.`
+      `Renforcer le socle stabilisateur ${coreAsset.name} (+150 €/mois) via les flux DCA mensuels.`
     );
     actionableGovernancePlans.push({
       id: `act_${Date.now()}_2`,
-      title: `Renforcer l'ETF Cœur stabilisateur ACWI (+150 €/mois)`,
-      diagnostic: `La poche Technologique / IA génère ${techExposure.toFixed(1)}% des pertes cumulées du krach.`,
-      concreteAction: `Augmenter le DCA mensuel sur l'ETF MSCI ACWI (GPEA.PA) de +150 €/mois pour accélérer le lissage.`,
-      buttonLabel: `⚡ Augmenter le DCA ACWI (+150 €/mois)`,
+      title: `Renforcer l'ETF Cœur stabilisateur ${coreAsset.name} (+150 €/mois)`,
+      diagnostic: `Le socle indiciel mondial est le meilleur absorbeur de choc du portefeuille face au scénario "${scenario.name}".`,
+      concreteAction: `Augmenter le DCA mensuel sur l'ETF Cœur (${coreAsset.name}) de +150 €/mois pour diluer la volatilité des satellites.`,
+      buttonLabel: `⚡ Augmenter le DCA Cœur (+150 €/mois)`,
       actionType: 'INCREASE_DCA',
-      targetTicker: 'GPEA.PA',
+      targetTicker: coreAsset.ticker,
       targetValue: 150,
     });
   }
 
-  if (lossRatio > 0.15) {
+  if (lossRatio > 0.20) {
     governanceActions.push(
-      `Plafonner le budget annuel des titres vifs CTO (COHR, CEG, SYM) à 2 000 €/an.`
+      `Plafonner les versements sur Compte-Titres (CTO) à 2 000 €/an et privilégier le PEA.`
     );
     actionableGovernancePlans.push({
       id: `act_${Date.now()}_3`,
       title: `Plafonner les versements CTO à 2 000 €/an`,
-      diagnostic: `Les titres vifs hors PEA subissent une dépréciation exacerbée combinée au risque de change EUR/USD.`,
-      concreteAction: `Restreindre le budget annuel CTO et réorienter l'excédent vers le PEA.`,
+      diagnostic: `Les lignes CTO subissent un risque de change et une fiscalité (Flat Tax 30%) défavorables lors de corrections sévères.`,
+      concreteAction: `Restreindre le budget annuel CTO et réorienter l'effort d'épargne vers le PEA.`,
       buttonLabel: `⚡ Activer la bride de budget CTO (2 000 €/an)`,
       actionType: 'CAP_CTO_BUDGET',
       targetValue: 2000,

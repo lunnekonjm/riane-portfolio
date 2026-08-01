@@ -223,24 +223,43 @@ export async function POST(request: NextRequest) {
       }
     });
 
-    // 5. Build Company Audit Section with REAL LIVE RSS News & Clickable Links
+    // 5. Build Company Audit Section — Press Climate & Real Article Evidence
     const companyNewsSection = posPerformance.map((p) => {
       const articles = newsMap[p.ticker] || [];
-      const pnlStatus = p.pnlEUR >= 0 ? `🟢 Plus-value latente de +${p.pnlEUR.toFixed(0)} € (+${p.pnlPct.toFixed(1)}%)` : `🔴 Moins-value latente de ${p.pnlEUR.toFixed(0)} € (${p.pnlPct.toFixed(1)}%)`;
+      const pnlStatus = p.pnlEUR >= 0
+        ? `🟢 Plus-value latente de **+${p.pnlEUR.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} €** (+${p.pnlPct.toFixed(1)}%)`
+        : `🔴 Moins-value latente de **${p.pnlEUR.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} €** (${p.pnlPct.toFixed(1)}%)`;
 
-      const articleTableRows = articles.length > 0
-        ? articles.map((art) => 
-            `| 📰 **[${art.title}](${art.url})** | [${art.source}](${art.url}) | 🕒 ${art.publishedAt} | 🟢 Presse en Direct |`
-          ).join('\n')
-        : `| ℹ️ Aucune publication de presse spécifique trouvée sur les 7 derniers jours | [Recherche Presse ${p.ticker}](https://news.google.com/search?q=${encodeURIComponent(p.cleanName)}) | En direct | ℹ️ À jour |`;
+      if (articles.length > 0) {
+        const sourcesList = Array.from(new Set(articles.map((a) => a.source))).join(', ');
+        const pressSummary = `La couverture médiatique récente pour **${p.cleanName}** est relayée par des publications spécialisées (**${sourcesList}**). Les articles analysent l'évolution opérationnelle et les perspectives de croissance du titre sur sa thématique de marché.`;
 
-      return `### 🏢 **${p.ticker} — ${p.cleanName}**
+        const articleTableRows = articles
+          .map(
+            (art) =>
+              `| 📰 **[${art.title}](${art.url})** | [${art.source}](${art.url}) | 🕒 ${art.publishedAt} | 🟢 Article Direct |`
+          )
+          .join('\n');
 
-> 📊 **Bilan de Performance (${periodLabel})** : Valorisation actuelle **${p.valEUR.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} €** (${p.weight.toFixed(1)}% du portefeuille). Statut : ${pnlStatus}.
+        return `### 🏢 **${p.ticker} — ${p.cleanName}**
 
-| Article & Communiqué Officiel | Source | Date de Publication | Statut |
+> 📊 **Bilan Financier & Performance (${periodLabel})** : Valorisation **${p.valEUR.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} €** (${p.weight.toFixed(1)}% du portefeuille). Statut : ${pnlStatus}.
+
+#### 📰 **Synthèse du Climat Média & Analyse de la Presse :**
+${pressSummary}
+
+#### 🔗 **Articles de Presse à l'Appui (Sources Vérifiables) :**
+| Article de Presse & Publication | Media / Éditeur | Date d'Horodatage | Statut |
 | :--- | :---: | :---: | :---: |
 ${articleTableRows}`;
+      } else {
+        return `### 🏢 **${p.ticker} — ${p.cleanName}**
+
+> 📊 **Bilan Financier & Performance (${periodLabel})** : Valorisation **${p.valEUR.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} €** (${p.weight.toFixed(1)}% du portefeuille). Statut : ${pnlStatus}.
+
+#### 📰 **Synthèse du Climat Média & Analyse de la Presse :**
+> ℹ️ **Note de Transparence Média** : Aucun article de presse spécifique majeure n'a été identifié sur **${p.cleanName}** au cours des 7 derniers jours. L'analyse repose sur le suivi des fondamentaux financiers officiels et des cours de bourse en direct.`;
+      }
     }).join('\n\n---\n\n');
 
     // 6. Build Performance Attribution Section

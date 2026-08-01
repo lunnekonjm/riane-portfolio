@@ -2,20 +2,11 @@
  * Real Live News Scraper — Interroge Google News RSS & Yahoo Finance API en temps réel
  * Extrait les vrais articles de presse (Les Echos, BFM Bourse, Bourse Direct, Saxo Bank, Yahoo Finance)
  * avec de vrais liens cliquables et de vraies dates de publication.
+ * 
+ * ZERO DICTIONNAIRE EN DUR — Génération dynamique de la requête de recherche.
  */
 
 import type { NewsItem } from './types';
-
-const TICKER_SEARCH_QUERIES: Record<string, string> = {
-  'GPEA.PA': 'Amundi MSCI ACWI PEA',
-  'PUST.PA': 'Amundi Nasdaq 100 PEA',
-  '0P0001DKPM.F': 'Independance Europe Small',
-  'ALRIB.PA': 'Riber bourses',
-  'MEMS.PA': 'Memscap bourses',
-  'COHR': 'Coherent Corp optics',
-  'CEG': 'Constellation Energy nuclear',
-  'SYM': 'Symbotic robotics',
-};
 
 function parseRssArticles(xmlText: string): NewsItem[] {
   const items: NewsItem[] = [];
@@ -34,7 +25,6 @@ function parseRssArticles(xmlText: string): NewsItem[] {
       let url = linkMatch ? linkMatch[1].trim() : '';
       const pubDateStr = pubDateMatch ? pubDateMatch[1].trim() : '';
 
-      // Clean HTML entities & source tag suffix from title (e.g. "Title - Les Echos")
       title = title
         .replace(/&amp;/g, '&')
         .replace(/&lt;/g, '<')
@@ -42,10 +32,8 @@ function parseRssArticles(xmlText: string): NewsItem[] {
         .replace(/&quot;/g, '"')
         .replace(/&#39;/g, "'");
 
-      // Skip generic "Google News" root titles
       if (title.startsWith('Google') || title === 'Google News') continue;
 
-      // Extract source publisher from title suffix (e.g., "... - BFM Bourse")
       let source = 'Presse Financière';
       if (title.includes(' - ')) {
         const parts = title.split(' - ');
@@ -89,10 +77,16 @@ function parseRssArticles(xmlText: string): NewsItem[] {
   return items;
 }
 
-export async function fetchRealLiveNews(ticker: string): Promise<NewsItem[]> {
-  const searchQuery = TICKER_SEARCH_QUERIES[ticker] || ticker;
+export async function fetchRealLiveNews(ticker: string, name?: string): Promise<NewsItem[]> {
+  // Construire la requête de recherche de manière 100% dynamique (ex: "Riber bourses", "Coherent Corp optics")
+  const cleanQuery = (name || ticker)
+    .replace(/\.PA|\.F/g, '')
+    .replace(/UCITS|ETF|Acc|EUR|Class|A|C/g, '')
+    .trim();
 
-  // 1. Interroger Google News RSS (Résultats de la presse financière francophone & internationale)
+  const searchQuery = `${cleanQuery} Bourse`;
+
+  // 1. Google News RSS
   try {
     const rssUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(searchQuery)}&hl=fr&gl=FR&ceid=FR:fr`;
     const res = await fetch(rssUrl, {
@@ -109,9 +103,9 @@ export async function fetchRealLiveNews(ticker: string): Promise<NewsItem[]> {
     console.warn(`[RealNewsScraper] Google News RSS failed for ${ticker}:`, err);
   }
 
-  // 2. Interroger Yahoo Finance News API
+  // 2. Yahoo Finance API
   try {
-    const yahooUrl = `https://query2.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(ticker)}&newsCount=4`;
+    const yahooUrl = `https://query2.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(cleanQuery)}&newsCount=4`;
     const res = await fetch(yahooUrl, {
       headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0' },
       next: { revalidate: 1800 },
@@ -131,7 +125,7 @@ export async function fetchRealLiveNews(ticker: string): Promise<NewsItem[]> {
             url: item.link,
             source: item.publisher || 'Yahoo Finance',
             publishedAt: dateStr,
-            summary: item.summary || `Article boursier publié par ${item.publisher || 'Yahoo Finance'}.`,
+            summary: item.summary || `Article de presse publié par ${item.publisher || 'Yahoo Finance'}.`,
           };
         });
       }
@@ -140,6 +134,5 @@ export async function fetchRealLiveNews(ticker: string): Promise<NewsItem[]> {
     console.warn(`[RealNewsScraper] Yahoo News API failed for ${ticker}:`, err);
   }
 
-  // Si aucun article récent n'est trouvé, renvoyer un tableau vide pour signaler qu'aucun article n'a été publié récemment
   return [];
 }

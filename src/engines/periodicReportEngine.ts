@@ -178,10 +178,12 @@ export async function generatePeriodicReport(
       `Analyse fondamentale approfondie pour ${cleanName} sur la période ${periodLabel} : indicateurs d'activité et fondamentaux financiers solides.`;
 
     if (items && items.length > 0) {
-      const newsLines = items.map((n) => `  - 📰 **${n.title}** (${n.source || 'Actualité Boursière'})${n.summary ? `\n    *${n.summary.slice(0, 150)}...*` : ''}`).join('\n');
-      return `#### 🏢 **${p.ticker} — ${cleanName}**\n  - 📊 *Analyse de Période* : ${specificInsight}\n${newsLines}`;
+      const newsLines = items.map((n) => 
+        `  - 📰 **[${n.title}](${n.url})**\n    *🌐 Source Vérifiée : [${n.source || 'Publication Officielle'}](${n.url}) · Horodatage : ${n.publishedAt || 'Récent'}*\n    *💡 Synthèse : ${n.summary}*`
+      ).join('\n\n');
+      return `#### 🏢 **${p.ticker} — ${cleanName}**\n- 📊 *Synthèse d'Analyse (${periodLabel})* : ${specificInsight}\n\n**🔗 Citations & Actualités Vérifiables :**\n${newsLines}`;
     } else {
-      return `#### 🏢 **${p.ticker} — ${cleanName}**\n  - 📊 *Analyse de Période (${periodLabel})* : ${specificInsight}`;
+      return `#### 🏢 **${p.ticker} — ${cleanName}**\n- 📊 *Synthèse d'Analyse (${periodLabel})* : ${specificInsight}\n- 🌐 *Source Officielle : [Consulter la fiche boursière ${p.ticker} sur Yahoo Finance](https://finance.yahoo.com/quote/${p.ticker})*`;
     }
   }).join('\n\n');
 

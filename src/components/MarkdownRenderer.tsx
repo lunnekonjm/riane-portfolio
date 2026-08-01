@@ -96,6 +96,44 @@ export default function MarkdownRenderer({ content, style }: MarkdownRendererPro
       continue;
     }
 
+    if (line.startsWith('#### ')) {
+      elements.push(
+        <h4
+          key={`h4-${i}`}
+          style={{
+            fontSize: 14,
+            fontWeight: 600,
+            color: 'var(--accent-cyan, #06b6d4)',
+            marginTop: 12,
+            marginBottom: 6,
+          }}
+        >
+          {parseInline(line.slice(5))}
+        </h4>
+      );
+      i++;
+      continue;
+    }
+
+    if (line.startsWith('##### ')) {
+      elements.push(
+        <h5
+          key={`h5-${i}`}
+          style={{
+            fontSize: 13,
+            fontWeight: 600,
+            color: 'var(--text-secondary, #94a3b8)',
+            marginTop: 10,
+            marginBottom: 4,
+          }}
+        >
+          {parseInline(line.slice(6))}
+        </h5>
+      );
+      i++;
+      continue;
+    }
+
     // 3. Blockquote / Callout
     if (line.startsWith('> ')) {
       elements.push(

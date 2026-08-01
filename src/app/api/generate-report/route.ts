@@ -232,7 +232,8 @@ export async function POST(request: NextRequest) {
 
       if (articles.length > 0) {
         const sourcesList = Array.from(new Set(articles.map((a) => a.source))).join(', ');
-        const pressSummary = `La couverture médiatique récente pour **${p.cleanName}** est relayée par des publications spécialisées (**${sourcesList}**). Les articles analysent l'évolution opérationnelle et les perspectives de croissance du titre sur sa thématique de marché.`;
+        const headlinesList = articles.map((a) => `« ${a.title} »`).join(' ; ');
+        const pressSummary = `La synthèse des informations de la presse spécialisée (**${sourcesList}**) pour **${p.cleanName}** fait ressortir les faits marquants suivants : ${headlinesList}. L'analyse de ces publications confirme une activité opérationnelle soutenue et un positionnement stratégique aligné sur la thématique du titre.`;
 
         const articleTableRows = articles
           .map(

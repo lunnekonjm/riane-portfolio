@@ -282,22 +282,15 @@ ${groundedResult.summaryText}${tableSection}`;
             const cleanTitle = a.title
               .replace(/<[^>]*>/g, '')
               .replace(/https?:\/\/\S+/gi, '')
+              .replace(/[\[\]|]/g, '')
               .trim();
 
-            let cleanSnippet = (a.summary || '')
-              .replace(/<[^>]*>/g, '')
-              .replace(/https?:\/\/\S+/gi, '')
-              .trim();
-
-            if (cleanSnippet.toLowerCase() === cleanTitle.toLowerCase() || cleanSnippet.length < 15) {
-              return `• **${a.source}** : « **${cleanTitle}** »`;
+            let snippetStr = '';
+            if (a.summary && !a.summary.toLowerCase().includes(cleanTitle.toLowerCase()) && a.summary.length > 25) {
+              snippetStr = ` — *${a.summary.slice(0, 110)}...*`;
             }
 
-            if (cleanSnippet.length > 120) {
-              cleanSnippet = `${cleanSnippet.slice(0, 120)}...`;
-            }
-
-            return `• **${a.source}** : « **${cleanTitle}** »\n  *Résumé : ${cleanSnippet}*`;
+            return `• **${a.source}** (${a.publishedAt}) : « **${cleanTitle}** »${snippetStr}`;
           })
           .join('\n\n');
 
@@ -308,14 +301,16 @@ ${groundedResult.summaryText}${tableSection}`;
             let displayTitle = art.title
               .replace(/<[^>]*>/g, '')
               .replace(/https?:\/\/\S+/gi, '')
+              .replace(/[\[\]|]/g, '')
               .trim();
             if (!displayTitle) {
               displayTitle = `Article de Presse Financière (${p.cleanName})`;
             }
-            if (displayTitle.length > 85) {
-              displayTitle = `${displayTitle.slice(0, 85)}...`;
+            if (displayTitle.length > 80) {
+              displayTitle = `${displayTitle.slice(0, 80)}...`;
             }
-            return `| 📰 **[${displayTitle}](${art.url})** | **${art.source}** | 🕒 ${art.publishedAt} · 🟢 Direct |`;
+            const cleanSource = art.source.replace(/[\[\]|]/g, '').trim();
+            return `| 📰 **[${displayTitle}](${art.url})** | **${cleanSource}** | 🕒 ${art.publishedAt} · 🟢 Direct |`;
           })
           .join('\n');
 

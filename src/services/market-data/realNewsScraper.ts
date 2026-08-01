@@ -1,20 +1,21 @@
 /**
  * Real Live News Scraper — Interroge Google News RSS & Yahoo Finance API en temps réel
- * Décode les entités &lt; et &gt; EN PREMIER avant de supprimer 100% des balises HTML et des URLs brutes.
+ * Purge 100% des crochets [], des barres |, du code HTML et des articles anciens (antérieurs à 2026).
  */
 
 import type { NewsItem } from './types';
 
-/** Purge inconditionnelle de TOUTES les balises HTML et URLs HTTP/HTTPS */
-function stripAllHtmlAndUrls(text: string): string {
+/** Purge intégrale du code HTML, des entités et des caractères Markdown dangereux ([ ] |) */
+function sanitizeText(text: string): string {
   if (!text) return '';
   return text
     .replace(/<script[\s\S]*?<\/script>/gi, '')
     .replace(/<style[\s\S]*?<\/style>/gi, '')
-    .replace(/&lt;/gi, '<') // DECODE ENTITIES FIRST so encoded HTML tags are stripped!
+    .replace(/&lt;/gi, '<')
     .replace(/&gt;/gi, '>')
-    .replace(/<[^>]*>/g, '') // STRIP ALL HTML TAGS!
-    .replace(/https?:\/\/\S+/gi, '') // STRIP ALL RAW URL STRINGS!
+    .replace(/<[^>]*>/g, '')
+    .replace(/https?:\/\/\S+/gi, '')
+    .replace(/[\[\]|]/g, ' ') // Supprime les crochets et barres verticales qui cassent le Markdown
     .replace(/&amp;/g, '&')
     .replace(/&quot;/g, '"')
     .replace(/&#39;/g, "'")
@@ -35,6 +36,8 @@ function isRealPressArticle(title: string): boolean {
     'cours de bourse',
     'graphique interactif',
     'chandigarh university',
+    'objectif des analystes',
+    'consensus achat',
   ];
   return !blacklistedPhrases.some((phrase) => t.includes(phrase));
 }
@@ -53,12 +56,12 @@ function parseRssArticles(xmlText: string, cleanName: string): NewsItem[] {
       const pubDateMatch = itemBlock.match(/<pubDate>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/pubDate>/i);
       const descMatch = itemBlock.match(/<description>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/description>/i);
 
-      let title = titleMatch ? stripAllHtmlAndUrls(titleMatch[1]) : '';
+      let title = titleMatch ? sanitizeText(titleMatch[1]) : '';
       let rawUrl = '';
-      const pubDateStr = pubDateMatch ? stripAllHtmlAndUrls(pubDateMatch[1]) : '';
-      let cleanSnippet = descMatch ? stripAllHtmlAndUrls(descMatch[1]) : '';
+      const pubDateStr = pubDateMatch ? sanitizeText(pubDateMatch[1]) : '';
+      let cleanSnippet = descMatch ? sanitizeText(descMatch[1]) : '';
 
-      // Extract raw target link safely without stripping http/https
+      // Safe URL extraction
       const rawLinkMatch = itemBlock.match(/<link>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/link>/i);
       if (rawLinkMatch && rawLinkMatch[1].trim().startsWith('http')) {
         rawUrl = rawLinkMatch[1].trim();
@@ -71,6 +74,19 @@ function parseRssArticles(xmlText: string, cleanName: string): NewsItem[] {
 
       if (!title || title.startsWith('Google') || title === 'Google News') continue;
       if (!isRealPressArticle(title)) continue;
+
+      // DISCARD ANCIENT ARTICLES (Filter strictly for 2026 articles)
+      if (pubDateStr) {
+        try {
+          const d = new Date(pubDateStr);
+          if (!isNaN(d.getTime())) {
+            const year = d.getFullYear();
+            if (year < 2025) continue; // Reject ancient 2021 / 2023 / 2024 articles
+          }
+        } catch {
+          // ignore
+        }
+      }
 
       let source = 'Presse Financière';
       if (title.includes(' - ')) {
@@ -98,12 +114,18 @@ function parseRssArticles(xmlText: string, cleanName: string): NewsItem[] {
           }
         }
 
+        // Avoid snippet duplicating title
+        let finalSnippet = cleanSnippet;
+        if (cleanSnippet.toLowerCase().includes(title.toLowerCase()) || cleanSnippet.length < 25) {
+          finalSnippet = '';
+        }
+
         items.push({
           title,
           url: rawUrl,
           source,
           publishedAt: formattedDate,
-          summary: cleanSnippet.length > 15 ? cleanSnippet : title,
+          summary: finalSnippet,
         });
       }
     }
@@ -148,46 +170,6 @@ export async function fetchRealLiveNews(ticker: string, name?: string): Promise<
     }
   } catch (err) {
     console.warn(`[RealNewsScraper] Google News RSS failed for ${ticker}:`, err);
-  }
-
-  // 2. Yahoo Finance API
-  try {
-    const yahooUrl = `https://query2.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(searchQuery)}&newsCount=5`;
-    const res = await fetch(yahooUrl, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept': 'application/json',
-      },
-      next: { revalidate: 1800 },
-    });
-
-    if (res.ok) {
-      const data = await res.json();
-      if (data?.news && Array.isArray(data.news) && data.news.length > 0) {
-        const filtered = data.news.filter((item: any) => isRealPressArticle(item.title || ''));
-
-        if (filtered.length > 0) {
-          return filtered.slice(0, 4).map((item: any) => {
-            let dateStr = 'Récemment';
-            if (item.providerPublishTime) {
-              const d = new Date(item.providerPublishTime * 1000);
-              dateStr = d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' });
-            }
-            let title = stripAllHtmlAndUrls(item.title || `Article sur ${cleanName}`);
-            let summary = stripAllHtmlAndUrls(item.summary || title);
-            return {
-              title,
-              url: item.link,
-              source: stripAllHtmlAndUrls(item.publisher || 'Yahoo Finance'),
-              publishedAt: dateStr,
-              summary: summary.length > 15 ? summary : title,
-            };
-          });
-        }
-      }
-    }
-  } catch (err) {
-    console.warn(`[RealNewsScraper] Yahoo News API failed for ${ticker}:`, err);
   }
 
   return [];

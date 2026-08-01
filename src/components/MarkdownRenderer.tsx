@@ -231,6 +231,8 @@ export default function MarkdownRenderer({ content, style }: MarkdownRendererPro
             fontSize: 13.5,
             color: 'var(--text-secondary, #cbd5e1)',
             lineHeight: 1.7,
+            overflowWrap: 'break-word',
+            wordBreak: 'break-word',
           }}
         >
           {parseInline(line)}
@@ -241,7 +243,20 @@ export default function MarkdownRenderer({ content, style }: MarkdownRendererPro
     i++;
   }
 
-  return <div style={style}>{elements}</div>;
+  return (
+    <div
+      style={{
+        width: '100%',
+        maxWidth: '100%',
+        boxSizing: 'border-box',
+        overflowWrap: 'break-word',
+        wordBreak: 'break-word',
+        ...style,
+      }}
+    >
+      {elements}
+    </div>
+  );
 }
 
 /** Helper to parse a markdown table row "| col1 | col2 |" into string[] */

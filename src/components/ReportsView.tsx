@@ -335,10 +335,14 @@ export default function ReportsView({
             <div
               id="report-print-area"
               style={{
+                width: '100%',
+                maxWidth: '100%',
+                boxSizing: 'border-box',
+                overflowX: 'auto',
                 background: 'rgba(15, 23, 42, 0.95)',
                 border: '1px solid rgba(6, 182, 212, 0.3)',
                 borderRadius: 12,
-                padding: '32px 36px',
+                padding: '24px 24px',
                 boxShadow: '0 10px 30px rgba(0, 0, 0, 0.5)',
               }}
             >

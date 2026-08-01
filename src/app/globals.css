@@ -1212,7 +1212,7 @@ select.input option {
     border: none !important;
   }
 
-  .sidebar > div:last-child > div {
+  .sidebar > div:last-child > .no-print {
     display: none !important;
   }
 
@@ -1344,5 +1344,33 @@ select.input option {
     border-left: 4px solid #0284c7 !important;
     color: #334155 !important;
   }
+}
+
+/* ── Markdown & Report Responsive Overflow Protections ── */
+#report-print-area {
+  width: 100% !important;
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+  overflow-x: auto !important;
+}
+
+#report-print-area table {
+  width: 100% !important;
+  max-width: 100% !important;
+  display: block !important;
+  overflow-x: auto !important;
+  -webkit-overflow-scrolling: touch;
+}
+
+#report-print-area p, 
+#report-print-area div, 
+#report-print-area li, 
+#report-print-area blockquote,
+#report-print-area h1,
+#report-print-area h2,
+#report-print-area h3,
+#report-print-area h4 {
+  overflow-wrap: break-word !important;
+  word-break: break-word !important;
 }
 

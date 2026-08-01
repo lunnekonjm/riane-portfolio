@@ -32,8 +32,15 @@ export async function generateGroundedNewsSummary(
   try {
     const genAI = new GoogleGenerativeAI(apiKey);
     
-    // Modèles avec quotas actifs (gemini-3.6-flash, gemini-3.5-flash)
-    const activeModels = ['gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-2.5-pro', 'gemini-flash-latest'];
+    // Modèles IA & Deep Research d'Ancrage
+    const activeModels = [
+      'deep-research-pro-preview-12-2025',
+      'deep-research-preview-04-2026',
+      'gemini-3.6-flash',
+      'gemini-3.5-flash',
+      'gemini-2.5-pro',
+      'gemini-flash-latest',
+    ];
     
     const articlesContext = articles.length > 0
       ? articles.map((a) => `- ${a.source} (${a.publishedAt}) : ${a.title}`).join('\n')

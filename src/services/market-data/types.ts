@@ -64,6 +64,6 @@ export interface NewsItem {
   source: string;
   url: string;
   publishedAt: string;
-  relatedTickers: string[];
+  relatedTickers?: string[];
   sentiment?: 'positive' | 'negative' | 'neutral';
 }

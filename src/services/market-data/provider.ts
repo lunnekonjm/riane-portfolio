@@ -43,6 +43,26 @@ export async function getQuote(ticker: string): Promise<QuoteData> {
 }
 
 /**
+ * Get multiple quotes in parallel
+ */
+export async function getMultipleQuotes(tickers: string[]): Promise<Map<string, QuoteData>> {
+  const results = new Map<string, QuoteData>();
+  await Promise.allSettled(
+    tickers.map(async (t) => {
+      try {
+        const q = await getQuote(t);
+        if (q) results.set(t, q);
+      } catch {
+        // ignore
+      }
+    })
+  );
+  return results;
+}
+
+export { searchYahooFinance } from './yahooFinance';
+
+/**
  * Get company profile
  */
 export async function getCompanyProfile(ticker: string): Promise<CompanyProfile> {

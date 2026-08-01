@@ -223,7 +223,7 @@ export async function POST(request: NextRequest) {
       }
     });
 
-    // 5. Build Company Audit Section — Press Climate & Real Article Evidence
+    // 5. Build Company Audit Section — Executive Press Synthesis & Article Evidence
     const companyNewsSection = posPerformance.map((p) => {
       const articles = newsMap[p.ticker] || [];
       const pnlStatus = p.pnlEUR >= 0
@@ -233,26 +233,26 @@ export async function POST(request: NextRequest) {
       if (articles.length > 0) {
         const sourcesList = Array.from(new Set(articles.map((a) => a.source))).join(', ');
         
-        // Deep Article Excerpt Synthesis Paragraph
-        const excerptsList = articles
+        // Build clean, professional Markdown bullet points (NO raw HTML tags, NO raw URL strings in paragraph text!)
+        const bulletPoints = articles
           .map((a) => {
-            const shortTitle = a.title.length > 80 ? `${a.title.slice(0, 80)}...` : a.title;
-            const snippet = a.summary && a.summary !== a.title ? ` : ${a.summary.slice(0, 120)}...` : '';
-            return `« **${shortTitle}** » (${a.source}${snippet})`;
+            const cleanTitle = a.title.replace(/https?:\/\/\S+/g, '').trim();
+            const snippet = a.summary && a.summary !== a.title ? ` — *${a.summary.slice(0, 140)}...*` : '';
+            return `• **${a.source}** : « **${cleanTitle}** »${snippet}`;
           })
-          .join('\n');
+          .join('\n\n');
 
-        const pressSummary = `La couverture médiatique récente répertoriée par la presse financière spécialisée (**${sourcesList}**) met en évidence les faits marquants suivants sur **${p.cleanName}** :\n\n${excerptsList}\n\n*Synthèse de la Gestion* : L'analyse de ces publications et communiqués confirme la trajectoire opérationnelle du groupe et apporte un éclairage fondamental sur l'évolution récente du cours de bourse.`;
+        const pressSummary = `La presse financière spécialisée (**${sourcesList}**) a publié récemment les articles et communiqués suivants concernant **${p.cleanName}** :\n\n${bulletPoints}\n\n*Synthèse de la Gestion* : L'analyse de ces publications confirme la dynamique opérationnelle et les catalyseurs de marché de la société.`;
 
-        // 3-Column Spacious Table preventing any right-side clipping
+        // 3-Column Table with EXACT Column Matching between Header & Data Rows
         const articleTableRows = articles
           .map((art) => {
-            let displayTitle = art.title;
-            if (displayTitle.startsWith('http://') || displayTitle.startsWith('https://')) {
+            let displayTitle = art.title.replace(/https?:\/\/\S+/g, '').trim();
+            if (!displayTitle || displayTitle.startsWith('http')) {
               displayTitle = `Article de Presse Financière (${p.cleanName})`;
             }
-            if (displayTitle.length > 90) {
-              displayTitle = `${displayTitle.slice(0, 90)}...`;
+            if (displayTitle.length > 85) {
+              displayTitle = `${displayTitle.slice(0, 85)}...`;
             }
             return `| 📰 **[${displayTitle}](${art.url})** | **${art.source}** | 🕒 ${art.publishedAt} · 🟢 Direct |`;
           })
@@ -262,13 +262,13 @@ export async function POST(request: NextRequest) {
 
 > 📊 **Bilan Financier & Performance (${periodLabel})** : Valorisation **${p.valEUR.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} €** (${p.weight.toFixed(1)}% du portefeuille). Statut : ${pnlStatus}.
 
-#### 📰 **Synthèse Substantielle du Climat Média & Analyse de la Presse :**
+#### 📰 **Synthèse du Climat Média & Analyse de la Presse :**
 
 ${pressSummary}
 
 #### 🔗 **Articles de Presse à l'Appui (Sources & Preuves Vérifiables) :**
 
-| Article de Presse & Publications | Media / Éditeur | Horodatage & Statut |
+| Article & Publication de Presse | Média / Éditeur | Date & Statut |
 | :--- | :---: | :---: |
 ${articleTableRows}`;
       } else {
@@ -278,7 +278,7 @@ ${articleTableRows}`;
 
 #### 📰 **Synthèse du Climat Média & Analyse de la Presse :**
 
-> ℹ️ **Note de Transparence Média** : Aucun article de presse spécifique majeure n'a été identifié sur **${p.cleanName}** au cours des 7 derniers jours. L'analyse repose sur le suivi des fondamentaux financiers officiels et des cours de bourse en direct.`;
+> ℹ️ **Note de Transparence Média** : Aucun article de presse spécifique récente n'a été publié sur **${p.cleanName}** au cours des 7 derniers jours. L'analyse repose sur le suivi des fondamentaux financiers officiels et des cours de bourse en direct.`;
       }
     }).join('\n\n---\n\n');
 

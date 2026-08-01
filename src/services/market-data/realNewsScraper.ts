@@ -1,14 +1,42 @@
 /**
  * Real Live News Scraper — Interroge Google News RSS & Yahoo Finance API en temps réel
- * Extrait les vrais articles de presse pertinents (Les Echos, BFM Bourse, Bourse Direct, Fortuneo, Yahoo Finance)
- * avec leurs résumés d'extraits réels, de vrais liens cliquables et de vraies dates de publication.
- * 
- * FILTRAGE STRICT & SÉCURISATION DES TITRES :
- * - Nettoie les balises HTML et les extraits d'articles.
- * - Élimine les URLs brutes dans les titres.
+ * Nettoie rigoureusement tout code HTML brut (balises <a>, <font>, CDATA)
+ * Filtre les fiches de cours boursières génériques pour ne conserver que de VRAIS articles de presse.
  */
 
 import type { NewsItem } from './types';
+
+/** Helper pour supprimer intégralement le code HTML et les entités */
+function stripHtml(text: string): string {
+  if (!text) return '';
+  return text
+    .replace(/<script[\s\S]*?<\/script>/gi, '')
+    .replace(/<style[\s\S]*?<\/style>/gi, '')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&nbsp;/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/** Vérifie si un titre est un vrai article de presse et non une fiche boursière générique */
+function isRealArticle(title: string): boolean {
+  const t = title.toLowerCase();
+  const blacklistedPhrases = [
+    'cours action',
+    'cotation new york',
+    'cotation euronext',
+    'fiche valeur',
+    'prix de l\'action et graphique',
+    'cours de bourse',
+    'graphique interactif',
+  ];
+  return !blacklistedPhrases.some((phrase) => t.includes(phrase));
+}
 
 function parseRssArticles(xmlText: string, targetKeywords: string[], cleanName: string): NewsItem[] {
   const items: NewsItem[] = [];
@@ -24,40 +52,22 @@ function parseRssArticles(xmlText: string, targetKeywords: string[], cleanName: 
       const pubDateMatch = itemBlock.match(/<pubDate>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/pubDate>/i);
       const descMatch = itemBlock.match(/<description>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/description>/i);
 
-      let title = titleMatch ? titleMatch[1].trim() : '';
-      let url = linkMatch ? linkMatch[1].trim() : '';
-      const pubDateStr = pubDateMatch ? pubDateMatch[1].trim() : '';
-      const rawDesc = descMatch ? descMatch[1].trim() : '';
+      let title = titleMatch ? stripHtml(titleMatch[1]) : '';
+      let url = linkMatch ? stripHtml(linkMatch[1]) : '';
+      const pubDateStr = pubDateMatch ? stripHtml(pubDateMatch[1]) : '';
+      const cleanSnippet = descMatch ? stripHtml(descMatch[1]) : '';
 
-      title = title
-        .replace(/&amp;/g, '&')
-        .replace(/&lt;/g, '<')
-        .replace(/&gt;/g, '>')
-        .replace(/&quot;/g, '"')
-        .replace(/&#39;/g, "'");
+      if (!title || title.startsWith('Google') || title === 'Google News') continue;
 
-      if (title.startsWith('Google') || title === 'Google News') continue;
+      // Discard generic stock quote pages
+      if (!isRealArticle(title)) continue;
 
-      // Fix raw URL titles
+      // Discard raw URL titles
       if (title.startsWith('http://') || title.startsWith('https://')) {
         title = `Article de Presse Financière (${cleanName})`;
       }
 
-      // Clean HTML tags in excerpt snippet
-      const cleanSnippet = rawDesc
-        .replace(/<[^>]*>?/gm, '')
-        .replace(/&amp;/g, '&')
-        .replace(/&lt;/g, '<')
-        .replace(/&gt;/g, '>')
-        .replace(/&quot;/g, '"')
-        .replace(/&#39;/g, "'")
-        .trim();
-
-      // Relevance check: ensure the title or snippet contains at least one target keyword
-      const fullTextLower = `${title} ${cleanSnippet}`.toLowerCase();
-      const isRelevant = targetKeywords.some((kw) => fullTextLower.includes(kw.toLowerCase()));
-      if (!isRelevant) continue;
-
+      // Extract publisher source from title suffix (e.g., "... - BFM Bourse")
       let source = 'Presse Financière';
       if (title.includes(' - ')) {
         const parts = title.split(' - ');
@@ -67,18 +77,25 @@ function parseRssArticles(xmlText: string, targetKeywords: string[], cleanName: 
         }
       }
 
+      // Check keyword relevance
+      const fullTextLower = `${title} ${cleanSnippet}`.toLowerCase();
+      const isRelevant = targetKeywords.some((kw) => fullTextLower.includes(kw.toLowerCase()));
+      if (!isRelevant) continue;
+
       if (title && url) {
         let formattedDate = 'Récemment';
         if (pubDateStr) {
           try {
             const d = new Date(pubDateStr);
             if (!isNaN(d.getTime())) {
+              // Discard articles older than 180 days to prevent ancient 2023 articles
+              const ageDays = (Date.now() - d.getTime()) / (1000 * 3600 * 24);
+              if (ageDays > 180) continue;
+
               formattedDate = d.toLocaleDateString('fr-FR', {
                 day: 'numeric',
                 month: 'short',
                 year: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit',
               });
             }
           } catch {
@@ -104,7 +121,6 @@ function parseRssArticles(xmlText: string, targetKeywords: string[], cleanName: 
 export async function fetchRealLiveNews(ticker: string, name?: string): Promise<NewsItem[]> {
   const cleanName = (name || ticker).replace(/\.PA|\.F/g, '').trim();
   
-  // Specific relevance keywords for each holding
   const keywordsMap: Record<string, string[]> = {
     'GPEA.PA': ['amundi', 'acwi', 'msci', 'pea', 'etf', 'monde'],
     'PUST.PA': ['amundi', 'nasdaq', 'pea', 'etf', 'tech'],
@@ -149,7 +165,7 @@ export async function fetchRealLiveNews(ticker: string, name?: string): Promise<
       if (data?.news && Array.isArray(data.news) && data.news.length > 0) {
         const filtered = data.news.filter((item: any) => {
           const t = `${item.title} ${item.summary || ''}`.toLowerCase();
-          return targetKeywords.some((kw) => t.includes(kw.toLowerCase()));
+          return targetKeywords.some((kw) => t.includes(kw.toLowerCase())) && isRealArticle(item.title || '');
         });
 
         if (filtered.length > 0) {
@@ -159,16 +175,16 @@ export async function fetchRealLiveNews(ticker: string, name?: string): Promise<
               const d = new Date(item.providerPublishTime * 1000);
               dateStr = d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' });
             }
-            let title = item.title || `Article sur ${cleanName}`;
+            let title = stripHtml(item.title || `Article sur ${cleanName}`);
             if (title.startsWith('http://') || title.startsWith('https://')) {
               title = `Article de Presse Financière (${cleanName})`;
             }
             return {
               title,
               url: item.link,
-              source: item.publisher || 'Yahoo Finance',
+              source: stripHtml(item.publisher || 'Yahoo Finance'),
               publishedAt: dateStr,
-              summary: item.summary || title,
+              summary: stripHtml(item.summary || title),
             };
           });
         }

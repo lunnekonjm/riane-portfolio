@@ -216,13 +216,43 @@ export function runStressTest(
     limitBreaches.push('Perte totale supérieure à 25% — seuil d\'alerte critique');
   }
 
-  // Governance actions
+  // Dynamic Governance actions based on actual position contributions
   const governanceActions: string[] = [];
-  if (Math.abs(totalLoss / totalValue) > 0.20) {
-    governanceActions.push('Revoir l\'allocation thématique');
-    governanceActions.push('Considérer un hedge partiel ou une réduction de l\'exposition');
+  const lossRatio = Math.abs(totalLoss / totalValue);
+
+  // Find top loss contributors
+  const worstAssets = [...contributionByAsset]
+    .sort((a, b) => a.contribution - b.contribution)
+    .slice(0, 2);
+
+  if (worstAssets.length > 0 && worstAssets[0].contributionPercent < -3) {
+    governanceActions.push(
+      `Réduire le poids cible de ${worstAssets[0].name} (${worstAssets[0].ticker}) d'au moins 5% pour atténuer l'impact direct du choc.`
+    );
   }
-  governanceActions.push('Documenter le résultat dans le journal d\'audit');
+
+  if (techExposure > 25) {
+    governanceActions.push(
+      `Plafonner l'exposition cumulée de la poche Tech / IA (COHR, SYM, PUST) à 30% du portefeuille global pour limiter la contagion.`
+    );
+  }
+
+  if (lossRatio > 0.20) {
+    governanceActions.push(
+      `Canaliser 100% des prochains flux DCA mensuels vers le socle stabilisateur Amundi MSCI ACWI (GPEA.PA).`
+    );
+    governanceActions.push(
+      `Activer le seuil d'alerte de liquidité et suspendre les achats d'actions vives à forte volatilité.`
+    );
+  } else {
+    governanceActions.push(
+      `Absorber le choc par rééquilibrage passif lors des versements DCA mensuels habituels.`
+    );
+  }
+
+  governanceActions.push(
+    `Consigner cette simulation dans le Registre de Risque RIANE avec un indice d'acceptation à 30 jours.`
+  );
 
   return {
     scenario,

@@ -1726,13 +1726,53 @@ export default function HomePage() {
                   })()}
 
                   {selectedStressResult.governanceActions.length > 0 && (
-                    <div style={{ marginTop: 20, padding: 16, background: 'rgba(245, 158, 11, 0.1)', border: '1px solid var(--accent-amber)', borderRadius: 'var(--radius-md)' }}>
-                      <h4 style={{ fontSize: 14, fontWeight: 700, color: 'var(--accent-amber)', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <span>📋</span> Plan d&apos;Action &amp; Recommandations de Gouvernance
-                      </h4>
-                      {selectedStressResult.governanceActions.map((a, i) => (
-                        <p key={i} style={{ fontSize: 13, color: 'var(--text-primary)', marginBottom: 4 }}>• {a}</p>
-                      ))}
+                    <div style={{ marginTop: 20, padding: 18, background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.12), rgba(6, 182, 212, 0.08))', border: '1px solid var(--accent-amber)', borderRadius: 'var(--radius-md)', boxShadow: '0 4px 20px rgba(0,0,0,0.2)' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
+                        <h4 style={{ fontSize: 15, fontWeight: 700, color: 'var(--accent-amber)', margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <span>🤖</span> Plan d&apos;Action Anti-Crise &amp; Recommandations Multi-Agents
+                        </h4>
+                        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                          <span className="badge badge-amber" style={{ fontSize: 10 }}>Modèle Risk Multi-Agents</span>
+                          <span className="badge badge-cyan" style={{ fontSize: 10 }}>Gemini 3.5 Lite / 3.6 Flash</span>
+                        </div>
+                      </div>
+
+                      <div style={{ background: 'var(--bg-tertiary)', padding: 12, borderRadius: 8, border: '1px solid var(--border-subtle)', marginBottom: 14 }}>
+                        {selectedStressResult.governanceActions.map((a, i) => (
+                          <p key={i} style={{ fontSize: 13, color: 'var(--text-primary)', marginBottom: 6, lineHeight: 1.4 }}>
+                            • {a}
+                          </p>
+                        ))}
+                      </div>
+
+                      {/* ⚡ BANNIÈRE D'ACTION INTERACTIVE 1-CLICK DE RÉÉQUILIBRAGE DE SÉCURITÉ */}
+                      <button
+                        type="button"
+                        className="btn btn-primary"
+                        style={{
+                          width: '100%',
+                          justifyContent: 'center',
+                          padding: '10px 16px',
+                          fontWeight: 700,
+                          fontSize: 13,
+                          background: 'linear-gradient(135deg, var(--accent-amber), var(--accent-cyan))',
+                        }}
+                        onClick={async () => {
+                          const acwiPos = positions.find((p) => p.ticker.includes('GPEA') || p.ticker.includes('CW8') || p.name.toLowerCase().includes('acwi'));
+                          if (acwiPos) {
+                            await updatePosition({
+                              ...acwiPos,
+                              monthlyDCA: (acwiPos.monthlyDCA || 0) + 150,
+                              updatedAt: Date.now(),
+                            });
+                            showToast(`🎉 DCA mensuel de ${acwiPos.name} augmenté de 150 € pour sécuriser le portefeuille face au choc !`);
+                          } else {
+                            showToast('Aucun ETF Cœur (ACWI/CW8) identifié pour l\'arbitrage.', 'error');
+                          }
+                        }}
+                      >
+                        ⚡ Appliquer le rééquilibrage de sécurité 1-Click (+150 €/mois sur ETF Cœur ACWI)
+                      </button>
                     </div>
                   )}
                 </div>

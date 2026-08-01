@@ -274,9 +274,29 @@ export async function POST(request: NextRequest) {
 
 ${groundedResult.summaryText}${tableSection}`;
       } else if (articles.length > 0) {
-        // Fallback to Cleaned Live RSS Scraper
+        // Build Substantive Financial Executive Press Synthesis
+        const titlesText = articles.map((a) => a.title).join(' ; ');
+        const mainTopics: string[] = [];
+
+        if (/cède|vendu|insider|dirigeant|sec|sold|vp/i.test(titlesText)) {
+          mainTopics.push("des transactions d'initiés et cessions d'actions par les dirigeants (déclarations officielles SEC)");
+        }
+        if (/earnings|résultats|chiffre d'affaires|croissance|revenus|bénéfices/i.test(titlesText)) {
+          mainTopics.push("les publications de résultats financiers et les révisions de prévisions d'activité");
+        }
+        if (/jpmorgan|goldman|downgrade|upgrade|objectif|analyste|price target/i.test(titlesText)) {
+          mainTopics.push("les ajustements d'objectifs de cours et de recommandations par les grands bureaux d'études (JPMorgan, Goldman Sachs)");
+        }
+        if (/commande|contrat|rosie|mbe|semi-conducteur|optics|laser|ia|tech/i.test(titlesText)) {
+          mainTopics.push("la dynamique de commandes industrielles et les opportunités liées aux semi-conducteurs et à l'IA");
+        }
+
+        const topicSummary = mainTopics.length > 0
+          ? mainTopics.join(' ainsi que ')
+          : "l'évolution récente du sentiment de marché et des catalyseurs sectoriels";
+
         const sourcesList = Array.from(new Set(articles.map((a) => a.source))).join(', ');
-        
+
         const bulletPoints = articles
           .map((a) => {
             const cleanTitle = a.title
@@ -284,17 +304,11 @@ ${groundedResult.summaryText}${tableSection}`;
               .replace(/https?:\/\/\S+/gi, '')
               .replace(/[\[\]|]/g, '')
               .trim();
-
-            let snippetStr = '';
-            if (a.summary && !a.summary.toLowerCase().includes(cleanTitle.toLowerCase()) && a.summary.length > 25) {
-              snippetStr = ` — *${a.summary.slice(0, 110)}...*`;
-            }
-
-            return `• **${a.source}** (${a.publishedAt}) : « **${cleanTitle}** »${snippetStr}`;
+            return `• **${a.source}** (${a.publishedAt}) : « **${cleanTitle}** »`;
           })
           .join('\n\n');
 
-        const pressSummary = `La presse financière spécialisée (**${sourcesList}**) a publié récemment les articles et communiqués suivants concernant **${p.cleanName}** :\n\n${bulletPoints}\n\n*Synthèse de la Gestion* : L'analyse de ces publications confirme la dynamique opérationnelle et les catalyseurs de marché de la société.`;
+        const pressSummary = `La couverture médiatique récente répertoriée par la presse financière spécialisée (**${sourcesList}**) sur **${p.cleanName} (${p.ticker})** est marquée par **${topicSummary}** :\n\n${bulletPoints}\n\n*Synthèse de la Gestion* : L'analyse combinée de ces publications met en évidence l'impact de ces facteurs sur la trajectoire récente du titre. La gestion maintient un suivi rigoureux des fondamentaux et de la discipline de pondération du portefeuille.`;
 
         const articleTableRows = articles
           .map((art) => {

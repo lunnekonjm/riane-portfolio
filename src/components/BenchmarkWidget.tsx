@@ -8,8 +8,6 @@ import { getQuote } from '@/services/market-data/provider';
  * Complètement isolé du portefeuille principal — sert uniquement de référence.
  */
 
-/** Frais de courtage Boursobank PEA-PME : 0,50% par ordre */
-const BROKERAGE_FEE = 0.005;
 
 interface BenchmarkPosition {
   name: string;
@@ -35,7 +33,7 @@ const INITIAL_BENCHMARK: BenchmarkPosition[] = [
     name: 'Memscap',
     ticker: 'MEMS.PA',
     quantity: 243,
-    avgPrice: 4.965,
+    avgPrice: 4.9647,
     purchaseDate: '2026-07-31',
     currentPrice: null,
     loading: false,
@@ -91,10 +89,9 @@ export default function BenchmarkWidget({ visible, onClose }: BenchmarkWidgetPro
 
   if (!visible) return null;
 
-  const totalInvested = positions.reduce((s, p) => s + p.quantity * p.avgPrice * (1 + BROKERAGE_FEE), 0);
+  const totalInvested = positions.reduce((s, p) => s + p.quantity * p.avgPrice, 0);
   const totalCurrent = positions.reduce((s, p) => s + p.quantity * (p.currentPrice ?? p.avgPrice), 0);
   const allLoaded = positions.every((p) => p.currentPrice !== null);
-  const totalFees = positions.reduce((s, p) => s + p.quantity * p.avgPrice * BROKERAGE_FEE, 0);
   const pnl = totalCurrent - totalInvested;
   const pnlPct = totalInvested > 0 ? (pnl / totalInvested) * 100 : 0;
 
@@ -213,7 +210,7 @@ export default function BenchmarkWidget({ visible, onClose }: BenchmarkWidgetPro
       {/* Positions List */}
       <div style={{ overflowY: 'auto', maxHeight: 'calc(70vh - 140px)' }}>
         {positions.map((p) => {
-          const invested = p.quantity * p.avgPrice * (1 + BROKERAGE_FEE);
+          const invested = p.quantity * p.avgPrice;
           const current = p.quantity * (p.currentPrice ?? p.avgPrice);
           const linePnl = current - invested;
           const linePnlPct = invested > 0 ? (linePnl / invested) * 100 : 0;
@@ -284,7 +281,7 @@ export default function BenchmarkWidget({ visible, onClose }: BenchmarkWidgetPro
         }}
       >
         <div style={{ fontSize: 9, color: 'var(--text-tertiary)' }}>
-          Achat : 31/07/2026 • PEA-PME • Frais : 0,5% ({totalFees.toFixed(2)} €)
+          Achat : 31/07/2026 • PEA-PME Boursobank (PRU frais inclus)
         </div>
         {lastRefresh && (
           <div style={{ fontSize: 9, color: 'var(--text-tertiary)' }}>

@@ -365,8 +365,8 @@ export default function HomePage() {
 
   const rawNotifications = useMemo(() => {
     const monthlyBudget = config?.monthlyBudget || 1000;
-    return generatePortfolioNotifications(positions, fxRates, notificationSettings, monthlyBudget);
-  }, [positions, fxRates, notificationSettings, config?.monthlyBudget]);
+    return generatePortfolioNotifications(positions, fxRates, notificationSettings, monthlyBudget, investorProfile);
+  }, [positions, fxRates, notificationSettings, config?.monthlyBudget, investorProfile]);
 
   const notifications = useMemo(() => {
     return rawNotifications
@@ -2032,7 +2032,9 @@ export default function HomePage() {
       {showConfigEditor && config && (
         <ConfigEditor
           config={config}
+          investorProfile={investorProfile}
           onSave={handleSaveConfig}
+          onSyncProfile={updateInvestorProfile}
           onClose={() => setShowConfigEditor(false)}
         />
       )}

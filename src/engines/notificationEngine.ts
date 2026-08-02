@@ -3,7 +3,7 @@
  * Evaluates real portfolio state and generates actionable financial alerts
  */
 
-import type { Position } from '@/types/portfolio';
+import type { Position, InvestorProfile, RiskProfileType } from '@/types/portfolio';
 import type { AppNotification, NotificationSettings } from '@/types/notification';
 import { THEMES } from '@/data/themes';
 
@@ -11,12 +11,16 @@ export function generatePortfolioNotifications(
   positions: Position[],
   fxRates: Record<string, number>,
   settings: NotificationSettings,
-  monthlyBudget: number = 1000
+  monthlyBudget: number = 1000,
+  investorProfile?: InvestorProfile | null
 ): AppNotification[] {
   const notifications: AppNotification[] = [];
   const now = Date.now();
   const currentDate = new Date();
   const currentDay = currentDate.getDate();
+
+  // Adapt thresholds based on risk profile
+  const riskLevel: RiskProfileType = investorProfile?.riskProfile || 'dynamic';
 
   // Group positions by envelope
   const filled = positions.filter((p) => p.quantity > 0 && p.avgPrice > 0);
@@ -100,7 +104,10 @@ export function generatePortfolioNotifications(
       const posVal = p.quantity * (p.currentPrice || p.avgPrice) * (fxRates[p.currency] || 1);
       const posWeight = (posVal / totalPortfolioValue) * 100;
       const isBroadEtf = p.ticker.includes('GPEA') || p.ticker.includes('CW8') || p.ticker.includes('ACWI') || p.ticker.includes('PUST');
-      const maxAllowedSingleWeight = isBroadEtf ? 60.0 : 35.0;
+      // Adapt concentration thresholds to investor profile
+      const maxAllowedSingleWeight = isBroadEtf
+        ? (riskLevel === 'conservative' ? 45.0 : riskLevel === 'balanced' ? 55.0 : riskLevel === 'aggressive' ? 70.0 : 60.0)
+        : (riskLevel === 'conservative' ? 15.0 : riskLevel === 'balanced' ? 25.0 : riskLevel === 'aggressive' ? 45.0 : 35.0);
 
       if (posWeight >= maxAllowedSingleWeight) {
         notifications.push({
@@ -130,8 +137,9 @@ export function generatePortfolioNotifications(
       const exposure = (themeValueEUR / totalPortfolioValue) * 100;
       const maxPct = theme.maxExposure * 100;
 
-      // Only trigger if drift exceeds limit by more than 10.0%
-      if (exposure > maxPct + 10.0) {
+      // Adapt drift tolerance to risk profile
+      const driftTolerance = riskLevel === 'conservative' ? 5.0 : riskLevel === 'balanced' ? 8.0 : riskLevel === 'aggressive' ? 15.0 : 10.0;
+      if (exposure > maxPct + driftTolerance) {
         notifications.push({
           id: `notif-drift-${theme.id}`,
           category: 'risk',

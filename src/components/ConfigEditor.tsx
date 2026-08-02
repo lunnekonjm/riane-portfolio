@@ -1,11 +1,13 @@
 'use client';
 
 import { useState } from 'react';
-import type { PortfolioConfig } from '@/types/portfolio';
+import type { PortfolioConfig, InvestorProfile } from '@/types/portfolio';
 
 interface ConfigEditorProps {
   config: PortfolioConfig;
+  investorProfile?: InvestorProfile | null;
   onSave: (config: PortfolioConfig) => void;
+  onSyncProfile?: (profile: InvestorProfile) => void;
   onClose: () => void;
 }
 
@@ -16,7 +18,7 @@ const RISK_PROFILES: Array<{ value: PortfolioConfig['riskProfile']; label: strin
   { value: 'aggressive', label: 'Agressif' },
 ];
 
-export default function ConfigEditor({ config, onSave, onClose }: ConfigEditorProps) {
+export default function ConfigEditor({ config, investorProfile, onSave, onSyncProfile, onClose }: ConfigEditorProps) {
   const [form, setForm] = useState<PortfolioConfig>({ ...config });
 
   const handleChange = (field: keyof PortfolioConfig, value: any) => {
@@ -31,6 +33,18 @@ export default function ConfigEditor({ config, onSave, onClose }: ConfigEditorPr
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onSave(form);
+    // Sync riskProfile & horizonYears back to InvestorProfile
+    if (onSyncProfile && investorProfile && investorProfile.onboardingCompleted) {
+      if (form.riskProfile !== investorProfile.riskProfile || form.horizonYears !== investorProfile.horizonYears || form.monthlyBudget !== investorProfile.monthlyBudget) {
+        onSyncProfile({
+          ...investorProfile,
+          riskProfile: form.riskProfile,
+          horizonYears: form.horizonYears,
+          monthlyBudget: form.monthlyBudget,
+          updatedAt: Date.now(),
+        });
+      }
+    }
   };
 
   return (

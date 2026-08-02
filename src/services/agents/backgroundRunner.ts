@@ -67,7 +67,7 @@ class BackgroundAnalysisRunner {
 
     const handleStatus: StatusCallback = (status, msg) => {
       onStatusUpdate?.(status, msg);
-      this.updateMessageInLocalStorage(sessionId, messageId, (m) => ({
+      const updatedSessions = this.updateMessageInLocalStorage(sessionId, messageId, (m) => ({
         ...m,
         status,
         statusMessage: msg,
@@ -76,7 +76,7 @@ class BackgroundAnalysisRunner {
       if (typeof window !== 'undefined') {
         window.dispatchEvent(
           new CustomEvent('riane_analysis_update', {
-            detail: { sessionId, messageId, status, statusMessage: msg },
+            detail: { sessionId, messageId, status, statusMessage: msg, updatedSessions },
           })
         );
       }
@@ -84,7 +84,7 @@ class BackgroundAnalysisRunner {
 
     runAnalysisPipeline(userUid, query, positions, config || defaultConfig, handleStatus)
       .then((result) => {
-        this.updateMessageInLocalStorage(sessionId, messageId, (m) => ({
+        const updatedSessions = this.updateMessageInLocalStorage(sessionId, messageId, (m) => ({
           ...m,
           result,
           status: 'synthesis',
@@ -97,14 +97,14 @@ class BackgroundAnalysisRunner {
         if (typeof window !== 'undefined') {
           window.dispatchEvent(
             new CustomEvent('riane_analysis_complete', {
-              detail: { sessionId, messageId, result, query },
+              detail: { sessionId, messageId, result, query, updatedSessions },
             })
           );
         }
       })
       .catch((err) => {
         const errorMsg = err?.message || 'Erreur lors de l\'analyse IA';
-        this.updateMessageInLocalStorage(sessionId, messageId, (m) => ({
+        const updatedSessions = this.updateMessageInLocalStorage(sessionId, messageId, (m) => ({
           ...m,
           status: 'error',
           statusMessage: errorMsg,
@@ -115,7 +115,7 @@ class BackgroundAnalysisRunner {
         if (typeof window !== 'undefined') {
           window.dispatchEvent(
             new CustomEvent('riane_analysis_error', {
-              detail: { sessionId, messageId, error: errorMsg },
+              detail: { sessionId, messageId, error: errorMsg, updatedSessions },
             })
           );
         }
@@ -126,13 +126,13 @@ class BackgroundAnalysisRunner {
     sessionId: string,
     messageId: string,
     updater: (msg: any) => any
-  ) {
-    if (typeof window === 'undefined') return;
+  ): any[] | null {
+    if (typeof window === 'undefined') return null;
     try {
       const raw = localStorage.getItem(LOCAL_STORAGE_KEY);
-      if (!raw) return;
+      if (!raw) return null;
       const sessions = JSON.parse(raw);
-      if (!Array.isArray(sessions)) return;
+      if (!Array.isArray(sessions)) return null;
 
       const updatedSessions = sessions.map((session: any) => {
         if (session.id === sessionId) {
@@ -145,8 +145,10 @@ class BackgroundAnalysisRunner {
       });
 
       localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updatedSessions));
+      return updatedSessions;
     } catch (err) {
       console.warn('[BackgroundRunner] Erreur de maj localStorage:', err);
+      return null;
     }
   }
 

@@ -146,33 +146,38 @@ export function AnalysisChatView({
     reloadSessionsFromStorage();
   }, [userUid, positions, config]);
 
-  // Synchronisation en direct avec le backgroundRunner via CustomEvents
+  // Synchronisation en direct sans race condition grâce aux sessions transmises dans les events
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
-    const handleUpdate = () => {
-      try {
-        const saved = localStorage.getItem(LOCAL_STORAGE_KEY);
-        if (saved) {
-          const parsed: ChatSession[] = JSON.parse(saved);
-          setSessions(parsed);
+    const handleUpdate = (e: any) => {
+      const updatedSessions = e?.detail?.updatedSessions;
+      if (updatedSessions && Array.isArray(updatedSessions)) {
+        setSessions(updatedSessions);
+      } else {
+        try {
+          const saved = localStorage.getItem(LOCAL_STORAGE_KEY);
+          if (saved) {
+            setSessions(JSON.parse(saved));
+          }
+        } catch {
+          // ignore
         }
-      } catch {
-        // ignore
       }
     };
 
     const handleComplete = (e: any) => {
-      handleUpdate();
+      handleUpdate(e);
       setIsRunning(false);
       const detail = e.detail;
       if (detail && detail.query) {
         showToast(`🎉 Analyse terminée pour "${detail.query.slice(0, 25)}..."`);
       }
+      scrollToBottom();
     };
 
     const handleError = (e: any) => {
-      handleUpdate();
+      handleUpdate(e);
       setIsRunning(false);
       if (e.detail?.error) {
         showToast(e.detail.error, 'error');
@@ -342,48 +347,14 @@ export function AnalysisChatView({
 
     scrollToBottom();
 
-    // DÉLÉGATION AU BACKGROUND RUNNER DÉCOUPLÉ DE REACT
+    // DÉLÉGATION AU BACKGROUND RUNNER
     backgroundRunner.startTask(
       messageId,
       targetSessionId,
       textToSend,
       userUid,
       positions,
-      config,
-      (status, statusMessage) => {
-        setSessions((prev) =>
-          prev.map((session) => {
-            if (session.id === targetSessionId) {
-              return {
-                ...session,
-                messages: session.messages.map((m) =>
-                  m.id === messageId ? { ...m, status, statusMessage } : m
-                ),
-              };
-            }
-            return session;
-          })
-        );
-      },
-      (result) => {
-        setIsRunning(false);
-        setSessions((prev) =>
-          prev.map((session) => {
-            if (session.id === targetSessionId) {
-              return {
-                ...session,
-                messages: session.messages.map((m) =>
-                  m.id === messageId
-                    ? { ...m, result, status: 'synthesis', statusMessage: 'Analyse terminée' }
-                    : m
-                ),
-              };
-            }
-            return session;
-          })
-        );
-        scrollToBottom();
-      }
+      config
     );
   };
 

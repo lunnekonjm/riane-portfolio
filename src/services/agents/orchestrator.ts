@@ -439,14 +439,18 @@ export async function runAnalysisPipeline(
       result.marketData = dataResult.data.marketData;
     }
 
-    // Log to audit
-    await addAuditEntry(uid, {
-      timestamp: Date.now(),
-      action: 'data-collection',
-      agent: 'data',
-      input: query,
-      output: dataResult.success ? 'Données collectées' : dataResult.error || 'Échec',
-    });
+    // Log to audit (non-blocking)
+    try {
+      await addAuditEntry(uid, {
+        timestamp: Date.now(),
+        action: 'data-collection',
+        agent: 'data',
+        input: query,
+        output: dataResult.success ? 'Données collectées' : dataResult.error || 'Échec',
+      });
+    } catch (e) {
+      console.warn('[Orchestrator] Firestore audit entry warning:', e);
+    }
 
     // Step 3: Research Agent
     onStatus?.('research', 'Analyse fondamentale et actualités...');
@@ -556,8 +560,12 @@ export async function runAnalysisPipeline(
     request.status = 'complete';
     result.completedAt = Date.now();
 
-    // Save to Firestore
-    await saveAnalysis(uid, result);
+    // Save to Firestore (non-blocking)
+    try {
+      await saveAnalysis(uid, result);
+    } catch (e) {
+      console.warn('[Orchestrator] Firestore saveAnalysis warning:', e);
+    }
 
     await addAuditEntry(uid, {
       timestamp: Date.now(),

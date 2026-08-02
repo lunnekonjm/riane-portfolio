@@ -87,6 +87,8 @@ export default function BenchmarkWidget({ visible, onClose }: BenchmarkWidgetPro
     }
   }, [visible, lastRefresh, fetchPrices]);
 
+  const [isEditing, setIsEditing] = useState(false);
+
   if (!visible) return null;
 
   const totalInvested = positions.reduce((s, p) => s + p.quantity * p.avgPrice, 0);
@@ -95,6 +97,9 @@ export default function BenchmarkWidget({ visible, onClose }: BenchmarkWidgetPro
   const pnl = totalCurrent - totalInvested;
   const pnlPct = totalInvested > 0 ? (pnl / totalInvested) * 100 : 0;
 
+  const formatMoney = (amount: number) =>
+    amount.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
   return (
     <div
       style={{
@@ -102,7 +107,7 @@ export default function BenchmarkWidget({ visible, onClose }: BenchmarkWidgetPro
         bottom: 16,
         right: 16,
         width: 380,
-        maxHeight: '70vh',
+        maxHeight: '75vh',
         background: 'var(--bg-secondary)',
         border: '1px solid var(--border-medium)',
         borderRadius: 14,
@@ -125,7 +130,19 @@ export default function BenchmarkWidget({ visible, onClose }: BenchmarkWidgetPro
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span style={{ fontSize: 14 }}>🧪</span>
+          <button
+            onClick={() => setIsEditing((prev) => !prev)}
+            style={{
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              fontSize: 14,
+              padding: 0,
+            }}
+            title={isEditing ? 'Valider les modifications' : 'Modifier les PRU et quantités'}
+          >
+            {isEditing ? '💾' : '✏️'}
+          </button>
           <div>
             <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', letterSpacing: '0.5px' }}>
               ÉTALON BOURSOBANK
@@ -184,13 +201,13 @@ export default function BenchmarkWidget({ visible, onClose }: BenchmarkWidgetPro
         <div>
           <div style={{ fontSize: 9, color: 'var(--text-tertiary)', textTransform: 'uppercase' }}>Investi</div>
           <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>
-            {totalInvested.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €
+            {formatMoney(totalInvested)} €
           </div>
         </div>
         <div>
           <div style={{ fontSize: 9, color: 'var(--text-tertiary)', textTransform: 'uppercase' }}>Valeur</div>
           <div style={{ fontSize: 13, fontWeight: 700, color: allLoaded ? 'var(--text-primary)' : 'var(--text-tertiary)' }}>
-            {allLoaded ? totalCurrent.toLocaleString('fr-FR', { minimumFractionDigits: 2 }) + ' €' : '...'}
+            {allLoaded ? formatMoney(totalCurrent) + ' €' : '...'}
           </div>
         </div>
         <div>
@@ -202,7 +219,7 @@ export default function BenchmarkWidget({ visible, onClose }: BenchmarkWidgetPro
               color: allLoaded ? (pnl >= 0 ? 'var(--accent-green)' : 'var(--accent-rose)') : 'var(--text-tertiary)',
             }}
           >
-            {allLoaded ? `${pnl >= 0 ? '+' : ''}${pnl.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} € (${pnlPct >= 0 ? '+' : ''}${pnlPct.toFixed(2)}%)` : '...'}
+            {allLoaded ? `${pnl >= 0 ? '+' : ''}${formatMoney(pnl)} € (${pnlPct >= 0 ? '+' : ''}${pnlPct.toFixed(2)}%)` : '...'}
           </div>
         </div>
       </div>
@@ -232,10 +249,38 @@ export default function BenchmarkWidget({ visible, onClose }: BenchmarkWidgetPro
                 <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                   {p.name}
                 </div>
-                <div style={{ fontSize: 10, color: 'var(--text-tertiary)', display: 'flex', gap: 8, marginTop: 2 }}>
+                <div style={{ fontSize: 10, color: 'var(--text-tertiary)', display: 'flex', gap: 8, marginTop: 2, alignItems: 'center' }}>
                   <span className="mono">{p.ticker}</span>
-                  <span>×{p.quantity}</span>
-                  <span>PRU {p.avgPrice.toFixed(3)} €</span>
+                  {isEditing ? (
+                    <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                      <span style={{ fontSize: 9 }}>Qté:</span>
+                      <input
+                        type="number"
+                        value={p.quantity}
+                        onChange={(e) => {
+                          const val = parseFloat(e.target.value) || 0;
+                          setPositions(positions.map((pos) => (pos.ticker === p.ticker ? { ...pos, quantity: val } : pos)));
+                        }}
+                        style={{ width: 45, fontSize: 10, padding: '1px 3px', background: 'var(--bg-tertiary)', border: '1px solid var(--border-medium)', borderRadius: 4, color: 'var(--text-primary)' }}
+                      />
+                      <span style={{ fontSize: 9 }}>PRU:</span>
+                      <input
+                        type="number"
+                        step="0.001"
+                        value={p.avgPrice}
+                        onChange={(e) => {
+                          const val = parseFloat(e.target.value) || 0;
+                          setPositions(positions.map((pos) => (pos.ticker === p.ticker ? { ...pos, avgPrice: val } : pos)));
+                        }}
+                        style={{ width: 55, fontSize: 10, padding: '1px 3px', background: 'var(--bg-tertiary)', border: '1px solid var(--border-medium)', borderRadius: 4, color: 'var(--text-primary)' }}
+                      />
+                    </div>
+                  ) : (
+                    <>
+                      <span>×{p.quantity}</span>
+                      <span>PRU {p.avgPrice.toFixed(3)} €</span>
+                    </>
+                  )}
                 </div>
               </div>
 
@@ -245,7 +290,7 @@ export default function BenchmarkWidget({ visible, onClose }: BenchmarkWidgetPro
                 ) : hasPrice ? (
                   <>
                     <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)' }}>
-                      {current.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €
+                      {formatMoney(current)} €
                     </div>
                     <div
                       style={{
@@ -254,7 +299,7 @@ export default function BenchmarkWidget({ visible, onClose }: BenchmarkWidgetPro
                         color: linePnl >= 0 ? 'var(--accent-green)' : 'var(--accent-rose)',
                       }}
                     >
-                      {linePnl >= 0 ? '+' : ''}{linePnl.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €
+                      {linePnl >= 0 ? '+' : ''}{formatMoney(linePnl)} €
                       <span style={{ marginLeft: 4, opacity: 0.8 }}>
                         ({linePnlPct >= 0 ? '+' : ''}{linePnlPct.toFixed(1)}%)
                       </span>

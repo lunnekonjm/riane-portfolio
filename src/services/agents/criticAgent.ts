@@ -107,6 +107,11 @@ Données marché : ${JSON.stringify(marketData, null, 2)}
 Recherche : ${JSON.stringify(researchData, null, 2)}
 Évaluation portefeuille : ${JSON.stringify(portfolioEval, null, 2)}
 Positions existantes : ${JSON.stringify(context.portfolioPositions, null, 2)}
+${context.investorProfile ? `
+PROFIL INVESTISSEUR (ADAPTER tes seuils d'alerte à ce profil) :
+- Profil : ${context.investorProfile.riskProfile} | Horizon : ${context.investorProfile.horizonYears} ans | Objectif : ${context.investorProfile.objective}
+- Drawdown max toléré : -${(context.investorProfile.maxDrawdownTolerance * 100).toFixed(0)}% | Expérience : ${context.investorProfile.experience}
+IMPORTANT : Un profil "${context.investorProfile.riskProfile}" tolère ${context.investorProfile.riskProfile === 'aggressive' ? 'une concentration élevée (jusqu\'à 15% par ligne)' : context.investorProfile.riskProfile === 'dynamic' ? 'une concentration modérée (jusqu\'à 10% par ligne)' : context.investorProfile.riskProfile === 'balanced' ? 'une concentration limitée (max 7% par ligne)' : 'très peu de concentration (max 5% par ligne)'}. Ajuste tes alertes de sur-concentration en conséquence.` : ''}
 
 Produis une contre-analyse complète avec vérification d'abstention.`;
 

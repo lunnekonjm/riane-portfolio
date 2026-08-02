@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { backgroundRunner } from '@/services/agents/backgroundRunner';
 import type { AnalysisResult, AnalysisStatus } from '@/types/analysis';
+import type { InvestorProfile } from '@/types/portfolio';
 import MarkdownRenderer from './MarkdownRenderer';
 
 export interface ChatMessage {
@@ -39,6 +40,7 @@ interface AnalysisChatViewProps {
   userUid: string;
   positions: any[];
   config: any;
+  investorProfile?: InvestorProfile | null;
   updatePosition: (pos: any, customReason?: string) => Promise<any>;
   updateConfig: (cfg: any) => Promise<any>;
   onOpenGlossary: (term?: string) => void;
@@ -105,6 +107,7 @@ export function AnalysisChatView({
   userUid,
   positions,
   config,
+  investorProfile,
   updatePosition,
   updateConfig,
   onOpenGlossary,
@@ -322,7 +325,8 @@ export function AnalysisChatView({
       textToSend,
       userUid,
       positions,
-      config
+      config,
+      investorProfile
     );
   };
 

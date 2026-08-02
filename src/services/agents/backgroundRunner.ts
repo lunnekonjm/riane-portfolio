@@ -6,6 +6,7 @@
 
 import { runAnalysisPipeline, type StatusCallback } from './orchestrator';
 import type { AnalysisResult, AnalysisStatus } from '@/types/analysis';
+import type { InvestorProfile } from '@/types/portfolio';
 
 export interface RunningTask {
   messageId: string;
@@ -14,6 +15,7 @@ export interface RunningTask {
   userUid: string;
   positions: any[];
   config: any;
+  investorProfile?: InvestorProfile | null;
   startTime: number;
 }
 
@@ -110,7 +112,8 @@ class BackgroundAnalysisRunner {
     query: string,
     userUid: string,
     positions: any[],
-    config: any
+    config: any,
+    investorProfile?: InvestorProfile | null
   ) {
     if (this.activeTasks.has(messageId)) return;
 
@@ -121,6 +124,7 @@ class BackgroundAnalysisRunner {
       userUid,
       positions,
       config,
+      investorProfile,
       startTime: Date.now(),
     };
 
@@ -153,7 +157,7 @@ class BackgroundAnalysisRunner {
       }
     };
 
-    runAnalysisPipeline(userUid, query, positions, config || defaultConfig, handleStatus)
+    runAnalysisPipeline(userUid, query, positions, config || defaultConfig, handleStatus, investorProfile)
       .then((result) => {
         const updatedSessions = this.updateMessageInMemory(sessionId, messageId, (m) => ({
           ...m,

@@ -10,10 +10,12 @@ import {
   savePosition,
   deletePosition as deletePositionFromDb,
   savePortfolioConfig,
+  getInvestorProfile,
+  saveInvestorProfile as saveInvestorProfileToDb,
 } from '@/services/firebase/firestore';
 import { DEFAULT_POSITIONS } from '@/data/portfolio';
 import { getMultipleQuotes, getFxRates } from '@/services/market-data/provider';
-import type { Position, PortfolioConfig, TransactionRecord } from '@/types/portfolio';
+import type { Position, PortfolioConfig, TransactionRecord, InvestorProfile } from '@/types/portfolio';
 import type { User } from 'firebase/auth';
 import { clearAnalysisCache } from '@/utils/analysisCache';
 
@@ -21,6 +23,7 @@ export function usePortfolio() {
   const [user, setUser] = useState<User | null>(null);
   const [positions, setPositions] = useState<Position[]>([]);
   const [config, setConfig] = useState<PortfolioConfig | null>(null);
+  const [investorProfile, setInvestorProfile] = useState<InvestorProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const pricesFetched = useRef(false);
@@ -33,9 +36,10 @@ export function usePortfolio() {
       if (u) {
         try {
           await initializeUserData(u.uid);
-          const [pos, cfg] = await Promise.all([
+          const [pos, cfg, profile] = await Promise.all([
             getPositions(u.uid),
             getPortfolioConfig(u.uid),
+            getInvestorProfile(u.uid),
           ]);
 
           if (pos.length === 0) {
@@ -47,12 +51,14 @@ export function usePortfolio() {
           }
 
           setConfig(cfg);
+          setInvestorProfile(profile);
         } catch (err) {
           console.error('Error loading portfolio:', err);
         }
       } else {
         setPositions([]);
         setConfig(null);
+        setInvestorProfile(null);
       }
       setLoading(false);
     });
@@ -413,10 +419,38 @@ export function usePortfolio() {
     return acc;
   }, {} as Record<string, Position[]>);
 
+  const updateInvestorProfile = useCallback(async (profile: InvestorProfile) => {
+    if (!user) return;
+    setSaving(true);
+    try {
+      await saveInvestorProfileToDb(user.uid, profile);
+      setInvestorProfile(profile);
+      // Sync riskProfile and horizonYears with PortfolioConfig
+      if (config) {
+        const updatedConfig = {
+          ...config,
+          riskProfile: profile.riskProfile,
+          horizonYears: profile.horizonYears,
+          monthlyBudget: profile.monthlyBudget,
+        };
+        await savePortfolioConfig(user.uid, updatedConfig);
+        setConfig(updatedConfig);
+      }
+    } catch (err) {
+      console.error('Error saving investor profile:', err);
+    } finally {
+      setSaving(false);
+    }
+  }, [user, config]);
+
+  const isOnboardingPending = !investorProfile || !investorProfile.onboardingCompleted;
+
   return {
     user,
     positions,
     config,
+    investorProfile,
+    isOnboardingPending,
     loading,
     saving,
     fxRates,
@@ -440,6 +474,7 @@ export function usePortfolio() {
     updatePosition,
     removePosition,
     updateConfig,
+    updateInvestorProfile,
     refreshPrices,
     resetPortfolio,
   };

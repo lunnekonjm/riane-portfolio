@@ -18,7 +18,7 @@ import {
   type Firestore,
 } from 'firebase/firestore';
 import { getFirebaseApp } from './config';
-import type { Position, PortfolioConfig, AuditLogEntry } from '@/types/portfolio';
+import type { Position, PortfolioConfig, AuditLogEntry, InvestorProfile } from '@/types/portfolio';
 import type { AnalysisResult } from '@/types/analysis';
 import type { Recommendation, ThesisCard } from '@/types/recommendation';
 
@@ -74,6 +74,20 @@ export async function getPortfolioConfig(uid: string): Promise<PortfolioConfig |
 export async function savePortfolioConfig(uid: string, config: PortfolioConfig): Promise<void> {
   const db = getDb();
   await setDoc(doc(db, 'users', uid, 'config', 'portfolio'), config);
+}
+
+// ── Investor Profile ──
+
+export async function getInvestorProfile(uid: string): Promise<InvestorProfile | null> {
+  const db = getDb();
+  const snap = await getDoc(doc(db, 'users', uid, 'config', 'investorProfile'));
+  if (!snap.exists()) return null;
+  return snap.data() as InvestorProfile;
+}
+
+export async function saveInvestorProfile(uid: string, profile: InvestorProfile): Promise<void> {
+  const db = getDb();
+  await setDoc(doc(db, 'users', uid, 'config', 'investorProfile'), { ...profile, updatedAt: Date.now() });
 }
 
 // ── Audit Log ──

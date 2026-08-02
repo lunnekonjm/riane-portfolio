@@ -15,6 +15,7 @@ import { addAuditEntry, saveAnalysis } from '@/services/firebase/firestore';
 import { ASSET_REGISTRY } from '@/data/assetRegistry';
 import type { AgentContext, AgentResult } from './types';
 import type { AnalysisResult, AnalysisRequest, AnalysisStatus } from '@/types/analysis';
+import type { InvestorProfile } from '@/types/portfolio';
 
 let aiModule: typeof import('firebase/ai') | null = null;
 
@@ -172,6 +173,13 @@ CONSIGNES DE RÉPONSE ADAPTATIVE :
    - Donne un verdict clair dès le début (🟢 Pertinent / 🟡 À surveiller / 🔴 Non recommandé).
    - Aborde synthétiquement les points essentiels SANS blabla inutile.
 
+4. PERSONNALISATION SELON LE PROFIL INVESTISSEUR :
+   - ADAPTE systématiquement ton langage, tes recommandations et tes seuils au profil investisseur fourni.
+   - Un profil AGRESSIF accepte plus de concentration, de volatilité et de positions spéculatives.
+   - Un profil CONSERVATEUR privilégie les ETF core, la diversification et la stabilité.
+   - Un profil DÉBUTANT nécessite plus de pédagogie et d'explications.
+   - NE recommande JAMAIS une stratégie incompatible avec le profil (ex: ne pas recommander du trading à un conservateur).
+
 Style : Professionnel, pédagogue, fluide, concis, structuré uniquement quand c'est nécessaire.`,
     });
 
@@ -179,6 +187,15 @@ Style : Professionnel, pédagogue, fluide, concis, structuré uniquement quand c
 
 PORTEFEUILLE ACTUEL DE L'UTILISATEUR :
 ${JSON.stringify(context.portfolioPositions.map(p => ({ ticker: p.ticker, name: p.name, envelope: p.envelope, qty: p.quantity, pru: p.avgPrice })), null, 2)}
+${context.investorProfile ? `
+PROFIL INVESTISSEUR :
+- Profil de risque : ${context.investorProfile.riskProfile}
+- Horizon : ${context.investorProfile.horizonYears} ans
+- Objectif : ${context.investorProfile.objective}
+- Drawdown max toléré : -${(context.investorProfile.maxDrawdownTolerance * 100).toFixed(0)}%
+- Expérience : ${context.investorProfile.experience}
+- Budget DCA : ${context.investorProfile.monthlyBudget}€/mois
+ADAPTE ta réponse à ce profil investisseur.` : ''}
 
 DONNÉES MARCHÉ :
 ${JSON.stringify(dataResult?.data || {}, null, 2)}
@@ -393,7 +410,8 @@ export async function runAnalysisPipeline(
   query: string,
   portfolioPositions: any[],
   portfolioConfig: any,
-  onStatus?: StatusCallback
+  onStatus?: StatusCallback,
+  investorProfile?: InvestorProfile | null
 ): Promise<AnalysisResult> {
   const analysisId = `analysis-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
@@ -430,6 +448,7 @@ export async function runAnalysisPipeline(
       previousMessages: [],
       portfolioPositions,
       portfolioConfig,
+      investorProfile: investorProfile || undefined,
     };
 
     // Step 2: Data Agent

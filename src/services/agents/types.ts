@@ -2,6 +2,8 @@
  * Types communs aux agents
  */
 
+import type { InvestorProfile } from '@/types/portfolio';
+
 export type AgentRole = 'data' | 'research' | 'portfolio-risk' | 'critic' | 'orchestrator';
 
 export interface AgentMessage {
@@ -18,6 +20,8 @@ export interface AgentContext {
   previousMessages: AgentMessage[];
   portfolioPositions: any[];
   portfolioConfig: any;
+  /** Investor profile for personalized analysis */
+  investorProfile?: InvestorProfile;
 }
 
 export interface AgentResult {

@@ -105,6 +105,16 @@ ${JSON.stringify(portfolioPositions, null, 2)}
 
 Configuration portefeuille :
 ${JSON.stringify(portfolioConfig, null, 2)}
+${context.investorProfile ? `
+PROFIL INVESTISSEUR (ADAPTER tes recommandations à ce profil) :
+- Tolérance au risque : ${context.investorProfile.riskProfile} (${context.investorProfile.riskProfile === 'aggressive' ? 'Accepte forte concentration et volatilité' : context.investorProfile.riskProfile === 'dynamic' ? 'Croissance active, satellites thématiques acceptés' : context.investorProfile.riskProfile === 'balanced' ? 'Équilibre croissance/protection' : 'Priorité préservation du capital'})
+- Horizon d'investissement : ${context.investorProfile.horizonYears} ans
+- Objectif : ${context.investorProfile.objective === 'wealth-building' ? 'Constitution de patrimoine long terme' : context.investorProfile.objective === 'passive-income' ? 'Revenus passifs et dividendes' : context.investorProfile.objective === 'financial-independence' ? 'Indépendance financière' : 'Spéculation/Trading'}
+- Drawdown max accepté : -${(context.investorProfile.maxDrawdownTolerance * 100).toFixed(0)}%
+- Expérience : ${context.investorProfile.experience === 'beginner' ? 'Débutant (<2 ans)' : context.investorProfile.experience === 'intermediate' ? 'Intermédiaire (2-5 ans)' : 'Avancé (+5 ans)'}
+- Budget mensuel DCA : ${context.investorProfile.monthlyBudget}€
+
+IMPORTANT : Un profil "${context.investorProfile.riskProfile}" avec horizon ${context.investorProfile.horizonYears} ans tolère ${context.investorProfile.riskProfile === 'aggressive' ? 'plus de concentration sectorielle et de volatilité' : context.investorProfile.riskProfile === 'dynamic' ? 'une volatilité modérée avec satellites thématiques' : context.investorProfile.riskProfile === 'balanced' ? 'une allocation diversifiée avec protection' : 'très peu de volatilité, priorité ETF core et obligations'}.` : ''}
 
 Produis l'évaluation complète avec 3 scénarios et une recommandation.`;
 

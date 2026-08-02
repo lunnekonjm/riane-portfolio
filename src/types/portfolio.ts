@@ -148,3 +148,28 @@ export interface LiquidityMetrics {
   freeFloatConcentration: number;
   lotConstraints: number;
 }
+
+export type RiskProfileType = 'conservative' | 'balanced' | 'dynamic' | 'aggressive';
+
+export type InvestmentObjective = 'wealth-building' | 'passive-income' | 'financial-independence' | 'speculation';
+
+export type ExperienceLevel = 'beginner' | 'intermediate' | 'advanced';
+
+export interface InvestorProfile {
+  /** Risk tolerance level */
+  riskProfile: RiskProfileType;
+  /** Investment horizon in years */
+  horizonYears: number;
+  /** Primary investment objective */
+  objective: InvestmentObjective;
+  /** Experience level */
+  experience: ExperienceLevel;
+  /** Maximum acceptable drawdown (0-1) — e.g. 0.3 = accepts -30% loss */
+  maxDrawdownTolerance: number;
+  /** Monthly investable budget in EUR */
+  monthlyBudget: number;
+  /** Whether onboarding has been completed */
+  onboardingCompleted: boolean;
+  /** Timestamp of profile creation/update */
+  updatedAt: number;
+}

@@ -18,6 +18,7 @@ import MonteCarloModal from '@/components/MonteCarloModal';
 import MarkdownRenderer from '@/components/MarkdownRenderer';
 import WelcomeBanner from '@/components/WelcomeBanner';
 import ReportsView from '@/components/ReportsView';
+import InvestorOnboarding from '@/components/InvestorOnboarding';
 import CustomDatePicker from '@/components/CustomDatePicker';
 import { getQuote } from '@/services/market-data/provider';
 import TransactionHistoryModal from '@/components/TransactionHistoryModal';
@@ -198,11 +199,14 @@ export default function HomePage() {
   };
 
   const {
-    positions, config, totalValue, totalCost, gainLoss, gainLossPercent,
+    positions, config, investorProfile, isOnboardingPending,
+    totalValue, totalCost, gainLoss, gainLossPercent,
     monthlyDCATotal, saving, pendingCount, filledPositions, fxRates, lastPricesUpdated, marketStatusLabel,
     canUndo, undoLastAction, canRedo, redoLastAction, transactions, recordTransaction,
-    addPosition, updatePosition, removePosition, updateConfig, refreshPrices, resetPortfolio,
+    addPosition, updatePosition, removePosition, updateConfig, updateInvestorProfile, refreshPrices, resetPortfolio,
   } = usePortfolio();
+
+  const [showEditProfile, setShowEditProfile] = useState(false);
 
   const [showDcaFrequencyDropdown, setShowDcaFrequencyDropdown] = useState<boolean>(false);
 
@@ -511,6 +515,17 @@ export default function HomePage() {
 
   return (
     <div className="app-layout">
+      {/* 🎯 Investor Onboarding Wizard (first-time or edit) */}
+      {(isOnboardingPending || showEditProfile) && (
+        <InvestorOnboarding
+          existingProfile={investorProfile}
+          onComplete={async (profile) => {
+            await updateInvestorProfile(profile);
+            setShowEditProfile(false);
+            showToast('Profil investisseur sauvegardé ✅');
+          }}
+        />
+      )}
       {/* Sidebar */}
       <nav className="sidebar" id="main-sidebar">
         <div className="sidebar-logo">
@@ -1608,6 +1623,7 @@ export default function HomePage() {
               userUid={user.uid}
               positions={positions}
               config={config}
+              investorProfile={investorProfile}
               updatePosition={updatePosition}
               updateConfig={updateConfig}
               onOpenGlossary={openGlossary}
@@ -2254,18 +2270,59 @@ export default function HomePage() {
               </div>
             </div>
 
-            <div style={{ marginTop: 24, display: 'flex', justifyContent: 'space-between', gap: 12 }}>
+            {/* Investor Profile Card */}
+            {investorProfile && investorProfile.onboardingCompleted && (
+              <div style={{ padding: 14, background: 'linear-gradient(135deg, rgba(6, 182, 212, 0.08) 0%, rgba(139, 92, 246, 0.08) 100%)', borderRadius: 10, border: '1px solid var(--border-medium)', marginTop: 14 }}>
+                <div style={{ fontSize: 11, color: 'var(--text-tertiary)', textTransform: 'uppercase', marginBottom: 8 }}>Profil Investisseur</div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                  <div>
+                    <span style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>Risque</span>
+                    <div style={{ fontSize: 13, fontWeight: 600 }}>
+                      {investorProfile.riskProfile === 'conservative' ? '🛡️ Conservateur' : investorProfile.riskProfile === 'balanced' ? '⚖️ Équilibré' : investorProfile.riskProfile === 'dynamic' ? '🚀 Dynamique' : '⚡ Agressif'}
+                    </div>
+                  </div>
+                  <div>
+                    <span style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>Horizon</span>
+                    <div style={{ fontSize: 13, fontWeight: 600 }}>⏳ {investorProfile.horizonYears} ans</div>
+                  </div>
+                  <div>
+                    <span style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>Objectif</span>
+                    <div style={{ fontSize: 13, fontWeight: 600 }}>
+                      {investorProfile.objective === 'wealth-building' ? '🏗️ Patrimoine' : investorProfile.objective === 'passive-income' ? '💰 Revenus' : investorProfile.objective === 'financial-independence' ? '🏝️ Indépendance' : '🎯 Spéculation'}
+                    </div>
+                  </div>
+                  <div>
+                    <span style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>Drawdown max</span>
+                    <div style={{ fontSize: 13, fontWeight: 600 }}>📉 -{(investorProfile.maxDrawdownTolerance * 100).toFixed(0)}%</div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div style={{ marginTop: 24, display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
               <button className="btn btn-secondary" onClick={() => setShowProfileModal(false)}>Fermer</button>
-              <button
-                className="btn btn-secondary"
-                onClick={() => {
-                  setShowProfileModal(false);
-                  setShowConfirmSignOut(true);
-                }}
-                style={{ background: 'rgba(244, 63, 94, 0.15)', color: 'var(--accent-rose)', borderColor: 'var(--accent-rose)', fontWeight: 700 }}
-              >
-                🚪 Se déconnecter
-              </button>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button
+                  className="btn btn-primary btn-sm"
+                  onClick={() => {
+                    setShowProfileModal(false);
+                    setShowEditProfile(true);
+                  }}
+                  style={{ fontSize: 12 }}
+                >
+                  🎯 Modifier mon Profil
+                </button>
+                <button
+                  className="btn btn-secondary"
+                  onClick={() => {
+                    setShowProfileModal(false);
+                    setShowConfirmSignOut(true);
+                  }}
+                  style={{ background: 'rgba(244, 63, 94, 0.15)', color: 'var(--accent-rose)', borderColor: 'var(--accent-rose)', fontWeight: 700 }}
+                >
+                  🚪 Se déconnecter
+                </button>
+              </div>
             </div>
           </div>
         </div>

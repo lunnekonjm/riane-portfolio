@@ -62,12 +62,18 @@ function getPositionIdentifiers(pos: any): string[] {
   return Array.from(new Set(ids)).map((s) => s.toLowerCase());
 }
 
+export interface ExtractedIntents {
+  dcaAction: ActionableIntent | null;
+  weightAction: ActionableIntent | null;
+}
+
 /**
- * Détecte automatiquement les intentions d'action (DCA mensuel en € ou Allocation cible en %)
- * d'après la réponse de l'analyste IA et génère un bouton Call-To-Action 1-Click.
+ * Détecte avec précision les montants DCA (€/mois) et allocations cibles (%) préconisés par l'IA.
  */
-function extractActionableIntent(query: string, synthesisText: string, positions: any[]): ActionableIntent | null {
-  if (!synthesisText || !query || positions.length === 0) return null;
+function extractActionableIntents(query: string, synthesisText: string, positions: any[]): ExtractedIntents {
+  if (!synthesisText || !query || positions.length === 0) {
+    return { dcaAction: null, weightAction: null };
+  }
 
   const queryLower = query.toLowerCase();
 
@@ -91,76 +97,91 @@ function extractActionableIntent(query: string, synthesisText: string, positions
     queryLower.includes('rééquilibre') ||
     queryLower.includes('combien');
 
-  if (!isAllocationOrDcaQuery) return null;
+  if (!isAllocationOrDcaQuery) {
+    return { dcaAction: null, weightAction: null };
+  }
 
+  const lines = synthesisText.split('\n');
   const dcaChanges: ActionableIntent['changes'] = [];
   const weightChanges: ActionableIntent['changes'] = [];
 
-  positions.forEach((pos) => {
-    const ids = getPositionIdentifiers(pos);
-    const escapedIds = ids.map((id) => id.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
-    const idPattern = `(?:${escapedIds.join('|')})`;
-
-    // 1. Détection des montants DCA en Euros (€, €/mois, euros)
-    const dcaRegex = new RegExp(
-      `${idPattern}[^\\n]*?[:\\-—➔=]\\s*(\\d+(?:[.,]\\d+)?)\\s*(?:€|euros?|€\\/mois)`,
-      'i'
+  const isEnvelopeHeader = (line: string) => {
+    const l = line.toLowerCase().trim();
+    return (
+      (l.includes('le socle') || l.includes('le satellite') || l.includes('le vivier') || l.startsWith('1.') || l.startsWith('2.') || l.startsWith('3.')) &&
+      !l.includes('gpea') && !l.includes('pust') && !l.includes('0p0001') && !l.includes('mems') && !l.includes('alrib') && !l.includes('ceg') && !l.includes('cohr') && !l.includes('sym')
     );
-    const dcaMatch = synthesisText.match(dcaRegex);
+  };
 
-    if (dcaMatch && dcaMatch[1]) {
-      const val = parseFloat(dcaMatch[1].replace(',', '.'));
-      if (val > 0 && val <= 50000) {
-        dcaChanges.push({
-          ticker: pos.ticker,
-          label: pos.name,
-          field: 'monthlyDCA',
-          newValue: val,
-          formattedValue: `${val.toLocaleString('fr-FR')} €/mois`,
-        });
+  lines.forEach((line) => {
+    if (isEnvelopeHeader(line)) return;
+
+    positions.forEach((pos) => {
+      const tickerClean = pos.ticker.toLowerCase().replace('.pa', '').replace('.f', '');
+      const tickerFull = pos.ticker.toLowerCase();
+      const posName = pos.name.toLowerCase();
+      const lineLower = line.toLowerCase();
+
+      const isPositionLine =
+        lineLower.includes(tickerClean) ||
+        lineLower.includes(tickerFull) ||
+        (posName.length > 3 && lineLower.includes(posName.split(' ')[0]));
+
+      if (isPositionLine) {
+        // 1. Détection des montants DCA (€, €/mois) sur cette ligne spécifique
+        const euroMatch = line.match(/(?:[–\-—:]\s*|\()\s*(\d+(?:[.,]\d+)?)\s*(?:€|euros?|€\/mois)/i);
+        if (euroMatch && euroMatch[1]) {
+          const val = parseFloat(euroMatch[1].replace(',', '.'));
+          if (val > 0 && val <= 50000 && !dcaChanges.some((c) => c.ticker === pos.ticker)) {
+            dcaChanges.push({
+              ticker: pos.ticker,
+              label: pos.name,
+              field: 'monthlyDCA',
+              newValue: val,
+              formattedValue: `${val.toLocaleString('fr-FR')} €/mois`,
+            });
+          }
+        }
+
+        // 2. Détection du pourcentage cible (%) sur cette ligne spécifique
+        const pctMatch = line.match(/(?:[–\-—:]\s*|\()\s*(\d+(?:[.,]\d+)?)\s*%/i);
+        if (pctMatch && pctMatch[1]) {
+          const val = parseFloat(pctMatch[1].replace(',', '.'));
+          if (val > 0 && val <= 100 && !weightChanges.some((c) => c.ticker === pos.ticker)) {
+            weightChanges.push({
+              ticker: pos.ticker,
+              label: pos.name,
+              field: 'targetWeight',
+              newValue: val / 100,
+              formattedValue: `${val.toFixed(1)}%`,
+            });
+          }
+        }
       }
-    }
-
-    // 2. Détection des allocations en Pourcentage (%)
-    const weightRegex = new RegExp(
-      `${idPattern}[^\\n]*?[:\\-—➔=]?\\s*(\\d+(?:[.,]\\d+)?)\\s*%`,
-      'i'
-    );
-    const weightMatch = synthesisText.match(weightRegex);
-
-    if (weightMatch && weightMatch[1]) {
-      const val = parseFloat(weightMatch[1].replace(',', '.'));
-      if (val > 0 && val <= 100) {
-        weightChanges.push({
-          ticker: pos.ticker,
-          label: pos.name,
-          field: 'targetWeight',
-          newValue: val / 100,
-          formattedValue: `${val.toFixed(1)}%`,
-        });
-      }
-    }
+    });
   });
 
-  if (dcaChanges.length > 0) {
-    return {
-      type: 'UPDATE_MONTHLY_DCA',
-      title: 'Mise à jour des Montants DCA Mensuels',
-      description: `Sur la base des recommandations de l'IA, voici la répartition de vos versements mensuels :`,
-      changes: dcaChanges,
-    };
-  }
+  const dcaAction: ActionableIntent | null =
+    dcaChanges.length > 0
+      ? {
+          type: 'UPDATE_MONTHLY_DCA',
+          title: 'Mise à jour des Versements DCA Mensuels (€/mois)',
+          description: `Sur la base des recommandations de l'IA, voici la répartition de vos versements mensuels :`,
+          changes: dcaChanges,
+        }
+      : null;
 
-  if (weightChanges.length > 0) {
-    return {
-      type: 'UPDATE_TARGET_WEIGHTS',
-      title: 'Mise à jour de l\'Allocation Cible (% du Portefeuille)',
-      description: `Sur la base des recommandations de l'IA, voici la répartition cible préconisée :`,
-      changes: weightChanges,
-    };
-  }
+  const weightAction: ActionableIntent | null =
+    weightChanges.length > 0
+      ? {
+          type: 'UPDATE_TARGET_WEIGHTS',
+          title: 'Mise à jour de l\'Allocation Cible (% du Portefeuille)',
+          description: `Sur la base des recommandations de l'IA, voici la répartition cible préconisée :`,
+          changes: weightChanges,
+        }
+      : null;
 
-  return null;
+  return { dcaAction, weightAction };
 }
 
 export function AnalysisChatView({
@@ -589,7 +610,11 @@ export function AnalysisChatView({
           )}
 
           {activeSession?.messages.map((msg) => {
-            const action = msg.result?.synthesis ? extractActionableIntent(msg.query, msg.result.synthesis, positions) : null;
+            const { dcaAction, weightAction } = msg.result?.synthesis
+              ? extractActionableIntents(msg.query, msg.result.synthesis, positions)
+              : { dcaAction: null, weightAction: null };
+
+            const detectedActions = [dcaAction, weightAction].filter(Boolean) as ActionableIntent[];
 
             return (
               <div key={msg.id} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -661,21 +686,26 @@ export function AnalysisChatView({
                       </p>
                     )}
 
-                    {/* ⚡ BANNIÈRE D'ACTION INTERACTIVE 1-CLICK */}
-                    {action && (
+                    {/* ⚡ BANNIÈRES D'ACTIONS INTERACTIVES 1-CLICK */}
+                    {detectedActions.map((action, actIdx) => (
                       <div
+                        key={`${action.type}_${actIdx}`}
                         style={{
                           marginTop: 18,
                           padding: 16,
-                          background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.12), rgba(6, 182, 212, 0.12))',
+                          background: action.type === 'UPDATE_MONTHLY_DCA'
+                            ? 'linear-gradient(135deg, rgba(6, 182, 212, 0.12), rgba(16, 185, 129, 0.12))'
+                            : 'linear-gradient(135deg, rgba(139, 92, 246, 0.12), rgba(6, 182, 212, 0.12))',
                           borderRadius: 12,
-                          border: '1px solid var(--accent-emerald)',
-                          boxShadow: '0 4px 16px rgba(16, 185, 129, 0.15)',
+                          border: `1px solid ${action.type === 'UPDATE_MONTHLY_DCA' ? 'var(--accent-cyan)' : 'var(--accent-purple)'}`,
+                          boxShadow: '0 4px 16px rgba(0,0,0,0.15)',
                         }}
                       >
                         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
                           <span style={{ fontSize: 20 }}>⚡</span>
-                          <strong style={{ fontSize: 14, color: 'var(--accent-emerald)' }}>{action.title}</strong>
+                          <strong style={{ fontSize: 14, color: action.type === 'UPDATE_MONTHLY_DCA' ? 'var(--accent-cyan)' : 'var(--accent-purple)' }}>
+                            {action.title}
+                          </strong>
                         </div>
 
                         <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 12, lineHeight: 1.4 }}>
@@ -706,18 +736,20 @@ export function AnalysisChatView({
                               padding: '10px 16px',
                               fontWeight: 700,
                               fontSize: 13,
-                              background: 'linear-gradient(135deg, var(--accent-emerald), var(--accent-cyan))',
+                              background: action.type === 'UPDATE_MONTHLY_DCA'
+                                ? 'linear-gradient(135deg, var(--accent-cyan), var(--accent-emerald))'
+                                : 'linear-gradient(135deg, var(--accent-purple), var(--accent-cyan))',
                             }}
                           >
                             {applyingActionMsgId === msg.id ? (
                               <span className="loading-spinner" />
                             ) : (
-                              '⚡ Appliquer automatiquement cette configuration au portefeuille'
+                              `⚡ Appliquer les ${action.type === 'UPDATE_MONTHLY_DCA' ? 'versements DCA (€/mois)' : 'allocations cibles (%)'} au portefeuille`
                             )}
                           </button>
                         )}
                       </div>
-                    )}
+                    ))}
                   </div>
                 )}
               </div>

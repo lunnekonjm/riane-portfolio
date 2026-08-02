@@ -1323,10 +1323,36 @@ export default function HomePage() {
                   </div>
                 </div>
                 {positions.length === 0 ? (
-                  <div className="empty-state">
+                  <div className="empty-state" style={{ padding: '40px 24px' }}>
                     <div className="empty-state-icon">📂</div>
-                    <div className="empty-state-text">Aucune position.<br />Ajoutez votre premier ETF ou action.</div>
-                    <button className="btn btn-primary" onClick={() => setEditingPosition('new')}>➕ Ajouter une position</button>
+                    <div className="empty-state-text" style={{ marginBottom: 20 }}>
+                      Aucune position dans votre portefeuille.
+                    </div>
+                    <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', justifyContent: 'center' }}>
+                      <button className="btn btn-primary" onClick={() => setEditingPosition('new')}>
+                        ➕ Ajouter une position
+                      </button>
+                      <button
+                        className="btn btn-secondary"
+                        style={{
+                          background: 'linear-gradient(135deg, rgba(6, 182, 212, 0.12) 0%, rgba(139, 92, 246, 0.12) 100%)',
+                          borderColor: 'var(--accent-cyan)',
+                        }}
+                        onClick={async () => {
+                          const { DEFAULT_POSITIONS } = await import('@/data/portfolio');
+                          for (const pos of DEFAULT_POSITIONS) {
+                            await addPosition({ ...pos, updatedAt: Date.now() });
+                          }
+                          showToast(`📋 ${DEFAULT_POSITIONS.length} positions prédéfinies chargées — complétez vos quantités et PRU`);
+                        }}
+                      >
+                        📋 Charger mon portefeuille prédéfini
+                      </button>
+                    </div>
+                    <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 12, maxWidth: 420 }}>
+                      Le portefeuille prédéfini charge vos actifs habituels (ETF ACWI, Nasdaq, PEA-PME, CTO) avec quantités à zéro.
+                      Vous n&apos;aurez plus qu&apos;à renseigner vos données réelles.
+                    </div>
                   </div>
                 ) : (
                   <div style={{ overflowX: 'auto', width: '100%', WebkitOverflowScrolling: 'touch', borderRadius: 'var(--radius-md)' }}>

@@ -144,7 +144,7 @@ export function AnalysisChatView({
 
   useEffect(() => {
     reloadSessionsFromStorage();
-  }, [userUid, positions, config]);
+  }, []);
 
   // Synchronisation en direct sans race condition grâce aux sessions transmises dans les events
   useEffect(() => {
@@ -326,8 +326,18 @@ export function AnalysisChatView({
       createdAt: Date.now(),
     };
 
-    setSessions((prev) =>
-      prev.map((s) => {
+    setSessions((prev) => {
+      const sessionExists = prev.some((s) => s.id === targetSessionId);
+      if (!sessionExists) {
+        const newSession: ChatSession = {
+          id: targetSessionId,
+          title: textToSend.length > 30 ? textToSend.slice(0, 30) + '...' : textToSend,
+          createdAt: Date.now(),
+          messages: [newMsg],
+        };
+        return [newSession, ...prev];
+      }
+      return prev.map((s) => {
         if (s.id === targetSessionId) {
           const isFirstMessage = s.messages.length === 0;
           const newTitle = isFirstMessage
@@ -342,9 +352,10 @@ export function AnalysisChatView({
           };
         }
         return s;
-      })
-    );
+      });
+    });
 
+    setActiveSessionId(targetSessionId);
     scrollToBottom();
 
     // DÉLÉGATION AU BACKGROUND RUNNER

@@ -109,17 +109,30 @@ function extractActionableIntents(query: string, synthesisText: string, position
   lines.forEach((line) => {
     if (isEnvelopeHeader(line)) return;
 
-    // Compter combien de positions du portefeuille sont présentes sur cette ligne
+const COMMON_STOP_WORDS = new Set([
+  'amundi', 'ishares', 'lyxor', 'vanguard', 'bnp', 'spdr', 'blackrock',
+  'etf', 'msci', 'pea', 'pme', 'cto', 'europe', 'global', 'small', 'caps',
+  'usa', 'usd', 'eur', 'world', 'index', 'ucits', 'acc', 'dist', 'inc'
+]);
+
+    // Compter combien de positions du portefeuille sont présentées sur cette ligne
     const matchingPositionsOnLine = positions.filter((pos) => {
-      const tickerClean = pos.ticker.toLowerCase().replace('.pa', '').replace('.f', '');
-      const tickerFull = pos.ticker.toLowerCase();
-      const posName = pos.name.toLowerCase();
       const lineLower = line.toLowerCase();
-      return (
-        lineLower.includes(tickerClean) ||
-        lineLower.includes(tickerFull) ||
-        (posName.length > 3 && lineLower.includes(posName.split(' ')[0]))
-      );
+      const tickerFull = pos.ticker.toLowerCase();
+      const tickerClean = tickerFull.replace('.pa', '').replace('.f', '').replace('.de', '').replace('.l', '');
+
+      // 1. Ticker match exact (GPEA.PA, GPEA, PUST.PA, PUST, etc.)
+      if (lineLower.includes(tickerFull) || lineLower.includes(tickerClean)) {
+        return true;
+      }
+
+      // 2. Mot clé unique du nom d'actif (ex: acwi, nasdaq, indépendance, memscap, riber)
+      const uniqueWords = pos.name
+        .toLowerCase()
+        .split(/[\s\-_,./()]+/)
+        .filter((w: string) => w.length >= 3 && !COMMON_STOP_WORDS.has(w));
+
+      return uniqueWords.some((w: string) => lineLower.includes(w));
     });
 
     if (matchingPositionsOnLine.length > 0) {

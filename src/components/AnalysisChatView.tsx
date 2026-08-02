@@ -407,12 +407,11 @@ export function AnalysisChatView({
             const freq = change.frequency || 'monthly';
             if (freq === 'annual') {
               const annualVal = change.newValue;
-              const monthlyVal = Math.round(annualVal / 12);
               await updatePosition({
                 ...pos,
                 dcaFrequency: 'annual',
                 annualBudget: annualVal,
-                monthlyDCA: monthlyVal,
+                monthlyDCA: undefined, // Purement Annuel : 1 seul virement par an, pas de virement mensuel !
                 updatedAt: Date.now(),
               });
             } else {

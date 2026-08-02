@@ -238,7 +238,7 @@ export default function HomePage() {
           startDate,
           effectivePrice,
           isIntegerOnly,
-          pos.dcaFrequency || 'monthly',
+          (pos.dcaFrequency || 'monthly') as any,
           pos.dcaDepositMonth || 1,
           pos.dcaDepositDay || 5
         );

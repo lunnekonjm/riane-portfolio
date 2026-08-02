@@ -1284,15 +1284,6 @@ export default function HomePage() {
                     </button>
                     <button
                       className="btn btn-secondary"
-                      style={{ padding: '6px 10px', fontSize: 12, background: 'rgba(6, 182, 212, 0.08)', borderColor: 'var(--accent-cyan)', opacity: 0.7 }}
-                      onClick={() => setShowBenchmark(prev => !prev)}
-                      data-tooltip="Portefeuille Étalon Boursobank — comparer les valorisations"
-                      id="benchmark-toggle-btn"
-                    >
-                      🧪 Étalon
-                    </button>
-                    <button
-                      className="btn btn-secondary"
                       style={{ padding: '6px 10px', fontSize: 12 }}
                       onClick={openRebalanceModal}
                       disabled={positions.length === 0}
@@ -2555,7 +2546,38 @@ export default function HomePage() {
         </div>
       )}
 
-      {/* 🧪 Benchmark Étalon Boursobank — Widget flottant isolé */}
+      {/* 🧪 Benchmark Étalon Boursobank — Bouton flottant + Widget */}
+      {!showBenchmark && (
+        <button
+          onClick={() => setShowBenchmark(true)}
+          style={{
+            position: 'fixed',
+            bottom: 20,
+            right: 20,
+            width: 44,
+            height: 44,
+            borderRadius: '50%',
+            border: '1px solid var(--border-medium)',
+            background: 'var(--bg-secondary)',
+            color: 'var(--text-secondary)',
+            fontSize: 18,
+            cursor: 'pointer',
+            boxShadow: '0 4px 16px rgba(0,0,0,0.3)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9998,
+            opacity: 0.6,
+            transition: 'opacity 0.2s, transform 0.2s',
+          }}
+          onMouseEnter={(e) => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.transform = 'scale(1.1)'; }}
+          onMouseLeave={(e) => { e.currentTarget.style.opacity = '0.6'; e.currentTarget.style.transform = 'scale(1)'; }}
+          title="Ouvrir le portefeuille étalon Boursobank"
+          id="benchmark-fab"
+        >
+          🧪
+        </button>
+      )}
       <BenchmarkWidget visible={showBenchmark} onClose={() => setShowBenchmark(false)} />
     </div>
   );

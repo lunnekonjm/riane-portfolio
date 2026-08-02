@@ -561,7 +561,7 @@ export default function HomePage() {
 
       {/* Main Content */}
       <main className="main-content">
-        <header className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
+        <header className="page-header">
           <h1 className="page-title">
             {currentView === 'dashboard' && '📊 Tableau de Bord'}
             {currentView === 'envelopes' && '🏛️ Enveloppes & Fiscalité'}

@@ -68,7 +68,7 @@ export async function simulatePositionDCA(
   startDateStr: string,
   currentPriceFallback: number,
   isIntegerOnly: boolean = true,
-  frequency: 'monthly' | 'quarterly' | 'annual' = 'monthly',
+  frequency: 'monthly' | 'quarterly' | 'semestrial' | 'annual' = 'monthly',
   depositMonth: number = 1,
   depositDay: number = 5
 ): Promise<DCASimulationResult> {
@@ -115,6 +115,8 @@ export async function simulatePositionDCA(
 
     if (frequency === 'annual') {
       isDepositMonth = monthNum === depositMonth;
+    } else if (frequency === 'semestrial') {
+      isDepositMonth = ((monthNum - depositMonth) % 6 + 6) % 6 === 0;
     } else if (frequency === 'quarterly') {
       isDepositMonth = ((monthNum - depositMonth) % 3 + 3) % 3 === 0;
     }

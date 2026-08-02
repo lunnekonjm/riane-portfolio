@@ -141,9 +141,11 @@ const COMMON_STOP_WORDS = new Set([
       // 1. Détection des montants DCA en Euros (€, €/mois, €/an) sur cette ligne
       let euroMatch = null;
       if (freq === 'annual') {
-        euroMatch = line.match(/(?:[–\-—:]\s*|\()\s*(\d+(?:[\s.,]\d+)?)\s*(?:€|euros?)\s*(?:\/\s*an|annuels?|par an)?/i);
+        euroMatch = line.match(/(?:[–\-—:]\s*)(\d+(?:[\s.,]\d+)?)\s*(?:€|euros?)\s*(?:\/\s*an|annuels?|par an)?/i) ||
+                    line.match(/(\d+(?:[\s.,]\d+)?)\s*(?:€|euros?)\s*(?:\/\s*an|annuels?|par an)/i);
       } else {
-        euroMatch = line.match(/(?:[–\-—:]\s*|\()\s*(\d+(?:[\s.,]\d+)?)\s*(?:€|euros?|€\/mois)?/i);
+        euroMatch = line.match(/(?:[–\-—:]\s*)(\d+(?:[\s.,]\d+)?)\s*(?:€|euros?|€\/mois)?/i) ||
+                    line.match(/(\d+(?:[\s.,]\d+)?)\s*(?:€|euros?|€\/mois)/i);
       }
 
       if (euroMatch && euroMatch[1]) {

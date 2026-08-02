@@ -42,13 +42,8 @@ export function usePortfolio() {
             getInvestorProfile(u.uid),
           ]);
 
-          if (pos.length === 0) {
-            // New user: initialize with structure from CDC (no fake data)
-            await saveAllPositions(u.uid, DEFAULT_POSITIONS);
-            setPositions(DEFAULT_POSITIONS);
-          } else {
-            setPositions(pos);
-          }
+
+          setPositions(pos);
 
           setConfig(cfg);
           setInvestorProfile(profile);
@@ -362,7 +357,7 @@ export function usePortfolio() {
     clearAnalysisCache();
 
     // 1. Immediately reset local React state & localStorage
-    setPositions(DEFAULT_POSITIONS);
+    setPositions([]);
     setTransactions([]);
     setHistoryStack([]);
     setRedoStack([]);
@@ -371,16 +366,14 @@ export function usePortfolio() {
       localStorage.removeItem('riane_transaction_history');
       localStorage.removeItem('riane_local_positions');
       localStorage.removeItem('riane_saved_reports');
-      localStorage.setItem('riane_local_positions', JSON.stringify(DEFAULT_POSITIONS));
     }
 
-    // 2. Async non-blocking Firestore reset
+    // 2. Async non-blocking Firestore reset — delete all positions
     if (user) {
       try {
         for (const pos of positions) {
           deletePositionFromDb(user.uid, pos.id).catch(() => {});
         }
-        saveAllPositions(user.uid, DEFAULT_POSITIONS).catch(() => {});
       } catch (err) {
         console.warn('[Portfolio] Firestore reset warning:', err);
       }

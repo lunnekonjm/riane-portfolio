@@ -1287,23 +1287,47 @@ export default function HomePage() {
                         if (!confirm('🧪 Test Boursobank\n\nInjecter les 3 positions du portefeuille virtuel Boursobank ?\n\n• Indépendance AM Europe Small A (C) — 10 parts à 240,59€\n• MEMSCAP — 243 actions à 4,965€\n• RIBER — 128 actions à 9,38€\n\nDate d\'achat : 31/07/2026')) return;
 
                         // Boursobank test portfolio positions
-                        const testPositions = [
+                        const testPositions: Array<{id: string; ticker: string; name: string; envelope: string; assetType: string; currency: string; quantity: number; avgPrice: number; themes: string[]; monthlyDCA: number; maxWeight?: number; targetWeight?: number; purchaseDate: string}> = [
                           {
+                            id: 'test-bourso-inde',
                             ticker: '0P0001DKPM.F',
+                            name: 'Indépendance Europe Small',
+                            envelope: 'PEA-PME',
+                            assetType: 'FUND',
+                            currency: 'EUR',
                             quantity: 10,
                             avgPrice: 240.59,
+                            themes: ['europe-small-caps', 'sovereign-industry'],
+                            monthlyDCA: 0,
+                            targetWeight: 0.2,
                             purchaseDate: '2026-07-31',
                           },
                           {
+                            id: 'test-bourso-mems',
                             ticker: 'MEMS.PA',
+                            name: 'Memscap',
+                            envelope: 'PEA-PME',
+                            assetType: 'STOCK',
+                            currency: 'EUR',
                             quantity: 243,
                             avgPrice: 4.965,
+                            themes: ['semiconductors', 'photonics', 'europe-small-caps'],
+                            monthlyDCA: 0,
+                            maxWeight: 0.05,
                             purchaseDate: '2026-07-31',
                           },
                           {
+                            id: 'test-bourso-riber',
                             ticker: 'ALRIB.PA',
+                            name: 'Riber',
+                            envelope: 'PEA-PME',
+                            assetType: 'STOCK',
+                            currency: 'EUR',
                             quantity: 128,
                             avgPrice: 9.38,
+                            themes: ['semiconductors', 'photonics', 'europe-small-caps'],
+                            monthlyDCA: 0,
+                            maxWeight: 0.05,
                             purchaseDate: '2026-07-31',
                           },
                         ];
@@ -1312,22 +1336,25 @@ export default function HomePage() {
                         for (const tp of testPositions) {
                           const existingPos = positions.find((p) => p.ticker === tp.ticker);
                           if (existingPos) {
+                            // Update existing position
                             await updatePosition({
                               ...existingPos,
                               quantity: tp.quantity,
                               avgPrice: tp.avgPrice,
                               updatedAt: Date.now(),
-                            }, `🧪 Test Boursobank — Injection de ${tp.quantity} x ${tp.ticker} @ ${tp.avgPrice}€ (achat ${tp.purchaseDate})`);
-                            injected++;
+                            }, `🧪 Test Boursobank — MAJ ${tp.quantity} x ${tp.ticker} @ ${tp.avgPrice}€`);
+                          } else {
+                            // Create new position
+                            await addPosition({
+                              ...tp,
+                              updatedAt: Date.now(),
+                            } as any);
                           }
+                          injected++;
                         }
 
-                        if (injected > 0) {
-                          showToast(`🧪 ${injected} positions Boursobank injectées — actualisez les prix pour comparer`);
-                          refreshPrices();
-                        } else {
-                          showToast('Aucune position correspondante trouvée dans le portefeuille', 'error');
-                        }
+                        showToast(`🧪 ${injected} positions Boursobank injectées`);
+                        refreshPrices();
                       }}
                       data-tooltip="Injecter les positions du portefeuille virtuel Boursobank pour comparer les valorisations"
                       id="test-boursobank-btn"

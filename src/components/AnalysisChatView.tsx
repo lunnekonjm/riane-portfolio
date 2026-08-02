@@ -37,16 +37,16 @@ export interface ActionableIntent {
   }>;
 }
 
-function detectFrequency(line: string, query: string): 'monthly' | 'quarterly' | 'semestrial' | 'annual' {
-  const text = (line + ' ' + query).toLowerCase();
+function detectLineFrequency(line: string): 'monthly' | 'quarterly' | 'semestrial' | 'annual' {
+  const lineLower = line.toLowerCase();
 
-  if (text.includes('/an') || text.includes('annuel') || text.includes('par an') || text.includes('/ an') || text.includes('euros annuels')) {
+  if (lineLower.includes('/an') || lineLower.includes('/ an') || lineLower.includes('annuel') || lineLower.includes('par an') || lineLower.includes('€/an')) {
     return 'annual';
   }
-  if (text.includes('/trimestre') || text.includes('trimestriel') || text.includes('par trimestre')) {
+  if (lineLower.includes('/trimestre') || lineLower.includes('trimestriel') || lineLower.includes('par trimestre') || lineLower.includes('€/trimestre')) {
     return 'quarterly';
   }
-  if (text.includes('/semestre') || text.includes('semestriel') || text.includes('par semestre')) {
+  if (lineLower.includes('/semestre') || lineLower.includes('semestriel') || lineLower.includes('par semestre') || lineLower.includes('€/semestre')) {
     return 'semestrial';
   }
   return 'monthly';
@@ -123,18 +123,18 @@ function extractActionableIntents(query: string, synthesisText: string, position
     });
 
     if (matchingPositionsOnLine.length > 0) {
-      const freq = detectFrequency(line, query);
+      const freq = detectLineFrequency(line);
 
       // 1. Détection des montants DCA en Euros (€, €/mois, €/an) sur cette ligne
       let euroMatch = null;
       if (freq === 'annual') {
-        euroMatch = line.match(/(?:[–\-—:]\s*|\()\s*(\d+(?:[.,]\d+)?)\s*(?:€|euros?)\s*(?:\/\s*an|annuels?|par an)?/i);
+        euroMatch = line.match(/(?:[–\-—:]\s*|\()\s*(\d+(?:[\s.,]\d+)?)\s*(?:€|euros?)\s*(?:\/\s*an|annuels?|par an)?/i);
       } else {
-        euroMatch = line.match(/(?:[–\-—:]\s*|\()\s*(\d+(?:[.,]\d+)?)\s*(?:€|euros?|€\/mois)/i);
+        euroMatch = line.match(/(?:[–\-—:]\s*|\()\s*(\d+(?:[\s.,]\d+)?)\s*(?:€|euros?|€\/mois)?/i);
       }
 
       if (euroMatch && euroMatch[1]) {
-        const rawVal = parseFloat(euroMatch[1].replace(',', '.'));
+        const rawVal = parseFloat(euroMatch[1].replace(/\s/g, '').replace(',', '.'));
         // Si plusieurs positions sont sur la même ligne (ex: CTO 6000 €/an : COHR, CEG, SYM), on divise le total par le nombre de positions
         const valPerPos = Math.round(rawVal / matchingPositionsOnLine.length);
 
@@ -182,7 +182,7 @@ function extractActionableIntents(query: string, synthesisText: string, position
     const envelopeDcaMap: Record<string, { amount: number; freq: 'monthly' | 'quarterly' | 'semestrial' | 'annual' }> = {};
 
     lines.forEach((line) => {
-      const lineFreq = detectFrequency(line, query);
+      const lineFreq = detectLineFrequency(line);
 
       // Match CTO, PEA, PEA-PME
       const ctoMatch = line.match(/cto[^\n]*?(\d+(?:[.,]\d+)?)\s*(?:€|euros?)/i);
@@ -390,17 +390,26 @@ export function AnalysisChatView({
             updatedLabels.push(`${pos.name} (${change.formattedValue})`);
           } else if (change.field === 'monthlyDCA' || change.field === 'annualBudget') {
             const freq = change.frequency || 'monthly';
-            const isAnnual = freq === 'annual';
-            const monthlyVal = isAnnual ? Math.round(change.newValue / 12) : Math.round(change.newValue);
-            const annualVal = isAnnual ? change.newValue : undefined;
-
-            await updatePosition({
-              ...pos,
-              dcaFrequency: freq,
-              monthlyDCA: monthlyVal,
-              ...(annualVal ? { annualBudget: annualVal } : {}),
-              updatedAt: Date.now(),
-            });
+            if (freq === 'annual') {
+              const annualVal = change.newValue;
+              const monthlyVal = Math.round(annualVal / 12);
+              await updatePosition({
+                ...pos,
+                dcaFrequency: 'annual',
+                annualBudget: annualVal,
+                monthlyDCA: monthlyVal,
+                updatedAt: Date.now(),
+              });
+            } else {
+              const monthlyVal = change.newValue;
+              await updatePosition({
+                ...pos,
+                dcaFrequency: freq,
+                monthlyDCA: monthlyVal,
+                annualBudget: undefined,
+                updatedAt: Date.now(),
+              });
+            }
             updatedLabels.push(`${pos.name} (${change.formattedValue})`);
           }
         }

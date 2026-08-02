@@ -1504,7 +1504,17 @@ export default function HomePage() {
                                 </div>
                               </div>
                             </td>
-                            <td className="mono" style={{ fontSize: 12 }}>{pos.monthlyDCA ? `${pos.monthlyDCA}€` : pos.annualBudget ? `${pos.annualBudget}€/an` : '—'}</td>
+                            <td className="mono" style={{ fontSize: 12 }}>
+                              {pos.dcaFrequency === 'annual' || (!pos.monthlyDCA && pos.annualBudget)
+                                ? `${(pos.annualBudget || (pos.monthlyDCA ? pos.monthlyDCA * 12 : 0)).toLocaleString('fr-FR')}€/an`
+                                : pos.dcaFrequency === 'quarterly'
+                                ? `${(pos.monthlyDCA ? pos.monthlyDCA * 3 : 0).toLocaleString('fr-FR')}€/trim`
+                                : pos.dcaFrequency === 'semestrial'
+                                ? `${(pos.monthlyDCA ? pos.monthlyDCA * 6 : 0).toLocaleString('fr-FR')}€/sem`
+                                : pos.monthlyDCA
+                                ? `${pos.monthlyDCA.toLocaleString('fr-FR')}€`
+                                : '—'}
+                            </td>
                             <td onClick={(e) => e.stopPropagation()}>
                               <div className="row-actions">
                                 <button

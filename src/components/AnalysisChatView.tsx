@@ -109,59 +109,72 @@ function extractActionableIntents(query: string, synthesisText: string, position
   lines.forEach((line) => {
     if (isEnvelopeHeader(line)) return;
 
-    positions.forEach((pos) => {
+    // Compter combien de positions du portefeuille sont présentes sur cette ligne
+    const matchingPositionsOnLine = positions.filter((pos) => {
       const tickerClean = pos.ticker.toLowerCase().replace('.pa', '').replace('.f', '');
       const tickerFull = pos.ticker.toLowerCase();
       const posName = pos.name.toLowerCase();
       const lineLower = line.toLowerCase();
-
-      const isPositionLine =
+      return (
         lineLower.includes(tickerClean) ||
         lineLower.includes(tickerFull) ||
-        (posName.length > 3 && lineLower.includes(posName.split(' ')[0]));
+        (posName.length > 3 && lineLower.includes(posName.split(' ')[0]))
+      );
+    });
 
-      if (isPositionLine) {
-        const freq = detectFrequency(line, query);
+    if (matchingPositionsOnLine.length > 0) {
+      const freq = detectFrequency(line, query);
 
-        // 1. Détection des montants DCA en Euros (€, €/mois, €/an) sur cette ligne spécifique
-        let euroMatch = null;
-        if (freq === 'annual') {
-          euroMatch = line.match(/(?:[–\-—:]\s*|\()\s*(\d+(?:[.,]\d+)?)\s*(?:€|euros?)\s*(?:\/\s*an|annuels?|par an)?/i);
-        } else {
-          euroMatch = line.match(/(?:[–\-—:]\s*|\()\s*(\d+(?:[.,]\d+)?)\s*(?:€|euros?|€\/mois)/i);
-        }
+      // 1. Détection des montants DCA en Euros (€, €/mois, €/an) sur cette ligne
+      let euroMatch = null;
+      if (freq === 'annual') {
+        euroMatch = line.match(/(?:[–\-—:]\s*|\()\s*(\d+(?:[.,]\d+)?)\s*(?:€|euros?)\s*(?:\/\s*an|annuels?|par an)?/i);
+      } else {
+        euroMatch = line.match(/(?:[–\-—:]\s*|\()\s*(\d+(?:[.,]\d+)?)\s*(?:€|euros?|€\/mois)/i);
+      }
 
-        if (euroMatch && euroMatch[1]) {
-          const val = parseFloat(euroMatch[1].replace(',', '.'));
-          if (val > 0 && val <= 100000 && !dcaChanges.some((c) => c.ticker === pos.ticker)) {
-            const labelFreq = freq === 'annual' ? '€/an (Annuel)' : freq === 'quarterly' ? '€/trimestre' : '€/mois';
-            dcaChanges.push({
-              ticker: pos.ticker,
-              label: pos.name,
-              field: freq === 'annual' ? 'annualBudget' : 'monthlyDCA',
-              frequency: freq,
-              newValue: val,
-              formattedValue: `${val.toLocaleString('fr-FR')} ${labelFreq}`,
-            });
-          }
-        }
+      if (euroMatch && euroMatch[1]) {
+        const rawVal = parseFloat(euroMatch[1].replace(',', '.'));
+        // Si plusieurs positions sont sur la même ligne (ex: CTO 6000 €/an : COHR, CEG, SYM), on divise le total par le nombre de positions
+        const valPerPos = Math.round(rawVal / matchingPositionsOnLine.length);
 
-        // 2. Détection du pourcentage cible (%) sur cette ligne spécifique
-        const pctMatch = line.match(/(?:[–\-—:]\s*|\()\s*(\d+(?:[.,]\d+)?)\s*%/i);
-        if (pctMatch && pctMatch[1]) {
-          const val = parseFloat(pctMatch[1].replace(',', '.'));
-          if (val > 0 && val <= 100 && !weightChanges.some((c) => c.ticker === pos.ticker)) {
-            weightChanges.push({
-              ticker: pos.ticker,
-              label: pos.name,
-              field: 'targetWeight',
-              newValue: val / 100,
-              formattedValue: `${val.toFixed(1)}%`,
-            });
-          }
+        if (valPerPos > 0 && valPerPos <= 100000) {
+          matchingPositionsOnLine.forEach((pos) => {
+            if (!dcaChanges.some((c) => c.ticker === pos.ticker)) {
+              const labelFreq = freq === 'annual' ? '€/an (Annuel)' : freq === 'quarterly' ? '€/trimestre' : '€/mois';
+              dcaChanges.push({
+                ticker: pos.ticker,
+                label: pos.name,
+                field: freq === 'annual' ? 'annualBudget' : 'monthlyDCA',
+                frequency: freq,
+                newValue: valPerPos,
+                formattedValue: `${valPerPos.toLocaleString('fr-FR')} ${labelFreq}`,
+              });
+            }
+          });
         }
       }
-    });
+
+      // 2. Détection du pourcentage cible (%) sur cette ligne
+      const pctMatch = line.match(/(?:[–\-—:]\s*|\()\s*(\d+(?:[.,]\d+)?)\s*%/i);
+      if (pctMatch && pctMatch[1]) {
+        const rawPct = parseFloat(pctMatch[1].replace(',', '.'));
+        const pctPerPos = rawPct / matchingPositionsOnLine.length;
+        if (pctPerPos > 0 && pctPerPos <= 100) {
+          matchingPositionsOnLine.forEach((pos) => {
+            if (!weightChanges.some((c) => c.ticker === pos.ticker)) {
+              weightChanges.push({
+                ticker: pos.ticker,
+                label: pos.name,
+                field: 'targetWeight',
+                newValue: pctPerPos / 100,
+                formattedValue: `${pctPerPos.toFixed(1)}%`,
+              });
+            }
+          });
+        }
+      }
+    }
   });
 
   // Fallback : si aucun actif individuel n'a été parsé mais que des montants par enveloppe sont présents (ex: CTO 6000€/an ou 500€/mois)

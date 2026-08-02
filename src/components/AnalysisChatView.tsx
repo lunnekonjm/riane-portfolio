@@ -52,6 +52,11 @@ function detectFrequency(line: string, query: string): 'monthly' | 'quarterly' |
   return 'monthly';
 }
 
+export interface ExtractedIntents {
+  dcaAction: ActionableIntent | null;
+  weightAction: ActionableIntent | null;
+}
+
 /**
  * Détecte avec précision les montants DCA (€/mois, €/an, €/trimestre) et allocations cibles (%) préconisés par l'IA.
  */

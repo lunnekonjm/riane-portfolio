@@ -45,8 +45,6 @@ interface AnalysisChatViewProps {
   showToast: (msg: string, type?: 'success' | 'error') => void;
 }
 
-const LOCAL_STORAGE_KEY = 'riane_chat_sessions_v1';
-
 /**
  * Détecte les intentions d'actions concrètes UNIQUEMENT si l'utilisateur a explicitement demandé une modification d'allocation ou de rééquilibrage.
  */
@@ -119,50 +117,34 @@ export function AnalysisChatView({
   const [applyingActionMsgId, setApplyingActionMsgId] = useState<string | null>(null);
   const chatBottomRef = useRef<HTMLDivElement>(null);
 
-  // Charger les sessions & Récupérer automatiquement les tâches interrompues
-  const reloadSessionsFromStorage = () => {
-    if (typeof window === 'undefined') return;
-    try {
-      const saved = localStorage.getItem(LOCAL_STORAGE_KEY);
-      if (saved) {
-        let parsed: ChatSession[] = JSON.parse(saved);
-        if (parsed && parsed.length > 0) {
-          // Auto-recovery pour les tâches bloquées au rechargement
-          parsed = backgroundRunner.recoverStuckMessages(parsed, userUid, positions, config);
-          setSessions(parsed);
-          if (!activeSessionId) {
-            setActiveSessionId(parsed[0].id);
-          }
-          return;
-        }
-      }
-    } catch (err) {
-      console.warn('[AnalysisChatView] Erreur de chargement du localStorage:', err);
-    }
-    createNewSession();
-  };
-
+  // Charger les sessions initiales & Auto-recovery
   useEffect(() => {
-    reloadSessionsFromStorage();
-  }, []);
+    let initialSessions = backgroundRunner.recoverStuckMessages(userUid, positions, config);
+    if (initialSessions.length === 0) {
+      const newSession: ChatSession = {
+        id: `session_${Date.now()}`,
+        title: 'Nouvelle Discussion',
+        createdAt: Date.now(),
+        messages: [],
+      };
+      initialSessions = [newSession];
+      backgroundRunner.setSessions(initialSessions);
+    }
 
-  // Synchronisation en direct sans race condition grâce aux sessions transmises dans les events
+    setSessions(initialSessions);
+    if (!activeSessionId) {
+      setActiveSessionId(initialSessions[0].id);
+    }
+  }, [userUid, positions, config]);
+
+  // Synchronisation dynamique via CustomEvents émises par backgroundRunner
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
     const handleUpdate = (e: any) => {
-      const updatedSessions = e?.detail?.updatedSessions;
-      if (updatedSessions && Array.isArray(updatedSessions)) {
-        setSessions(updatedSessions);
-      } else {
-        try {
-          const saved = localStorage.getItem(LOCAL_STORAGE_KEY);
-          if (saved) {
-            setSessions(JSON.parse(saved));
-          }
-        } catch {
-          // ignore
-        }
+      const updated = e?.detail?.updatedSessions;
+      if (updated && Array.isArray(updated)) {
+        setSessions(updated);
       }
     };
 
@@ -195,16 +177,6 @@ export function AnalysisChatView({
     };
   }, [showToast]);
 
-  useEffect(() => {
-    if (typeof window !== 'undefined' && sessions.length > 0) {
-      try {
-        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(sessions));
-      } catch (err) {
-        console.warn('[AnalysisChatView] Erreur de sauvegarde du localStorage:', err);
-      }
-    }
-  }, [sessions]);
-
   const scrollToBottom = () => {
     setTimeout(() => {
       chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -218,7 +190,9 @@ export function AnalysisChatView({
       createdAt: Date.now(),
       messages: [],
     };
-    setSessions((prev) => [newSession, ...prev]);
+    const updated = [newSession, ...sessions];
+    backgroundRunner.setSessions(updated);
+    setSessions(updated);
     setActiveSessionId(newSession.id);
     setQueryInput('');
   };
@@ -227,6 +201,7 @@ export function AnalysisChatView({
     e.stopPropagation();
     if (confirm('Voulez-vous supprimer cette discussion de votre historique ?')) {
       const filtered = sessions.filter((s) => s.id !== sessionId);
+      backgroundRunner.setSessions(filtered);
       setSessions(filtered);
       if (activeSessionId === sessionId) {
         if (filtered.length > 0) {
@@ -272,19 +247,20 @@ export function AnalysisChatView({
         }
       }
 
-      setSessions((prev) =>
-        prev.map((session) => {
-          if (session.id === activeSession?.id) {
-            return {
-              ...session,
-              messages: session.messages.map((m) =>
-                m.id === msgId ? { ...m, appliedAction: true } : m
-              ),
-            };
-          }
-          return session;
-        })
-      );
+      const updatedSessions = sessions.map((session) => {
+        if (session.id === activeSession?.id) {
+          return {
+            ...session,
+            messages: session.messages.map((m) =>
+              m.id === msgId ? { ...m, appliedAction: true } : m
+            ),
+          };
+        }
+        return session;
+      });
+
+      backgroundRunner.setSessions(updatedSessions);
+      setSessions(updatedSessions);
 
       if (updatedLabels.length > 0) {
         showToast(`🎉 Portefeuille mis à jour : ${updatedLabels.join(' · ')}`);
@@ -316,49 +292,30 @@ export function AnalysisChatView({
 
     const messageId = `msg_${Date.now()}`;
     const targetSessionId = activeSession?.id || activeSessionId || `session_${Date.now()}`;
+    const sessionTitle = textToSend.length > 30 ? textToSend.slice(0, 30) + '...' : textToSend;
 
     const newMsg: ChatMessage = {
       id: messageId,
       query: textToSend,
       result: null,
       status: 'pending',
-      statusMessage: 'Lancement du pipeline multi-agents en arrière-plan...',
+      statusMessage: 'Lancement du pipeline multi-agents...',
       createdAt: Date.now(),
     };
 
-    setSessions((prev) => {
-      const sessionExists = prev.some((s) => s.id === targetSessionId);
-      if (!sessionExists) {
-        const newSession: ChatSession = {
-          id: targetSessionId,
-          title: textToSend.length > 30 ? textToSend.slice(0, 30) + '...' : textToSend,
-          createdAt: Date.now(),
-          messages: [newMsg],
-        };
-        return [newSession, ...prev];
-      }
-      return prev.map((s) => {
-        if (s.id === targetSessionId) {
-          const isFirstMessage = s.messages.length === 0;
-          const newTitle = isFirstMessage
-            ? textToSend.length > 30
-              ? textToSend.slice(0, 30) + '...'
-              : textToSend
-            : s.title;
-          return {
-            ...s,
-            title: newTitle,
-            messages: [...s.messages, newMsg],
-          };
-        }
-        return s;
-      });
-    });
+    // 1. Enregistrement canonique immédiat dans backgroundRunner
+    const updatedSessions = backgroundRunner.registerMessage(
+      targetSessionId,
+      sessionTitle,
+      newMsg
+    );
 
+    // 2. Mise à jour immédiate du React state
+    setSessions(updatedSessions);
     setActiveSessionId(targetSessionId);
     scrollToBottom();
 
-    // DÉLÉGATION AU BACKGROUND RUNNER
+    // 3. Démarrage de la tâche en arrière-plan
     backgroundRunner.startTask(
       messageId,
       targetSessionId,

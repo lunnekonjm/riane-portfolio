@@ -1,7 +1,7 @@
 /**
  * Background Analysis Runner Manager
  * Permet l'exécution continue des pipelines d'analyse IA en arrière-plan
- * même lorsque l'utilisateur navigue entre les vues de l'application ou ferme un composant.
+ * sans race condition entre React state et localStorage.
  */
 
 import { runAnalysisPipeline, type StatusCallback } from './orchestrator';
@@ -21,13 +21,87 @@ const LOCAL_STORAGE_KEY = 'riane_chat_sessions_v1';
 
 class BackgroundAnalysisRunner {
   private activeTasks = new Map<string, RunningTask>();
+  private memorySessions: any[] = [];
+  private isInitialized = false;
+
+  constructor() {
+    this.initFromStorage();
+  }
+
+  private initFromStorage() {
+    if (typeof window === 'undefined') return;
+    try {
+      const raw = localStorage.getItem(LOCAL_STORAGE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          this.memorySessions = parsed;
+        }
+      }
+    } catch {
+      this.memorySessions = [];
+    }
+    this.isInitialized = true;
+  }
+
+  public getSessions(): any[] {
+    if (!this.isInitialized) {
+      this.initFromStorage();
+    }
+    return this.memorySessions;
+  }
+
+  public setSessions(sessions: any[]) {
+    this.memorySessions = sessions;
+    this.saveToStorage();
+  }
+
+  private saveToStorage() {
+    if (typeof window === 'undefined') return;
+    try {
+      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(this.memorySessions));
+    } catch (err) {
+      console.warn('[BackgroundRunner] Erreur sauvegarde localStorage:', err);
+    }
+  }
 
   public isTaskRunning(messageId: string): boolean {
     return this.activeTasks.has(messageId);
   }
 
-  public getActiveTaskCount(): number {
-    return this.activeTasks.size;
+  public registerMessage(
+    sessionId: string,
+    sessionTitle: string,
+    message: any
+  ): any[] {
+    if (!this.isInitialized) this.initFromStorage();
+
+    const sessionExists = this.memorySessions.some((s) => s.id === sessionId);
+
+    if (!sessionExists) {
+      const newSession = {
+        id: sessionId,
+        title: sessionTitle,
+        createdAt: Date.now(),
+        messages: [message],
+      };
+      this.memorySessions = [newSession, ...this.memorySessions];
+    } else {
+      this.memorySessions = this.memorySessions.map((s) => {
+        if (s.id === sessionId) {
+          const isFirstMsg = s.messages.length === 0;
+          return {
+            ...s,
+            title: isFirstMsg ? sessionTitle : s.title,
+            messages: [...s.messages, message],
+          };
+        }
+        return s;
+      });
+    }
+
+    this.saveToStorage();
+    return this.memorySessions;
   }
 
   public startTask(
@@ -36,9 +110,7 @@ class BackgroundAnalysisRunner {
     query: string,
     userUid: string,
     positions: any[],
-    config: any,
-    onStatusUpdate?: (status: AnalysisStatus, msg: string) => void,
-    onComplete?: (result: AnalysisResult) => void
+    config: any
   ) {
     if (this.activeTasks.has(messageId)) return;
 
@@ -66,8 +138,7 @@ class BackgroundAnalysisRunner {
     };
 
     const handleStatus: StatusCallback = (status, msg) => {
-      onStatusUpdate?.(status, msg);
-      const updatedSessions = this.updateMessageInLocalStorage(sessionId, messageId, (m) => ({
+      const updatedSessions = this.updateMessageInMemory(sessionId, messageId, (m) => ({
         ...m,
         status,
         statusMessage: msg,
@@ -84,7 +155,7 @@ class BackgroundAnalysisRunner {
 
     runAnalysisPipeline(userUid, query, positions, config || defaultConfig, handleStatus)
       .then((result) => {
-        const updatedSessions = this.updateMessageInLocalStorage(sessionId, messageId, (m) => ({
+        const updatedSessions = this.updateMessageInMemory(sessionId, messageId, (m) => ({
           ...m,
           result,
           status: 'synthesis',
@@ -92,7 +163,6 @@ class BackgroundAnalysisRunner {
         }));
 
         this.activeTasks.delete(messageId);
-        onComplete?.(result);
 
         if (typeof window !== 'undefined') {
           window.dispatchEvent(
@@ -104,7 +174,7 @@ class BackgroundAnalysisRunner {
       })
       .catch((err) => {
         const errorMsg = err?.message || 'Erreur lors de l\'analyse IA';
-        const updatedSessions = this.updateMessageInLocalStorage(sessionId, messageId, (m) => ({
+        const updatedSessions = this.updateMessageInMemory(sessionId, messageId, (m) => ({
           ...m,
           status: 'error',
           statusMessage: errorMsg,
@@ -122,55 +192,39 @@ class BackgroundAnalysisRunner {
       });
   }
 
-  private updateMessageInLocalStorage(
+  private updateMessageInMemory(
     sessionId: string,
     messageId: string,
     updater: (msg: any) => any
-  ): any[] | null {
-    if (typeof window === 'undefined') return null;
-    try {
-      const raw = localStorage.getItem(LOCAL_STORAGE_KEY);
-      if (!raw) return null;
-      const sessions = JSON.parse(raw);
-      if (!Array.isArray(sessions)) return null;
+  ): any[] {
+    this.memorySessions = this.memorySessions.map((session: any) => {
+      if (session.id === sessionId) {
+        return {
+          ...session,
+          messages: session.messages.map((m: any) => (m.id === messageId ? updater(m) : m)),
+        };
+      }
+      return session;
+    });
 
-      const updatedSessions = sessions.map((session: any) => {
-        if (session.id === sessionId) {
-          return {
-            ...session,
-            messages: session.messages.map((m: any) => (m.id === messageId ? updater(m) : m)),
-          };
-        }
-        return session;
-      });
-
-      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updatedSessions));
-      return updatedSessions;
-    } catch (err) {
-      console.warn('[BackgroundRunner] Erreur de maj localStorage:', err);
-      return null;
-    }
+    this.saveToStorage();
+    return this.memorySessions;
   }
 
-  /**
-   * Analyse et nettoie les messages bloqués au chargement (ex: après un refresh)
-   */
   public recoverStuckMessages(
-    sessions: any[],
     userUid: string,
     positions: any[],
     config: any
   ): any[] {
+    if (!this.isInitialized) this.initFromStorage();
+
     let modified = false;
 
-    const recoveredSessions = sessions.map((session: any) => {
+    this.memorySessions = this.memorySessions.map((session: any) => {
       const updatedMessages = session.messages.map((m: any) => {
-        // Si le message est bloqué en état d'attente
         if (m.status !== 'synthesis' && m.status !== 'error') {
-          // Si la tâche n'est pas activement en cours d'exécution dans la mémoire
           if (!this.isTaskRunning(m.id)) {
             modified = true;
-            // Relancer la tâche immédiatement en arrière-plan
             this.startTask(m.id, session.id, m.query, userUid, positions, config);
             return {
               ...m,
@@ -185,15 +239,11 @@ class BackgroundAnalysisRunner {
       return { ...session, messages: updatedMessages };
     });
 
-    if (modified && typeof window !== 'undefined') {
-      try {
-        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(recoveredSessions));
-      } catch (e) {
-        // ignore
-      }
+    if (modified) {
+      this.saveToStorage();
     }
 
-    return recoveredSessions;
+    return this.memorySessions;
   }
 }
 

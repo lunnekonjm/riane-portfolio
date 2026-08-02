@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { runAnalysisPipeline, type StatusCallback } from '@/services/agents/orchestrator';
+import { backgroundRunner } from '@/services/agents/backgroundRunner';
 import type { AnalysisResult, AnalysisStatus } from '@/types/analysis';
 import MarkdownRenderer from './MarkdownRenderer';
 
@@ -49,14 +49,12 @@ const LOCAL_STORAGE_KEY = 'riane_chat_sessions_v1';
 
 /**
  * Détecte les intentions d'actions concrètes UNIQUEMENT si l'utilisateur a explicitement demandé une modification d'allocation ou de rééquilibrage.
- * Ne génère PAS de bannière d'action sur des questions de prix, de valorisation, d'audit ou de fiscalité.
  */
 function extractActionableIntent(query: string, synthesisText: string, positions: any[]): ActionableIntent | null {
   if (!synthesisText || !query) return null;
 
   const queryLower = query.toLowerCase();
 
-  // Mots-clés stricts indiquant que l'utilisateur veut modifier l'allocation de son portefeuille
   const isExplicitAllocationRequest =
     queryLower.includes('rééquilibrer') ||
     queryLower.includes('poids cible') ||
@@ -64,12 +62,10 @@ function extractActionableIntent(query: string, synthesisText: string, positions
     queryLower.includes('changer l\'allocation') ||
     queryLower.includes('répartir la cible');
 
-  // Si l'utilisateur pose une question de prix, de cours, de niveau d'achat, de risque ou de fiscalité -> AUCUNE ACTION BANNER
   if (!isExplicitAllocationRequest) {
     return null;
   }
 
-  // Ne parser que si la synthèse contient un bloc d'allocation explicite
   if (!synthesisText.includes('Poids Cible Recommandé') && !synthesisText.includes('Target Weight')) {
     return null;
   }
@@ -78,14 +74,12 @@ function extractActionableIntent(query: string, synthesisText: string, positions
 
   positions.forEach((pos) => {
     const tickerClean = pos.ticker.toLowerCase().replace('.pa', '').replace('.f', '');
-
-    // Cherche uniquement dans les lignes contenant explicitement "Cible" ou "Target"
     const targetLineRegex = new RegExp(`(?:${tickerClean}|${pos.name.toLowerCase()})[\\s\\S]{0,40}?(?:cible|target)[\\s\\S]{0,20}?(\\d+(?:[.,]\\d+)?)\\s*%`, 'i');
     const match = synthesisText.match(targetLineRegex);
 
     if (match && match[1]) {
       const val = parseFloat(match[1].replace(',', '.'));
-      if (val > 0 && val <= 50) { // Plafond de sécurité raisonnable à 50%
+      if (val > 0 && val <= 50) {
         changes.push({
           ticker: pos.ticker,
           label: pos.name,
@@ -125,24 +119,76 @@ export function AnalysisChatView({
   const [applyingActionMsgId, setApplyingActionMsgId] = useState<string | null>(null);
   const chatBottomRef = useRef<HTMLDivElement>(null);
 
+  // Charger les sessions & Récupérer automatiquement les tâches interrompues
+  const reloadSessionsFromStorage = () => {
+    if (typeof window === 'undefined') return;
+    try {
+      const saved = localStorage.getItem(LOCAL_STORAGE_KEY);
+      if (saved) {
+        let parsed: ChatSession[] = JSON.parse(saved);
+        if (parsed && parsed.length > 0) {
+          // Auto-recovery pour les tâches bloquées au rechargement
+          parsed = backgroundRunner.recoverStuckMessages(parsed, userUid, positions, config);
+          setSessions(parsed);
+          if (!activeSessionId) {
+            setActiveSessionId(parsed[0].id);
+          }
+          return;
+        }
+      }
+    } catch (err) {
+      console.warn('[AnalysisChatView] Erreur de chargement du localStorage:', err);
+    }
+    createNewSession();
+  };
+
   useEffect(() => {
-    if (typeof window !== 'undefined') {
+    reloadSessionsFromStorage();
+  }, [userUid, positions, config]);
+
+  // Synchronisation en direct avec le backgroundRunner via CustomEvents
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const handleUpdate = () => {
       try {
         const saved = localStorage.getItem(LOCAL_STORAGE_KEY);
         if (saved) {
           const parsed: ChatSession[] = JSON.parse(saved);
-          if (parsed && parsed.length > 0) {
-            setSessions(parsed);
-            setActiveSessionId(parsed[0].id);
-            return;
-          }
+          setSessions(parsed);
         }
-      } catch (err) {
-        console.warn('[AnalysisChatView] Erreur de chargement du localStorage:', err);
+      } catch {
+        // ignore
       }
-    }
-    createNewSession();
-  }, []);
+    };
+
+    const handleComplete = (e: any) => {
+      handleUpdate();
+      setIsRunning(false);
+      const detail = e.detail;
+      if (detail && detail.query) {
+        showToast(`🎉 Analyse terminée pour "${detail.query.slice(0, 25)}..."`);
+      }
+    };
+
+    const handleError = (e: any) => {
+      handleUpdate();
+      setIsRunning(false);
+      if (e.detail?.error) {
+        showToast(e.detail.error, 'error');
+      }
+    };
+
+    window.addEventListener('riane_analysis_update', handleUpdate);
+    window.addEventListener('riane_analysis_complete', handleComplete);
+    window.addEventListener('riane_analysis_error', handleError);
+
+    return () => {
+      window.removeEventListener('riane_analysis_update', handleUpdate);
+      window.removeEventListener('riane_analysis_complete', handleComplete);
+      window.removeEventListener('riane_analysis_error', handleError);
+    };
+  }, [showToast]);
 
   useEffect(() => {
     if (typeof window !== 'undefined' && sessions.length > 0) {
@@ -221,7 +267,6 @@ export function AnalysisChatView({
         }
       }
 
-      // Marquer le message comme ayant appliqué l'action
       setSessions((prev) =>
         prev.map((session) => {
           if (session.id === activeSession?.id) {
@@ -265,18 +310,20 @@ export function AnalysisChatView({
     setIsRunning(true);
 
     const messageId = `msg_${Date.now()}`;
+    const targetSessionId = activeSession?.id || activeSessionId || `session_${Date.now()}`;
+
     const newMsg: ChatMessage = {
       id: messageId,
       query: textToSend,
       result: null,
       status: 'pending',
-      statusMessage: 'Collecte des données & Ancrage IA...',
+      statusMessage: 'Lancement du pipeline multi-agents en arrière-plan...',
       createdAt: Date.now(),
     };
 
     setSessions((prev) =>
       prev.map((s) => {
-        if (s.id === (activeSession?.id || activeSessionId)) {
+        if (s.id === targetSessionId) {
           const isFirstMessage = s.messages.length === 0;
           const newTitle = isFirstMessage
             ? textToSend.length > 30
@@ -295,77 +342,49 @@ export function AnalysisChatView({
 
     scrollToBottom();
 
-    const onStatus: StatusCallback = (s, msg) => {
-      setSessions((prev) =>
-        prev.map((session) => {
-          if (session.id === (activeSession?.id || activeSessionId)) {
-            return {
-              ...session,
-              messages: session.messages.map((m) =>
-                m.id === messageId ? { ...m, status: s, statusMessage: msg } : m
-              ),
-            };
-          }
-          return session;
-        })
-      );
-    };
-
-    try {
-      const defaultConfig = {
-        monthlyBudget: 1000,
-        annualCTOBudget: 8000,
-        annualSpeculativeCap: 2000,
-        riskProfile: 'dynamic' as const,
-        noLeverage: true,
-        rebalanceByFlows: true,
-        baseCurrency: 'EUR' as const,
-        horizonYears: 15,
-      };
-
-      const result = await runAnalysisPipeline(
-        userUid,
-        textToSend,
-        positions,
-        config || defaultConfig,
-        onStatus
-      );
-
-      setSessions((prev) =>
-        prev.map((session) => {
-          if (session.id === (activeSession?.id || activeSessionId)) {
-            return {
-              ...session,
-              messages: session.messages.map((m) =>
-                m.id === messageId
-                  ? { ...m, result, status: 'synthesis', statusMessage: 'Analyse terminée' }
-                  : m
-              ),
-            };
-          }
-          return session;
-        })
-      );
-    } catch (err: any) {
-      setSessions((prev) =>
-        prev.map((session) => {
-          if (session.id === (activeSession?.id || activeSessionId)) {
-            return {
-              ...session,
-              messages: session.messages.map((m) =>
-                m.id === messageId
-                  ? { ...m, status: 'error', statusMessage: err.message || 'Erreur lors de l\'analyse' }
-                  : m
-              ),
-            };
-          }
-          return session;
-        })
-      );
-    } finally {
-      setIsRunning(false);
-      scrollToBottom();
-    }
+    // DÉLÉGATION AU BACKGROUND RUNNER DÉCOUPLÉ DE REACT
+    backgroundRunner.startTask(
+      messageId,
+      targetSessionId,
+      textToSend,
+      userUid,
+      positions,
+      config,
+      (status, statusMessage) => {
+        setSessions((prev) =>
+          prev.map((session) => {
+            if (session.id === targetSessionId) {
+              return {
+                ...session,
+                messages: session.messages.map((m) =>
+                  m.id === messageId ? { ...m, status, statusMessage } : m
+                ),
+              };
+            }
+            return session;
+          })
+        );
+      },
+      (result) => {
+        setIsRunning(false);
+        setSessions((prev) =>
+          prev.map((session) => {
+            if (session.id === targetSessionId) {
+              return {
+                ...session,
+                messages: session.messages.map((m) =>
+                  m.id === messageId
+                    ? { ...m, result, status: 'synthesis', statusMessage: 'Analyse terminée' }
+                    : m
+                ),
+              };
+            }
+            return session;
+          })
+        );
+        scrollToBottom();
+      }
+    );
   };
 
   const suggestedPrompts = [
@@ -506,7 +525,7 @@ export function AnalysisChatView({
             <div>
               <h3 style={{ fontSize: 15, fontWeight: 700, margin: 0 }}>{activeSession?.title || 'Analyse IA'}</h3>
               <div style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>
-                Multi-Agents Gemini 3.5 Lite / 3.6 Flash · Ancrage Web Deep Search
+                Multi-Agents Gemini 3.5 Lite / 3.6 Flash · Background Task Active ⚡
               </div>
             </div>
           </div>
@@ -547,7 +566,7 @@ export function AnalysisChatView({
               <div style={{ fontSize: 40, marginBottom: 12 }}>🤖</div>
               <h4 style={{ fontSize: 16, fontWeight: 700, marginBottom: 8 }}>Analyste Financier IA RIANE</h4>
               <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 20 }}>
-                Posez une question sur n&apos;importe quelle valeur de votre portefeuille. L&apos;IA croisera les cours du marché, vos performances et 15 articles de presse réels.
+                Posez une question sur n&apos;importe quelle valeur de votre portefeuille. L&apos;analyse s&apos;exécute en arrière-plan même si vous naviguez dans l&apos;application.
               </p>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -605,7 +624,7 @@ export function AnalysisChatView({
                     }}
                   >
                     <span className="loading-spinner" style={{ width: 16, height: 16 }} />
-                    {msg.statusMessage || 'Analyse multi-agents en cours...'}
+                    {msg.statusMessage || 'Analyse multi-agents en arrière-plan...'}
                   </div>
                 )}
 
@@ -639,7 +658,7 @@ export function AnalysisChatView({
                       </p>
                     )}
 
-                    {/* ⚡ BANNIÈRE D'ACTION INTERACTIVE 1-CLICK (SI UNE ACTION EST SUGGÉRÉE) */}
+                    {/* ⚡ BANNIÈRE D'ACTION INTERACTIVE 1-CLICK */}
                     {action && (
                       <div
                         style={{
@@ -696,8 +715,6 @@ export function AnalysisChatView({
                         )}
                       </div>
                     )}
-
-                    {/* End of synthesis message */}
                   </div>
                 )}
               </div>

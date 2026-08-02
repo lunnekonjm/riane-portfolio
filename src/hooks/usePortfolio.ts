@@ -403,7 +403,8 @@ export function usePortfolio() {
   }, 0);
 
   const monthlyDCATotal = positions.reduce((sum, p) => {
-    return sum + (p.monthlyDCA || 0);
+    const monthlyVal = p.monthlyDCA || (p.annualBudget ? p.annualBudget / 12 : 0);
+    return sum + monthlyVal;
   }, 0);
 
   const positionsByEnvelope = positions.reduce((acc, p) => {

@@ -105,14 +105,23 @@ export default function WelcomeBanner({
               {topAlert.actionCtaLabel || '🎯 Corriger via DCA'}
             </button>
           ) : (
-            monthlyDCA > 0 && (
+            monthlyDCA > 0 ? (
               <button
                 type="button"
                 className="btn btn-secondary btn-sm"
                 style={{ fontSize: 11, color: 'var(--accent-emerald)', borderColor: 'rgba(16, 185, 129, 0.3)' }}
                 onClick={onOpenRebalance}
               >
-                🎯 Versement DCA ({monthlyDCA}€)
+                🎯 Versement DCA ({Math.round(monthlyDCA)}€)
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                style={{ fontSize: 11, color: 'var(--accent-amber)', borderColor: 'rgba(245, 158, 11, 0.3)' }}
+                onClick={onOpenRebalance}
+              >
+                🎯 Répartir un DCA
               </button>
             )
           )}

@@ -276,6 +276,9 @@ export default function HomePage() {
     let annualCount = 0;
 
     positions.forEach((p) => {
+      const hasDCA = (p.monthlyDCA && p.monthlyDCA > 0) || (p.annualBudget && p.annualBudget > 0);
+      if (!hasDCA) return;
+
       const freqStr = (p.dcaFrequency || (p.annualBudget && p.annualBudget > 0 ? 'annual' : 'monthly')) as string;
 
       if (freqStr === 'annual' || (p.annualBudget && p.annualBudget > 0)) {
@@ -702,7 +705,7 @@ export default function HomePage() {
                 userName={user.displayName || user.email || undefined}
                 totalValue={totalValue}
                 totalCost={totalCost}
-                monthlyDCA={monthlyDCATotal || (config?.monthlyBudget || 1000)}
+                monthlyDCA={monthlyDCATotal}
                 positions={positions}
                 notifications={notifications}
                 onOpenAnalysis={() => setCurrentView('analysis')}
@@ -906,40 +909,48 @@ export default function HomePage() {
                           </div>
                         </div>
 
-                        <div className="card-value" style={{ color: 'var(--accent-emerald)', display: 'flex', alignItems: 'baseline', gap: 4, flexWrap: 'wrap' }}>
+                        <div className="card-value" style={{ color: dcaBreakdown.monthlyEquivalent > 0 ? 'var(--accent-emerald)' : 'var(--text-muted)', display: 'flex', alignItems: 'baseline', gap: 4, flexWrap: 'wrap' }}>
                           <span>
                             {dcaBreakdown.monthlyEquivalent > 0
                               ? (dcaBreakdown.monthlyEquivalent / cumulativeInflationFactor).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })
-                              : ((config?.monthlyBudget || 1000) / cumulativeInflationFactor).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
+                              : '0,00 €'}
                           </span>
-                          <span style={{ fontSize: 12, color: 'var(--text-tertiary)', fontWeight: 500 }}>/mois (lissés)</span>
+                          <span style={{ fontSize: 12, color: 'var(--text-tertiary)', fontWeight: 500 }}>
+                            {dcaBreakdown.monthlyEquivalent > 0 ? '/mois (lissés)' : '(Aucun DCA actif)'}
+                          </span>
                         </div>
 
                         {/* Interactive Mini Dropdown Badge Button */}
                         <div style={{ marginTop: 6, position: 'relative' }}>
-                          <button
-                            type="button"
-                            className="btn btn-secondary btn-sm"
-                            style={{
-                              fontSize: 10,
-                              padding: '3px 8px',
-                              borderRadius: 6,
-                              background: 'rgba(6, 182, 212, 0.12)',
-                              color: 'var(--accent-cyan)',
-                              border: '1px solid rgba(6, 182, 212, 0.3)',
-                              fontWeight: 600,
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: 5,
-                            }}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setShowDcaFrequencyDropdown(!showDcaFrequencyDropdown);
-                            }}
-                          >
-                            <span>📊 Détail des Fréquences ({dcaBreakdown.activeFrequenciesCount})</span>
-                            <span style={{ fontSize: 9 }}>{showDcaFrequencyDropdown ? '▴' : '▾'}</span>
-                          </button>
+                          {dcaBreakdown.activeFrequenciesCount > 0 ? (
+                            <button
+                              type="button"
+                              className="btn btn-secondary btn-sm"
+                              style={{
+                                fontSize: 10,
+                                padding: '3px 8px',
+                                borderRadius: 6,
+                                background: 'rgba(6, 182, 212, 0.12)',
+                                color: 'var(--accent-cyan)',
+                                border: '1px solid rgba(6, 182, 212, 0.3)',
+                                fontWeight: 600,
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: 5,
+                              }}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setShowDcaFrequencyDropdown(!showDcaFrequencyDropdown);
+                              }}
+                            >
+                              <span>📊 Détail des Fréquences ({dcaBreakdown.activeFrequenciesCount})</span>
+                              <span style={{ fontSize: 9 }}>{showDcaFrequencyDropdown ? '▴' : '▾'}</span>
+                            </button>
+                          ) : (
+                            <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                              ✍️ Définissez le DCA par position
+                            </span>
+                          )}
 
                           {/* Dropdown Popover */}
                           {showDcaFrequencyDropdown && (

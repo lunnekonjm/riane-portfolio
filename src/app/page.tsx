@@ -479,6 +479,10 @@ export default function HomePage() {
   };
 
   const openRebalanceModal = () => {
+    if (filledPositions.length === 0) {
+      showToast('Veuillez d\'abord renseigner vos positions réelles (Quantité & PRU) avant de calculer un rééquilibrage DCA', 'error');
+      return;
+    }
     const monthlyBudget = config?.monthlyBudget || 1000;
     const flowResult = calculateSmartFlowRebalance(positions, monthlyBudget, fxRates);
     const activeResult = calculateActiveRebalance(positions, fxRates);
@@ -2096,9 +2100,14 @@ export default function HomePage() {
                         if (inst.recommendedShares > 0) {
                           const pos = positions.find((p) => p.id === inst.positionId);
                           if (pos) {
+                            const newQty = pos.quantity + inst.recommendedShares;
+                            const unitPrice = inst.recommendedShares > 0 ? inst.recommendedCost / inst.recommendedShares : 0;
+                            const effectivePrice = unitPrice || pos.currentPrice || pos.avgPrice || 10;
+                            const newAvgPrice = pos.avgPrice > 0 ? pos.avgPrice : effectivePrice;
                             await updatePosition({
                               ...pos,
-                              quantity: pos.quantity + inst.recommendedShares,
+                              quantity: newQty,
+                              avgPrice: newAvgPrice,
                               updatedAt: Date.now(),
                             });
                             appliedCount++;
@@ -2176,9 +2185,12 @@ export default function HomePage() {
                           const pos = positions.find((p) => p.id === inst.positionId);
                           if (pos) {
                             const newQty = Math.max(0, pos.quantity + inst.deltaShares);
+                            const effectivePrice = inst.deltaCostEUR ? Math.abs(inst.deltaCostEUR / (inst.deltaShares || 1)) : (pos.currentPrice || pos.avgPrice || 10);
+                            const newAvgPrice = pos.avgPrice > 0 ? pos.avgPrice : effectivePrice;
                             await updatePosition({
                               ...pos,
                               quantity: newQty,
+                              avgPrice: newAvgPrice,
                               updatedAt: Date.now(),
                             });
                             appliedCount++;

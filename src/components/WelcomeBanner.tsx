@@ -34,6 +34,7 @@ export default function WelcomeBanner({
   const currentHour = new Date().getHours();
   const greeting = currentHour < 12 ? 'Bonjour' : currentHour < 18 ? 'Bon après-midi' : 'Bonsoir';
   const displayName = userName ? userName.split(' ')[0] : 'Investisseur';
+  const filledPositions = positions.filter((p) => p.quantity > 0 && p.avgPrice > 0);
 
   const overallGain = totalValue - totalCost;
   const overallGainPercent = totalCost > 0 ? (overallGain / totalCost) * 100 : 0;
@@ -105,7 +106,7 @@ export default function WelcomeBanner({
               {topAlert.actionCtaLabel || '🎯 Corriger via DCA'}
             </button>
           ) : (
-            monthlyDCA > 0 ? (
+            filledPositions.length > 0 && monthlyDCA > 0 ? (
               <button
                 type="button"
                 className="btn btn-secondary btn-sm"
@@ -114,16 +115,7 @@ export default function WelcomeBanner({
               >
                 🎯 Versement DCA ({Math.round(monthlyDCA)}€)
               </button>
-            ) : (
-              <button
-                type="button"
-                className="btn btn-secondary btn-sm"
-                style={{ fontSize: 11, color: 'var(--accent-amber)', borderColor: 'rgba(245, 158, 11, 0.3)' }}
-                onClick={onOpenRebalance}
-              >
-                🎯 Répartir un DCA
-              </button>
-            )
+            ) : null
           )}
           <button
             type="button"

@@ -1300,18 +1300,37 @@ export default function HomePage() {
                         <th><span data-tooltip="Cours du marché en direct (Yahoo Finance)">Prix</span></th>
                         <th><span data-tooltip="Valeur totale actuelle en portefeuille (Quantité × Prix)">Valeur</span></th>
                         <th><span data-tooltip="Plus ou Moins-value latente totale (% et montant €/$)">P&L</span></th>
+                        <th><span data-tooltip="Poids actuel dans le portefeuille comparé au Taux d'Allocation Max Recommandé (Plafond de sécurité)">Part / Cap Max</span></th>
                         <th><span data-tooltip="Budget mensuel ou annuel d'accumulation DCA">DCA</span></th>
                         <th><span data-tooltip="Actions rapides : Édition, Historique des arbitrages, Suppression">Actions</span></th>
                       </tr>
                     </thead>
                     <tbody>
-                      {positions.map((pos) => {
-                        const hasFilled = pos.quantity > 0 && pos.avgPrice > 0;
-                        const price = pos.currentPrice || pos.avgPrice;
-                        const value = pos.quantity * price;
-                        const cost = pos.quantity * pos.avgPrice;
-                        const pl = value - cost;
-                        const plPct = cost > 0 ? (pl / cost) * 100 : 0;
+                      {(() => {
+                        const totalPortfolioValEUR = positions.reduce((sum, p) => {
+                          const pr = p.currentPrice || p.avgPrice;
+                          const rate = (fxRates as any)[p.currency] || 1.0;
+                          return sum + p.quantity * pr * rate;
+                        }, 0);
+
+                        return positions.map((pos) => {
+                          const hasFilled = pos.quantity > 0 && pos.avgPrice > 0;
+                          const price = pos.currentPrice || pos.avgPrice;
+                          const value = pos.quantity * price;
+                          const cost = pos.quantity * pos.avgPrice;
+                          const pl = value - cost;
+                          const plPct = cost > 0 ? (pl / cost) * 100 : 0;
+
+                          // Calcul de la part actuelle (%) et du Cap Max Recommandé (%)
+                          const rateToEUR = (fxRates as any)[pos.currency] || 1.0;
+                          const posValueEUR = pos.quantity * price * rateToEUR;
+                          const currentWeightPct = totalPortfolioValEUR > 0 ? (posValueEUR / totalPortfolioValEUR) * 100 : 0;
+
+                        const isCore = pos.ticker.includes('GPEA') || pos.ticker.includes('CW8') || pos.ticker.includes('WPEA') || pos.name.toLowerCase().includes('acwi');
+                        const isSmallCap = pos.envelope === 'PEA-PME' || pos.ticker.includes('MEMS') || pos.ticker.includes('ALRIB');
+                        const defaultCap = isCore ? 60.0 : isSmallCap ? 15.0 : 10.0;
+                        const maxCapPct = pos.targetWeight ? pos.targetWeight * 100 : defaultCap;
+                        const capUsagePct = maxCapPct > 0 ? (currentWeightPct / maxCapPct) * 100 : 0;
                         return (
                           <tr
                             key={pos.id}
@@ -1371,6 +1390,62 @@ export default function HomePage() {
                                 </div>
                               ) : <span style={{ color: 'var(--text-muted)' }}>—</span>}
                             </td>
+                            {/* 📊 Colonne : Part Actuelle / Cap Max Recommandé (%) */}
+                            <td style={{ whiteSpace: 'nowrap' }} onClick={(e) => e.stopPropagation()}>
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: 3, minWidth: 125 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 12, fontFamily: 'var(--font-mono)' }}>
+                                  <strong style={{ color: currentWeightPct > maxCapPct ? 'var(--accent-rose)' : 'var(--text-primary)' }}>
+                                    {currentWeightPct.toFixed(1)}%
+                                  </strong>
+                                  <span style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>
+                                    / {maxCapPct.toFixed(1)}% max
+                                  </span>
+                                </div>
+
+                                <div style={{ height: 4, width: '100%', background: 'var(--bg-tertiary)', borderRadius: 2, overflow: 'hidden', border: '1px solid var(--border-subtle)' }}>
+                                  <div
+                                    style={{
+                                      height: '100%',
+                                      width: `${Math.min(capUsagePct, 100)}%`,
+                                      background: currentWeightPct > maxCapPct
+                                        ? 'var(--accent-rose)'
+                                        : currentWeightPct >= maxCapPct * 0.85
+                                        ? 'var(--accent-amber)'
+                                        : 'var(--accent-emerald)',
+                                      borderRadius: 2,
+                                    }}
+                                  />
+                                </div>
+
+                                <div>
+                                  {currentWeightPct > maxCapPct ? (
+                                    <span
+                                      className="badge badge-rose"
+                                      style={{ fontSize: 9, padding: '1px 5px' }}
+                                      title={`Alerte sur-concentration : +${(currentWeightPct - maxCapPct).toFixed(1)}% au-dessus du plafond recommandé (${maxCapPct.toFixed(1)}% max)`}
+                                    >
+                                      ⚠️ +{(currentWeightPct - maxCapPct).toFixed(1)}% (Surchargé)
+                                    </span>
+                                  ) : currentWeightPct >= maxCapPct * 0.85 ? (
+                                    <span
+                                      className="badge badge-amber"
+                                      style={{ fontSize: 9, padding: '1px 5px' }}
+                                      title={`Proche du plafond max : ${capUsagePct.toFixed(0)}% du cap d'allocation consommé`}
+                                    >
+                                      ⚡ {capUsagePct.toFixed(0)}% du cap
+                                    </span>
+                                  ) : (
+                                    <span
+                                      className="badge badge-emerald"
+                                      style={{ fontSize: 9, padding: '1px 5px' }}
+                                      title={`Niveau optimal : ${capUsagePct.toFixed(0)}% du plafond max d'allocation`}
+                                    >
+                                      ✓ OK ({capUsagePct.toFixed(0)}%)
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            </td>
                             <td className="mono" style={{ fontSize: 12 }}>{pos.monthlyDCA ? `${pos.monthlyDCA}€` : pos.annualBudget ? `${pos.annualBudget}€/an` : '—'}</td>
                             <td onClick={(e) => e.stopPropagation()}>
                               <div className="row-actions">
@@ -1389,8 +1464,9 @@ export default function HomePage() {
                               </div>
                             </td>
                           </tr>
-                        );
-                      })}
+                         );
+                       });
+                      })()}
                     </tbody>
                   </table>
                   </div>

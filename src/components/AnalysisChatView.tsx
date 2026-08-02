@@ -47,40 +47,91 @@ interface AnalysisChatViewProps {
   showToast: (msg: string, type?: 'success' | 'error') => void;
 }
 
+function getPositionIdentifiers(pos: any): string[] {
+  const ids: string[] = [];
+  if (pos.ticker) {
+    ids.push(pos.ticker);
+    const base = pos.ticker.split('.')[0];
+    if (base && base !== pos.ticker) ids.push(base);
+  }
+  if (pos.name) {
+    ids.push(pos.name);
+    const words = pos.name.split(' ').filter((w: string) => w.length > 2);
+    words.forEach((w: string) => ids.push(w));
+  }
+  return Array.from(new Set(ids)).map((s) => s.toLowerCase());
+}
+
 /**
- * Détecte les intentions d'actions concrètes UNIQUEMENT si l'utilisateur a explicitement demandé une modification d'allocation ou de rééquilibrage.
+ * Détecte automatiquement les intentions d'action (DCA mensuel en € ou Allocation cible en %)
+ * d'après la réponse de l'analyste IA et génère un bouton Call-To-Action 1-Click.
  */
 function extractActionableIntent(query: string, synthesisText: string, positions: any[]): ActionableIntent | null {
-  if (!synthesisText || !query) return null;
+  if (!synthesisText || !query || positions.length === 0) return null;
 
   const queryLower = query.toLowerCase();
 
-  const isExplicitAllocationRequest =
-    queryLower.includes('rééquilibrer') ||
-    queryLower.includes('poids cible') ||
-    queryLower.includes('modifier la cible') ||
-    queryLower.includes('changer l\'allocation') ||
-    queryLower.includes('répartir la cible');
+  const isAllocationOrDcaQuery =
+    queryLower.includes('allocation') ||
+    queryLower.includes('alloc') ||
+    queryLower.includes('répartition') ||
+    queryLower.includes('répartir') ||
+    queryLower.includes('pourcentage') ||
+    queryLower.includes('poids') ||
+    queryLower.includes('target') ||
+    queryLower.includes('cible') ||
+    queryLower.includes('recommand') ||
+    queryLower.includes('propose') ||
+    queryLower.includes('mettre') ||
+    queryLower.includes('verser') ||
+    queryLower.includes('dca') ||
+    queryLower.includes('budget') ||
+    queryLower.includes('mensuel') ||
+    queryLower.includes('stratégie') ||
+    queryLower.includes('rééquilibre') ||
+    queryLower.includes('combien');
 
-  if (!isExplicitAllocationRequest) {
-    return null;
-  }
+  if (!isAllocationOrDcaQuery) return null;
 
-  if (!synthesisText.includes('Poids Cible Recommandé') && !synthesisText.includes('Target Weight')) {
-    return null;
-  }
-
-  const changes: ActionableIntent['changes'] = [];
+  const dcaChanges: ActionableIntent['changes'] = [];
+  const weightChanges: ActionableIntent['changes'] = [];
 
   positions.forEach((pos) => {
-    const tickerClean = pos.ticker.toLowerCase().replace('.pa', '').replace('.f', '');
-    const targetLineRegex = new RegExp(`(?:${tickerClean}|${pos.name.toLowerCase()})[\\s\\S]{0,40}?(?:cible|target)[\\s\\S]{0,20}?(\\d+(?:[.,]\\d+)?)\\s*%`, 'i');
-    const match = synthesisText.match(targetLineRegex);
+    const ids = getPositionIdentifiers(pos);
+    const escapedIds = ids.map((id) => id.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+    const idPattern = `(?:${escapedIds.join('|')})`;
 
-    if (match && match[1]) {
-      const val = parseFloat(match[1].replace(',', '.'));
-      if (val > 0 && val <= 50) {
-        changes.push({
+    // 1. Détection des montants DCA en Euros (€, €/mois, euros)
+    const dcaRegex = new RegExp(
+      `${idPattern}[^\\n]*?[:\\-—➔=]\\s*(\\d+(?:[.,]\\d+)?)\\s*(?:€|euros?|€\\/mois)`,
+      'i'
+    );
+    const dcaMatch = synthesisText.match(dcaRegex);
+
+    if (dcaMatch && dcaMatch[1]) {
+      const val = parseFloat(dcaMatch[1].replace(',', '.'));
+      if (val > 0 && val <= 50000) {
+        dcaChanges.push({
+          ticker: pos.ticker,
+          label: pos.name,
+          field: 'monthlyDCA',
+          newValue: val,
+          formattedValue: `${val.toLocaleString('fr-FR')} €/mois`,
+        });
+      }
+    }
+
+    // 2. Détection des allocations en Pourcentage (%)
+    const weightRegex = new RegExp(
+      `${idPattern}[^\\n]*?[:\\-—➔=]?\\s*(\\d+(?:[.,]\\d+)?)\\s*%`,
+      'i'
+    );
+    const weightMatch = synthesisText.match(weightRegex);
+
+    if (weightMatch && weightMatch[1]) {
+      const val = parseFloat(weightMatch[1].replace(',', '.'));
+      if (val > 0 && val <= 100) {
+        weightChanges.push({
           ticker: pos.ticker,
           label: pos.name,
           field: 'targetWeight',
@@ -91,12 +142,21 @@ function extractActionableIntent(query: string, synthesisText: string, positions
     }
   });
 
-  if (changes.length > 0) {
+  if (dcaChanges.length > 0) {
+    return {
+      type: 'UPDATE_MONTHLY_DCA',
+      title: 'Mise à jour des Montants DCA Mensuels',
+      description: `Sur la base des recommandations de l'IA, voici la répartition de vos versements mensuels :`,
+      changes: dcaChanges,
+    };
+  }
+
+  if (weightChanges.length > 0) {
     return {
       type: 'UPDATE_TARGET_WEIGHTS',
-      title: 'Mise à jour des Poids Cibles du Portefeuille',
-      description: `Sur la base de votre demande de rééquilibrage, voici les modifications de poids cibles préconisées :`,
-      changes,
+      title: 'Mise à jour de l\'Allocation Cible (% du Portefeuille)',
+      description: `Sur la base des recommandations de l'IA, voici la répartition cible préconisée :`,
+      changes: weightChanges,
     };
   }
 

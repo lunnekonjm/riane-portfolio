@@ -30,10 +30,195 @@ export interface ActionableIntent {
   changes: Array<{
     ticker: string;
     label: string;
-    field: 'targetWeight' | 'monthlyDCA';
+    field: 'targetWeight' | 'monthlyDCA' | 'annualBudget';
+    frequency?: 'monthly' | 'quarterly' | 'semestrial' | 'annual';
     newValue: number;
     formattedValue: string;
   }>;
+}
+
+function detectFrequency(line: string, query: string): 'monthly' | 'quarterly' | 'semestrial' | 'annual' {
+  const text = (line + ' ' + query).toLowerCase();
+
+  if (text.includes('/an') || text.includes('annuel') || text.includes('par an') || text.includes('/ an') || text.includes('euros annuels')) {
+    return 'annual';
+  }
+  if (text.includes('/trimestre') || text.includes('trimestriel') || text.includes('par trimestre')) {
+    return 'quarterly';
+  }
+  if (text.includes('/semestre') || text.includes('semestriel') || text.includes('par semestre')) {
+    return 'semestrial';
+  }
+  return 'monthly';
+}
+
+/**
+ * Détecte avec précision les montants DCA (€/mois, €/an, €/trimestre) et allocations cibles (%) préconisés par l'IA.
+ */
+function extractActionableIntents(query: string, synthesisText: string, positions: any[]): ExtractedIntents {
+  if (!synthesisText || !query || positions.length === 0) {
+    return { dcaAction: null, weightAction: null };
+  }
+
+  const queryLower = query.toLowerCase();
+
+  const isAllocationOrDcaQuery =
+    queryLower.includes('allocation') ||
+    queryLower.includes('alloc') ||
+    queryLower.includes('répartition') ||
+    queryLower.includes('répartir') ||
+    queryLower.includes('pourcentage') ||
+    queryLower.includes('poids') ||
+    queryLower.includes('target') ||
+    queryLower.includes('cible') ||
+    queryLower.includes('recommand') ||
+    queryLower.includes('propose') ||
+    queryLower.includes('mettre') ||
+    queryLower.includes('verser') ||
+    queryLower.includes('dca') ||
+    queryLower.includes('budget') ||
+    queryLower.includes('mensuel') ||
+    queryLower.includes('annuel') ||
+    queryLower.includes('trimestriel') ||
+    queryLower.includes('semestriel') ||
+    queryLower.includes('stratégie') ||
+    queryLower.includes('rééquilibre') ||
+    queryLower.includes('combien');
+
+  if (!isAllocationOrDcaQuery) {
+    return { dcaAction: null, weightAction: null };
+  }
+
+  const lines = synthesisText.split('\n');
+  const dcaChanges: ActionableIntent['changes'] = [];
+  const weightChanges: ActionableIntent['changes'] = [];
+
+  const isEnvelopeHeader = (line: string) => {
+    const l = line.toLowerCase().trim();
+    return (
+      (l.includes('le socle') || l.includes('le satellite') || l.includes('le vivier') || l.startsWith('1.') || l.startsWith('2.') || l.startsWith('3.')) &&
+      !l.includes('gpea') && !l.includes('pust') && !l.includes('0p0001') && !l.includes('mems') && !l.includes('alrib') && !l.includes('ceg') && !l.includes('cohr') && !l.includes('sym')
+    );
+  };
+
+  lines.forEach((line) => {
+    if (isEnvelopeHeader(line)) return;
+
+    positions.forEach((pos) => {
+      const tickerClean = pos.ticker.toLowerCase().replace('.pa', '').replace('.f', '');
+      const tickerFull = pos.ticker.toLowerCase();
+      const posName = pos.name.toLowerCase();
+      const lineLower = line.toLowerCase();
+
+      const isPositionLine =
+        lineLower.includes(tickerClean) ||
+        lineLower.includes(tickerFull) ||
+        (posName.length > 3 && lineLower.includes(posName.split(' ')[0]));
+
+      if (isPositionLine) {
+        const freq = detectFrequency(line, query);
+
+        // 1. Détection des montants DCA en Euros (€, €/mois, €/an) sur cette ligne spécifique
+        let euroMatch = null;
+        if (freq === 'annual') {
+          euroMatch = line.match(/(?:[–\-—:]\s*|\()\s*(\d+(?:[.,]\d+)?)\s*(?:€|euros?)\s*(?:\/\s*an|annuels?|par an)?/i);
+        } else {
+          euroMatch = line.match(/(?:[–\-—:]\s*|\()\s*(\d+(?:[.,]\d+)?)\s*(?:€|euros?|€\/mois)/i);
+        }
+
+        if (euroMatch && euroMatch[1]) {
+          const val = parseFloat(euroMatch[1].replace(',', '.'));
+          if (val > 0 && val <= 100000 && !dcaChanges.some((c) => c.ticker === pos.ticker)) {
+            const labelFreq = freq === 'annual' ? '€/an (Annuel)' : freq === 'quarterly' ? '€/trimestre' : '€/mois';
+            dcaChanges.push({
+              ticker: pos.ticker,
+              label: pos.name,
+              field: freq === 'annual' ? 'annualBudget' : 'monthlyDCA',
+              frequency: freq,
+              newValue: val,
+              formattedValue: `${val.toLocaleString('fr-FR')} ${labelFreq}`,
+            });
+          }
+        }
+
+        // 2. Détection du pourcentage cible (%) sur cette ligne spécifique
+        const pctMatch = line.match(/(?:[–\-—:]\s*|\()\s*(\d+(?:[.,]\d+)?)\s*%/i);
+        if (pctMatch && pctMatch[1]) {
+          const val = parseFloat(pctMatch[1].replace(',', '.'));
+          if (val > 0 && val <= 100 && !weightChanges.some((c) => c.ticker === pos.ticker)) {
+            weightChanges.push({
+              ticker: pos.ticker,
+              label: pos.name,
+              field: 'targetWeight',
+              newValue: val / 100,
+              formattedValue: `${val.toFixed(1)}%`,
+            });
+          }
+        }
+      }
+    });
+  });
+
+  // Fallback : si aucun actif individuel n'a été parsé mais que des montants par enveloppe sont présents (ex: CTO 6000€/an ou 500€/mois)
+  if (dcaChanges.length === 0) {
+    const envelopeDcaMap: Record<string, { amount: number; freq: 'monthly' | 'quarterly' | 'semestrial' | 'annual' }> = {};
+
+    lines.forEach((line) => {
+      const lineFreq = detectFrequency(line, query);
+
+      // Match CTO, PEA, PEA-PME
+      const ctoMatch = line.match(/cto[^\n]*?(\d+(?:[.,]\d+)?)\s*(?:€|euros?)/i);
+      const peaPmeMatch = line.match(/pea-pme[^\n]*?(\d+(?:[.,]\d+)?)\s*(?:€|euros?)/i);
+      const peaMatch = line.match(/(?:^|[^a-z0-9])pea(?:[^a-z0-9-][^\n]*?)(\d+(?:[.,]\d+)?)\s*(?:€|euros?)/i);
+
+      if (ctoMatch && ctoMatch[1]) envelopeDcaMap['CTO'] = { amount: parseFloat(ctoMatch[1].replace(',', '.')), freq: lineFreq };
+      if (peaPmeMatch && peaPmeMatch[1]) envelopeDcaMap['PEA-PME'] = { amount: parseFloat(peaPmeMatch[1].replace(',', '.')), freq: lineFreq };
+      else if (peaMatch && peaMatch[1]) envelopeDcaMap['PEA'] = { amount: parseFloat(peaMatch[1].replace(',', '.')), freq: lineFreq };
+    });
+
+    Object.entries(envelopeDcaMap).forEach(([env, data]) => {
+      const envPositions = positions.filter((p) => (p.envelope || '').toUpperCase() === env);
+      if (envPositions.length > 0 && data.amount > 0) {
+        const perPos = Math.round(data.amount / envPositions.length);
+        envPositions.forEach((p) => {
+          const labelFreq = data.freq === 'annual' ? '€/an (Annuel)' : data.freq === 'quarterly' ? '€/trimestre' : '€/mois';
+          dcaChanges.push({
+            ticker: p.ticker,
+            label: p.name,
+            field: data.freq === 'annual' ? 'annualBudget' : 'monthlyDCA',
+            frequency: data.freq,
+            newValue: perPos,
+            formattedValue: `${perPos.toLocaleString('fr-FR')} ${labelFreq}`,
+          });
+        });
+      }
+    });
+  }
+
+  const primaryFreq = dcaChanges.length > 0 ? (dcaChanges[0].frequency || 'monthly') : 'monthly';
+  const freqTitle = primaryFreq === 'annual' ? 'Annuels (€/an)' : primaryFreq === 'quarterly' ? 'Trimestriels (€/trimestre)' : 'Mensuels (€/mois)';
+
+  const dcaAction: ActionableIntent | null =
+    dcaChanges.length > 0
+      ? {
+          type: 'UPDATE_MONTHLY_DCA',
+          title: `Mise à jour des Versements DCA ${freqTitle}`,
+          description: `Sur la base des recommandations de l'IA, voici la répartition de vos versements ${primaryFreq === 'annual' ? 'annuels' : 'mensuels'} :`,
+          changes: dcaChanges,
+        }
+      : null;
+
+  const weightAction: ActionableIntent | null =
+    weightChanges.length > 0
+      ? {
+          type: 'UPDATE_TARGET_WEIGHTS',
+          title: 'Mise à jour de l\'Allocation Cible (% du Portefeuille)',
+          description: `Sur la base des recommandations de l'IA, voici la répartition cible préconisée :`,
+          changes: weightChanges,
+        }
+      : null;
+
+  return { dcaAction, weightAction };
 }
 
 interface AnalysisChatViewProps {
@@ -352,13 +537,20 @@ export function AnalysisChatView({
               updatedAt: Date.now(),
             });
             updatedLabels.push(`${pos.name} (${change.formattedValue})`);
-          } else if (change.field === 'monthlyDCA') {
+          } else if (change.field === 'monthlyDCA' || change.field === 'annualBudget') {
+            const freq = change.frequency || 'monthly';
+            const isAnnual = freq === 'annual';
+            const monthlyVal = isAnnual ? Math.round(change.newValue / 12) : Math.round(change.newValue);
+            const annualVal = isAnnual ? change.newValue : undefined;
+
             await updatePosition({
               ...pos,
-              monthlyDCA: change.newValue,
+              dcaFrequency: freq,
+              monthlyDCA: monthlyVal,
+              ...(annualVal ? { annualBudget: annualVal } : {}),
               updatedAt: Date.now(),
             });
-            updatedLabels.push(`${pos.name} (${change.formattedValue} €/mois)`);
+            updatedLabels.push(`${pos.name} (${change.formattedValue})`);
           }
         }
       }

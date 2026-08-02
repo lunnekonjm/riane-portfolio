@@ -161,6 +161,38 @@ function extractActionableIntents(query: string, synthesisText: string, position
     });
   });
 
+  // Fallback : si aucun actif individuel n'a été parsé mais que des montants par enveloppe sont présents (ex: CTO 500€/mois, PEA 333€/mois)
+  if (dcaChanges.length === 0) {
+    const envelopeDcaMap: Record<string, number> = {};
+
+    lines.forEach((line) => {
+      // Regardons si la ligne mentionne CTO, PEA, ou PEA-PME avec un montant €/mois
+      const ctoMatch = line.match(/cto[^\n]*?(\d+(?:[.,]\d+)?)\s*(?:€|euros?)\/mois/i);
+      const peaPmeMatch = line.match(/pea-pme[^\n]*?(\d+(?:[.,]\d+)?)\s*(?:€|euros?)\/mois/i);
+      const peaMatch = line.match(/(?:^|[^a-z0-9])pea(?:[^a-z0-9-][^\n]*?)(\d+(?:[.,]\d+)?)\s*(?:€|euros?)\/mois/i);
+
+      if (ctoMatch && ctoMatch[1]) envelopeDcaMap['CTO'] = parseFloat(ctoMatch[1].replace(',', '.'));
+      if (peaPmeMatch && peaPmeMatch[1]) envelopeDcaMap['PEA-PME'] = parseFloat(peaPmeMatch[1].replace(',', '.'));
+      else if (peaMatch && peaMatch[1]) envelopeDcaMap['PEA'] = parseFloat(peaMatch[1].replace(',', '.'));
+    });
+
+    Object.entries(envelopeDcaMap).forEach(([env, envAmount]) => {
+      const envPositions = positions.filter((p) => (p.envelope || '').toUpperCase() === env);
+      if (envPositions.length > 0 && envAmount > 0) {
+        const perPos = Math.round(envAmount / envPositions.length);
+        envPositions.forEach((p) => {
+          dcaChanges.push({
+            ticker: p.ticker,
+            label: p.name,
+            field: 'monthlyDCA',
+            newValue: perPos,
+            formattedValue: `${perPos} €/mois`,
+          });
+        });
+      }
+    });
+  }
+
   const dcaAction: ActionableIntent | null =
     dcaChanges.length > 0
       ? {

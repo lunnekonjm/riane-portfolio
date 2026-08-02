@@ -1282,6 +1282,60 @@ export default function HomePage() {
                     </button>
                     <button
                       className="btn btn-secondary"
+                      style={{ padding: '6px 10px', fontSize: 12, background: 'rgba(6, 182, 212, 0.12)', borderColor: 'var(--accent-cyan)' }}
+                      onClick={async () => {
+                        if (!confirm('🧪 Test Boursobank\n\nInjecter les 3 positions du portefeuille virtuel Boursobank ?\n\n• Indépendance AM Europe Small A (C) — 10 parts à 240,59€\n• MEMSCAP — 243 actions à 4,965€\n• RIBER — 128 actions à 9,38€\n\nDate d\'achat : 31/07/2026')) return;
+
+                        // Boursobank test portfolio positions
+                        const testPositions = [
+                          {
+                            ticker: '0P0001DKPM.F',
+                            quantity: 10,
+                            avgPrice: 240.59,
+                            purchaseDate: '2026-07-31',
+                          },
+                          {
+                            ticker: 'MEMS.PA',
+                            quantity: 243,
+                            avgPrice: 4.965,
+                            purchaseDate: '2026-07-31',
+                          },
+                          {
+                            ticker: 'ALRIB.PA',
+                            quantity: 128,
+                            avgPrice: 9.38,
+                            purchaseDate: '2026-07-31',
+                          },
+                        ];
+
+                        let injected = 0;
+                        for (const tp of testPositions) {
+                          const existingPos = positions.find((p) => p.ticker === tp.ticker);
+                          if (existingPos) {
+                            await updatePosition({
+                              ...existingPos,
+                              quantity: tp.quantity,
+                              avgPrice: tp.avgPrice,
+                              updatedAt: Date.now(),
+                            }, `🧪 Test Boursobank — Injection de ${tp.quantity} x ${tp.ticker} @ ${tp.avgPrice}€ (achat ${tp.purchaseDate})`);
+                            injected++;
+                          }
+                        }
+
+                        if (injected > 0) {
+                          showToast(`🧪 ${injected} positions Boursobank injectées — actualisez les prix pour comparer`);
+                          refreshPrices();
+                        } else {
+                          showToast('Aucune position correspondante trouvée dans le portefeuille', 'error');
+                        }
+                      }}
+                      data-tooltip="Injecter les positions du portefeuille virtuel Boursobank pour comparer les valorisations"
+                      id="test-boursobank-btn"
+                    >
+                      🧪 Test Bourso
+                    </button>
+                    <button
+                      className="btn btn-secondary"
                       style={{ padding: '6px 10px', fontSize: 12 }}
                       onClick={openRebalanceModal}
                       disabled={positions.length === 0}

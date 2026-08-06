@@ -26,7 +26,6 @@ import TransactionHistoryModal from '@/components/TransactionHistoryModal';
 import AssetBadge from '@/components/AssetBadge';
 import { AnalysisChatView } from '@/components/AnalysisChatView';
 import { getCleanAssetName } from '@/utils/assetMetadata';
-import SalaryHistoryModal from '@/components/SalaryHistoryModal';
 
 function formatDCAElapsedTime(startDateStr: string): string {
   if (!startDateStr) return '';
@@ -192,7 +191,6 @@ export default function HomePage() {
   const [showGlossaryModal, setShowGlossaryModal] = useState<boolean>(false);
   const [showMonteCarloModal, setShowMonteCarloModal] = useState<boolean>(false);
   const [showTransactionModal, setShowTransactionModal] = useState<boolean>(false);
-  const [showSalaryModal, setShowSalaryModal] = useState<boolean>(false);
   const [selectedHistoryTicker, setSelectedHistoryTicker] = useState<string | undefined>(undefined);
   const [glossaryInitialTerm, setGlossaryInitialTerm] = useState<string | undefined>(undefined);
 
@@ -205,7 +203,6 @@ export default function HomePage() {
     positions, config, investorProfile, isOnboardingPending,
     totalValue, totalCost, gainLoss, gainLossPercent,
     monthlyDCATotal, saving, pendingCount, filledPositions, fxRates, lastPricesUpdated, marketStatusLabel,
-    salaryRecords, salaryAnalytics, activeSalaryBaseline, upsertSalaryRecord, deleteSalaryRecord, resetSalaryHistory,
     canUndo, undoLastAction, canRedo, redoLastAction, transactions, recordTransaction,
     addPosition, updatePosition, removePosition, updateConfig, updateInvestorProfile, refreshPrices, resetPortfolio,
   } = usePortfolio();
@@ -288,19 +285,19 @@ export default function HomePage() {
       const hasDCA = (p.monthlyDCA && p.monthlyDCA > 0) || (p.annualBudget && p.annualBudget > 0);
       if (!hasDCA) return;
 
-      const freqStr = (p.dcaFrequency || (p.annualBudget && p.annualBudget > 0 && !p.monthlyDCA ? 'annual' : 'monthly')) as string;
+      const freqStr = (p.dcaFrequency || (p.annualBudget && p.annualBudget > 0 ? 'annual' : 'monthly')) as string;
 
-      if (freqStr === 'annual') {
+      if (freqStr === 'annual' || (p.annualBudget && p.annualBudget > 0)) {
         annualCount++;
-        const val = p.annualBudget || p.monthlyDCA || 0;
+        const val = p.annualBudget || (p.monthlyDCA ? p.monthlyDCA * 12 : 0);
         annualSum += val;
       } else if (freqStr === 'quarterly') {
         quarterlyCount++;
-        const val = p.monthlyDCA || 0;
+        const val = p.monthlyDCA ? p.monthlyDCA * 3 : (p.annualBudget ? p.annualBudget / 4 : 0);
         quarterlySum += val;
       } else if (freqStr === 'semestrial') {
         semestrialCount++;
-        const val = p.monthlyDCA || 0;
+        const val = p.monthlyDCA ? p.monthlyDCA * 6 : (p.annualBudget ? p.annualBudget / 2 : 0);
         semestrialSum += val;
       } else {
         monthlyCount++;
@@ -630,29 +627,6 @@ export default function HomePage() {
                   {unreadNotificationsCount}
                 </span>
               )}
-            </button>
-
-            {/* 📄 Bulletins & Salaire Button */}
-            <button
-              type="button"
-              className="btn btn-ghost btn-sm"
-              style={{
-                color: '#10b981',
-                fontSize: 12,
-                fontWeight: 700,
-                display: 'flex',
-                alignItems: 'center',
-                gap: 6,
-                border: '1px solid rgba(16, 185, 129, 0.3)',
-                padding: '6px 12px',
-                borderRadius: 10,
-                background: 'rgba(16, 185, 129, 0.1)',
-                cursor: 'pointer',
-              }}
-              onClick={() => setShowSalaryModal(true)}
-              title="Audit des bulletins de salaire, l'historique et la base de répartition DCA"
-            >
-              📄 Bulletins & Salaire ({activeSalaryBaseline ? `${activeSalaryBaseline.investableAmount}€` : 'DCA'})
             </button>
 
             {/* 📚 Lexique & Explications Financières Button */}
@@ -1532,13 +1506,13 @@ export default function HomePage() {
                             </td>
                             <td className="mono" style={{ fontSize: 12 }}>
                               {pos.dcaFrequency === 'annual' || (!pos.monthlyDCA && pos.annualBudget)
-                                ? `${(pos.annualBudget || pos.monthlyDCA || 0).toLocaleString('fr-FR')}€/an`
+                                ? `${(pos.annualBudget || (pos.monthlyDCA ? pos.monthlyDCA * 12 : 0)).toLocaleString('fr-FR')}€/an`
                                 : pos.dcaFrequency === 'quarterly'
-                                ? `${(pos.monthlyDCA || 0).toLocaleString('fr-FR')}€/trim`
+                                ? `${(pos.monthlyDCA ? pos.monthlyDCA * 3 : 0).toLocaleString('fr-FR')}€/trim`
                                 : pos.dcaFrequency === 'semestrial'
-                                ? `${(pos.monthlyDCA || 0).toLocaleString('fr-FR')}€/sem`
+                                ? `${(pos.monthlyDCA ? pos.monthlyDCA * 6 : 0).toLocaleString('fr-FR')}€/sem`
                                 : pos.monthlyDCA
-                                ? `${pos.monthlyDCA.toLocaleString('fr-FR')}€/mois`
+                                ? `${pos.monthlyDCA.toLocaleString('fr-FR')}€`
                                 : '—'}
                             </td>
                             <td onClick={(e) => e.stopPropagation()}>
@@ -2550,20 +2524,6 @@ export default function HomePage() {
           transactions={transactions}
           initialTicker={selectedHistoryTicker}
           onClose={() => setShowTransactionModal(false)}
-        />
-      )}
-
-      {/* 📄 Modal Audit des Bulletins de Salaire & Répartition */}
-      {showSalaryModal && (
-        <SalaryHistoryModal
-          isOpen={showSalaryModal}
-          onClose={() => setShowSalaryModal(false)}
-          salaryRecords={salaryRecords}
-          analytics={salaryAnalytics}
-          activeBaseline={activeSalaryBaseline}
-          onUpsertRecord={upsertSalaryRecord}
-          onDeleteRecord={deleteSalaryRecord}
-          onResetDefault={resetSalaryHistory}
         />
       )}
 

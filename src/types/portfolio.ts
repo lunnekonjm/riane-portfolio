@@ -3,7 +3,7 @@
  * Conformes au cahier des charges V4
  */
 
-export type Envelope = 'PEA' | 'PEA-PME' | 'CTO' | 'PEE' | 'SPECULATIVE' | 'OPPORTUNISTIC' | 'REVOLUT_X';
+export type Envelope = 'PEA' | 'PEA-PME' | 'CTO' | 'PEE' | 'SPECULATIVE' | 'OPPORTUNISTIC';
 
 export type AssetType = 'ETF' | 'STOCK' | 'FUND' | 'BOND' | 'CRYPTO' | 'CASH';
 

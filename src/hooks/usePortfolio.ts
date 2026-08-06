@@ -18,7 +18,6 @@ import { getMultipleQuotes, getFxRates } from '@/services/market-data/provider';
 import type { Position, PortfolioConfig, TransactionRecord, InvestorProfile } from '@/types/portfolio';
 import type { User } from 'firebase/auth';
 import { clearAnalysisCache } from '@/utils/analysisCache';
-import { useSalaryHistory } from '@/hooks/useSalaryHistory';
 
 export function usePortfolio() {
   const [user, setUser] = useState<User | null>(null);
@@ -403,17 +402,7 @@ export function usePortfolio() {
   }, 0);
 
   const monthlyDCATotal = positions.reduce((sum, p) => {
-    const freq = p.dcaFrequency || (p.annualBudget && !p.monthlyDCA ? 'annual' : 'monthly');
-    let monthlyVal = 0;
-    if (freq === 'annual') {
-      monthlyVal = (p.annualBudget || p.monthlyDCA || 0) / 12;
-    } else if (freq === 'semestrial') {
-      monthlyVal = (p.monthlyDCA || 0) / 6;
-    } else if (freq === 'quarterly') {
-      monthlyVal = (p.monthlyDCA || 0) / 3;
-    } else {
-      monthlyVal = p.monthlyDCA || (p.annualBudget ? p.annualBudget / 12 : 0);
-    }
+    const monthlyVal = p.monthlyDCA || (p.annualBudget ? p.annualBudget / 12 : 0);
     return sum + monthlyVal;
   }, 0);
 
@@ -447,21 +436,6 @@ export function usePortfolio() {
     }
   }, [user, config]);
 
-  const handleActiveBudgetChange = useCallback((newBudget: number) => {
-    if (config && config.monthlyBudget !== newBudget) {
-      setConfig((prev) => prev ? { ...prev, monthlyBudget: newBudget } : null);
-    }
-  }, [config]);
-
-  const {
-    salaryRecords,
-    analytics: salaryAnalytics,
-    activeBaseline: activeSalaryBaseline,
-    upsertSalaryRecord,
-    deleteSalaryRecord,
-    resetToDefaultHistory: resetSalaryHistory,
-  } = useSalaryHistory(handleActiveBudgetChange);
-
   const isOnboardingPending = !investorProfile || !investorProfile.onboardingCompleted;
 
   return {
@@ -483,12 +457,6 @@ export function usePortfolio() {
     pendingCount,
     filledPositions,
     positionsByEnvelope,
-    salaryRecords,
-    salaryAnalytics,
-    activeSalaryBaseline,
-    upsertSalaryRecord,
-    deleteSalaryRecord,
-    resetSalaryHistory,
     canUndo: historyStack.length > 0,
     undoLastAction,
     canRedo: redoStack.length > 0,

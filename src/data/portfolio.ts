@@ -136,4 +136,5 @@ export const ENVELOPE_LABELS: Record<string, string> = {
   PEE: 'Plan d\'Épargne Entreprise',
   SPECULATIVE: 'Poche Spéculative',
   OPPORTUNISTIC: 'Réserve Opportuniste',
+  REVOLUT_X: 'Revolut X (Crypto)',
 };

@@ -94,6 +94,71 @@ function extractActionableIntents(query: string, synthesisText: string, position
     return { dcaAction: null, weightAction: null };
   }
 
+  // ─── PRIORITY 1: Structured JSON block from AI ───
+  const jsonMatch = synthesisText.match(/<!--\s*RIANE_ACTIONS_JSON\s+(\{[\s\S]*?\})\s*-->/);
+  if (jsonMatch && jsonMatch[1]) {
+    try {
+      const parsed = JSON.parse(jsonMatch[1]);
+      const dcaChanges: ActionableIntent['changes'] = [];
+      const weightChanges: ActionableIntent['changes'] = [];
+
+      if (Array.isArray(parsed.dca)) {
+        for (const entry of parsed.dca) {
+          const pos = positions.find((p: any) => p.ticker === entry.ticker);
+          if (pos && entry.amount > 0) {
+            const freq = entry.frequency === 'annual' ? 'annual' : 'monthly';
+            const labelFreq = freq === 'annual' ? '€/an (Annuel)' : '€/mois';
+            dcaChanges.push({
+              ticker: pos.ticker,
+              label: pos.name,
+              field: freq === 'annual' ? 'annualBudget' : 'monthlyDCA',
+              frequency: freq,
+              newValue: Math.round(entry.amount),
+              formattedValue: `${Math.round(entry.amount).toLocaleString('fr-FR')} ${labelFreq}`,
+            });
+          }
+        }
+      }
+
+      if (Array.isArray(parsed.weights)) {
+        for (const entry of parsed.weights) {
+          const pos = positions.find((p: any) => p.ticker === entry.ticker);
+          if (pos && entry.pct > 0 && entry.pct <= 100) {
+            weightChanges.push({
+              ticker: pos.ticker,
+              label: pos.name,
+              field: 'targetWeight',
+              newValue: entry.pct / 100,
+              formattedValue: `${entry.pct.toFixed(1)}%`,
+            });
+          }
+        }
+      }
+
+      const primaryFreq = dcaChanges.length > 0 ? (dcaChanges[0].frequency || 'monthly') : 'monthly';
+      const freqTitle = primaryFreq === 'annual' ? 'Annuels (€/an)' : 'Mensuels (€/mois)';
+
+      return {
+        dcaAction: dcaChanges.length > 0 ? {
+          type: 'UPDATE_MONTHLY_DCA',
+          title: `Mise à jour des Versements DCA ${freqTitle}`,
+          description: `Sur la base des recommandations de l'IA, voici la répartition de vos versements ${primaryFreq === 'annual' ? 'annuels' : 'mensuels'} :`,
+          changes: dcaChanges,
+        } : null,
+        weightAction: weightChanges.length > 0 ? {
+          type: 'UPDATE_TARGET_WEIGHTS',
+          title: 'Mise à jour de l\'Allocation Cible (% du Portefeuille)',
+          description: `Sur la base des recommandations de l'IA, voici la répartition cible préconisée :`,
+          changes: weightChanges,
+        } : null,
+      };
+    } catch (e) {
+      console.warn('[RIANE] Failed to parse RIANE_ACTIONS_JSON, falling back to regex:', e);
+    }
+  }
+
+  // ─── FALLBACK: Regex-based parsing (legacy) ───
+
   const lines = synthesisText.split('\n');
   const dcaChanges: ActionableIntent['changes'] = [];
   const weightChanges: ActionableIntent['changes'] = [];
@@ -106,27 +171,33 @@ function extractActionableIntents(query: string, synthesisText: string, position
     );
   };
 
+  const COMMON_STOP_WORDS = new Set([
+    'amundi', 'ishares', 'lyxor', 'vanguard', 'bnp', 'spdr', 'blackrock',
+    'etf', 'msci', 'pea', 'pme', 'cto', 'europe', 'global', 'small', 'caps',
+    'usa', 'usd', 'eur', 'world', 'index', 'ucits', 'acc', 'dist', 'inc',
+    'energy', 'tech', 'corp', 'corporation', 'sa', 'se', 'ltd', 'holding', 'group'
+  ]);
+
   lines.forEach((line) => {
     if (isEnvelopeHeader(line)) return;
 
-const COMMON_STOP_WORDS = new Set([
-  'amundi', 'ishares', 'lyxor', 'vanguard', 'bnp', 'spdr', 'blackrock',
-  'etf', 'msci', 'pea', 'pme', 'cto', 'europe', 'global', 'small', 'caps',
-  'usa', 'usd', 'eur', 'world', 'index', 'ucits', 'acc', 'dist', 'inc'
-]);
+    // Filter positions mentioned on this line
+    const exactTickerMatches = positions.filter((pos) => {
+      const lineLower = line.toLowerCase();
+      const tickerFull = pos.ticker.toLowerCase();
+      const tickerClean = tickerFull.replace('.pa', '').replace('.f', '').replace('.de', '').replace('.l', '');
+      return lineLower.includes(`(${tickerClean})`) || lineLower.includes(`(${tickerFull})`) || lineLower.includes(` ${tickerClean} `) || lineLower.includes(` ${tickerFull} `);
+    });
 
-    // Compter combien de positions du portefeuille sont présentées sur cette ligne
-    const matchingPositionsOnLine = positions.filter((pos) => {
+    const matchingPositionsOnLine = exactTickerMatches.length > 0 ? exactTickerMatches : positions.filter((pos) => {
       const lineLower = line.toLowerCase();
       const tickerFull = pos.ticker.toLowerCase();
       const tickerClean = tickerFull.replace('.pa', '').replace('.f', '').replace('.de', '').replace('.l', '');
 
-      // 1. Ticker match exact (GPEA.PA, GPEA, PUST.PA, PUST, etc.)
       if (lineLower.includes(tickerFull) || lineLower.includes(tickerClean)) {
         return true;
       }
 
-      // 2. Mot clé unique du nom d'actif (ex: acwi, nasdaq, indépendance, memscap, riber)
       const uniqueWords = pos.name
         .toLowerCase()
         .split(/[\s\-_,./()]+/)
@@ -138,22 +209,23 @@ const COMMON_STOP_WORDS = new Set([
     if (matchingPositionsOnLine.length > 0) {
       const freq = detectLineFrequency(line);
 
-      // 1. Détection des montants DCA en Euros (€, €/mois, €/an) sur cette ligne
+      // Extract text AFTER the colon ':' if present to avoid matching numbers/hyphens in asset names (e.g. Nasdaq-100)
+      const colonIdx = line.indexOf(':');
+      const textToParse = colonIdx !== -1 ? line.slice(colonIdx + 1) : line;
+
+      // 1. Détection des montants DCA en Euros (€, €/mois, €/an)
       let euroMatch = null;
       if (freq === 'annual') {
-        euroMatch = line.match(/(?:[–\-—:]\s*)(\d+(?:[\s.,]\d+)?)\s*(?:€|euros?)\s*(?:\/\s*an|annuels?|par an)?/i) ||
-                    line.match(/(\d+(?:[\s.,]\d+)?)\s*(?:€|euros?)\s*(?:\/\s*an|annuels?|par an)/i);
+        euroMatch = textToParse.match(/(\d[\d\s.,]*\d|\d+)\s*(?:€|euros?)\s*(?:\/\s*an|annuels?|par an)?/i);
       } else {
-        euroMatch = line.match(/(?:[–\-—:]\s*)(\d+(?:[\s.,]\d+)?)\s*(?:€|euros?|€\/mois)?/i) ||
-                    line.match(/(\d+(?:[\s.,]\d+)?)\s*(?:€|euros?|€\/mois)/i);
+        euroMatch = textToParse.match(/(\d[\d\s.,]*\d|\d+)\s*(?:€|euros?|€\/mois)?/i);
       }
 
       if (euroMatch && euroMatch[1]) {
-        const rawVal = parseFloat(euroMatch[1].replace(/\s/g, '').replace(',', '.'));
-        // Si plusieurs positions sont sur la même ligne (ex: CTO 6000 €/an : COHR, CEG, SYM), on divise le total par le nombre de positions
+        const rawVal = parseFloat(euroMatch[1].replace(/[\s\u00a0]/g, '').replace(',', '.'));
         const valPerPos = Math.round(rawVal / matchingPositionsOnLine.length);
 
-        if (valPerPos > 0 && valPerPos <= 100000) {
+        if (valPerPos > 0 && valPerPos <= 100000 && !isNaN(valPerPos)) {
           matchingPositionsOnLine.forEach((pos) => {
             if (!dcaChanges.some((c) => c.ticker === pos.ticker)) {
               const labelFreq = freq === 'annual' ? '€/an (Annuel)' : freq === 'quarterly' ? '€/trimestre' : '€/mois';
@@ -171,11 +243,11 @@ const COMMON_STOP_WORDS = new Set([
       }
 
       // 2. Détection du pourcentage cible (%) sur cette ligne
-      const pctMatch = line.match(/(?:[–\-—:]\s*|\()\s*(\d+(?:[.,]\d+)?)\s*%/i);
+      const pctMatch = textToParse.match(/(\d+(?:[.,]\d+)?)\s*%/i);
       if (pctMatch && pctMatch[1]) {
         const rawPct = parseFloat(pctMatch[1].replace(',', '.'));
         const pctPerPos = rawPct / matchingPositionsOnLine.length;
-        if (pctPerPos > 0 && pctPerPos <= 100) {
+        if (pctPerPos > 0 && pctPerPos <= 100 && !isNaN(pctPerPos)) {
           matchingPositionsOnLine.forEach((pos) => {
             if (!weightChanges.some((c) => c.ticker === pos.ticker)) {
               weightChanges.push({
@@ -350,14 +422,15 @@ export function AnalysisChatView({
     }, 100);
   };
 
-  const createNewSession = () => {
+  const createNewSession = (baseSessions?: ChatSession[]) => {
+    const sessionList = baseSessions ?? sessions;
     const newSession: ChatSession = {
       id: `session_${Date.now()}`,
       title: 'Nouvelle Discussion',
       createdAt: Date.now(),
       messages: [],
     };
-    const updated = [newSession, ...sessions];
+    const updated = [newSession, ...sessionList];
     backgroundRunner.setSessions(updated);
     setSessions(updated);
     setActiveSessionId(newSession.id);
@@ -368,14 +441,15 @@ export function AnalysisChatView({
     e.stopPropagation();
     if (confirm('Voulez-vous supprimer cette discussion de votre historique ?')) {
       const filtered = sessions.filter((s) => s.id !== sessionId);
-      backgroundRunner.setSessions(filtered);
-      setSessions(filtered);
-      if (activeSessionId === sessionId) {
-        if (filtered.length > 0) {
+      if (filtered.length > 0) {
+        backgroundRunner.setSessions(filtered);
+        setSessions(filtered);
+        if (activeSessionId === sessionId) {
           setActiveSessionId(filtered[0].id);
-        } else {
-          createNewSession();
         }
+      } else {
+        // Supprimer la dernière discussion et ouvrir un seul nouvel onglet vierge
+        createNewSession([]);
       }
       showToast('Discussion supprimée');
     }
@@ -543,7 +617,7 @@ export function AnalysisChatView({
         <button
           type="button"
           className="btn btn-primary"
-          onClick={createNewSession}
+          onClick={() => createNewSession()}
           style={{
             width: '100%',
             justifyContent: 'center',

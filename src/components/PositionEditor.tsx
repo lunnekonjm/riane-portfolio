@@ -15,7 +15,7 @@ interface PositionEditorProps {
   onDelete?: (id: string) => void;
 }
 
-const ENVELOPES = ['PEA', 'PEA-PME', 'CTO', 'PEE', 'SPECULATIVE', 'OPPORTUNISTIC'];
+const ENVELOPES = ['PEA', 'PEA-PME', 'CTO', 'REVOLUT_X', 'PEE', 'SPECULATIVE', 'OPPORTUNISTIC'];
 const ASSET_TYPES: Position['assetType'][] = ['ETF', 'STOCK', 'FUND', 'BOND', 'CRYPTO', 'CASH'];
 const CURRENCIES = ['EUR', 'USD', 'GBP', 'CHF'];
 
@@ -275,28 +275,39 @@ function autoGenerateThemes(
     setVerifiedQuoteText(null);
     setDidYouMeanAsset(null);
 
-    // 1. Try exact quote fetch for raw ticker
+    let effectiveTicker = rawQuery.toUpperCase();
+    if ((effectiveTicker === 'BTC' || effectiveTicker === 'BITCOIN' || effectiveTicker === 'BTC-USD') && (form.currency === 'EUR' || !form.currency)) {
+      effectiveTicker = 'BTC-EUR';
+    } else if ((effectiveTicker === 'ETH' || effectiveTicker === 'ETHEREUM' || effectiveTicker === 'ETH-USD') && (form.currency === 'EUR' || !form.currency)) {
+      effectiveTicker = 'ETH-EUR';
+    } else if ((effectiveTicker === 'SOL' || effectiveTicker === 'SOLANA' || effectiveTicker === 'SOL-USD') && (form.currency === 'EUR' || !form.currency)) {
+      effectiveTicker = 'SOL-EUR';
+    }
+
+    // 1. Try exact quote fetch for resolved ticker
     try {
       const [quote, profile] = await Promise.all([
-        getQuote(rawQuery.toUpperCase()).catch(() => null),
-        getCompanyProfile(rawQuery.toUpperCase()).catch(() => null),
+        getQuote(effectiveTicker).catch(() => null),
+        getCompanyProfile(effectiveTicker).catch(() => null),
       ]);
 
       if (quote && quote.price > 0) {
         setForm((prev) => {
-          const autoThemes = autoGenerateThemes(rawQuery.toUpperCase(), profile?.name || prev.name, profile?.sector, profile?.industry);
+          const autoThemes = autoGenerateThemes(effectiveTicker, profile?.name || prev.name, profile?.sector, profile?.industry);
           return {
             ...prev,
-            ticker: rawQuery.toUpperCase(),
-            name: profile?.name || prev.name || rawQuery.toUpperCase(),
+            ticker: effectiveTicker,
+            name: profile?.name || prev.name || (effectiveTicker === 'BTC-EUR' ? 'Bitcoin (BTC / EUR)' : effectiveTicker),
             currentPrice: quote.price,
             avgPrice: prev.avgPrice > 0 ? prev.avgPrice : (quote.price || 100),
-            currency: (profile?.currency as any) || (quote.currency as any) || prev.currency,
+            currency: 'EUR',
+            assetType: effectiveTicker.startsWith('BTC') || effectiveTicker.startsWith('ETH') || effectiveTicker.startsWith('SOL') ? 'CRYPTO' : prev.assetType,
+            envelope: effectiveTicker.startsWith('BTC') || effectiveTicker.startsWith('ETH') || effectiveTicker.startsWith('SOL') ? 'REVOLUT_X' : prev.envelope,
             themes: autoThemes.length > 0 ? autoThemes : prev.themes,
             quantity: prev.quantity || 0,
           };
         });
-        setVerifiedQuoteText(`✓ Actif officiel vérifié : ${profile?.name || rawQuery.toUpperCase()} (${profile?.sector || 'Marché Direct'}) — Prix : ${quote.price.toFixed(2)} ${quote.currency}`);
+        setVerifiedQuoteText(`✓ Actif officiel vérifié : ${profile?.name || effectiveTicker} — Prix en direct : ${quote.price.toFixed(2)} EUR €`);
         setIsVerifyingTicker(false);
         return;
       }
@@ -345,8 +356,8 @@ function autoGenerateThemes(
         effectiveStartDate = '2024-01-01';
       }
 
-      // PEA / PEA-PME / CTO require integer shares (no fractional shares!)
-      const isIntegerOnly = form.envelope === 'PEA' || form.envelope === 'PEA-PME' || form.envelope === 'CTO';
+      // PEA / PEA-PME / CTO require integer shares unless it's a crypto or Revolut X
+      const isIntegerOnly = form.assetType !== 'CRYPTO' && form.envelope !== 'REVOLUT_X' && (form.envelope === 'PEA' || form.envelope === 'PEA-PME' || form.envelope === 'CTO');
       const result = await simulatePositionDCA(
         form.ticker,
         monthlyAmount,
@@ -604,6 +615,25 @@ function autoGenerateThemes(
             </div>
           </div>
 
+          {(form.envelope === 'REVOLUT_X' || form.assetType === 'CRYPTO') && (
+            <div style={{
+              background: 'linear-gradient(135deg, rgba(6, 182, 212, 0.12), rgba(16, 185, 129, 0.12))',
+              border: '1px solid var(--accent-cyan)',
+              borderRadius: 'var(--radius-md)',
+              padding: '10px 14px',
+              marginBottom: 16,
+              fontSize: 12,
+              color: 'var(--text-primary)'
+            }}>
+              <strong style={{ color: 'var(--accent-cyan)' }}>⚡ Plateforme Crypto / Revolut X :</strong>
+              <ul style={{ margin: '4px 0 0 16px', padding: 0 }}>
+                <li>Support des parts décimales (ex: 0.004215 BTC)</li>
+                <li>Frais Revolut X ultra-bas : <strong>0.00% Maker / 0.09% Taker</strong></li>
+                <li>Flux de cours en direct via Yahoo Crypto (ex: <code>BTC-EUR</code>, <code>BTC-USD</code>)</li>
+              </ul>
+            </div>
+          )}
+
           {/* Row 2.5: Auto-Calculateur DCA */}
           <div style={{
             background: 'var(--bg-tertiary)',
@@ -614,7 +644,7 @@ function autoGenerateThemes(
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
               <span style={{ fontWeight: 600, fontSize: 14, color: 'var(--accent-cyan)' }}>
-                ⚡ Auto-Calculateur DCA ({form.envelope === 'PEA' || form.envelope === 'PEA-PME' || form.envelope === 'CTO' ? 'Actions entières' : 'Parts décimales'})
+                ⚡ Auto-Calculateur DCA ({form.assetType === 'CRYPTO' || form.envelope === 'REVOLUT_X' ? 'Cryptos & parts décimales (Revolut X)' : form.envelope === 'PEA' || form.envelope === 'PEA-PME' || form.envelope === 'CTO' ? 'Actions entières' : 'Parts décimales'})
               </span>
             </div>
             <p style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 14 }}>
@@ -684,7 +714,9 @@ function autoGenerateThemes(
               </div>
 
               <div className="form-group">
-                <label className="form-label" style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.4px' }}>Versement ({form.currency === 'USD' ? '$' : form.currency === 'GBP' ? '£' : '€'})</label>
+                <label className="form-label" style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.4px' }}>
+                  {form.dcaFrequency === 'quarterly' ? 'Montant Trimestriel (€/trimestre)' : form.dcaFrequency === 'annual' ? 'Montant Annuel (€/an)' : form.dcaFrequency === 'semestrial' ? 'Montant Semestriel (€/semestre)' : 'Montant Mensuel (€/mois)'}
+                </label>
                 <input
                   type="number"
                   className="input mono"

@@ -10,7 +10,10 @@ interface MarkdownRendererProps {
 export default function MarkdownRenderer({ content, style }: MarkdownRendererProps) {
   if (!content) return null;
 
-  const lines = content.split('\n');
+  // Clean hidden HTML comment blocks (e.g., RIANE_ACTIONS_JSON)
+  const cleanContent = content.replace(/<!--[\s\S]*?-->/g, '').trim();
+
+  const lines = cleanContent.split('\n');
   const elements: React.ReactNode[] = [];
 
   let i = 0;

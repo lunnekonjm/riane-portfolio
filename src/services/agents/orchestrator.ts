@@ -197,6 +197,19 @@ CONSIGNES DE RÉPONSE ADAPTATIVE :
      * Symbotic ( SYM ) : 1 200 €/an (20% CTO)
    - Cela permet à l'application de générer automatiquement les boutons d'application en 1 clic.
 
+6. BLOC JSON STRUCTURÉ OBLIGATOIRE :
+   Lorsque tu recommandes des montants DCA ou des allocations cibles (%), tu DOIS ajouter un bloc JSON structuré en TOUTE FIN de ta réponse, après tout le texte markdown. Ce bloc est invisible pour l'utilisateur mais lu par l'application pour générer les boutons.
+   Format EXACT (commentaire HTML) :
+   <!-- RIANE_ACTIONS_JSON {"dca":[{"ticker":"GPEA.PA","amount":350,"frequency":"monthly"},{"ticker":"COHR","amount":3000,"frequency":"annual"}],"weights":[{"ticker":"GPEA.PA","pct":35},{"ticker":"COHR","pct":40}]} -->
+   
+   RÈGLES DU BLOC JSON :
+   - "dca" : tableau des versements. Chaque entrée a "ticker" (exact), "amount" (nombre entier en euros), "frequency" ("monthly" ou "annual").
+   - "weights" : tableau des allocations cibles. Chaque entrée a "ticker" (exact), "pct" (pourcentage entier ou décimal, ex: 35 pour 35%).
+   - Les montants dans le JSON DOIVENT être IDENTIQUES à ceux du texte markdown ci-dessus. Pas d'arrondi ni de conversion.
+   - Si tu ne recommandes pas de DCA, mets un tableau vide : "dca":[]
+   - Si tu ne recommandes pas de poids cibles, mets un tableau vide : "weights":[]
+   - N'inclus ce bloc QUE si tu fais des recommandations chiffrées.
+
 Style : Professionnel, pédagogue, fluide, concis, structuré uniquement quand c'est nécessaire.`,
     });
 

@@ -1,107 +1,148 @@
-# ✨ Ryan's Portfolio — Interactive Developer Showcase & Gemini AI Engine
+# RIANE Portfolio — Plan PEA · PEA-PME · CTO + Revenu & Recherche IA Proactive
 
-[![Live Website](https://img.shields.io/badge/Live%20Website-riane--portfolio--one.vercel.app-0070F3?style=for-the-badge&logo=vercel&logoColor=white)](https://riane-portfolio-one.vercel.app)
-[![Next.js](https://img.shields.io/badge/Next.js-v16.2.12-black?style=for-the-badge&logo=nextdotjs&logoColor=white)](https://nextjs.org)
-[![React](https://img.shields.io/badge/React-v19.2.4-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://react.dev)
-[![TypeScript](https://img.shields.io/badge/TypeScript-v5.0-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org)
-[![Google Gemini AI](https://img.shields.io/badge/Google%20Gemini-AI%20Engine-4285F4?style=for-the-badge&logo=google&logoColor=white)](https://ai.google.dev)
+Application personnelle unique de gestion patrimoniale : positions PEA/PEA-PME/CTO, revenu et
+capacité d'épargne mensuelle, et un pipeline d'agents IA qui produit une revue de recherche
+automatique (mensuelle / trimestrielle / tous les 4 mois / annuelle) — sans avoir à ouvrir l'app.
 
-> **Ryan's Portfolio** is a modern, high-performance developer portfolio built with **Next.js 16 (App Router)**, **React 19**, and **TypeScript**. It features an integrated **Google Gemini AI Assistant** that answers questions about skills, projects, and architecture in real time, backed by **Firebase** Cloud Infrastructure.
+> Ce document a remplacé le README générique de bootstrap (« Ryan's Portfolio — Developer
+> Showcase ») qui ne décrivait plus l'application depuis longtemps. Le nom du repo (`riane-portfolio`)
+> et l'ancien README étaient un reliquat ; le code, lui, est déjà entièrement le plan patrimonial.
 
-🌐 **Live Demo Website**: [https://riane-portfolio-one.vercel.app](https://riane-portfolio-one.vercel.app)
+**Fusionné le 09/08/2026** avec le plan d'investissement PEA/PEA-PME/CTO (document de référence) et
+le module Revenu & Budget (porté depuis l'app Flutter AuraBudget Pro, désormais retirée — toute
+la logique utile vit ici).
 
 ---
 
-## 🌟 Key Features
+## Ce que fait l'application
 
-### 🤖 Google Gemini AI Chat Assistant
-- Embedded AI subagent (`@google/generative-ai`) trained on developer knowledge, project details, and technical expertise.
-- Context-aware responses with markdown formatting and real-time streaming capability.
+### 📊 Dashboard & Enveloppes
+Positions, poids réels vs cibles, fiscalité par enveloppe (PEA/PEA-PME 18,6 %, CTO 31,4 %),
+exposition change EUR/USD non couverte.
 
-### 💼 Interactive Project Showcase & Experience Timeline
-- Detailed project breakdown with live demo links, GitHub repositories, and tech stack tags.
-- Responsive grid and card views optimized for desktop, tablet, and mobile displays.
+### 💰 Revenu & Budget *(nouveau)*
+- Import de fiche de paie PDF → extraction structurée par Gemini (net, brut, PEE, primes)
+- Historique des fiches de paie, moyenne glissante, taux d'épargne
+- Synchronisation du budget mensuel d'investissement (`monthlyBudget`) sur le revenu réel
 
-### 🔥 Firebase Cloud Infrastructure
-- Integration with **Firebase Firestore** for dynamic content updates and analytical telemetry.
-- Secure client-side rules and environment variable isolation.
+### 🔬 Analyse & Recherche IA
+Pipeline multi-agents (`orchestrator` → `dataAgent` → `researchAgent` → `criticAgent`) avec
+données de marché réelles (Alpha Vantage / Finnhub / Yahoo Finance) et actualités réelles (RSS).
 
-### 🎨 Modern Aesthetic & Glassmorphism Design
-- Custom typography using Vercel Geist Font family.
-- Dark mode primary design with smooth micro-animations and micro-interactions.
+### ⚡ Risque
+VaR, stress tests, sensibilité, simulation DCA.
+
+### 📰 Rapports périodiques — désormais proactifs *(nouveau)*
+Génération à la demande **ou automatique** (voir Automatisation ci-dessous) de rapports
+mensuels / trimestriels / tous les 4 mois / annuels : audit de valorisation, écarts de
+pondération, plan de rééquilibrage chiffré en euros et en titres, synthèse des actualités par
+ligne. Historique conservé dans Firestore (accessible depuis n'importe quel appareil).
+
+---
+
+## 🤖 Automatisation proactive (nouveau)
+
+Un cron Vercel (`vercel.json`, quotidien à 7h UTC) appelle `/api/cron/periodic-review`, qui :
+
+1. Détermine si une revue est due aujourd'hui (le 1er de chaque mois ; trimestre = Jan/Avr/Jul/Oct ;
+   4 mois = Jan/Mai/Sep ; annuel = Jan)
+2. Récupère vos positions et votre config via Firebase Admin (pas de session utilisateur requise)
+3. Génère le rapport avec la même logique que le bouton manuel (`/api/generate-report`)
+4. L'enregistre dans Firestore (visible dans l'onglet Rapports, marqué 🤖 Auto)
+5. Vous l'envoie par email via Resend
+
+**Aucune action requise de votre part au quotidien** — vous recevez l'email, vous décidez.
 
 ---
 
 ## 🛠️ Tech Stack
 
-| Component | Technology |
+| Composant | Techno |
 | :--- | :--- |
-| **Framework** | [Next.js 16 (App Router)](https://nextjs.org) |
-| **UI Library** | [React 19](https://react.dev) |
-| **Language** | [TypeScript 5](https://www.typescriptlang.org) |
-| **AI Integration** | [@google/generative-ai](https://ai.google.dev) (Gemini API) |
-| **Backend / Database** | [Firebase Firestore](https://firebase.google.com) |
-| **Styling & Fonts** | Tailwind CSS / CSS Modules & Geist Font |
-| **Deployment** | [Vercel Platform](https://vercel.com) |
+| Framework | Next.js 16 (App Router) |
+| UI | React 19 + TypeScript 5 |
+| IA | Gemini (`@google/generative-ai`), rotation de modèles par quota |
+| Backend | Firebase (Auth, Firestore client + Admin SDK) |
+| Email | Resend |
+| Données marché | Alpha Vantage, Finnhub, Yahoo Finance, RSS |
+| Déploiement | Vercel (+ Vercel Cron) |
 
 ```
 src/
-├── app/          # Next.js App Router pages and API routes
-├── components/   # UI components (AI Chat Drawer, Project Cards, Navigation)
-├── data/         # Project metadata and AI knowledge base schemas
-├── engines/      # Gemini AI prompt processing engine
-├── hooks/        # Custom React hooks
-├── services/     # Firebase SDK and Gemini API wrappers
-└── types/        # TypeScript type definitions
+├── app/
+│   ├── api/
+│   │   ├── generate-report/    # Génération de rapport (appelé manuellement ou par le cron)
+│   │   ├── parse-payslip/      # NOUVEAU — extraction IA de fiche de paie
+│   │   ├── cron/periodic-review/ # NOUVEAU — déclencheur automatique quotidien
+│   │   └── market-quote/
+│   └── page.tsx                # Single-page app, navigation par onglets
+├── components/
+│   ├── RevenueBudgetView.tsx   # NOUVEAU — module Revenu & Budget
+│   └── ...
+├── engines/                     # Monte Carlo, stress test, rééquilibrage, rapports périodiques
+├── services/
+│   ├── agents/                  # Pipeline multi-agents IA
+│   ├── market-data/              # Connecteurs données de marché
+│   ├── firebase/admin.ts        # NOUVEAU — accès serveur (cron)
+│   └── email/resend.ts          # NOUVEAU — envoi des rapports
+├── hooks/
+│   └── useRevenue.ts            # NOUVEAU
+└── types/
+    └── revenue.ts                # NOUVEAU — SalaryRecord, RevenueConfig
 ```
 
 ---
 
-## 🚀 Getting Started
+## 🚀 Installation
 
-### Prerequisites
-- **Node.js**: `^20.0.0` or higher
-- **npm** / **yarn** / **pnpm**
+### 1. Dépendances
+```bash
+npm install
+```
 
-### Local Setup
+### 2. Variables d'environnement
+Copiez `.env.example` vers `.env.local` et remplissez chaque valeur — le fichier documente
+précisément où trouver chacune (Firebase, Gemini, Resend, UID propriétaire...).
 
-1. **Clone the repository**:
-   ```bash
-   git clone https://github.com/fnnktkygl-coderesume/riane-portfolio.git
-   cd riane-portfolio
-   ```
+```bash
+cp .env.example .env.local
+```
 
-2. **Install dependencies**:
-   ```bash
-   npm install
-   ```
+Points d'attention pour les **nouvelles** variables :
+- `FIREBASE_SERVICE_ACCOUNT_KEY` : Console Firebase → Paramètres du projet → Comptes de service →
+  Générer une nouvelle clé privée. Collez le JSON entier sur une ligne.
+- `OWNER_UID` : Console Firebase → Authentication → Users → copiez l'UID de votre propre compte.
+- `RESEND_API_KEY` / `RESEND_FROM_EMAIL` : créez un compte sur [resend.com](https://resend.com)
+  (gratuit jusqu'à 3000 emails/mois). Pour tester sans domaine vérifié, utilisez
+  `onboarding@resend.dev` comme expéditeur.
+- `CRON_SECRET` : générez une chaîne aléatoire (`openssl rand -hex 32`) et ajoutez-la aussi dans
+  Vercel → Project Settings → Environment Variables. Vercel Cron l'envoie alors automatiquement.
 
-3. **Configure Environment Variables**:
-   Create a `.env.local` file in the root directory:
-   ```env
-   GEMINI_API_KEY=your_gemini_api_key
-   NEXT_PUBLIC_FIREBASE_API_KEY=your_firebase_api_key
-   NEXT_PUBLIC_FIREBASE_PROJECT_ID=your_firebase_project_id
-   ```
+### 3. Développement local
+```bash
+npm run dev
+```
 
-4. **Run the development server**:
-   ```bash
-   npm run dev
-   ```
-
-5. **Open in browser**:
-   Navigate to [http://localhost:3000](http://localhost:3000).
-
----
-
-## 🌐 Live Web Deployment
-
-The portfolio is deployed live on Vercel with automatic GitHub workflow deployments.
-
-- **Primary Web URL**: [https://riane-portfolio-one.vercel.app](https://riane-portfolio-one.vercel.app)
+### 4. Déploiement
+Push sur la branche connectée à Vercel. Le fichier `vercel.json` active automatiquement le cron
+quotidien — vérifiez dans Vercel → Project → Cron Jobs qu'il apparaît après le premier déploiement.
 
 ---
 
-## 📜 License
+## ⚠️ Limites connues de cette fusion (09/08/2026)
 
-© 2026 Ryan. All rights reserved.
+- L'app est conçue pour un usage **mono-utilisateur** (le cron lit un seul `OWNER_UID`). L'étendre
+  à plusieurs utilisateurs demanderait d'itérer sur tous les comptes Firestore dans la route cron.
+- Les volatilités par instrument utilisées dans l'Annexe C du plan PDF (recherchées : PUST 23 %,
+  Riber 100 %, Memscap 57 %, Symbotic/Coherent 70 %, Constellation 40 %) ne sont pas encore
+  reprises dans `monteCarloEngine.ts` (qui utilise un modèle simplifié portefeuille global, pas
+  encore par instrument). Prochaine étape naturelle si vous voulez que le Monte Carlo de l'app
+  corresponde exactement à celui du document.
+- L'app Flutter AuraBudget Pro (Open Banking TrueLayer, catégories de dépenses détaillées) a été
+  retirée du périmètre — seule la logique de revenu/investissable a été portée ici.
+
+---
+
+## 📜 Licence
+
+Usage personnel.

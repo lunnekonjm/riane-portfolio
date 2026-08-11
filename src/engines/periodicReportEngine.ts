@@ -5,7 +5,7 @@
 
 import type { Position, PortfolioConfig } from '@/types/portfolio';
 
-export type ReportPeriod = 'monthly' | 'quarterly' | 'semestrial' | 'annual';
+export type ReportPeriod = 'monthly' | 'quarterly' | 'quadrimestrial' | 'semestrial' | 'annual';
 
 export interface PeriodicReportOptions {
   period: ReportPeriod;

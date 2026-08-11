@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { Position, PortfolioConfig } from '@/types/portfolio';
 import { generatePeriodicReport, type ReportPeriod } from '@/engines/periodicReportEngine';
+import { getReports, saveReport, deleteAllReports } from '@/services/firebase/firestore';
 import MarkdownRenderer from './MarkdownRenderer';
 
 interface SavedReportItem {
@@ -12,6 +13,7 @@ interface SavedReportItem {
   dateStr: string;
   timestamp: number;
   content: string;
+  generatedBy?: 'user' | 'cron';
 }
 
 interface ReportsViewProps {
@@ -23,6 +25,7 @@ interface ReportsViewProps {
   inflationRate: number;
   yearsElapsed: number;
   onShowToast: (msg: string, type?: 'success' | 'error') => void;
+  uid?: string | null;
 }
 
 const PIPELINE_LOADING_STEPS = [
@@ -41,6 +44,7 @@ export default function ReportsView({
   inflationRate,
   yearsElapsed,
   onShowToast,
+  uid,
 }: ReportsViewProps) {
   const [selectedPeriod, setSelectedPeriod] = useState<ReportPeriod>('monthly');
   const [selectedPeriodLabel, setSelectedPeriodLabel] = useState<string>('Juillet 2026');
@@ -55,28 +59,50 @@ export default function ReportsView({
     { period: 'monthly' as ReportPeriod, label: 'Juillet 2026', isLocked: false, note: 'Mois clôturé — Disponible' },
     { period: 'quarterly' as ReportPeriod, label: 'Q2 2026 (Clôturé)', isLocked: false, note: 'Trimestre révolu — Disponible' },
     { period: 'quarterly' as ReportPeriod, label: 'Q3 2026', isLocked: true, note: '🔒 Q3 2026 en cours (Clôture le 30 Septembre 2026)' },
+    { period: 'quadrimestrial' as ReportPeriod, label: 'P1 2026 — Jan-Avr (Clôturé)', isLocked: false, note: 'Période de 4 mois révolue — Disponible' },
+    { period: 'quadrimestrial' as ReportPeriod, label: 'P2 2026 — Mai-Août', isLocked: true, note: '🔒 P2 2026 en cours (Clôture le 31 Août 2026)' },
     { period: 'semestrial' as ReportPeriod, label: 'S1 2026 (Clôturé)', isLocked: false, note: 'Semestre révolu — Disponible' },
     { period: 'semestrial' as ReportPeriod, label: 'S2 2026', isLocked: true, note: '🔒 S2 2026 en cours (Clôture le 31 Décembre 2026)' },
     { period: 'annual' as ReportPeriod, label: 'Exercice 2025 (Clôturé)', isLocked: false, note: 'Exercice révolu — Disponible' },
     { period: 'annual' as ReportPeriod, label: 'Exercice 2026', isLocked: true, note: '🔒 Exercice 2026 en cours (Clôture le 31 Décembre 2026)' },
   ];
 
-  // Load saved report history from localStorage on mount (DO NOT auto-generate if empty)
+  // Charge l'historique : Firestore (source durable, inclut les rapports générés par le cron)
+  // fusionné avec le localStorage (compatibilité avec les rapports générés avant cette mise à jour).
   useEffect(() => {
+    let localReports: SavedReportItem[] = [];
     try {
       const raw = localStorage.getItem('riane_saved_reports');
-      if (raw) {
-        const parsed: SavedReportItem[] = JSON.parse(raw);
-        setSavedReports(parsed);
-        if (parsed.length > 0) {
-          const match = parsed.find((r) => r.period === 'monthly') || parsed[0];
-          setReportMarkdown(match.content);
-        }
-      }
+      if (raw) localReports = JSON.parse(raw);
     } catch {
       // ignore
     }
-  }, []);
+
+    if (!uid) {
+      setSavedReports(localReports);
+      if (localReports.length > 0) {
+        const match = localReports.find((r) => r.period === 'monthly') || localReports[0];
+        setReportMarkdown(match.content);
+      }
+      return;
+    }
+
+    getReports(uid)
+      .then((remoteReports) => {
+        const typedRemote = remoteReports as unknown as SavedReportItem[];
+        const merged = [...typedRemote, ...localReports.filter((l) => !typedRemote.some((r) => r.id === l.id))]
+          .sort((a, b) => b.timestamp - a.timestamp)
+          .slice(0, 30);
+        setSavedReports(merged);
+        if (merged.length > 0) {
+          const match = merged.find((r) => r.period === 'monthly') || merged[0];
+          setReportMarkdown(match.content);
+        }
+      })
+      .catch(() => {
+        setSavedReports(localReports);
+      });
+  }, [uid]);
 
   const handleGenerateReport = useCallback(async (period: ReportPeriod, label: string, saveToHistory: boolean = true) => {
     // Check if period is locked
@@ -129,6 +155,12 @@ export default function ReportsView({
           return updated;
         });
 
+        if (uid) {
+          saveReport(uid, { ...newReport, generatedBy: 'user' }).catch(() => {
+            // La copie locale reste disponible même si l'écriture Firestore échoue
+          });
+        }
+
         onShowToast(`Rapport "${label}" généré et archivé !`);
       }
     } catch {
@@ -152,6 +184,7 @@ export default function ReportsView({
 
   const handleClearHistory = () => {
     if (confirm('⚠️ Supprimer définitivement tout l\'historique des rapports et effacer la vue ?\nTous les rapports sauvegardés et le document affiché seront purgés.')) {
+      const idsToDelete = savedReports.map((r) => r.id);
       setSavedReports([]);
       setReportMarkdown('');
       setShowHistoryModal(false);
@@ -160,6 +193,11 @@ export default function ReportsView({
         localStorage.setItem('riane_saved_reports', '[]');
       } catch {
         // ignore
+      }
+      if (uid && idsToDelete.length > 0) {
+        deleteAllReports(uid, idsToDelete).catch(() => {
+          // best-effort
+        });
       }
       onShowToast('Tous les rapports ont été définitivement effacés !');
     }
@@ -400,6 +438,9 @@ export default function ReportsView({
                 >
                   <div>
                     <strong style={{ color: 'var(--text-primary)', fontSize: 14 }}>{rep.title}</strong>
+                    {rep.generatedBy === 'cron' && (
+                      <span className="badge badge-cyan" style={{ marginLeft: 8, fontSize: 10 }}>🤖 Auto</span>
+                    )}
                     <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 2 }}>
                       Généré le {rep.dateStr}
                     </div>

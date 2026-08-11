@@ -5,6 +5,9 @@ import { onAuthChange, signInWithGoogle, signOut } from '@/services/firebase/aut
 import { isFirebaseConfigured } from '@/services/firebase/config';
 import { usePortfolio } from '@/hooks/usePortfolio';
 import { useAnalysis } from '@/hooks/useAnalysis';
+import { useRevenue } from '@/hooks/useRevenue';
+import RevenueBudgetView from '@/components/RevenueBudgetView';
+import { computeSalaryAnalytics } from '@/types/revenue';
 import { THEMES } from '@/data/themes';
 import { ENVELOPE_LABELS } from '@/data/portfolio';
 import { ALL_SCENARIOS } from '@/data/stressScenarios';
@@ -82,7 +85,7 @@ import type { AnalysisStatus } from '@/types/analysis';
 import type { StressTestResult } from '@/types/simulation';
 import { useMemo } from 'react';
 
-type PageView = 'dashboard' | 'envelopes' | 'analysis' | 'risk' | 'audit' | 'reports';
+type PageView = 'dashboard' | 'envelopes' | 'analysis' | 'risk' | 'audit' | 'reports' | 'revenue';
 
 const PIPELINE_STEPS: Array<{ key: AnalysisStatus; label: string; icon: string }> = [
   { key: 'data-collection', label: 'Données', icon: '📊' },
@@ -206,6 +209,10 @@ export default function HomePage() {
     canUndo, undoLastAction, canRedo, redoLastAction, transactions, recordTransaction,
     addPosition, updatePosition, removePosition, updateConfig, updateInvestorProfile, refreshPrices, resetPortfolio,
   } = usePortfolio();
+  const {
+    records: salaryRecords, revenueConfig, saveRecord: saveSalaryRecord,
+    deleteRecord: deleteSalaryRecord, saveConfig: saveRevenueConfig,
+  } = useRevenue();
 
   const [showEditProfile, setShowEditProfile] = useState(false);
   const [showBenchmark, setShowBenchmark] = useState(false);
@@ -541,6 +548,9 @@ export default function HomePage() {
         <button className={`sidebar-nav-item ${currentView === 'envelopes' ? 'active' : ''}`} onClick={() => setCurrentView('envelopes')} id="nav-envelopes">
           <span className="nav-icon">🏛️</span> Enveloppes & Fiscalité
         </button>
+        <button className={`sidebar-nav-item ${currentView === 'revenue' ? 'active' : ''}`} onClick={() => setCurrentView('revenue')} id="nav-revenue">
+          <span className="nav-icon">💰</span> Revenu & Budget
+        </button>
         <button className={`sidebar-nav-item ${currentView === 'analysis' ? 'active' : ''}`} onClick={() => setCurrentView('analysis')} id="nav-analysis">
           <span className="nav-icon">🔬</span> Analyse
         </button>
@@ -588,6 +598,7 @@ export default function HomePage() {
         <header className="page-header">
           <h1 className="page-title">
             {currentView === 'dashboard' && '📊 Tableau de Bord'}
+            {currentView === 'revenue' && '💰 Revenu & Budget'}
             {currentView === 'envelopes' && '🏛️ Enveloppes & Fiscalité'}
             {currentView === 'analysis' && '🔬 Analyse à la Demande'}
             {currentView === 'risk' && '⚡ Stress Tests & Risque'}
@@ -1637,6 +1648,23 @@ export default function HomePage() {
             </>
           )}
 
+          {/* ═══ REVENU & BUDGET ═══ */}
+          {currentView === 'revenue' && (
+            <RevenueBudgetView
+              records={salaryRecords}
+              revenueConfig={revenueConfig}
+              portfolioConfig={config}
+              onSaveRecord={saveSalaryRecord}
+              onDeleteRecord={deleteSalaryRecord}
+              onSaveRevenueConfig={saveRevenueConfig}
+              onSyncMonthlyBudget={async (amount: number) => {
+                if (!config) return;
+                await updateConfig({ ...config, monthlyBudget: amount });
+              }}
+              onShowToast={showToast}
+            />
+          )}
+
           {/* ═══ ENVELOPES & FISCALITÉ ═══ */}
           {currentView === 'envelopes' && (() => {
             const startYear = parseInt(dcaGlobalStartDate.slice(0, 4)) || 2024;
@@ -2053,6 +2081,7 @@ export default function HomePage() {
               inflationRate={inflationRate}
               yearsElapsed={Math.max(0, (new Date().getFullYear() - (parseInt(dcaGlobalStartDate.slice(0, 4)) || 2024)) + (new Date().getMonth() / 12))}
               onShowToast={showToast}
+              uid={user?.uid}
             />
           )}
         </div>

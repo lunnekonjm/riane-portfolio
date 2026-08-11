@@ -21,6 +21,7 @@ import { getFirebaseApp } from './config';
 import type { Position, PortfolioConfig, AuditLogEntry, InvestorProfile } from '@/types/portfolio';
 import type { AnalysisResult } from '@/types/analysis';
 import type { Recommendation, ThesisCard } from '@/types/recommendation';
+import type { SalaryRecord, RevenueConfig } from '@/types/revenue';
 
 let dbInstance: Firestore | null = null;
 
@@ -163,6 +164,67 @@ export async function getAnalyses(uid: string, maxEntries = 20): Promise<Analysi
   );
   const snap = await getDocs(q);
   return snap.docs.map((d) => ({ id: d.id, ...d.data() } as AnalysisResult));
+}
+
+// ── Salary Records (Revenu & Budget — porté depuis AuraBudget Pro) ──
+
+export async function getSalaryRecords(uid: string): Promise<SalaryRecord[]> {
+  const db = getDb();
+  const q = query(collection(db, 'users', uid, 'salary'), orderBy('period', 'desc'));
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() } as SalaryRecord));
+}
+
+export async function saveSalaryRecord(uid: string, record: SalaryRecord): Promise<void> {
+  const db = getDb();
+  await setDoc(doc(db, 'users', uid, 'salary', record.id), { ...record, updatedAt: Date.now() });
+}
+
+export async function deleteSalaryRecord(uid: string, recordId: string): Promise<void> {
+  const db = getDb();
+  await deleteDoc(doc(db, 'users', uid, 'salary', recordId));
+}
+
+export async function getRevenueConfig(uid: string): Promise<RevenueConfig | null> {
+  const db = getDb();
+  const snap = await getDoc(doc(db, 'users', uid, 'settings', 'revenueConfig'));
+  return snap.exists() ? (snap.data() as RevenueConfig) : null;
+}
+
+export async function saveRevenueConfig(uid: string, config: RevenueConfig): Promise<void> {
+  const db = getDb();
+  await setDoc(doc(db, 'users', uid, 'settings', 'revenueConfig'), config);
+}
+
+// ── Periodic Reports (historique partagé, y compris ceux générés par le cron) ──
+
+export interface SavedReportRecord {
+  id: string;
+  period: string;
+  title: string;
+  dateStr: string;
+  timestamp: number;
+  content: string;
+  generatedBy?: 'user' | 'cron';
+}
+
+export async function getReports(uid: string, maxEntries = 30): Promise<SavedReportRecord[]> {
+  const db = getDb();
+  const q = query(collection(db, 'users', uid, 'reports'), orderBy('timestamp', 'desc'), limit(maxEntries));
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() } as SavedReportRecord));
+}
+
+export async function saveReport(uid: string, report: SavedReportRecord): Promise<void> {
+  const db = getDb();
+  await setDoc(doc(db, 'users', uid, 'reports', report.id), report);
+}
+
+export async function deleteAllReports(uid: string, reportIds: string[]): Promise<void> {
+  const db = getDb();
+  const batch = writeBatch(db);
+  reportIds.forEach((id) => batch.delete(doc(db, 'users', uid, 'reports', id)));
+  await batch.commit();
 }
 
 // ── Initialize default data ──

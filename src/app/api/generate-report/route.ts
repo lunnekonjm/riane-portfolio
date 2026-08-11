@@ -18,7 +18,7 @@ import type { NewsItem } from '@/services/market-data/types';
 import { calculatePortfolioRiskMetrics } from '@/engines/riskAnalytics';
 import { getCleanAssetName } from '@/utils/assetMetadata';
 
-export type ReportPeriod = 'monthly' | 'quarterly' | 'semestrial' | 'annual';
+export type ReportPeriod = 'monthly' | 'quarterly' | 'quadrimestrial' | 'semestrial' | 'annual';
 
 export async function POST(request: NextRequest) {
   try {
@@ -134,12 +134,14 @@ export async function POST(request: NextRequest) {
     const periodDCABudget =
       period === 'monthly' ? monthlyBudget :
       period === 'quarterly' ? monthlyBudget * 3 :
+      period === 'quadrimestrial' ? monthlyBudget * 4 :
       period === 'semestrial' ? monthlyBudget * 6 :
       monthlyBudget * 12;
 
     const periodDCALabel =
       period === 'monthly' ? 'du Mois' :
       period === 'quarterly' ? 'du Trimestre (3 mois)' :
+      period === 'quadrimestrial' ? 'de la Période (4 mois)' :
       period === 'semestrial' ? 'du Semestre (6 mois)' :
       'de l\'Année (12 mois)';
 
@@ -350,6 +352,7 @@ ${articleTableRows}`;
     const headerTitle =
       period === 'monthly' ? `📅 Audit de Gestion & Rapport Patrimonial Mensuel — ${periodLabel}` :
       period === 'quarterly' ? `📊 Bulletin Stratégique & Audit Trimestriel — ${periodLabel}` :
+      period === 'quadrimestrial' ? `📈 Bulletin Stratégique & Audit Quadrimestriel — ${periodLabel}` :
       period === 'semestrial' ? `🌓 Bilan Stratégique & Audit Semestriel — ${periodLabel}` :
       `🏆 Bilan Patrimonial, Fiscal & Audit Annuel — ${periodLabel}`;
 

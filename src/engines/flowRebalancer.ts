@@ -274,3 +274,95 @@ export function calculateActiveRebalance(
     instructions,
   };
 }
+
+// ──────────────────────────────────────────────────────────────────────────
+// Fréquence d'achat réelle par instrument (ajouté le 12/08/2026)
+//
+// Toutes les positions ne sont pas achetées tous les mois : les frais de
+// courtage (~0,5 % chez BoursoBank/Interactive Brokers) pèsent proportion-
+// nellement plus lourd sur des petits montants. Seul le PEA classique (PUST,
+// Trade Republic, frais quasi nuls) reçoit un vrai virement mensuel. Les
+// autres lignes accumulent leur quote-part jusqu'à un mois "dû" (voir
+// Position.dcaFrequency dans src/data/portfolio.ts) où elles reçoivent d'un
+// coup le cumul des mois précédents, plutôt que d'être fractionnées chaque
+// mois.
+// ──────────────────────────────────────────────────────────────────────────
+
+export type DcaFrequency = 'monthly' | 'quarterly' | 'semestrial' | 'annual';
+
+/** Nombre de mois d'accumulation entre deux achats pour une fréquence donnée */
+export function monthsBetweenPurchases(frequency: DcaFrequency | undefined): number {
+  switch (frequency) {
+    case 'quarterly': return 3;
+    case 'semestrial': return 6;
+    case 'annual': return 12;
+    case 'monthly':
+    default: return 1;
+  }
+}
+
+/**
+ * Un mois est "dû" pour une fréquence donnée si le mois calendaire (1-12) tombe
+ * sur un multiple du cycle, calé pour finir en décembre (ex: semestrial -> juin
+ * et décembre ; quarterly -> mars, juin, sept, déc ; annual -> décembre).
+ */
+export function isDueThisMonth(frequency: DcaFrequency | undefined, calendarMonth: number): boolean {
+  const cycle = monthsBetweenPurchases(frequency);
+  if (cycle <= 1) return true;
+  return calendarMonth % cycle === 0;
+}
+
+export interface MonthlyInvestmentPlan {
+  calendarMonth: number;
+  /** Montant réellement recommandé à virer/investir ce mois-ci (positions dues uniquement) */
+  dueThisMonth: FlowRebalanceResult;
+  /** Détail de ce qui s'accumule sans être investi ce mois-ci, par position */
+  accumulating: { positionId: string; ticker: string; name: string; monthlyShare: number; nextDueMonth: number }[];
+  totalAccumulatingEUR: number;
+}
+
+/**
+ * Variante mensuelle de calculateSmartFlowRebalance qui respecte Position.dcaFrequency :
+ * seules les positions "dues" ce mois-ci reçoivent une part du budget (multipliée par le
+ * nombre de mois écoulés depuis leur dernier achat, pour que le total annuel investi reste
+ * conforme aux pondérations cibles). Les autres positions voient leur quote-part mensuelle
+ * simplement reportée à leur prochain mois dû — jamais redistribuée ailleurs.
+ */
+export function calculateMonthlyInvestmentPlan(
+  positions: Position[],
+  monthlyBudget: number,
+  calendarMonth: number,
+  fxRates: Record<string, number> = { EUR: 1.0, USD: 0.92 }
+): MonthlyInvestmentPlan {
+  const filledPositions = positions.filter((p) => p.quantity > 0 || (p.targetWeight && p.targetWeight > 0));
+  const totalTargetWeight = filledPositions.reduce((s, p) => s + (p.targetWeight || 0), 0) || 1;
+
+  const duePositions: Position[] = [];
+  const accumulating: MonthlyInvestmentPlan['accumulating'] = [];
+  let dueBudget = 0;
+
+  for (const p of filledPositions) {
+    const freq = p.dcaFrequency as DcaFrequency | undefined;
+    const nominalMonthlyShare = monthlyBudget * ((p.targetWeight || 0) / totalTargetWeight);
+    const cycle = monthsBetweenPurchases(freq);
+
+    if (isDueThisMonth(freq, calendarMonth)) {
+      duePositions.push(p);
+      dueBudget += nominalMonthlyShare * cycle; // rattrape les mois précédents non investis
+    } else {
+      const nextDueMonth = (Math.floor((calendarMonth - 1) / cycle) + 1) * cycle;
+      accumulating.push({
+        positionId: p.id,
+        ticker: p.ticker,
+        name: p.name,
+        monthlyShare: parseFloat(nominalMonthlyShare.toFixed(2)),
+        nextDueMonth: nextDueMonth > 12 ? cycle : nextDueMonth,
+      });
+    }
+  }
+
+  const dueThisMonth = calculateSmartFlowRebalance(duePositions, dueBudget, fxRates);
+  const totalAccumulatingEUR = accumulating.reduce((s, a) => s + a.monthlyShare, 0);
+
+  return { calendarMonth, dueThisMonth, accumulating, totalAccumulatingEUR };
+}

@@ -410,7 +410,8 @@ ${companyNewsSection}
 
 ## 🛡️ 6. Analyse de Risque, Volatilité & Scénarios de Crise
 
-- 📉 **Volatilité Annuelle Observée** : **${riskMetrics.annualVolatility}%** — Niveau de variation habituel du portefeuille.
+- 📉 **Volatilité Annuelle Observée** : **${riskMetrics.annualVolatility}%** — Niveau de variation habituel du portefeuille (modèle à facteur de marché unique, hypothèses par titre basées sur données réelles).
+- 📈 **Rendement Attendu Pondéré** : **${riskMetrics.expectedReturn}%/an** — Moyenne pondérée par position, hypothèses spécifiques disponibles pour **${riskMetrics.coveragePercent}%** du portefeuille (le reste utilise une hypothèse générique par type d'actif).
 - 🛡️ **Seuil de Perte Maximale Annuelle (Confiance 95%)** : **-${riskMetrics.var95EUR.toLocaleString('fr-FR')} € (-${riskMetrics.var95Percent}%)** — Perte maximale estimée dans 95% des conditions de marché normales.
 - ⚡ **Scénario de Krach Majeur (Pire 1% des crises)** : **-${riskMetrics.var99EUR.toLocaleString('fr-FR')} € (-${riskMetrics.var99Percent}%)** — Estimation de perte en cas de choc systémique extrême.
 - 🎨 **Score de Diversification** : **${riskMetrics.diversificationScore}/100** — Répartition des risques entre indices globaux et titres de croissance.

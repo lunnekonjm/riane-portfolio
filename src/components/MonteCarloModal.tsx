@@ -2,21 +2,35 @@
 
 import { useState, useMemo } from 'react';
 import { runMonteCarloSimulation, type MonteCarloResult, type TaxEnvelopeType } from '@/engines/monteCarloEngine';
+import { calculatePortfolioRiskMetrics } from '@/engines/riskAnalytics';
+import type { Position } from '@/types/portfolio';
 
 interface MonteCarloModalProps {
   initialCapital: number;
   monthlyDCA: number;
+  positions?: Position[];
+  fxRates?: Record<string, number>;
   onClose: () => void;
 }
 
-export default function MonteCarloModal({ initialCapital, monthlyDCA, onClose }: MonteCarloModalProps) {
+export default function MonteCarloModal({ initialCapital, monthlyDCA, positions = [], fxRates = { EUR: 1.0, USD: 0.92 }, onClose }: MonteCarloModalProps) {
+  const riskProfile = useMemo(() => calculatePortfolioRiskMetrics(positions, fxRates), [positions, fxRates]);
+  const hasRealPositions = riskProfile.totalValueEUR > 0;
+
   const [capitalInput, setCapitalInput] = useState<number>(initialCapital > 0 ? Math.round(initialCapital) : 10000);
   const [dcaInput, setDcaInput] = useState<number>(monthlyDCA > 0 ? Math.round(monthlyDCA) : 500);
   const [horizonYears, setHorizonYears] = useState<number>(15);
-  const [expectedReturn, setExpectedReturn] = useState<number>(7.5);
-  const [volatility, setVolatility] = useState<number>(15.0);
+  const [expectedReturn, setExpectedReturn] = useState<number>(hasRealPositions ? riskProfile.expectedReturn : 7.5);
+  const [volatility, setVolatility] = useState<number>(hasRealPositions ? riskProfile.annualVolatility : 15.0);
+  const [useOwnAssumptions, setUseOwnAssumptions] = useState<boolean>(false);
   const [taxEnvelope, setTaxEnvelope] = useState<TaxEnvelopeType>('MIXED');
   const [numSimulations, setNumSimulations] = useState<number>(10000);
+
+  const resetToPortfolioAssumptions = () => {
+    setExpectedReturn(riskProfile.expectedReturn);
+    setVolatility(riskProfile.annualVolatility);
+    setUseOwnAssumptions(false);
+  };
 
   const simulation: MonteCarloResult = useMemo(() => {
     return runMonteCarloSimulation({
@@ -156,11 +170,38 @@ export default function MonteCarloModal({ initialCapital, monthlyDCA, onClose }:
               step="0.5"
               className="input mono"
               value={expectedReturn}
-              onChange={(e) => setExpectedReturn(Number(e.target.value))}
+              onChange={(e) => { setExpectedReturn(Number(e.target.value)); setUseOwnAssumptions(true); }}
+              style={{ fontSize: 13, padding: '6px 8px', width: '100%' }}
+            />
+          </div>
+          <div style={{ flex: '0.8 1 80px', minWidth: 70 }}>
+            <label style={{ fontSize: 11, color: 'var(--text-tertiary)', display: 'block', marginBottom: 4 }}>Volatilité (%)</label>
+            <input
+              type="number"
+              step="0.5"
+              className="input mono"
+              value={volatility}
+              onChange={(e) => { setVolatility(Number(e.target.value)); setUseOwnAssumptions(true); }}
               style={{ fontSize: 13, padding: '6px 8px', width: '100%' }}
             />
           </div>
         </div>
+
+        {hasRealPositions && (
+          <div style={{ fontSize: 12, color: 'var(--text-secondary)', padding: '8px 12px', background: 'rgba(6, 182, 212, 0.06)', borderRadius: 'var(--radius-sm)', marginBottom: 14, borderLeft: '3px solid var(--accent-cyan)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+            <span>
+              📐 Rendement/volatilité {useOwnAssumptions ? 'personnalisés' : 'calculés'} à partir de vos <strong>{positions.filter(p => p.quantity > 0).length} positions réelles</strong> (couverture des hypothèses spécifiques : <strong>{riskProfile.coveragePercent}%</strong> du portefeuille, le reste utilise une hypothèse générique par type d&apos;actif).
+              {useOwnAssumptions && (
+                <> Valeurs par défaut du portefeuille : <strong>{riskProfile.expectedReturn}%</strong> / <strong>{riskProfile.annualVolatility}%</strong>.</>
+              )}
+            </span>
+            {useOwnAssumptions && (
+              <button type="button" className="btn btn-ghost btn-sm" onClick={resetToPortfolioAssumptions} style={{ whiteSpace: 'nowrap' }}>
+                🔄 Revenir aux valeurs du portefeuille
+              </button>
+            )}
+          </div>
+        )}
 
         {/* 💡 Explicit Tax Allocation Explanation & Plafond Legal Alert Banner */}
         {taxEnvelope === 'PEA' && simulation.totalInvestedFinal > 150000 ? (

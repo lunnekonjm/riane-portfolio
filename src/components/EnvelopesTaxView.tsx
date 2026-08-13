@@ -57,6 +57,42 @@ export const ENVELOPE_METADATA: Record<string, {
       over5Years: { irRate: 0.0, label: 'Exonération d\'IR (0%) + Prélèvements Sociaux' },
     },
   },
+  LIVRET: {
+    label: 'Livrets & Épargne Sécurisée (Livret A, LDDS, LEP, Cash)',
+    depositLimit: 22950,
+    description: 'Épargne de précaution 100% liquide & sécurisée. Intérêts totalement exonérés d\'impôts et prélèvements sociaux.',
+    taxRules: {
+      under5Years: { irRate: 0.0, label: 'Exonération totale d\'IR (0%) et de Prélèvements Sociaux (0%)' },
+      over5Years: { irRate: 0.0, label: 'Exonération totale d\'IR (0%) et de Prélèvements Sociaux (0%)' },
+    },
+  },
+  ASSURANCE_VIE: {
+    label: 'Assurance-Vie',
+    depositLimit: undefined,
+    description: 'Enveloppe d\'épargne et de transmission avec niche fiscale après 8 ans (abattement annuel de 4 600 € / 9 200 €).',
+    taxRules: {
+      under5Years: { irRate: 0.128, label: 'Flat Tax / PFU 30% (12.8% IR + 17.2% PS)' },
+      over5Years: { irRate: 0.075, label: 'Abattement annuel 4 600 € puis IR réduit 7.5% + PS 17.2%' },
+    },
+  },
+  PER: {
+    label: 'Plan d\'Épargne Retraite (PER)',
+    depositLimit: undefined,
+    description: 'Déduction fiscale des versements à l\'entrée (économie d\'IR à la TMI). Imposé en capital à la sortie.',
+    taxRules: {
+      under5Years: { irRate: 0.30, label: 'Bloqué jusqu\'à la retraite (Capital à la TMI + Plus-value Flat Tax)' },
+      over5Years: { irRate: 0.30, label: 'Capital à la TMI + Plus-value au PFU 30%' },
+    },
+  },
+  IMMOBILIER: {
+    label: 'Immobilier & SCPI (Pierre Papier / Locatif)',
+    depositLimit: undefined,
+    description: 'Patrimoine immobilier locatif, SCPI de rendement ou pierre papier.',
+    taxRules: {
+      under5Years: { irRate: 0.30, label: 'Revenus fonciers imposés selon TMI + 17.2% Prélèvements Sociaux' },
+      over5Years: { irRate: 0.30, label: 'Revenus fonciers (TMI + PS) + Abattements pour durée de détention' },
+    },
+  },
   SPECULATIVE: {
     label: 'Poche Spéculative',
     depositLimit: 2000,

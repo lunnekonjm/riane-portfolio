@@ -3,9 +3,9 @@
  * Conformes au cahier des charges V4
  */
 
-export type Envelope = 'PEA' | 'PEA-PME' | 'CTO' | 'PEE' | 'SPECULATIVE' | 'OPPORTUNISTIC';
+export type Envelope = 'PEA' | 'PEA-PME' | 'CTO' | 'LIVRET' | 'ASSURANCE_VIE' | 'PER' | 'PEE' | 'IMMOBILIER' | 'SPECULATIVE' | 'OPPORTUNISTIC';
 
-export type AssetType = 'ETF' | 'STOCK' | 'FUND' | 'BOND' | 'CRYPTO' | 'CASH';
+export type AssetType = 'ETF' | 'STOCK' | 'FUND' | 'BOND' | 'CRYPTO' | 'CASH' | 'REAL_ESTATE' | 'SAVINGS';
 
 export type Currency = 'EUR' | 'USD' | 'GBP' | 'CHF';
 
@@ -40,6 +40,12 @@ export interface Position {
   themes: string[];
   /** Specific DCA start date for this position (YYYY-MM-DD) */
   dcaStartDate?: string;
+  /** Bank or institution holding this wealth/savings account (e.g. BoursoBank, Natixis, Linxea) */
+  institutionName?: string;
+  /** Annual interest rate / projected return percentage (0.03 = 3.00%) */
+  interestRateOverride?: number;
+  /** Regulated legal deposit ceiling (e.g. 22950 for Livret A, 12000 for LDDS) */
+  customCap?: number;
   /** Last update timestamp */
   updatedAt: number;
 }

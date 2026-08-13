@@ -21,10 +21,56 @@ import { clearAnalysisCache } from '@/utils/analysisCache';
 
 export function usePortfolio() {
   const [user, setUser] = useState<User | null>(null);
-  const [positions, setPositions] = useState<Position[]>([]);
-  const [config, setConfig] = useState<PortfolioConfig | null>(null);
-  const [investorProfile, setInvestorProfile] = useState<InvestorProfile | null>(null);
-  const [loading, setLoading] = useState(true);
+
+  const [positions, setPositions] = useState<Position[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('riane_local_positions');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        }
+      } catch (e) {
+        console.warn('[usePortfolio] Failed to load local positions:', e);
+      }
+    }
+    return DEFAULT_POSITIONS;
+  });
+
+  const [config, setConfig] = useState<PortfolioConfig | null>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('riane_portfolio_config');
+        if (saved) return JSON.parse(saved);
+      } catch (e) {
+        console.warn('[usePortfolio] Failed to load local config:', e);
+      }
+    }
+    return {
+      monthlyBudget: 1000,
+      annualCTOBudget: 8000,
+      annualSpeculativeCap: 2000,
+      riskProfile: 'dynamic',
+      noLeverage: true,
+      rebalanceByFlows: true,
+      baseCurrency: 'EUR',
+      horizonYears: 15,
+    };
+  });
+
+  const [investorProfile, setInvestorProfile] = useState<InvestorProfile | null>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('riane_investor_profile');
+        if (saved) return JSON.parse(saved);
+      } catch (e) {
+        console.warn('[usePortfolio] Failed to load local investor profile:', e);
+      }
+    }
+    return null;
+  });
+
+  const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const pricesFetched = useRef(false);
 
@@ -42,18 +88,51 @@ export function usePortfolio() {
             getInvestorProfile(u.uid),
           ]);
 
+          // Smart merge positions: keep local edits if newer than remote
+          let localPos: Position[] = [];
+          if (typeof window !== 'undefined') {
+            try {
+              const saved = localStorage.getItem('riane_local_positions');
+              if (saved) localPos = JSON.parse(saved);
+            } catch {}
+          }
 
-          setPositions(pos);
+          const posMap = new Map<string, Position>();
+          (pos || []).forEach((p) => posMap.set(p.id || p.ticker, p));
 
-          setConfig(cfg);
-          setInvestorProfile(profile);
+          (localPos || []).forEach((lp) => {
+            const existingRemote = posMap.get(lp.id || lp.ticker);
+            if (
+              !existingRemote ||
+              (lp.updatedAt && (!existingRemote.updatedAt || lp.updatedAt >= existingRemote.updatedAt))
+            ) {
+              posMap.set(lp.id || lp.ticker, lp);
+            }
+          });
+
+          const mergedPos = Array.from(posMap.values());
+          if (mergedPos.length > 0) {
+            setPositions(mergedPos);
+            try { localStorage.setItem('riane_local_positions', JSON.stringify(mergedPos)); } catch {}
+            saveAllPositions(u.uid, mergedPos).catch((err) => console.warn('[usePortfolio] Cloud sync merge error:', err));
+          }
+
+          if (cfg) {
+            setConfig(cfg);
+            try { localStorage.setItem('riane_portfolio_config', JSON.stringify(cfg)); } catch {}
+          } else if (config) {
+            await savePortfolioConfig(u.uid, config);
+          }
+
+          if (profile) {
+            setInvestorProfile(profile);
+            try { localStorage.setItem('riane_investor_profile', JSON.stringify(profile)); } catch {}
+          } else if (investorProfile) {
+            await saveInvestorProfileToDb(u.uid, investorProfile);
+          }
         } catch (err) {
-          console.error('Error loading portfolio:', err);
+          console.error('Error syncing portfolio with Firestore:', err);
         }
-      } else {
-        setPositions([]);
-        setConfig(null);
-        setInvestorProfile(null);
       }
       setLoading(false);
     });
@@ -253,28 +332,33 @@ export function usePortfolio() {
     setSaving(true);
     clearAnalysisCache();
 
-    // Log transaction automatically if quantity or PRU changed
-    const existing = positions.find((p) => p.id === pos.id || p.ticker === pos.ticker);
-    const oldQty = existing ? existing.quantity : 0;
-    const sharesDelta = pos.quantity - oldQty;
-    const price = pos.currentPrice || pos.avgPrice || 1;
+    const updatedPos: Position = {
+      ...pos,
+      updatedAt: Date.now(),
+    };
 
-    if (sharesDelta !== 0 || (existing && existing.avgPrice !== pos.avgPrice && pos.avgPrice > 0)) {
+    // Log transaction automatically if quantity or PRU changed
+    const existing = positions.find((p) => p.id === updatedPos.id || p.ticker === updatedPos.ticker);
+    const oldQty = existing ? existing.quantity : 0;
+    const sharesDelta = updatedPos.quantity - oldQty;
+    const price = updatedPos.currentPrice || updatedPos.avgPrice || 1;
+
+    if (sharesDelta !== 0 || (existing && existing.avgPrice !== updatedPos.avgPrice && updatedPos.avgPrice > 0)) {
       recordTransaction({
-        positionId: pos.id,
-        ticker: pos.ticker,
-        name: pos.name,
+        positionId: updatedPos.id,
+        ticker: updatedPos.ticker,
+        name: updatedPos.name,
         type: sharesDelta > 0 ? 'BUY' : sharesDelta < 0 ? 'SELL' : 'REBALANCE',
-        sharesDelta: sharesDelta !== 0 ? sharesDelta : pos.quantity,
+        sharesDelta: sharesDelta !== 0 ? sharesDelta : updatedPos.quantity,
         price,
-        totalAmount: Math.abs((sharesDelta !== 0 ? sharesDelta : pos.quantity) * price),
-        currency: pos.currency,
-        reason: customReason || (sharesDelta > 0 ? `Ajustement / Achat ponctuel (+${sharesDelta} part${Math.abs(sharesDelta) > 1 ? 's' : ''})` : sharesDelta < 0 ? `Arbitrage / Vente (${sharesDelta} part${Math.abs(sharesDelta) > 1 ? 's' : ''})` : `Modification du PRU à ${pos.avgPrice} ${pos.currency}`),
+        totalAmount: Math.abs((sharesDelta !== 0 ? sharesDelta : updatedPos.quantity) * price),
+        currency: updatedPos.currency,
+        reason: customReason || (sharesDelta > 0 ? `Ajustement / Achat ponctuel (+${sharesDelta} part${Math.abs(sharesDelta) > 1 ? 's' : ''})` : sharesDelta < 0 ? `Arbitrage / Vente (${sharesDelta} part${Math.abs(sharesDelta) > 1 ? 's' : ''})` : `Modification du PRU à ${updatedPos.avgPrice} ${updatedPos.currency}`),
       });
     }
 
     setPositions((prev) => {
-      const updated = prev.map((p) => (p.id === pos.id ? pos : p));
+      const updated = prev.map((p) => (p.id === updatedPos.id ? updatedPos : p));
       try {
         localStorage.setItem('riane_local_positions', JSON.stringify(updated));
       } catch {
@@ -285,7 +369,7 @@ export function usePortfolio() {
 
     if (user) {
       try {
-        await savePosition(user.uid, pos);
+        await savePosition(user.uid, updatedPos);
       } catch (err) {
         console.warn('[Portfolio] Firestore update failed, kept in local state:', err);
       }
@@ -334,17 +418,22 @@ export function usePortfolio() {
   }, [user, positions, pushSnapshot, recordTransaction]);
 
   const updateConfig = useCallback(async (newConfig: PortfolioConfig) => {
-    if (!user) return;
     setSaving(true);
     clearAnalysisCache();
+    setConfig(newConfig);
     try {
-      await savePortfolioConfig(user.uid, newConfig);
-      setConfig(newConfig);
-    } catch (err) {
-      console.error('Error updating config:', err);
-    } finally {
-      setSaving(false);
+      localStorage.setItem('riane_portfolio_config', JSON.stringify(newConfig));
+    } catch {
+      // ignore
     }
+    if (user) {
+      try {
+        await savePortfolioConfig(user.uid, newConfig);
+      } catch (err) {
+        console.error('Error updating config in Firestore:', err);
+      }
+    }
+    setSaving(false);
   }, [user]);
 
   const refreshPrices = useCallback(async () => {
@@ -365,6 +454,8 @@ export function usePortfolio() {
     if (typeof window !== 'undefined') {
       localStorage.removeItem('riane_transaction_history');
       localStorage.removeItem('riane_local_positions');
+      localStorage.removeItem('riane_portfolio_config');
+      localStorage.removeItem('riane_investor_profile');
       localStorage.removeItem('riane_saved_reports');
     }
 
@@ -413,27 +504,45 @@ export function usePortfolio() {
   }, {} as Record<string, Position[]>);
 
   const updateInvestorProfile = useCallback(async (profile: InvestorProfile) => {
-    if (!user) return;
     setSaving(true);
+    setInvestorProfile(profile);
     try {
-      await saveInvestorProfileToDb(user.uid, profile);
-      setInvestorProfile(profile);
-      // Sync riskProfile and horizonYears with PortfolioConfig
-      if (config) {
-        const updatedConfig = {
-          ...config,
-          riskProfile: profile.riskProfile,
-          horizonYears: profile.horizonYears,
-          monthlyBudget: profile.monthlyBudget,
-        };
-        await savePortfolioConfig(user.uid, updatedConfig);
-        setConfig(updatedConfig);
-      }
-    } catch (err) {
-      console.error('Error saving investor profile:', err);
-    } finally {
-      setSaving(false);
+      localStorage.setItem('riane_investor_profile', JSON.stringify(profile));
+    } catch {
+      // ignore
     }
+
+    const updatedConfig: PortfolioConfig = {
+      ...(config || {
+        monthlyBudget: 1000,
+        annualCTOBudget: 8000,
+        annualSpeculativeCap: 2000,
+        riskProfile: 'dynamic',
+        noLeverage: true,
+        rebalanceByFlows: true,
+        baseCurrency: 'EUR',
+        horizonYears: 15,
+      }),
+      riskProfile: profile.riskProfile,
+      horizonYears: profile.horizonYears,
+      monthlyBudget: profile.monthlyBudget,
+    };
+    setConfig(updatedConfig);
+    try {
+      localStorage.setItem('riane_portfolio_config', JSON.stringify(updatedConfig));
+    } catch {
+      // ignore
+    }
+
+    if (user) {
+      try {
+        await saveInvestorProfileToDb(user.uid, profile);
+        await savePortfolioConfig(user.uid, updatedConfig);
+      } catch (err) {
+        console.error('Error saving investor profile in Firestore:', err);
+      }
+    }
+    setSaving(false);
   }, [user, config]);
 
   const isOnboardingPending = !investorProfile || !investorProfile.onboardingCompleted;

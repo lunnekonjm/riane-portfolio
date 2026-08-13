@@ -10,28 +10,169 @@ import CustomDatePicker from '@/components/CustomDatePicker';
 
 interface PositionEditorProps {
   position?: Position | null;
+  initialEnvelope?: Position['envelope'];
   onSave: (position: Position) => void;
   onClose: () => void;
   onDelete?: (id: string) => void;
 }
 
-const ENVELOPES = ['PEA', 'PEA-PME', 'CTO', 'PEE', 'SPECULATIVE', 'OPPORTUNISTIC'];
-const ASSET_TYPES: Position['assetType'][] = ['ETF', 'STOCK', 'FUND', 'BOND', 'CRYPTO', 'CASH'];
-const CURRENCIES = ['EUR', 'USD', 'GBP', 'CHF'];
+const ENVELOPE_OPTIONS: { value: Position['envelope']; label: string; icon: string; isSavings: boolean }[] = [
+  { value: 'PEA', label: 'PEA (Plan d\'Épargne en Actions)', icon: '📈', isSavings: false },
+  { value: 'PEA-PME', label: 'PEA-PME', icon: '🟣', isSavings: false },
+  { value: 'CTO', label: 'CTO (Compte-Titres Ordinaire)', icon: '🟢', isSavings: false },
+  { value: 'LIVRET', label: 'Livret & Épargne (Livret A, LDDS, Cash)', icon: '🛡️', isSavings: true },
+  { value: 'ASSURANCE_VIE', label: 'Assurance-Vie', icon: '📜', isSavings: true },
+  { value: 'PER', label: 'PER (Plan Épargne Retraite)', icon: '🏛️', isSavings: true },
+  { value: 'PEE', label: 'PEE / PERCO (Épargne Salariale)', icon: '🏢', isSavings: true },
+  { value: 'IMMOBILIER', label: 'Immobilier & SCPI', icon: '🧱', isSavings: true },
+  { value: 'SPECULATIVE', label: 'Spéculatif & Crypto', icon: '🚀', isSavings: false },
+  { value: 'OPPORTUNISTIC', label: 'Réserve Opportuniste', icon: '⚖️', isSavings: false },
+];
+
+const ASSET_TYPE_OPTIONS: { value: Position['assetType']; label: string; icon: string }[] = [
+  { value: 'ETF', label: 'ETF / Tracker', icon: '📊' },
+  { value: 'STOCK', label: 'Action Directe', icon: '🏢' },
+  { value: 'FUND', label: 'Fonds / OPCVM', icon: '📦' },
+  { value: 'BOND', label: 'Obligation / Fonds Euro', icon: '📜' },
+  { value: 'SAVINGS', label: 'Épargne / Livret / Cash', icon: '🛡️' },
+  { value: 'REAL_ESTATE', label: 'Immobilier / SCPI', icon: '🧱' },
+  { value: 'CRYPTO', label: 'Crypto-Actif', icon: '🪙' },
+  { value: 'CASH', label: 'Liquidités', icon: '💶' },
+];
+
+const CURRENCY_OPTIONS: { value: Position['currency']; label: string; icon: string }[] = [
+  { value: 'EUR', label: 'EUR (€)', icon: '💶' },
+  { value: 'USD', label: 'USD ($)', icon: '💵' },
+  { value: 'GBP', label: 'GBP (£)', icon: '💷' },
+  { value: 'CHF', label: 'CHF (CHF)', icon: '🇨🇭' },
+];
 
 function generateId(): string {
   return `pos-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-export default function PositionEditor({ position, onSave, onClose, onDelete }: PositionEditorProps) {
+function CustomSelect<T extends string>({
+  value,
+  options,
+  onChange,
+  id,
+}: {
+  value: T;
+  options: { value: T; label: string; icon?: string }[];
+  onChange: (val: T) => void;
+  id?: string;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  const selectedOption = options.find((o) => o.value === value) || options[0];
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  return (
+    <div ref={dropdownRef} style={{ position: 'relative', width: '100%' }} id={id}>
+      <button
+        type="button"
+        className="input"
+        onClick={() => setIsOpen(!isOpen)}
+        style={{
+          width: '100%',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          fontSize: 13,
+          padding: '9px 12px',
+          cursor: 'pointer',
+          textAlign: 'left',
+          background: 'var(--bg-secondary)',
+          border: '1px solid var(--border-accent)',
+          borderRadius: 'var(--radius-md)',
+          color: 'var(--text-primary)',
+        }}
+      >
+        <span style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, overflow: 'hidden', flex: 1 }}>
+          {selectedOption.icon && <span style={{ fontSize: 13, flexShrink: 0 }}>{selectedOption.icon}</span>}
+          <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontSize: 12 }}>{selectedOption.label}</span>
+        </span>
+        <span style={{ fontSize: 10, color: 'var(--text-muted)', marginLeft: 8 }}>▼</span>
+      </button>
+
+      {isOpen && (
+        <div
+          style={{
+            position: 'absolute',
+            top: '100%',
+            left: 0,
+            right: 0,
+            zIndex: 350,
+            marginTop: 4,
+            background: 'var(--bg-secondary)',
+            border: '1px solid var(--border-accent)',
+            borderRadius: 'var(--radius-md)',
+            boxShadow: '0 12px 32px rgba(0,0,0,0.7)',
+            maxHeight: 240,
+            overflowY: 'auto',
+            padding: 4,
+          }}
+        >
+          {options.map((opt) => (
+            <div
+              key={opt.value}
+              onClick={() => {
+                onChange(opt.value);
+                setIsOpen(false);
+              }}
+              style={{
+                padding: '8px 12px',
+                borderRadius: 6,
+                fontSize: 13,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                background: opt.value === value ? 'var(--bg-tertiary)' : 'transparent',
+                color: opt.value === value ? 'var(--accent-cyan)' : 'var(--text-primary)',
+                fontWeight: opt.value === value ? 700 : 400,
+                transition: 'background 0.15s ease',
+              }}
+              onMouseEnter={(e) => {
+                if (opt.value !== value) e.currentTarget.style.background = 'rgba(255,255,255,0.05)';
+              }}
+              onMouseLeave={(e) => {
+                if (opt.value !== value) e.currentTarget.style.background = 'transparent';
+              }}
+            >
+              {opt.icon && <span>{opt.icon}</span>}
+              <span>{opt.label}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default function PositionEditor({ position, initialEnvelope, onSave, onClose, onDelete }: PositionEditorProps) {
   const isNew = !position;
+
+  const defaultEnv = position?.envelope || initialEnvelope || 'PEA';
+  const isSavingsDefault = defaultEnv === 'LIVRET' || defaultEnv === 'ASSURANCE_VIE' || defaultEnv === 'PER' || defaultEnv === 'PEE' || defaultEnv === 'IMMOBILIER';
+  const isSavingsTabContext = (initialEnvelope && ['LIVRET', 'ASSURANCE_VIE', 'PER', 'PEE', 'IMMOBILIER'].includes(initialEnvelope)) || isSavingsDefault;
 
   const [form, setForm] = useState<Position>({
     id: position?.id || generateId(),
     ticker: position?.ticker || '',
     name: position?.name || '',
-    envelope: position?.envelope || 'PEA',
-    assetType: position?.assetType || 'ETF',
+    envelope: defaultEnv,
+    assetType: position?.assetType || (isSavingsDefault ? 'SAVINGS' : 'ETF'),
     currency: position?.currency || 'EUR',
     quantity: position?.quantity || 0,
     avgPrice: position?.avgPrice || 0,
@@ -43,6 +184,8 @@ export default function PositionEditor({ position, onSave, onClose, onDelete }: 
     annualBudget: position?.annualBudget,
     targetWeight: position?.targetWeight,
     maxWeight: position?.maxWeight,
+    institutionName: position?.institutionName || '',
+    interestRateOverride: position?.interestRateOverride,
     updatedAt: Date.now(),
   });
 
@@ -67,7 +210,20 @@ export default function PositionEditor({ position, onSave, onClose, onDelete }: 
   });
   const [isCalculatingDCA, setIsCalculatingDCA] = useState<boolean>(false);
   const [dcaResult, setDcaResult] = useState<DCASimulationResult | null>(null);
+  const [isFutureDca, setIsFutureDca] = useState<boolean>(false);
   const [showDCAHistory, setShowDCAHistory] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (dcaStartDate) {
+      const parts = dcaStartDate.split('-');
+      if (parts.length === 3) {
+        const day = parseInt(parts[2], 10);
+        if (!isNaN(day) && day >= 1 && day <= 31) {
+          setForm((prev) => ({ ...prev, dcaDepositDay: day }));
+        }
+      }
+    }
+  }, [dcaStartDate]);
 
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => {
@@ -338,19 +494,22 @@ function autoGenerateThemes(
     const monthlyAmount = form.monthlyDCA || (form.annualBudget ? form.annualBudget / 12 : 100);
     setIsCalculatingDCA(true);
     try {
-      // If start date is current month or in future, fallback to 2024-01-01 for historical simulation
-      let effectiveStartDate = dcaStartDate;
       const todayStr = new Date().toISOString().slice(0, 7);
-      if (!dcaStartDate || dcaStartDate.slice(0, 7) >= todayStr) {
-        effectiveStartDate = '2024-01-01';
+      const startMonthStr = (dcaStartDate || todayStr).slice(0, 7);
+
+      if (startMonthStr >= todayStr) {
+        // Future / Current month DCA Strategy — no historical backtest, 0 past months
+        setIsFutureDca(true);
+        setDcaResult(null);
+        return;
       }
 
-      // PEA / PEA-PME / CTO require integer shares (no fractional shares!)
+      setIsFutureDca(false);
       const isIntegerOnly = form.envelope === 'PEA' || form.envelope === 'PEA-PME' || form.envelope === 'CTO';
       const result = await simulatePositionDCA(
         form.ticker,
         monthlyAmount,
-        effectiveStartDate,
+        dcaStartDate,
         form.currentPrice || form.avgPrice || 100,
         isIntegerOnly,
         form.dcaFrequency || 'monthly',
@@ -358,15 +517,8 @@ function autoGenerateThemes(
         form.dcaDepositDay || 5
       );
       setDcaResult(result);
-
-      // AUTOMATICALLY APPLY result to form quantity and avgPrice
-      if (result.totalShares > 0) {
-        setForm((prev) => ({
-          ...prev,
-          quantity: result.totalShares,
-          avgPrice: result.avgPrice,
-        }));
-      }
+      // DO NOT automatically overwrite form.quantity or form.avgPrice!
+      // The user's actual current holdings are preserved intact.
     } catch (err) {
       console.error('DCA Simulation failed:', err);
     } finally {
@@ -384,26 +536,68 @@ function autoGenerateThemes(
       updatedAt: Date.now(),
     };
     setForm(updated);
-    onSave(updated);
-    onClose();
+  };
+
+
+  const availableEnvelopeOptions = ENVELOPE_OPTIONS.filter((opt) => {
+    if (isSavingsTabContext) {
+      return ['LIVRET', 'ASSURANCE_VIE', 'PER', 'PEE', 'IMMOBILIER'].includes(opt.value);
+    } else {
+      return ['PEA', 'PEA-PME', 'CTO', 'SPECULATIVE', 'OPPORTUNISTIC'].includes(opt.value);
+    }
+  });
+
+  const isSavingsEnvelope = form.envelope === 'LIVRET' || form.envelope === 'ASSURANCE_VIE' || form.envelope === 'PER' || form.envelope === 'PEE' || form.envelope === 'IMMOBILIER';
+
+  const availableAssetTypeOptions = ASSET_TYPE_OPTIONS.filter((opt) => {
+    if (isSavingsEnvelope) {
+      return ['SAVINGS', 'BOND', 'FUND', 'REAL_ESTATE'].includes(opt.value);
+    }
+    return ['ETF', 'STOCK', 'FUND', 'CRYPTO', 'CASH'].includes(opt.value);
+  });
+
+  const handleEnvelopeChange = (newEnv: Position['envelope']) => {
+    const isSav = newEnv === 'LIVRET' || newEnv === 'ASSURANCE_VIE' || newEnv === 'PER' || newEnv === 'PEE' || newEnv === 'IMMOBILIER';
+    let defaultAssetType = form.assetType;
+    if (isSav) {
+      if (newEnv === 'LIVRET') defaultAssetType = 'SAVINGS';
+      else if (newEnv === 'ASSURANCE_VIE') defaultAssetType = 'BOND';
+      else if (newEnv === 'PER') defaultAssetType = 'SAVINGS';
+      else if (newEnv === 'PEE') defaultAssetType = 'FUND';
+      else if (newEnv === 'IMMOBILIER') defaultAssetType = 'REAL_ESTATE';
+    } else {
+      if (['SAVINGS', 'BOND', 'REAL_ESTATE'].includes(defaultAssetType)) {
+        defaultAssetType = 'ETF';
+      }
+    }
+    setForm((prev) => ({
+      ...prev,
+      envelope: newEnv,
+      assetType: defaultAssetType,
+    }));
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.ticker.trim() || !form.name.trim()) return;
 
-    let finalQuantity = form.quantity;
-    let finalAvgPrice = form.avgPrice;
+    let finalTicker = form.ticker.trim();
+    let finalName = form.name.trim();
 
-    // Auto-calculate quantity if 0 so position is saved filled!
-    if ((!finalQuantity || finalQuantity <= 0) && (finalAvgPrice > 0 || (form.currentPrice && form.currentPrice > 0))) {
-      const price = finalAvgPrice || form.currentPrice || (form.ticker.includes('GPEA') ? 4.91 : 100);
-      const budget = form.monthlyDCA || (form.annualBudget ? form.annualBudget / 12 : 100);
-      finalQuantity = Math.max(1, Math.floor(budget / price));
-      if (!finalAvgPrice || finalAvgPrice === 0) {
-        finalAvgPrice = price;
+    if (isSavingsEnvelope) {
+      if (!finalName) {
+        const envLabel = ENVELOPE_OPTIONS.find((o) => o.value === form.envelope)?.label || form.envelope;
+        finalName = envLabel;
+      }
+      if (!finalTicker) {
+        finalTicker = `${form.envelope}-${Date.now().toString(36).slice(-4).toUpperCase()}`;
       }
     }
+
+    if (!finalTicker || !finalName) return;
+
+    const finalQuantity = isSavingsEnvelope ? 1 : (typeof form.quantity === 'number' && !isNaN(form.quantity) ? form.quantity : 0);
+    const finalAvgPrice = typeof form.avgPrice === 'number' && !isNaN(form.avgPrice) ? form.avgPrice : 0;
+    const finalCurrentPrice = isSavingsEnvelope ? finalAvgPrice : (form.currentPrice || finalAvgPrice);
 
     const cost = finalQuantity * finalAvgPrice;
     if (form.envelope === 'PEA' && cost > 150000) {
@@ -419,8 +613,11 @@ function autoGenerateThemes(
 
     onSave({
       ...form,
+      ticker: finalTicker,
+      name: finalName,
       quantity: finalQuantity,
       avgPrice: finalAvgPrice,
+      currentPrice: finalCurrentPrice,
       dcaStartDate,
       updatedAt: Date.now(),
     });
@@ -429,16 +626,143 @@ function autoGenerateThemes(
   const totalValue = form.quantity * (form.currentPrice || form.avgPrice);
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 640 }}>
-        <div className="modal-header">
-          <h2>{isNew ? '➕ Ajouter une Position' : `✏️ Modifier ${form.name}`}</h2>
+    <div className="modal-overlay" onClick={onClose} style={{ padding: '10px' }}>
+      <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 700, margin: '0 auto', overflow: 'visible' }}>
+        <div className="modal-header" style={{ flexWrap: 'wrap', gap: 8 }}>
+          <h2 style={{ fontSize: 'clamp(1rem, 4vw, 1.25rem)' }}>{isNew ? '➕ Ajouter une Position' : `✏️ Modifier ${form.name}`}</h2>
           <button className="modal-close-btn" onClick={onClose} type="button" aria-label="Fermer">✕</button>
         </div>
 
         <form onSubmit={handleSubmit}>
-          {/* Autocomplete Search & Ticker Verification Bar */}
-          <div className="form-group" style={{ position: 'relative', marginBottom: 16 }}>
+          {/* Row 0: Envelope + Asset Type + Currency Selector using CustomSelect */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10, marginBottom: 16 }}>
+            <div className="form-group">
+              <label className="form-label">Enveloppe</label>
+              <CustomSelect
+                value={form.envelope}
+                options={availableEnvelopeOptions}
+                onChange={(val) => handleEnvelopeChange(val as Position['envelope'])}
+                id="select-envelope"
+              />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Type d&apos;actif</label>
+              <CustomSelect
+                value={form.assetType}
+                options={availableAssetTypeOptions}
+                onChange={(val) => handleChange('assetType', val)}
+                id="select-asset-type"
+              />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Devise</label>
+              <CustomSelect
+                value={form.currency}
+                options={CURRENCY_OPTIONS}
+                onChange={(val) => handleChange('currency', val)}
+                id="select-currency"
+              />
+            </div>
+          </div>
+
+          {isSavingsEnvelope ? (
+            /* DYNAMIC SAVINGS & WEALTH FORM (Livret A, LDDS, Assurance-Vie, PER, PEE, SCPI) */
+            <>
+              <div style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border-accent)', borderRadius: 'var(--radius-md)', padding: 14, marginBottom: 16 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                  <span style={{ fontSize: 16 }}>🛡️</span>
+                  <strong style={{ fontSize: 13, color: 'var(--accent-cyan)' }}>Épargne &amp; Enveloppe Sécurisée</strong>
+                </div>
+                <p style={{ fontSize: 12, color: 'var(--text-secondary)', margin: 0 }}>
+                  Indiquez le nom de votre compte (ex: Livret A Bourso, Fonds Euro Linxea, SCPI Primopierre) et le solde total épargné. Aucun cours boursier n&apos;est requis.
+                </p>
+              </div>
+
+              <div className="form-row" style={{ marginBottom: 16 }}>
+                <div className="form-group" style={{ flex: 2 }}>
+                  <label className="form-label">Nom du compte / de l&apos;actif *</label>
+                  <input
+                    className="input"
+                    value={form.name}
+                    onChange={(e) => handleChange('name', e.target.value)}
+                    placeholder="ex: Livret A, FCPE PEG, SCPI Corum Origin..."
+                    required
+                    id="input-name"
+                  />
+                </div>
+                <div className="form-group" style={{ flex: 1.2 }}>
+                  <label className="form-label">Organisme / Banque</label>
+                  <input
+                    className="input"
+                    value={form.institutionName || ''}
+                    onChange={(e) => handleChange('institutionName', e.target.value)}
+                    placeholder="ex: BoursoBank, Natixis, Linxea..."
+                    id="input-institution"
+                  />
+                </div>
+                <div className="form-group" style={{ flex: 1 }}>
+                  <label className="form-label">Solde Total ({form.currency === 'USD' ? '$' : '€'}) *</label>
+                  <input
+                    className="input mono"
+                    type="number"
+                    step="any"
+                    min="0"
+                    value={form.avgPrice || ''}
+                    onChange={(e) => {
+                      const val = parseFloat(e.target.value) || 0;
+                      setForm((prev) => ({ ...prev, avgPrice: val, currentPrice: val, quantity: 1 }));
+                    }}
+                    placeholder="15000"
+                    required
+                    id="input-solde"
+                  />
+                </div>
+              </div>
+
+              <div className="form-row" style={{ marginBottom: 20 }}>
+                <div className="form-group" style={{ flex: 1 }}>
+                  <label className="form-label">Taux d&apos;intérêt / Rendement (%)</label>
+                  <input
+                    className="input mono"
+                    type="number"
+                    step="0.05"
+                    min="0"
+                    max="100"
+                    value={form.interestRateOverride !== undefined ? (form.interestRateOverride * 100).toFixed(2) : ''}
+                    onChange={(e) => {
+                      const val = e.target.value ? parseFloat(e.target.value) / 100 : undefined;
+                      setForm((prev) => ({ ...prev, interestRateOverride: val }));
+                    }}
+                    placeholder="ex: 3.00%"
+                    id="input-interest-rate"
+                  />
+                </div>
+                <div className="form-group" style={{ flex: 1 }}>
+                  <label className="form-label">Épargne mensuelle (DCA)</label>
+                  <input
+                    className="input mono"
+                    type="number"
+                    step="10"
+                    min="0"
+                    value={form.monthlyDCA ?? ''}
+                    onChange={(e) => handleOptionalNumber('monthlyDCA', e.target.value)}
+                    placeholder="ex: 200 € / mois"
+                    id="input-savings-dca"
+                  />
+                </div>
+                <div className="form-group" style={{ flex: 1 }}>
+                  <label className="form-label">Début du versement (DCA)</label>
+                  <CustomDatePicker
+                    value={dcaStartDate}
+                    onChange={setDcaStartDate}
+                  />
+                </div>
+              </div>
+            </>
+          ) : (
+            <>
+              {/* Autocomplete Search & Ticker Verification Bar */}
+              <div className="form-group" style={{ position: 'relative', marginBottom: 16 }}>
             <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span>🔍 Rechercher une Action, ETF ou Fond Reconnus *</span>
               {isVerifyingTicker && <span style={{ fontSize: 12, color: 'var(--accent-cyan)' }}>Vérification du cours...</span>}
@@ -582,28 +906,6 @@ function autoGenerateThemes(
             </div>
           </div>
 
-          {/* Row 2: Envelope + Asset Type + Currency */}
-          <div className="form-row">
-            <div className="form-group">
-              <label className="form-label">Enveloppe</label>
-              <select className="input" value={form.envelope} onChange={(e) => handleChange('envelope', e.target.value)} id="select-envelope">
-                {ENVELOPES.map((e) => <option key={e} value={e}>{e}</option>)}
-              </select>
-            </div>
-            <div className="form-group">
-              <label className="form-label">Type d&apos;actif</label>
-              <select className="input" value={form.assetType} onChange={(e) => handleChange('assetType', e.target.value)} id="select-asset-type">
-                {ASSET_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
-              </select>
-            </div>
-            <div className="form-group">
-              <label className="form-label">Devise</label>
-              <select className="input" value={form.currency} onChange={(e) => handleChange('currency', e.target.value)} id="select-currency">
-                {CURRENCIES.map((c) => <option key={c} value={c}>{c}</option>)}
-              </select>
-            </div>
-          </div>
-
           {/* Row 2.5: Auto-Calculateur DCA */}
           <div style={{
             background: 'var(--bg-tertiary)',
@@ -640,11 +942,12 @@ function autoGenerateThemes(
                 >
                   <option value="monthly">Mensuel</option>
                   <option value="quarterly">Trimestriel</option>
+                  <option value="semestrial">Semestriel</option>
                   <option value="annual">Annuel</option>
                 </select>
               </div>
 
-              {(form.dcaFrequency === 'annual' || form.dcaFrequency === 'quarterly') && (
+              {(form.dcaFrequency === 'annual' || form.dcaFrequency === 'quarterly' || form.dcaFrequency === 'semestrial') && (
                 <div className="form-group">
                   <label className="form-label" style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.4px' }}>Mois du versement</label>
                   <select
@@ -668,20 +971,6 @@ function autoGenerateThemes(
                   </select>
                 </div>
               )}
-
-              <div className="form-group">
-                <label className="form-label" style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.4px' }}>Jour du mois</label>
-                <input
-                  type="number"
-                  min="1"
-                  max="31"
-                  className="input mono"
-                  style={{ fontSize: 13, padding: '8px 10px' }}
-                  value={form.dcaDepositDay || 5}
-                  onChange={(e) => handleChange('dcaDepositDay', Math.min(31, Math.max(1, parseInt(e.target.value) || 5)))}
-                  placeholder="5"
-                />
-              </div>
 
               <div className="form-group">
                 <label className="form-label" style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.4px' }}>Versement ({form.currency === 'USD' ? '$' : form.currency === 'GBP' ? '£' : '€'})</label>
@@ -714,51 +1003,99 @@ function autoGenerateThemes(
               onClick={handleRunDCASimulation}
               disabled={isCalculatingDCA || !form.ticker}
             >
-              {isCalculatingDCA ? <span className="loading-spinner" /> : '⚡ Calculer & Appliquer la Simulation DCA'}
+              {isCalculatingDCA ? <span className="loading-spinner" /> : '⚡ Simuler / Vérifier la Stratégie DCA'}
             </button>
 
-            {dcaResult && (
-              <div style={{ background: 'var(--bg-secondary)', padding: 12, borderRadius: 8, border: '1px solid var(--border-subtle)', marginTop: 14 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                  <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--accent-emerald)' }}>
-                    📊 Résultats DCA ({dcaResult.monthsCount} mois) :
-                  </span>
-                  <button
-                    type="button"
-                    className="btn btn-ghost"
-                    style={{ fontSize: 11, padding: '2px 8px' }}
-                    onClick={() => setShowDCAHistory(!showDCAHistory)}
-                  >
-                    {showDCAHistory ? 'Masquer historique' : '🔍 Voir historique mois par mois'}
-                  </button>
+            {isFutureDca && (
+              <div style={{ background: 'var(--bg-secondary)', padding: 14, borderRadius: 8, border: '1px solid var(--accent-cyan)', marginTop: 14 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                  <span style={{ fontSize: 16 }}>📅</span>
+                  <strong style={{ fontSize: 13, color: 'var(--accent-cyan)' }}>Stratégie DCA Futur configurée</strong>
                 </div>
+                <p style={{ fontSize: 12, color: 'var(--text-secondary)', margin: 0, lineHeight: '1.5' }}>
+                  Versement prévu de <strong>{(form.monthlyDCA || (form.annualBudget ? form.annualBudget / 12 : 100)).toLocaleString('fr-FR')} {form.currency === 'USD' ? '$' : '€'}</strong> ({form.dcaFrequency === 'annual' ? 'par an' : form.dcaFrequency === 'quarterly' ? 'par trimestre' : form.dcaFrequency === 'semestrial' ? 'par semestre' : 'par mois'}) à partir de <strong>{dcaStartDate || 'mois prochain'}</strong> (jour {form.dcaDepositDay || 5}).
+                </p>
+                <p style={{ fontSize: 11, color: 'var(--accent-emerald)', marginTop: 8, margin: 0, fontWeight: 600 }}>
+                  ✓ Vos positions réelles actuelles ({form.quantity || 0} parts @ {(form.avgPrice || 0).toFixed(2)} {form.currency === 'USD' ? '$' : '€'}) sont conservées et ne sont pas écrasées.
+                </p>
+              </div>
+            )}
 
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, textAlign: 'center', marginBottom: 10 }}>
-                  <div>
-                    <span style={{ display: 'block', fontSize: 10, color: 'var(--text-muted)' }}>Parts/Actions</span>
-                    <strong style={{ fontSize: 15, color: 'var(--accent-cyan)' }}>{dcaResult.totalShares}</strong>
+            {dcaResult && dcaResult.monthsCount > 0 && (() => {
+              const sym = form.currency === 'USD' ? '$' : form.currency === 'GBP' ? '£' : '€';
+              const latestPrice = form.currentPrice || (dcaResult.logs.length > 0 ? dcaResult.logs[dcaResult.logs.length - 1].sharePrice : dcaResult.avgPrice);
+              const currentValue = dcaResult.totalShares * latestPrice;
+              const totalProfitLoss = currentValue - dcaResult.totalInvested;
+              const profitLossPercent = dcaResult.totalInvested > 0 ? (totalProfitLoss / dcaResult.totalInvested) * 100 : 0;
+              const totalCapitalWithCash = currentValue + dcaResult.uninvestedCash;
+
+              return (
+                <div style={{ background: 'var(--bg-secondary)', padding: 14, borderRadius: 10, border: '1px solid var(--border-subtle)', marginTop: 14 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--accent-emerald)' }}>
+                      📊 Résultats Simulation Historique ({dcaResult.monthsCount} mois passés) :
+                    </span>
+                    <button
+                      type="button"
+                      className="btn btn-ghost"
+                      style={{ fontSize: 11, padding: '2px 8px' }}
+                      onClick={() => setShowDCAHistory(!showDCAHistory)}
+                    >
+                      {showDCAHistory ? 'Masquer historique' : '🔍 Voir historique mois par mois'}
+                    </button>
                   </div>
-                  <div>
-                    <span style={{ display: 'block', fontSize: 10, color: 'var(--text-muted)' }}>PRU Estimé</span>
-                    <strong style={{ fontSize: 15 }}>{dcaResult.avgPrice.toFixed(2)} {form.currency === 'USD' ? '$' : '€'}</strong>
+
+                  {/* 🚀 Performance & Profit/Loss Banner */}
+                  <div style={{
+                    background: totalProfitLoss >= 0 ? 'rgba(16, 185, 129, 0.12)' : 'rgba(244, 63, 94, 0.12)',
+                    border: `1px solid ${totalProfitLoss >= 0 ? 'var(--accent-emerald)' : 'var(--accent-rose)'}`,
+                    borderRadius: 8,
+                    padding: '10px 14px',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    marginBottom: 12,
+                  }}>
+                    <div>
+                      <span style={{ fontSize: 11, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.4px', fontWeight: 600 }}>
+                        Gain / Perte Réalisé(e) du DCA
+                      </span>
+                      <div style={{ fontSize: 18, fontWeight: 800, color: totalProfitLoss >= 0 ? 'var(--accent-emerald)' : 'var(--accent-rose)', margin: '2px 0' }}>
+                        {totalProfitLoss >= 0 ? '+' : ''}{totalProfitLoss.toFixed(2)} {sym} ({totalProfitLoss >= 0 ? '+' : ''}{profitLossPercent.toFixed(2)} %)
+                      </div>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <span style={{ fontSize: 11, color: 'var(--text-muted)', display: 'block' }}>Valeur Portefeuille Actuelle</span>
+                      <strong style={{ fontSize: 16, color: 'var(--accent-cyan)' }}>{currentValue.toFixed(2)} {sym}</strong>
+                    </div>
                   </div>
-                  <div>
-                    <span style={{ display: 'block', fontSize: 10, color: 'var(--text-muted)' }}>Total Investi</span>
-                    <strong style={{ fontSize: 15 }}>{dcaResult.totalInvested.toFixed(0)} {form.currency === 'USD' ? '$' : '€'}</strong>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, textAlign: 'center', marginBottom: 12 }}>
+                    <div style={{ background: 'var(--bg-tertiary)', padding: 8, borderRadius: 6 }}>
+                      <span style={{ display: 'block', fontSize: 10, color: 'var(--text-muted)' }}>Parts/Actions</span>
+                      <strong style={{ fontSize: 14, color: 'var(--accent-cyan)' }}>{dcaResult.totalShares}</strong>
+                    </div>
+                    <div style={{ background: 'var(--bg-tertiary)', padding: 8, borderRadius: 6 }}>
+                      <span style={{ display: 'block', fontSize: 10, color: 'var(--text-muted)' }}>PRU Moyen</span>
+                      <strong style={{ fontSize: 14 }}>{dcaResult.avgPrice.toFixed(2)} {sym}</strong>
+                    </div>
+                    <div style={{ background: 'var(--bg-tertiary)', padding: 8, borderRadius: 6 }}>
+                      <span style={{ display: 'block', fontSize: 10, color: 'var(--text-muted)' }}>Total Investi</span>
+                      <strong style={{ fontSize: 14 }}>{dcaResult.totalInvested.toFixed(0)} {sym}</strong>
+                    </div>
+                    <div style={{ background: 'var(--bg-tertiary)', padding: 8, borderRadius: 6 }}>
+                      <span style={{ display: 'block', fontSize: 10, color: 'var(--text-muted)' }}>Total + Cash</span>
+                      <strong style={{ fontSize: 14, color: 'var(--accent-amber)' }}>{totalCapitalWithCash.toFixed(2)} {sym}</strong>
+                    </div>
                   </div>
-                  <div>
-                    <span style={{ display: 'block', fontSize: 10, color: 'var(--text-muted)' }}>Reliquat Cash</span>
-                    <strong style={{ fontSize: 15, color: 'var(--accent-amber)' }}>{dcaResult.uninvestedCash.toFixed(2)} {form.currency === 'USD' ? '$' : '€'}</strong>
-                  </div>
-                </div>
 
                 <button
                   type="button"
-                  className="btn btn-primary"
-                  style={{ width: '100%', fontSize: 13, padding: '8px 12px' }}
+                  className="btn btn-secondary"
+                  style={{ width: '100%', fontSize: 12, padding: '8px 12px', borderColor: 'var(--accent-amber)', color: 'var(--accent-amber)' }}
                   onClick={handleApplyDCAResult}
                 >
-                  ✅ Appliquer ces {dcaResult.totalShares} actions & PRU ({dcaResult.avgPrice.toFixed(2)} {form.currency === 'USD' ? '$' : '€'}) au formulaire
+                  📋 Importer cette simulation historique dans mon portefeuille actuel ({dcaResult.totalShares} actions @ {dcaResult.avgPrice.toFixed(2)} {form.currency === 'USD' ? '$' : '€'})
                 </button>
 
                 {showDCAHistory && (
@@ -792,7 +1129,8 @@ function autoGenerateThemes(
                   </div>
                 )}
               </div>
-            )}
+            );
+          })()}
           </div>
 
           {/* Row 3: Quantity + Avg Price + Current Price */}
@@ -961,6 +1299,8 @@ function autoGenerateThemes(
               ))}
             </select>
           </div>
+        </>
+      )}
 
           {/* Actions */}
           <div style={{ display: 'flex', gap: 12, justifyContent: 'space-between' }}>

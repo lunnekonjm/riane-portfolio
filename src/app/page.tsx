@@ -29,6 +29,8 @@ import TransactionHistoryModal from '@/components/TransactionHistoryModal';
 import AssetBadge from '@/components/AssetBadge';
 import { AnalysisChatView } from '@/components/AnalysisChatView';
 import { getCleanAssetName } from '@/utils/assetMetadata';
+import SavingsPortfolioTable from '@/components/SavingsPortfolioTable';
+import { computeSavingsPositionInterest } from '@/engines/savingsInterestEngine';
 
 function formatDCAElapsedTime(startDateStr: string): string {
   if (!startDateStr) return '';
@@ -158,7 +160,8 @@ export default function HomePage() {
   const [currentView, setCurrentView] = useState<PageView>('dashboard');
   const [queryInput, setQueryInput] = useState('');
   const [selectedStressResult, setSelectedStressResult] = useState<StressTestResult | null>(null);
-  const [editingPosition, setEditingPosition] = useState<Position | null | 'new'>(null);
+  const [selectedEnvelopeFilter, setSelectedEnvelopeFilter] = useState<string>('ALL');
+  const [editingPosition, setEditingPosition] = useState<Position | null | 'new' | 'new_savings'>(null);
   const [showConfigEditor, setShowConfigEditor] = useState(false);
   const [showFlowRebalanceModal, setShowFlowRebalanceModal] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
@@ -210,14 +213,68 @@ export default function HomePage() {
     addPosition, updatePosition, removePosition, updateConfig, updateInvestorProfile, refreshPrices, resetPortfolio,
   } = usePortfolio();
   const {
-    records: salaryRecords, revenueConfig, saveRecord: saveSalaryRecord,
+    records: salaryRecords, revenueConfig, allocations: reserveAllocations, saveRecord: saveSalaryRecord,
     deleteRecord: deleteSalaryRecord, saveConfig: saveRevenueConfig,
+    saveAllocation: saveReserveAllocation, deleteAllocation: deleteReserveAllocation,
   } = useRevenue();
 
   const [showEditProfile, setShowEditProfile] = useState(false);
   const [showBenchmark, setShowBenchmark] = useState(false);
 
   const [showDcaFrequencyDropdown, setShowDcaFrequencyDropdown] = useState<boolean>(false);
+  const [peaSeniority, setPeaSeniority] = useState<'over5' | 'under5'>('over5');
+  const [showNetDetailsModal, setShowNetDetailsModal] = useState<boolean>(false);
+
+  const netLiquidationDetails = useMemo(() => {
+    let totalGrossValue = 0;
+    let totalCostBase = 0;
+    let totalGrossGain = 0;
+    let totalEstimatedTax = 0;
+    let peaTax = 0;
+    let ctoTax = 0;
+
+    const activePositions = positions.filter((p) => p.quantity > 0);
+
+    activePositions.forEach((p) => {
+      const price = p.currentPrice || p.avgPrice || 1;
+      const avgPrice = p.avgPrice || price;
+      const rateToEUR = (fxRates as any)[p.currency] || 1.0;
+      const val = p.quantity * price * rateToEUR;
+      const cost = p.quantity * avgPrice * rateToEUR;
+      const gain = val - cost;
+
+      totalGrossValue += val;
+      totalCostBase += cost;
+      totalGrossGain += gain;
+
+      if (gain > 0) {
+        if (p.envelope === 'PEA' || p.envelope === 'PEA-PME') {
+          const rate = peaSeniority === 'over5' ? 0.172 : 0.30;
+          const tax = gain * rate;
+          peaTax += tax;
+          totalEstimatedTax += tax;
+        } else if (p.envelope === 'CTO') {
+          const tax = gain * 0.30;
+          ctoTax += tax;
+          totalEstimatedTax += tax;
+        }
+      }
+    });
+
+    const totalNetValue = totalGrossValue - totalEstimatedTax;
+    const totalNetGain = totalGrossGain - totalEstimatedTax;
+
+    return {
+      totalGrossValue,
+      totalCostBase,
+      totalGrossGain,
+      totalEstimatedTax,
+      peaTax,
+      ctoTax,
+      totalNetValue,
+      totalNetGain,
+    };
+  }, [positions, fxRates, peaSeniority]);
 
   const handleRunGlobalDCACalculation = async (startDate: string) => {
     if (!startDate) return;
@@ -432,7 +489,7 @@ export default function HomePage() {
   };
 
   const handleSavePosition = async (pos: Position) => {
-    if (editingPosition === 'new') {
+    if (editingPosition === 'new' || editingPosition === 'new_savings') {
       await addPosition(pos);
       showToast(`${pos.name} ajouté au portefeuille`);
     } else {
@@ -874,20 +931,11 @@ export default function HomePage() {
                         </div>
                         {displayTotalCost === 0 && <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Entrez vos PRU réels</span>}
                       </div>
-                      <div className="card" data-tooltip="Plus ou moins-value latente globale du portefeuille (€ et %)">
+                      <div className="card" data-tooltip="Plus ou moins-value latente et valeur nette de liquidation après impôts">
                         <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                           <span className="card-title">
                             {adjustInflation ? 'Plus/Moins-Value Réelle' : 'Plus/Moins-Value'}
                           </span>
-                          <button
-                            type="button"
-                            className="btn btn-ghost btn-sm"
-                            style={{ padding: '0 4px', fontSize: 12, color: 'var(--accent-cyan)' }}
-                            onClick={() => openGlossary('PFU')}
-                            data-tooltip="Règles de fiscalité PEA (18.6%) et CTO (Flat Tax 30%)"
-                          >
-                            💡 Taxe
-                          </button>
                         </div>
                         {displayTotalCost > 0 ? (
                           <>
@@ -898,20 +946,13 @@ export default function HomePage() {
                               <span className={`stat-change ${displayGainLoss >= 0 ? 'positive' : 'negative'}`}>
                                 {displayGainLossPercent >= 0 ? '↑' : '↓'} {Math.abs(displayGainLossPercent).toFixed(2)}%
                               </span>
-                              {displayGainLoss > 0 && (
-                                <span style={{ fontSize: 11, color: 'var(--text-muted)' }} data-tooltip="Net d'impôts après PEA (18.6%) et CTO (30%)">
-                                  Net: +{(filledPositions.reduce((sum, p) => {
-                                    const price = p.currentPrice || p.avgPrice;
-                                    const rateToEUR = (fxRates as any)[p.currency] || 1.0;
-                                    const val = p.quantity * price * rateToEUR;
-                                    const cost = p.quantity * p.avgPrice * rateToEUR;
-                                    const pl = val - cost;
-                                    if (pl <= 0) return sum + pl;
-                                    const taxRate = (p.envelope === 'PEA' || p.envelope === 'PEA-PME') ? 0.186 : 0.30;
-                                    return sum + (pl * (1 - taxRate));
-                                  }, 0) / cumulativeInflationFactor).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
-                                </span>
-                              )}
+                              <span
+                                style={{ fontSize: 11, color: 'var(--accent-emerald)', cursor: 'pointer', fontWeight: 600 }}
+                                onClick={() => setShowNetDetailsModal(true)}
+                                data-tooltip="Valeur totale si vous retirez votre argent aujourd'hui"
+                              >
+                                Net Retrait: {(netLiquidationDetails.totalNetValue / cumulativeInflationFactor).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
+                              </span>
                             </div>
                           </>
                         ) : (
@@ -1048,6 +1089,84 @@ export default function HomePage() {
                         </div>
                       </div>
                     </div>
+
+                    {/* 360° Wealth Breakdown Sub-Cards: Bourse vs Hors-Bourse */}
+                    {(() => {
+                      const marketPos = positions.filter((p) => !['LIVRET', 'ASSURANCE_VIE', 'PER', 'PEE', 'IMMOBILIER'].includes(p.envelope));
+                      const savingsPos = positions.filter((p) => ['LIVRET', 'ASSURANCE_VIE', 'PER', 'PEE', 'IMMOBILIER'].includes(p.envelope));
+
+                      const marketVal = marketPos.reduce((sum, p) => {
+                        const price = p.currentPrice || p.avgPrice;
+                        const rate = (fxRates as any)[p.currency] || 1.0;
+                        return sum + p.quantity * price * rate;
+                      }, 0) / cumulativeInflationFactor;
+
+                      const marketCostVal = marketPos.reduce((sum, p) => {
+                        const rate = (fxRates as any)[p.currency] || 1.0;
+                        return sum + p.quantity * p.avgPrice * rate;
+                      }, 0) / cumulativeInflationFactor;
+
+                      const marketGain = marketVal - marketCostVal;
+                      const marketGainPct = marketCostVal > 0 ? (marketGain / marketCostVal) * 100 : 0;
+                      const marketDCAVal = marketPos.reduce((sum, p) => sum + (p.monthlyDCA || 0), 0);
+
+                      const savingsCalcs = savingsPos.map((p) => computeSavingsPositionInterest(p));
+                      const savingsVal = savingsCalcs.reduce((sum, c) => sum + c.currentBalance, 0) / cumulativeInflationFactor;
+                      const savingsAnnualInt = savingsCalcs.reduce((sum, c) => sum + c.projectedAnnualInterest, 0) / cumulativeInflationFactor;
+                      const savingsDCAVal = savingsPos.reduce((sum, p) => sum + (p.monthlyDCA || 0), 0);
+
+                      return (
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 12, marginTop: 12, marginBottom: 16 }}>
+                          <div className="card" style={{ borderLeft: '4px solid var(--accent-cyan)', background: 'linear-gradient(135deg, rgba(6, 182, 212, 0.08) 0%, rgba(15, 23, 42, 0.7) 100%)', padding: 14 }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <span style={{ fontSize: 18 }}>📈</span>
+                                <strong style={{ fontSize: 14, color: 'var(--text-primary)' }}>Portefeuille Boursier &amp; Cryptos</strong>
+                              </div>
+                              <span className="badge badge-cyan" style={{ fontSize: 11 }}>{marketPos.length} positions</span>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', margin: '4px 0 8px 0' }}>
+                              <span className="mono" style={{ fontSize: 20, fontWeight: 700, color: 'var(--accent-cyan)' }}>
+                                {marketVal.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
+                              </span>
+                              {marketCostVal > 0 ? (
+                                <span style={{ fontSize: 12, color: marketGain >= 0 ? 'var(--accent-emerald)' : 'var(--accent-rose)', fontWeight: 700 }}>
+                                  {marketGain >= 0 ? '+' : ''}{marketGain.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })} ({marketGainPct >= 0 ? '+' : ''}{marketGainPct.toFixed(2)}%)
+                                </span>
+                              ) : (
+                                <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>PEA, CTO, Crypto</span>
+                              )}
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--text-secondary)', borderTop: '1px dashed var(--border-subtle)', paddingTop: 6 }}>
+                              <span>Coût PRU : {marketCostVal.toLocaleString('fr-FR')} €</span>
+                              <span>DCA Bourse : {marketDCAVal.toLocaleString('fr-FR')} €/mois</span>
+                            </div>
+                          </div>
+
+                          <div className="card" style={{ borderLeft: '4px solid var(--accent-emerald)', background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.08) 0%, rgba(15, 23, 42, 0.7) 100%)', padding: 14 }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <span style={{ fontSize: 18 }}>🛡️</span>
+                                <strong style={{ fontSize: 14, color: 'var(--text-primary)' }}>Épargne &amp; Patrimoine Hors-Bourse</strong>
+                              </div>
+                              <span className="badge badge-emerald" style={{ fontSize: 11 }}>{savingsPos.length} comptes</span>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', margin: '4px 0 8px 0' }}>
+                              <span className="mono" style={{ fontSize: 20, fontWeight: 700, color: 'var(--accent-emerald)' }}>
+                                {savingsVal.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
+                              </span>
+                              <span style={{ fontSize: 12, color: 'var(--accent-cyan)', fontWeight: 700 }}>
+                                +{savingsAnnualInt.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })} /an (intérêts)
+                              </span>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--text-secondary)', borderTop: '1px dashed var(--border-subtle)', paddingTop: 6 }}>
+                              <span>Livrets, PEE Natixis, A-V, SCPI</span>
+                              <span>Épargne DCA : {savingsDCAVal.toLocaleString('fr-FR')} €/mois</span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })()}
                   </>
                 );
               })()}
@@ -1134,6 +1253,9 @@ export default function HomePage() {
                       className="btn btn-primary"
                       onClick={async () => {
                         if (!dcaGlobalStartDate) return;
+                        if (!confirm(`⚠️ Attention : Vous allez calculer une simulation historique DCA depuis le ${dcaGlobalStartDate}.\n\nCela remplacera la quantité et le PRU de TOUTES vos positions par les résultats de la simulation historique.\n\nVoulez-vous vraiment écraser vos positions réelles actuelles ?`)) {
+                          return;
+                        }
                         setRefreshingPrices(true);
                         try {
                           let updatedCount = 0;
@@ -1194,10 +1316,17 @@ export default function HomePage() {
                 </div>
               </div>
 
-              {/* Portfolio by Envelope */}
+              {/* Dedicated Savings & Non-Listed Wealth Table */}
+              <SavingsPortfolioTable
+                positions={positions}
+                onEditPosition={(pos) => setEditingPosition(pos)}
+                onAddSavingsPosition={() => setEditingPosition('new_savings')}
+              />
+
+              {/* Stock Market Portfolio Card (Listed Assets) */}
               <div className="card">
                 <div className="card-header">
-                  <span className="card-title">Positions ({positions.length})</span>
+                  <span className="card-title">📈 Portefeuille Boursier &amp; Cryptos ({positions.filter(p => p.envelope === 'PEA' || p.envelope === 'PEA-PME' || p.envelope === 'CTO' || p.envelope === 'SPECULATIVE' || p.envelope === 'OPPORTUNISTIC').length})</span>
                   <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
                     <button
                       className="btn btn-primary"
@@ -1358,12 +1487,29 @@ export default function HomePage() {
                   </div>
                 ) : (
                   <div style={{ overflowX: 'auto', width: '100%', WebkitOverflowScrolling: 'touch', borderRadius: 'var(--radius-md)' }}>
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12, padding: '0 4px' }}>
+                      {[
+                        { id: 'ALL', label: '🌐 Tous les Actifs (Bourse & Crypto)' },
+                        { id: 'BOURSE', label: '📈 PEA & CTO' },
+                        { id: 'AUTRE', label: '🚀 Spéculatif & Crypto' },
+                      ].map((tab) => (
+                        <button
+                          key={tab.id}
+                          type="button"
+                          className={`btn ${selectedEnvelopeFilter === tab.id ? 'btn-primary' : 'btn-ghost'}`}
+                          style={{ fontSize: 11, padding: '4px 10px', borderRadius: 20 }}
+                          onClick={() => setSelectedEnvelopeFilter(tab.id)}
+                        >
+                          {tab.label}
+                        </button>
+                      ))}
+                    </div>
                     <table className="portfolio-table">
                     <thead>
                       <tr>
                         <th><span data-tooltip="Nom complet de l'actif ou de l'ETF">Actif</span></th>
                         <th><span data-tooltip="Code de cotation boursière (ex: PUST.PA, COHR)">Ticker</span></th>
-                        <th><span data-tooltip="Enveloppe fiscale d'investissement (PEA, PEA-PME, CTO)">Enveloppe</span></th>
+                        <th><span data-tooltip="Enveloppe fiscale d'investissement (PEA, PEA-PME, CTO, Livret, Assurance-Vie...)">Enveloppe</span></th>
                         <th><span data-tooltip="Nombre total de parts actuellement détenues">Qté</span></th>
                         <th><span data-tooltip="Prix de Revient Unitaire moyen d'achat">PRU</span></th>
                         <th><span data-tooltip="Cours du marché en direct (Yahoo Finance)">Prix</span></th>
@@ -1382,7 +1528,17 @@ export default function HomePage() {
                           return sum + p.quantity * pr * rate;
                         }, 0);
 
-                        return positions.map((pos) => {
+                        const filteredPositions = positions.filter((p) => {
+                          const isMarket = ['PEA', 'PEA-PME', 'CTO', 'SPECULATIVE', 'OPPORTUNISTIC'].includes(p.envelope);
+                          if (!isMarket) return false;
+                          
+                          if (selectedEnvelopeFilter === 'ALL') return true;
+                          if (selectedEnvelopeFilter === 'BOURSE') return p.envelope === 'PEA' || p.envelope === 'PEA-PME' || p.envelope === 'CTO';
+                          if (selectedEnvelopeFilter === 'AUTRE') return p.envelope === 'SPECULATIVE' || p.envelope === 'OPPORTUNISTIC';
+                          return true;
+                        });
+
+                        return filteredPositions.map((pos) => {
                           const hasFilled = pos.quantity > 0 && pos.avgPrice > 0;
                           const price = pos.currentPrice || pos.avgPrice;
                           const value = pos.quantity * price;
@@ -1653,10 +1809,13 @@ export default function HomePage() {
             <RevenueBudgetView
               records={salaryRecords}
               revenueConfig={revenueConfig}
+              allocations={reserveAllocations}
               portfolioConfig={config}
               onSaveRecord={saveSalaryRecord}
               onDeleteRecord={deleteSalaryRecord}
               onSaveRevenueConfig={saveRevenueConfig}
+              onSaveAllocation={saveReserveAllocation}
+              onDeleteAllocation={deleteReserveAllocation}
               onSyncMonthlyBudget={async (amount: number) => {
                 if (!config) return;
                 await updateConfig({ ...config, monthlyBudget: amount });
@@ -2089,10 +2248,11 @@ export default function HomePage() {
       {/* ═══ MODALS ═══ */}
       {editingPosition && (
         <PositionEditor
-          position={editingPosition === 'new' ? null : editingPosition}
+          position={(editingPosition === 'new' || editingPosition === 'new_savings') ? null : editingPosition}
+          initialEnvelope={editingPosition === 'new_savings' ? 'LIVRET' : 'PEA'}
           onSave={handleSavePosition}
           onClose={() => setEditingPosition(null)}
-          onDelete={editingPosition !== 'new' ? handleDeletePosition : undefined}
+          onDelete={(editingPosition !== 'new' && editingPosition !== 'new_savings') ? handleDeletePosition : undefined}
         />
       )}
 
@@ -2543,6 +2703,8 @@ export default function HomePage() {
         <MonteCarloModal
           initialCapital={totalValue}
           monthlyDCA={monthlyDCATotal || (config?.monthlyBudget || 1000)}
+          positions={positions}
+          fxRates={fxRates}
           onClose={() => setShowMonteCarloModal(false)}
         />
       )}
@@ -2554,6 +2716,68 @@ export default function HomePage() {
           initialTicker={selectedHistoryTicker}
           onClose={() => setShowTransactionModal(false)}
         />
+      )}
+
+      {/* 💰 Modal Montant Net Réel Viré en Compte */}
+      {showNetDetailsModal && (
+        <div className="modal-overlay" onClick={() => setShowNetDetailsModal(false)}>
+          <div className="modal-content card" style={{ maxWidth: 480, width: '90%' }} onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <h3 style={{ margin: 0, fontSize: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
+                💰 Montant Net Réel si Retrait
+              </h3>
+              <button type="button" className="btn btn-ghost" onClick={() => setShowNetDetailsModal(false)}>✕</button>
+            </div>
+
+            <div style={{ background: 'var(--bg-secondary)', padding: 20, borderRadius: 12, border: '2px solid var(--accent-emerald)', textAlign: 'center', marginBottom: 20 }}>
+              <span style={{ fontSize: 12, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 600 }}>
+                Somme nette virée sur votre compte bancaire aujourd&apos;hui
+              </span>
+              <div style={{ fontSize: 32, fontWeight: 800, color: 'var(--accent-emerald)', margin: '8px 0' }}>
+                {netLiquidationDetails.totalNetValue.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
+              </div>
+              <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                Après déduction de la fiscalité (PEA &amp; CTO)
+              </span>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 20, fontSize: 13 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 14px', background: 'var(--bg-secondary)', borderRadius: 8 }}>
+                <span style={{ color: 'var(--text-secondary)' }}>💵 Valeur brute totale</span>
+                <strong>{netLiquidationDetails.totalGrossValue.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}</strong>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 14px', background: 'var(--bg-secondary)', borderRadius: 8 }}>
+                <span style={{ color: 'var(--text-secondary)' }}>📈 Plus-value brute réalisée</span>
+                <strong style={{ color: netLiquidationDetails.totalGrossGain >= 0 ? 'var(--accent-emerald)' : 'var(--accent-rose)' }}>
+                  {netLiquidationDetails.totalGrossGain >= 0 ? '+' : ''}{netLiquidationDetails.totalGrossGain.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
+                </strong>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 14px', background: 'var(--bg-secondary)', borderRadius: 8 }}>
+                <span style={{ color: 'var(--text-secondary)' }}>🏛️ Impôts &amp; Cotisations déduits</span>
+                <strong style={{ color: 'var(--accent-rose)' }}>
+                  -{netLiquidationDetails.totalEstimatedTax.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
+                </strong>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                style={{ fontSize: 12 }}
+                onClick={() => {
+                  setShowNetDetailsModal(false);
+                  setCurrentView('envelopes');
+                }}
+              >
+                💼 Accéder à la simulation complète
+              </button>
+              <button type="button" className="btn btn-primary" style={{ fontSize: 12 }} onClick={() => setShowNetDetailsModal(false)}>
+                Fermer
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Toast with Undo Action Button */}

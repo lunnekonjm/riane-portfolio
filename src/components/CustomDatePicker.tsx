@@ -67,7 +67,7 @@ export default function CustomDatePicker({ value, onChange, showDaySelector = tr
     : `${MONTH_NAMES_FR[currentMonth] || 'janvier'} ${currentYear}`;
 
   return (
-    <div ref={containerRef} style={{ position: 'relative', display: 'inline-block' }}>
+    <div ref={containerRef} style={{ position: 'relative', width: '100%' }}>
       {/* Trigger Button */}
       <button
         type="button"
@@ -75,23 +75,27 @@ export default function CustomDatePicker({ value, onChange, showDaySelector = tr
         style={{
           display: 'flex',
           alignItems: 'center',
+          justifyContent: 'space-between',
+          width: '100%',
           gap: 8,
           background: isOpen ? 'var(--accent-cyan-glow)' : 'var(--bg-tertiary)',
           border: `1px solid ${isOpen ? 'var(--accent-cyan)' : 'var(--border-subtle)'}`,
           borderRadius: 10,
-          padding: '7px 14px',
+          padding: '7px 12px',
           color: 'var(--accent-cyan)',
           fontFamily: 'var(--font-mono)',
-          fontSize: 13,
+          fontSize: 12,
           fontWeight: 700,
           cursor: 'pointer',
           transition: 'all 0.2s ease',
           boxShadow: isOpen ? '0 0 12px rgba(6, 182, 212, 0.3)' : 'none',
         }}
       >
-        <span style={{ fontSize: 14 }}>📅</span>
-        <span>{formattedLabel}</span>
-        <span style={{ fontSize: 10, opacity: 0.7, transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s ease' }}>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, overflow: 'hidden' }}>
+          <span style={{ fontSize: 13, flexShrink: 0 }}>📅</span>
+          <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{formattedLabel}</span>
+        </span>
+        <span style={{ fontSize: 10, opacity: 0.7, transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s ease', marginLeft: 4 }}>
           ▼
         </span>
       </button>
@@ -101,15 +105,15 @@ export default function CustomDatePicker({ value, onChange, showDaySelector = tr
         <div
           style={{
             position: 'absolute',
-            top: 'calc(100% + 8px)',
-            left: 0,
+            top: 'calc(100% + 6px)',
+            right: 0,
             zIndex: 999,
-            width: 290,
-            padding: 16,
+            width: 270,
+            padding: 14,
             background: '#0f172a',
             border: '1px solid rgba(255, 255, 255, 0.15)',
-            borderRadius: 16,
-            boxShadow: '0 16px 40px rgba(0, 0, 0, 0.7), 0 0 20px rgba(6, 182, 212, 0.15)',
+            borderRadius: 14,
+            boxShadow: '0 16px 40px rgba(0, 0, 0, 0.8), 0 0 20px rgba(6, 182, 212, 0.2)',
             backdropFilter: 'blur(20px)',
             animation: 'fadeIn 0.2s ease-out',
           }}

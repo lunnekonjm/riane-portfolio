@@ -21,7 +21,7 @@ import { getFirebaseApp } from './config';
 import type { Position, PortfolioConfig, AuditLogEntry, InvestorProfile } from '@/types/portfolio';
 import type { AnalysisResult } from '@/types/analysis';
 import type { Recommendation, ThesisCard } from '@/types/recommendation';
-import type { SalaryRecord, RevenueConfig } from '@/types/revenue';
+import type { SalaryRecord, RevenueConfig, ReserveAllocation } from '@/types/revenue';
 
 let dbInstance: Firestore | null = null;
 
@@ -194,6 +194,25 @@ export async function getRevenueConfig(uid: string): Promise<RevenueConfig | nul
 export async function saveRevenueConfig(uid: string, config: RevenueConfig): Promise<void> {
   const db = getDb();
   await setDoc(doc(db, 'users', uid, 'settings', 'revenueConfig'), config);
+}
+
+// ── Réserve primes / rachats (allocation manuelle, hors DCA régulier) ──
+
+export async function getReserveAllocations(uid: string): Promise<ReserveAllocation[]> {
+  const db = getDb();
+  const q = query(collection(db, 'users', uid, 'reserveAllocations'), orderBy('date', 'desc'));
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() } as ReserveAllocation));
+}
+
+export async function saveReserveAllocation(uid: string, allocation: ReserveAllocation): Promise<void> {
+  const db = getDb();
+  await setDoc(doc(db, 'users', uid, 'reserveAllocations', allocation.id), allocation);
+}
+
+export async function deleteReserveAllocation(uid: string, allocationId: string): Promise<void> {
+  const db = getDb();
+  await deleteDoc(doc(db, 'users', uid, 'reserveAllocations', allocationId));
 }
 
 // ── Periodic Reports (historique partagé, y compris ceux générés par le cron) ──

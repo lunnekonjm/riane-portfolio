@@ -8,14 +8,18 @@ import {
   deleteSalaryRecord as deleteSalaryRecordFromDb,
   getRevenueConfig,
   saveRevenueConfig as saveRevenueConfigToDb,
+  getReserveAllocations,
+  saveReserveAllocation as saveReserveAllocationToDb,
+  deleteReserveAllocation as deleteReserveAllocationFromDb,
 } from '@/services/firebase/firestore';
-import type { SalaryRecord, RevenueConfig } from '@/types/revenue';
+import type { SalaryRecord, RevenueConfig, ReserveAllocation } from '@/types/revenue';
 import { DEFAULT_REVENUE_CONFIG } from '@/types/revenue';
 import type { User } from 'firebase/auth';
 
 export function useRevenue() {
   const [user, setUser] = useState<User | null>(null);
   const [records, setRecords] = useState<SalaryRecord[]>([]);
+  const [allocations, setAllocations] = useState<ReserveAllocation[]>([]);
   const [revenueConfig, setRevenueConfig] = useState<RevenueConfig>(DEFAULT_REVENUE_CONFIG);
   const [loading, setLoading] = useState(true);
 
@@ -24,18 +28,30 @@ export function useRevenue() {
       setUser(u);
       if (u) {
         try {
-          const [salaryRecords, cfg] = await Promise.all([
+          const [salaryRecords, cfg, reserveAllocations] = await Promise.all([
             getSalaryRecords(u.uid),
             getRevenueConfig(u.uid),
+            getReserveAllocations(u.uid),
           ]);
-          setRecords(salaryRecords);
-          setRevenueConfig(cfg || DEFAULT_REVENUE_CONFIG);
+          setRecords(salaryRecords || []);
+          const mergedCfg: RevenueConfig = {
+            ...DEFAULT_REVENUE_CONFIG,
+            ...(cfg || {}),
+            allocationSplit: {
+              ...DEFAULT_REVENUE_CONFIG.allocationSplit,
+              ...(cfg?.allocationSplit || {}),
+            },
+            defaultReserveEnvelope: cfg?.defaultReserveEnvelope || DEFAULT_REVENUE_CONFIG.defaultReserveEnvelope,
+          };
+          setRevenueConfig(mergedCfg);
+          setAllocations(reserveAllocations || []);
         } catch (err) {
           console.error('Error loading revenue data:', err);
         }
       } else {
         setRecords([]);
         setRevenueConfig(DEFAULT_REVENUE_CONFIG);
+        setAllocations([]);
       }
       setLoading(false);
     });
@@ -77,5 +93,23 @@ export function useRevenue() {
     [user]
   );
 
-  return { records, revenueConfig, loading, saveRecord, deleteRecord, saveConfig };
+  const saveAllocation = useCallback(
+    async (allocation: ReserveAllocation) => {
+      if (!user) return;
+      await saveReserveAllocationToDb(user.uid, allocation);
+      setAllocations((prev) => [allocation, ...prev]);
+    },
+    [user]
+  );
+
+  const deleteAllocation = useCallback(
+    async (id: string) => {
+      if (!user) return;
+      await deleteReserveAllocationFromDb(user.uid, id);
+      setAllocations((prev) => prev.filter((a) => a.id !== id));
+    },
+    [user]
+  );
+
+  return { records, revenueConfig, allocations, loading, saveRecord, deleteRecord, saveConfig, saveAllocation, deleteAllocation };
 }

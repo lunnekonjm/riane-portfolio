@@ -9,6 +9,8 @@ interface ConfigEditorProps {
   onSave: (config: PortfolioConfig) => void;
   onSyncProfile?: (profile: InvestorProfile) => void;
   onClose: () => void;
+  onTestNotification?: () => void;
+  onTestEmail?: () => void;
 }
 
 const RISK_PROFILES: Array<{ value: PortfolioConfig['riskProfile']; label: string }> = [
@@ -18,7 +20,7 @@ const RISK_PROFILES: Array<{ value: PortfolioConfig['riskProfile']; label: strin
   { value: 'aggressive', label: 'Agressif' },
 ];
 
-export default function ConfigEditor({ config, investorProfile, onSave, onSyncProfile, onClose }: ConfigEditorProps) {
+export default function ConfigEditor({ config, investorProfile, onSave, onSyncProfile, onClose, onTestNotification, onTestEmail }: ConfigEditorProps) {
   const [form, setForm] = useState<PortfolioConfig>({ ...config });
 
   const handleChange = (field: keyof PortfolioConfig, value: any) => {
@@ -157,7 +159,25 @@ export default function ConfigEditor({ config, investorProfile, onSave, onSyncPr
             </label>
           </div>
 
-          <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end' }}>
+          {(onTestNotification || onTestEmail) && (
+            <div style={{ marginTop: 24, padding: 16, background: 'var(--bg-tertiary)', borderRadius: 8, borderLeft: '3px solid var(--accent-cyan)' }}>
+              <h4 style={{ margin: '0 0 12px 0', fontSize: 13, color: 'var(--text-secondary)' }}>🛠️ Outils Développeur (Tests)</h4>
+              <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                {onTestNotification && (
+                  <button type="button" className="btn btn-secondary btn-sm" onClick={onTestNotification}>
+                    🧪 Tester Notifications DCA
+                  </button>
+                )}
+                {onTestEmail && (
+                  <button type="button" className="btn btn-secondary btn-sm" onClick={onTestEmail}>
+                    📧 Envoyer Email de Test
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
+          <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end', marginTop: 24 }}>
             <button type="button" className="btn btn-secondary" onClick={onClose}>Annuler</button>
             <button type="submit" className="btn btn-primary" id="btn-save-config">
               💾 Enregistrer

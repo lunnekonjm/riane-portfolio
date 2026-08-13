@@ -170,6 +170,7 @@ export default function HomePage() {
   const [notificationSettings, setNotificationSettings] = useState<NotificationSettings>(DEFAULT_NOTIFICATION_SETTINGS);
   const [readNotificationIds, setReadNotificationIds] = useState<string[]>([]);
   const [clearedNotificationIds, setClearedNotificationIds] = useState<string[]>([]);
+  const [mockNotifications, setMockNotifications] = useState<AppNotification[]>([]);
   const [activeProxyModalAsset, setActiveProxyModalAsset] = useState<any | null>(null);
 
   const [flowRebalanceResult, setFlowRebalanceResult] = useState<FlowRebalanceResult | null>(null);
@@ -389,10 +390,11 @@ export default function HomePage() {
   }, [positions, fxRates, notificationSettings, config?.monthlyBudget, investorProfile]);
 
   const notifications = useMemo(() => {
-    return rawNotifications
+    return [...rawNotifications, ...mockNotifications]
       .filter((n) => !clearedNotificationIds.includes(n.id))
-      .map((n) => ({ ...n, read: n.read || readNotificationIds.includes(n.id) }));
-  }, [rawNotifications, readNotificationIds, clearedNotificationIds]);
+      .map((n) => ({ ...n, read: n.read || readNotificationIds.includes(n.id) }))
+      .sort((a, b) => b.timestamp - a.timestamp);
+  }, [rawNotifications, mockNotifications, readNotificationIds, clearedNotificationIds]);
 
   const unreadNotificationsCount = notifications.filter((n) => !n.read).length;
 
@@ -440,6 +442,38 @@ export default function HomePage() {
   const showToast = (message: string, type: 'success' | 'error' = 'success') => {
     const cleanMessage = message.replace(/^[✅❌]\s*/, '');
     setToast({ message: cleanMessage, type });
+  };
+
+  const handleTestNotification = () => {
+    setMockNotifications((prev) => [
+      {
+        id: `test-notif-${Date.now()}`,
+        category: 'dca',
+        title: '🧪 Test de Notification DCA',
+        message: 'Ceci est une notification générée manuellement pour vérifier l\'interface utilisateur. Si vous voyez ce message, le système de notification est parfaitement fonctionnel.',
+        actionHint: 'Aucune action requise.',
+        timestamp: Date.now(),
+        read: false,
+        priority: 'high',
+      },
+      ...prev,
+    ]);
+    showToast('Notification de test générée');
+  };
+
+  const handleTestEmail = async () => {
+    showToast('Envoi de l\'email de test en cours...');
+    try {
+      const res = await fetch('/api/test-email', { method: 'POST' });
+      const data = await res.json();
+      if (res.ok) {
+        showToast('Email de test envoyé avec succès !');
+      } else {
+        showToast(data.error || 'Erreur lors de l\'envoi de l\'email', 'error');
+      }
+    } catch (err) {
+      showToast('Erreur de connexion', 'error');
+    }
   };
 
   const handleSavePosition = async (pos: Position) => {
@@ -2420,6 +2454,8 @@ export default function HomePage() {
           onSave={handleSaveConfig}
           onSyncProfile={updateInvestorProfile}
           onClose={() => setShowConfigEditor(false)}
+          onTestNotification={handleTestNotification}
+          onTestEmail={handleTestEmail}
         />
       )}
 

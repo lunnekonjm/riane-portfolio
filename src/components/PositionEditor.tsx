@@ -1061,41 +1061,39 @@ function autoGenerateThemes(
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 12 }}>
               <div className="form-group">
                 <label className="form-label" style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.4px' }}>Fréquence</label>
-                <select
-                  className="input"
-                  style={{ fontSize: 13, padding: '8px 10px' }}
+                <CustomSelect
                   value={form.dcaFrequency || 'monthly'}
-                  onChange={(e) => handleChange('dcaFrequency', e.target.value)}
-                >
-                  <option value="monthly">Mensuel</option>
-                  <option value="quarterly">Trimestriel</option>
-                  <option value="semestrial">Semestriel</option>
-                  <option value="annual">Annuel</option>
-                </select>
+                  options={[
+                    { label: 'Mensuel', value: 'monthly' },
+                    { label: 'Trimestriel', value: 'quarterly' },
+                    { label: 'Semestriel', value: 'semestrial' },
+                    { label: 'Annuel', value: 'annual' },
+                  ]}
+                  onChange={(val) => handleChange('dcaFrequency', val as string)}
+                />
               </div>
               
               {(form.dcaFrequency === 'annual' || form.dcaFrequency === 'quarterly' || form.dcaFrequency === 'semestrial') && (
                 <div className="form-group">
                   <label className="form-label" style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.4px' }}>Mois (cible)</label>
-                  <select
-                    className="input"
-                    style={{ fontSize: 13, padding: '8px 10px' }}
-                    value={form.dcaDepositMonth || 1}
-                    onChange={(e) => handleChange('dcaDepositMonth', parseInt(e.target.value))}
-                  >
-                    <option value={1}>Janvier</option>
-                    <option value={2}>Février</option>
-                    <option value={3}>Mars</option>
-                    <option value={4}>Avril</option>
-                    <option value={5}>Mai</option>
-                    <option value={6}>Juin</option>
-                    <option value={7}>Juillet</option>
-                    <option value={8}>Août</option>
-                    <option value={9}>Septembre</option>
-                    <option value={10}>Octobre</option>
-                    <option value={11}>Novembre</option>
-                    <option value={12}>Décembre</option>
-                  </select>
+                  <CustomSelect
+                    value={(form.dcaDepositMonth || 1).toString()}
+                    options={[
+                      { label: 'Janvier', value: '1' },
+                      { label: 'Février', value: '2' },
+                      { label: 'Mars', value: '3' },
+                      { label: 'Avril', value: '4' },
+                      { label: 'Mai', value: '5' },
+                      { label: 'Juin', value: '6' },
+                      { label: 'Juillet', value: '7' },
+                      { label: 'Août', value: '8' },
+                      { label: 'Septembre', value: '9' },
+                      { label: 'Octobre', value: '10' },
+                      { label: 'Novembre', value: '11' },
+                      { label: 'Décembre', value: '12' },
+                    ]}
+                    onChange={(val) => handleChange('dcaDepositMonth', parseInt(val as string))}
+                  />
                 </div>
               )}
               

@@ -106,7 +106,9 @@ export async function GET(request: NextRequest) {
 
     const baseUrl =
       process.env.APP_BASE_URL ||
-      (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000');
+      (process.env.NODE_ENV === 'production'
+        ? 'https://riane-portfolio-one.vercel.app'
+        : (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000'));
 
     const results: { period: ReportPeriod; ok: boolean; error?: string }[] = [];
 

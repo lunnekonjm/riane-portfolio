@@ -260,18 +260,21 @@ export default function HomePage() {
 
       if (gain > 0) {
         if (p.envelope === 'PEA' || p.envelope === 'PEA-PME') {
-          const rate = peaSeniority === 'over5' ? 0.172 : 0.30;
+          // 2026 tax reform: 18.6% social contributions
+          const rate = peaSeniority === 'over5' ? 0.186 : 0.314;
           const tax = gain * rate;
           peaTax += tax;
           totalEstimatedTax += tax;
         } else if (p.envelope === 'CTO' || p.envelope === 'SPECULATIVE' || p.envelope === 'OPPORTUNISTIC') {
-          const tax = gain * 0.30;
+          // 2026 tax reform: 31.4% PFU
+          const tax = gain * 0.314;
           ctoTax += tax;
           totalEstimatedTax += tax;
         } else if (!isMarket) {
           const metaKey = p.name.toUpperCase().includes('LEP') ? 'LEP' : p.envelope;
           const metadata = REGULATED_SAVINGS_METADATA[metaKey] || { taxFree: true };
           if (!metadata.taxFree) {
+            // Assurance-Vie, SCPI, etc. (Some were spared by the 2026 reform and stayed at 30%)
             const tax = gain * 0.30;
             totalEstimatedTax += tax;
           }
@@ -2757,7 +2760,7 @@ export default function HomePage() {
                 {netLiquidationDetails.totalNetValue.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
               </div>
               <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-                Après déduction de la fiscalité (PEA &amp; CTO)
+                Après déduction de la fiscalité (PFU 31.4% et Prélèvements Sociaux)
               </span>
             </div>
 

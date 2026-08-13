@@ -932,34 +932,34 @@ export default function HomePage() {
                     <div className="grid-4">
                       <div className="card" data-tooltip="Valeur marchande globale de votre patrimoine convertie en €">
                         <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                          <span className="card-title" style={{ textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                          <span className="card-title" style={{ textTransform: 'uppercase', letterSpacing: '0.5px', fontSize: 13, fontWeight: 700 }}>
                             {adjustInflation ? 'Valeur Réelle (Ajustée)' : 'Valeur Totale'}
                           </span>
-                          <span style={{ padding: '2px 8px', borderRadius: 12, border: '1px solid var(--accent-emerald)', background: 'rgba(16, 185, 129, 0.1)', color: 'var(--accent-emerald)', fontSize: 10, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                          <span style={{ padding: '3px 10px', borderRadius: 12, border: '1px solid var(--accent-emerald)', background: 'rgba(16, 185, 129, 0.12)', color: 'var(--accent-emerald)', fontSize: 11, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                             <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--accent-emerald)' }}></span> RÉEL
                           </span>
                         </div>
-                        <div className="card-value" style={{ color: displayTotalValue > 0 ? 'var(--accent-cyan)' : 'var(--text-muted)' }}>
+                        <div className="card-value" style={{ color: displayTotalValue > 0 ? 'var(--accent-cyan)' : 'var(--text-muted)', fontSize: 28, fontWeight: 800 }}>
                           {displayTotalValue > 0
                             ? displayTotalValue.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })
                             : '—'}
                         </div>
                         {displayTotalValue > 0 && (
-                          <div style={{ marginTop: 6, position: 'relative' }}>
+                          <div style={{ marginTop: 8, position: 'relative' }}>
                             <button
                               type="button"
                               className="btn btn-secondary btn-sm"
                               style={{
-                                fontSize: 10,
-                                padding: '3px 8px',
-                                borderRadius: 6,
-                                background: 'rgba(59, 130, 246, 0.12)',
+                                fontSize: 12,
+                                padding: '5px 10px',
+                                borderRadius: 8,
+                                background: 'rgba(59, 130, 246, 0.15)',
                                 color: 'var(--accent-blue)',
-                                border: '1px solid rgba(59, 130, 246, 0.3)',
+                                border: '1px solid rgba(59, 130, 246, 0.35)',
                                 fontWeight: 600,
                                 display: 'inline-flex',
                                 alignItems: 'center',
-                                gap: 5,
+                                gap: 6,
                               }}
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -967,74 +967,76 @@ export default function HomePage() {
                               }}
                             >
                               <span>📊 Répartition des Enveloppes</span>
-                              <span style={{ fontSize: 9 }}>{showTotalValueDropdown ? '▴' : '▾'}</span>
+                              <span style={{ fontSize: 11 }}>{showTotalValueDropdown ? '▲' : '▼'}</span>
                             </button>
                             {showTotalValueDropdown && (
-                              <div className="dca-dropdown" style={{ position: 'absolute', top: '100%', left: 0, marginTop: 4, zIndex: 10, minWidth: 260, background: 'var(--bg-secondary)', border: '1px solid var(--border-medium)', borderRadius: 8, padding: 12, boxShadow: '0 4px 12px rgba(0, 0, 0, 0.5)' }}>
-                                <div style={{ fontSize: 11, fontWeight: 700, color: 'white', marginBottom: 8, borderBottom: '1px solid var(--border-subtle)', paddingBottom: 4 }}>
+                              <div className="dca-dropdown" style={{ position: 'absolute', top: '100%', left: 0, marginTop: 4, zIndex: 10, minWidth: 280, background: 'var(--bg-secondary)', border: '1px solid var(--border-medium)', borderRadius: 10, padding: 14, boxShadow: '0 8px 24px rgba(0, 0, 0, 0.6)' }}>
+                                <div style={{ fontSize: 13, fontWeight: 700, color: 'white', marginBottom: 10, borderBottom: '1px solid var(--border-subtle)', paddingBottom: 6 }}>
                                   Répartition de la Valeur Totale
                                 </div>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4, fontSize: 12 }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6, fontSize: 13 }}>
                                   <span style={{ color: 'var(--text-secondary)' }}>📈 Bourse &amp; Cryptos</span>
-                                  <span style={{ color: 'var(--accent-cyan)' }}>{displayMarketVal.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} €</span>
+                                  <strong style={{ color: 'var(--accent-cyan)' }}>{displayMarketVal.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} €</strong>
                                 </div>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4, fontSize: 12 }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6, fontSize: 13 }}>
                                   <span style={{ color: 'var(--text-secondary)' }}>🛡️ Épargne &amp; Immo</span>
-                                  <span style={{ color: 'var(--accent-emerald)' }}>{displaySavingsVal.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} €</span>
+                                  <strong style={{ color: 'var(--accent-emerald)' }}>{displaySavingsVal.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} €</strong>
                                 </div>
                               </div>
                             )}
                           </div>
                         )}
-                        {displayTotalValue === 0 && <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>À renseigner</span>}
+                        {displayTotalValue === 0 && <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>À renseigner</span>}
                         
                         {(positions.length - filledPositions.length) > 0 && (
-                          <div style={{ background: 'rgba(245, 158, 11, 0.05)', border: '1px dashed var(--accent-amber)', borderRadius: 6, padding: '8px 12px', fontSize: 11, color: 'var(--text-secondary)', marginTop: 12 }}>
-                            <span style={{ color: 'var(--accent-amber)', fontWeight: 600 }}>{(positions.length - filledPositions.length)} position{(positions.length - filledPositions.length) > 1 ? 's' : ''}</span> sans prix ni PRU renseigné est provisoirement valorisée à titre indicatif — elle ne compte pas dans les totaux tant qu&apos;elle n&apos;est pas complétée.<br/>
-                            <a href="#" onClick={(e) => { e.preventDefault(); window.scrollTo({ top: 500, behavior: 'smooth' }); }} style={{ color: 'var(--accent-amber)', textDecoration: 'underline', marginTop: 4, display: 'inline-block' }}>Compléter maintenant</a>
+                          <div style={{ background: 'rgba(245, 158, 11, 0.08)', border: '1px dashed var(--accent-amber)', borderRadius: 8, padding: '10px 14px', fontSize: 12, color: 'var(--text-secondary)', marginTop: 12, lineHeight: 1.4 }}>
+                            <span style={{ color: 'var(--accent-amber)', fontWeight: 700 }}>{(positions.length - filledPositions.length)} position{(positions.length - filledPositions.length) > 1 ? 's' : ''}</span> sans prix ni PRU renseigné est provisoirement valorisée à titre indicatif.<br/>
+                            <a href="#" onClick={(e) => { e.preventDefault(); window.scrollTo({ top: 500, behavior: 'smooth' }); }} style={{ color: 'var(--accent-cyan)', textDecoration: 'underline', marginTop: 4, display: 'inline-block', fontWeight: 600 }}>Compléter maintenant →</a>
                           </div>
                         )}
-                        <span style={{ fontSize: 11, color: 'var(--accent-amber)', display: 'block', marginTop: 12, fontWeight: 600 }}>{filledPositions.length}/{positions.length} positions renseignées</span>
+                        <span style={{ fontSize: 13, color: 'var(--accent-cyan)', display: 'block', marginTop: 12, fontWeight: 700 }}>
+                          ✓ {filledPositions.length}/{positions.length} positions renseignées
+                        </span>
                       </div>
                       <div className="card" data-tooltip="Total des capitaux réellement investis (somme des PRU)">
                         <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                          <span className="card-title" style={{ textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                          <span className="card-title" style={{ textTransform: 'uppercase', letterSpacing: '0.5px', fontSize: 13, fontWeight: 700 }}>
                             {adjustInflation ? 'Coût Total Réel' : 'Coût Total (PRU)'}
                           </span>
-                          <span style={{ padding: '2px 8px', borderRadius: 12, border: '1px solid var(--accent-emerald)', background: 'rgba(16, 185, 129, 0.1)', color: 'var(--accent-emerald)', fontSize: 10, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                          <span style={{ padding: '3px 10px', borderRadius: 12, border: '1px solid var(--accent-emerald)', background: 'rgba(16, 185, 129, 0.12)', color: 'var(--accent-emerald)', fontSize: 11, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                             <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--accent-emerald)' }}></span> RÉEL
                           </span>
                           <button
                             type="button"
                             className="btn btn-ghost btn-sm"
-                            style={{ padding: '0 4px', fontSize: 12, color: 'var(--accent-cyan)' }}
+                            style={{ padding: '2px 8px', fontSize: 13, color: 'var(--accent-cyan)', fontWeight: 600 }}
                             onClick={() => openGlossary('PRU')}
                             data-tooltip="Définition et calcul du PRU"
                           >
                             💡 PRU
                           </button>
                         </div>
-                        <div className="card-value">
+                        <div className="card-value" style={{ fontSize: 28, fontWeight: 800 }}>
                           {displayTotalCost > 0
                             ? displayTotalCost.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })
                             : '—'}
                         </div>
                         {displayTotalCost > 0 && (
-                          <div style={{ marginTop: 6, position: 'relative' }}>
+                          <div style={{ marginTop: 8, position: 'relative' }}>
                             <button
                               type="button"
                               className="btn btn-secondary btn-sm"
                               style={{
-                                fontSize: 10,
-                                padding: '3px 8px',
-                                borderRadius: 6,
-                                background: 'rgba(59, 130, 246, 0.12)',
+                                fontSize: 12,
+                                padding: '5px 10px',
+                                borderRadius: 8,
+                                background: 'rgba(59, 130, 246, 0.15)',
                                 color: 'var(--accent-blue)',
-                                border: '1px solid rgba(59, 130, 246, 0.3)',
+                                border: '1px solid rgba(59, 130, 246, 0.35)',
                                 fontWeight: 600,
                                 display: 'inline-flex',
                                 alignItems: 'center',
-                                gap: 5,
+                                gap: 6,
                               }}
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -1042,85 +1044,85 @@ export default function HomePage() {
                               }}
                             >
                               <span>📊 Détail des Apports</span>
-                              <span style={{ fontSize: 9 }}>{showTotalCostDropdown ? '▴' : '▾'}</span>
+                              <span style={{ fontSize: 11 }}>{showTotalCostDropdown ? '▲' : '▼'}</span>
                             </button>
                             {showTotalCostDropdown && (
-                              <div className="dca-dropdown" style={{ position: 'absolute', top: '100%', left: 0, marginTop: 4, zIndex: 10, minWidth: 260, background: 'var(--bg-secondary)', border: '1px solid var(--border-medium)', borderRadius: 8, padding: 12, boxShadow: '0 4px 12px rgba(0, 0, 0, 0.5)' }}>
-                                <div style={{ fontSize: 11, fontWeight: 700, color: 'white', marginBottom: 8, borderBottom: '1px solid var(--border-subtle)', paddingBottom: 4 }}>
+                              <div className="dca-dropdown" style={{ position: 'absolute', top: '100%', left: 0, marginTop: 4, zIndex: 10, minWidth: 280, background: 'var(--bg-secondary)', border: '1px solid var(--border-medium)', borderRadius: 10, padding: 14, boxShadow: '0 8px 24px rgba(0, 0, 0, 0.6)' }}>
+                                <div style={{ fontSize: 13, fontWeight: 700, color: 'white', marginBottom: 10, borderBottom: '1px solid var(--border-subtle)', paddingBottom: 6 }}>
                                   Apports Investis (PRU)
                                 </div>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4, fontSize: 12 }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6, fontSize: 13 }}>
                                   <span style={{ color: 'var(--text-secondary)' }}>📈 Bourse &amp; Cryptos</span>
-                                  <span style={{ color: 'var(--text-primary)' }}>{displayMarketCostVal.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} €</span>
+                                  <strong style={{ color: 'var(--text-primary)' }}>{displayMarketCostVal.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} €</strong>
                                 </div>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4, fontSize: 12 }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6, fontSize: 13 }}>
                                   <span style={{ color: 'var(--text-secondary)' }}>🛡️ Épargne &amp; Immo</span>
-                                  <span style={{ color: 'var(--text-primary)' }}>{displaySavingsCostVal.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} €</span>
+                                  <strong style={{ color: 'var(--text-primary)' }}>{displaySavingsCostVal.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} €</strong>
                                 </div>
                               </div>
                             )}
                           </div>
                         )}
-                        {displayTotalCost === 0 && <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Entrez vos PRU réels</span>}
+                        {displayTotalCost === 0 && <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>Entrez vos PRU réels</span>}
                       </div>
                       <div className="card" data-tooltip="Plus ou moins-value latente et valeur nette de liquidation après impôts">
                         <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                          <span className="card-title" style={{ textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                          <span className="card-title" style={{ textTransform: 'uppercase', letterSpacing: '0.5px', fontSize: 13, fontWeight: 700 }}>
                             {adjustInflation ? 'Plus/Moins-Value Réelle' : 'Plus / Moins-Value'}
                           </span>
-                          <span style={{ padding: '2px 8px', borderRadius: 12, border: '1px solid var(--accent-emerald)', background: 'rgba(16, 185, 129, 0.1)', color: 'var(--accent-emerald)', fontSize: 10, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                          <span style={{ padding: '3px 10px', borderRadius: 12, border: '1px solid var(--accent-emerald)', background: 'rgba(16, 185, 129, 0.12)', color: 'var(--accent-emerald)', fontSize: 11, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                             <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--accent-emerald)' }}></span> RÉEL
                           </span>
                         </div>
                         {displayTotalCost > 0 ? (
                           <>
                             <div style={{ display: 'flex', alignItems: 'baseline', gap: 12 }}>
-                              <div className={`card-value ${displayGainLoss >= 0 ? 'stat-gain' : 'stat-loss'}`}>
+                              <div className={`card-value ${displayGainLoss >= 0 ? 'stat-gain' : 'stat-loss'}`} style={{ fontSize: 28, fontWeight: 800 }}>
                                 {displayGainLoss >= 0 ? '+' : ''}{displayGainLoss.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
                               </div>
-                              <span className={`stat-change ${displayGainLoss >= 0 ? 'positive' : 'negative'}`} style={{ fontSize: 12 }}>
+                              <span className={`stat-change ${displayGainLoss >= 0 ? 'positive' : 'negative'}`} style={{ fontSize: 13, fontWeight: 700 }}>
                                 {displayGainLossPercent >= 0 ? '↑' : '↓'} {Math.abs(displayGainLossPercent).toFixed(2)}%
                               </span>
                             </div>
                             
-                            <div style={{ marginTop: 16 }}>
-                              <span style={{ fontSize: 11, color: 'var(--text-secondary)', display: 'block', marginBottom: 6 }}>Net Retrait</span>
-                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div style={{ marginTop: 14 }}>
+                              <span style={{ fontSize: 13, color: 'var(--text-secondary)', display: 'block', marginBottom: 6, fontWeight: 600 }}>Net Retrait</span>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 6 }}>
                                 <button
                                   type="button"
                                   className="btn btn-secondary btn-sm"
                                   onClick={() => setShowNetDetailsModal(true)}
                                   style={{
-                                    fontSize: 10, padding: '4px 8px', borderRadius: 12,
-                                    background: 'rgba(59, 130, 246, 0.1)', color: 'var(--text-secondary)',
-                                    border: '1px solid rgba(59, 130, 246, 0.2)', fontWeight: 500,
+                                    fontSize: 12, padding: '6px 10px', borderRadius: 8,
+                                    background: 'rgba(59, 130, 246, 0.12)', color: 'var(--text-secondary)',
+                                    border: '1px solid rgba(59, 130, 246, 0.3)', fontWeight: 600,
                                     display: 'flex', alignItems: 'center', gap: 6
                                   }}
                                 >
                                   <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--accent-blue)' }}></span>
-                                  PEA {peaSeniority === 'over5' ? '> 5 ans' : '< 5 ans'} · charges sociales {peaSeniority === 'over5' ? '18,6 %' : '31,4 %'} ⓘ
+                                  PEA {peaSeniority === 'over5' ? '> 5 ans' : '< 5 ans'} · charges {peaSeniority === 'over5' ? '18,6 %' : '31,4 %'} ⓘ
                                 </button>
-                                <span style={{ fontSize: 16, fontWeight: 700, color: 'var(--accent-emerald)' }}>
+                                <span style={{ fontSize: 18, fontWeight: 800, color: 'var(--accent-emerald)' }}>
                                   {(netLiquidationDetails.totalNetValue / cumulativeInflationFactor).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
                                 </span>
                               </div>
                             </div>
                             
-                            <div style={{ marginTop: 12, position: 'relative' }}>
+                            <div style={{ marginTop: 10, position: 'relative' }}>
                               <button
                                 type="button"
                                 className="btn btn-secondary btn-sm"
                                 style={{
-                                  fontSize: 10,
-                                  padding: '3px 8px',
-                                  borderRadius: 6,
-                                  background: 'rgba(16, 185, 129, 0.12)',
+                                  fontSize: 12,
+                                  padding: '5px 10px',
+                                  borderRadius: 8,
+                                  background: 'rgba(16, 185, 129, 0.15)',
                                   color: 'var(--accent-emerald)',
-                                  border: '1px solid rgba(16, 185, 129, 0.3)',
+                                  border: '1px solid rgba(16, 185, 129, 0.35)',
                                   fontWeight: 600,
                                   display: 'inline-flex',
                                   alignItems: 'center',
-                                  gap: 5,
+                                  gap: 6,
                                 }}
                                 onClick={(e) => {
                                   e.stopPropagation();
@@ -1128,20 +1130,20 @@ export default function HomePage() {
                                 }}
                               >
                                 <span>📊 Ventilation des Gains</span>
-                                <span style={{ fontSize: 9 }}>{showGainLossDropdown ? '▴' : '▾'}</span>
+                                <span style={{ fontSize: 11 }}>{showGainLossDropdown ? '▲' : '▼'}</span>
                               </button>
                               {showGainLossDropdown && (
-                                <div className="dca-dropdown" style={{ position: 'absolute', top: '100%', left: 0, marginTop: 4, zIndex: 10, minWidth: 260, background: 'var(--bg-secondary)', border: '1px solid var(--border-medium)', borderRadius: 8, padding: 12, boxShadow: '0 4px 12px rgba(0, 0, 0, 0.5)' }}>
-                                  <div style={{ fontSize: 11, fontWeight: 700, color: 'white', marginBottom: 8, borderBottom: '1px solid var(--border-subtle)', paddingBottom: 4 }}>
+                                <div className="dca-dropdown" style={{ position: 'absolute', top: '100%', left: 0, marginTop: 4, zIndex: 10, minWidth: 280, background: 'var(--bg-secondary)', border: '1px solid var(--border-medium)', borderRadius: 10, padding: 14, boxShadow: '0 8px 24px rgba(0, 0, 0, 0.6)' }}>
+                                  <div style={{ fontSize: 13, fontWeight: 700, color: 'white', marginBottom: 10, borderBottom: '1px solid var(--border-subtle)', paddingBottom: 6 }}>
                                     Plus-Values &amp; Intérêts Latents
                                   </div>
-                                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4, fontSize: 12 }}>
+                                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6, fontSize: 13 }}>
                                     <span style={{ color: 'var(--text-secondary)' }}>📈 Bourse &amp; Cryptos</span>
-                                    <span style={{ color: displayMarketGain >= 0 ? 'var(--accent-emerald)' : 'var(--accent-rose)' }}>{displayMarketGain >= 0 ? '+' : ''}{displayMarketGain.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} €</span>
+                                    <strong style={{ color: displayMarketGain >= 0 ? 'var(--accent-emerald)' : 'var(--accent-rose)' }}>{displayMarketGain >= 0 ? '+' : ''}{displayMarketGain.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} €</strong>
                                   </div>
-                                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4, fontSize: 12 }}>
+                                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6, fontSize: 13 }}>
                                     <span style={{ color: 'var(--text-secondary)' }}>🛡️ Intérêts d&apos;Épargne</span>
-                                    <span style={{ color: displaySavingsGain >= 0 ? 'var(--accent-emerald)' : 'var(--accent-rose)' }}>{displaySavingsGain >= 0 ? '+' : ''}{displaySavingsGain.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} €</span>
+                                    <strong style={{ color: displaySavingsGain >= 0 ? 'var(--accent-emerald)' : 'var(--accent-rose)' }}>{displaySavingsGain >= 0 ? '+' : ''}{displaySavingsGain.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} €</strong>
                                   </div>
                                 </div>
                               )}
@@ -1150,16 +1152,16 @@ export default function HomePage() {
                         ) : (
                           <>
                             <div className="card-value" style={{ color: 'var(--text-muted)' }}>—</div>
-                            <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Calculé depuis vos PRU</span>
+                            <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>Calculé depuis vos PRU</span>
                           </>
                         )}
                       </div>
                       <div className="card" style={{ cursor: 'pointer', position: 'relative' }} onClick={() => setShowConfigEditor(true)} data-tooltip="Somme totale de vos versements d'accumulation">
                         <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
                           <div>
-                            <span className="card-title" style={{ textTransform: 'uppercase', letterSpacing: '0.5px' }}>DCA &amp; Épargne</span>
+                            <span className="card-title" style={{ textTransform: 'uppercase', letterSpacing: '0.5px', fontSize: 13, fontWeight: 700 }}>DCA &amp; Épargne</span>
                             <div style={{ marginTop: 4 }}>
-                              <span style={{ padding: '2px 8px', borderRadius: 12, border: '1px solid var(--accent-emerald)', background: 'rgba(16, 185, 129, 0.1)', color: 'var(--accent-emerald)', fontSize: 10, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                              <span style={{ padding: '3px 10px', borderRadius: 12, border: '1px solid var(--accent-emerald)', background: 'rgba(16, 185, 129, 0.12)', color: 'var(--accent-emerald)', fontSize: 11, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                                 <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--accent-emerald)' }}></span> RÉEL
                               </span>
                             </div>
@@ -1168,7 +1170,7 @@ export default function HomePage() {
                             <button
                               type="button"
                               className="btn btn-ghost btn-sm"
-                              style={{ padding: '0 4px', fontSize: 12, color: 'var(--accent-cyan)' }}
+                              style={{ padding: '2px 8px', fontSize: 13, color: 'var(--accent-cyan)', fontWeight: 600 }}
                               onClick={(e) => {
                                 e.stopPropagation();
                                 openGlossary('DCA');
@@ -1177,21 +1179,21 @@ export default function HomePage() {
                             >
                               💡 DCA
                             </button>
-                            <span style={{ fontSize: 14, color: 'var(--text-muted)' }}>⚙️</span>
+                            <span style={{ fontSize: 16, color: 'var(--text-muted)' }}>⚙️</span>
                           </div>
                         </div>
 
-                        <div className="card-value" style={{ color: dcaBreakdown.monthlyEquivalent > 0 ? 'var(--accent-emerald)' : 'var(--text-muted)', display: 'flex', alignItems: 'baseline', gap: 6, flexWrap: 'wrap' }}>
+                        <div className="card-value" style={{ color: dcaBreakdown.monthlyEquivalent > 0 ? 'var(--accent-emerald)' : 'var(--text-muted)', display: 'flex', alignItems: 'baseline', gap: 6, flexWrap: 'wrap', fontSize: 28, fontWeight: 800 }}>
                           <span>
                             {dcaBreakdown.monthlyEquivalent > 0
                               ? (dcaBreakdown.monthlyEquivalent / cumulativeInflationFactor).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })
                               : '0,00 €'}
                           </span>
-                          <span style={{ fontSize: 14, color: 'var(--text-secondary)', fontWeight: 500 }}>
+                          <span style={{ fontSize: 15, color: 'var(--text-secondary)', fontWeight: 600 }}>
                             {dcaBreakdown.monthlyEquivalent > 0 ? '/mois (lissés)' : ''}
                           </span>
                         </div>
-                        <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 8, marginBottom: 12 }}>
+                        <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 8, marginBottom: 12, lineHeight: 1.4 }}>
                           Moyenne annualisée de vos versements programmés — pas un flux mensuel littéral.
                         </div>
 
@@ -1202,16 +1204,16 @@ export default function HomePage() {
                               type="button"
                               className="btn btn-secondary btn-sm"
                               style={{
-                                fontSize: 10,
-                                padding: '3px 8px',
-                                borderRadius: 6,
-                                background: 'rgba(6, 182, 212, 0.12)',
+                                fontSize: 12,
+                                padding: '5px 10px',
+                                borderRadius: 8,
+                                background: 'rgba(6, 182, 212, 0.15)',
                                 color: 'var(--accent-cyan)',
-                                border: '1px solid rgba(6, 182, 212, 0.3)',
+                                border: '1px solid rgba(6, 182, 212, 0.35)',
                                 fontWeight: 600,
                                 display: 'inline-flex',
                                 alignItems: 'center',
-                                gap: 5,
+                                gap: 6,
                               }}
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -1219,10 +1221,10 @@ export default function HomePage() {
                               }}
                             >
                               <span>📊 Détail des Fréquences ({dcaBreakdown.activeFrequenciesCount})</span>
-                              <span style={{ fontSize: 9 }}>{showDcaFrequencyDropdown ? '▴' : '▾'}</span>
+                              <span style={{ fontSize: 11 }}>{showDcaFrequencyDropdown ? '▲' : '▼'}</span>
                             </button>
                           ) : (
-                            <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                            <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>
                               ✍️ Définissez le DCA par position
                             </span>
                           )}
@@ -1235,23 +1237,23 @@ export default function HomePage() {
                                 position: 'absolute',
                                 top: '120%',
                                 left: 0,
-                                minWidth: 240,
+                                minWidth: 280,
                                 background: 'rgba(15, 23, 42, 0.98)',
                                 border: '1px solid var(--accent-cyan)',
-                                borderRadius: 10,
-                                padding: 12,
-                                boxShadow: '0 10px 25px rgba(0, 0, 0, 0.6)',
+                                borderRadius: 12,
+                                padding: 14,
+                                boxShadow: '0 10px 28px rgba(0, 0, 0, 0.7)',
                                 backdropFilter: 'blur(16px)',
                                 zIndex: 100,
-                                fontSize: 11,
+                                fontSize: 13,
                                 display: 'flex',
                                 flexDirection: 'column',
-                                gap: 6,
+                                gap: 8,
                               }}
                             >
-                              <div style={{ fontWeight: 700, color: 'white', borderBottom: '1px solid var(--border-subtle)', paddingBottom: 4, marginBottom: 2, display: 'flex', justifyContent: 'space-between' }}>
+                              <div style={{ fontWeight: 700, color: 'white', borderBottom: '1px solid var(--border-subtle)', paddingBottom: 6, marginBottom: 4, display: 'flex', justifyContent: 'space-between' }}>
                                 <span>Ventilation des Versements</span>
-                                <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>{positions.length} positions</span>
+                                <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{positions.length} positions</span>
                               </div>
 
                               {dcaBreakdown.monthlyCount > 0 && (
@@ -1282,9 +1284,9 @@ export default function HomePage() {
                                 </div>
                               )}
 
-                              <div style={{ borderTop: '1px dashed var(--border-subtle)', paddingTop: 6, marginTop: 2, display: 'flex', justifyContent: 'space-between', fontWeight: 700, color: 'white' }}>
+                              <div style={{ borderTop: '1px dashed var(--border-subtle)', paddingTop: 8, marginTop: 4, display: 'flex', justifyContent: 'space-between', fontWeight: 700, color: 'white' }}>
                                 <span>💰 Cumul Annuel Global</span>
-                                <span style={{ color: 'var(--accent-emerald)' }}>{dcaBreakdown.totalAnnualCumulative.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} € / an</span>
+                                <span style={{ color: 'var(--accent-emerald)', fontSize: 14 }}>{dcaBreakdown.totalAnnualCumulative.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} € / an</span>
                               </div>
                             </div>
                           )}
@@ -1295,77 +1297,77 @@ export default function HomePage() {
                     {/* 360° Wealth Breakdown Sub-Cards: Bourse vs Hors-Bourse */}
                     {(() => {
                       return (
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 12, marginTop: 12, marginBottom: 16 }}>
-                          <div className="card" style={{ borderLeft: '4px solid var(--accent-cyan)', background: 'linear-gradient(135deg, rgba(6, 182, 212, 0.08) 0%, rgba(15, 23, 42, 0.7) 100%)', padding: 14 }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 14, marginTop: 14, marginBottom: 18 }}>
+                          <div className="card" style={{ borderLeft: '4px solid var(--accent-cyan)', background: 'linear-gradient(135deg, rgba(6, 182, 212, 0.08) 0%, rgba(15, 23, 42, 0.7) 100%)', padding: 16 }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
                               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                <span style={{ fontSize: 18 }}>📈</span>
-                                <strong style={{ fontSize: 14, color: 'var(--text-primary)' }}>Portefeuille Boursier &amp; Cryptos</strong>
+                                <span style={{ fontSize: 20 }}>📈</span>
+                                <strong style={{ fontSize: 15, color: 'var(--text-primary)' }}>Portefeuille Boursier &amp; Cryptos</strong>
                               </div>
-                              <span className="badge" style={{ fontSize: 11, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: 'var(--text-secondary)' }}>{marketPos.length} positions</span>
+                              <span className="badge" style={{ fontSize: 12, padding: '3px 8px', background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', color: 'var(--text-primary)', fontWeight: 600 }}>{marketPos.length} positions</span>
                             </div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', margin: '4px 0 8px 0' }}>
-                              <span className="mono" style={{ fontSize: 24, fontWeight: 700, color: 'var(--accent-cyan)' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', margin: '6px 0 10px 0' }}>
+                              <span className="mono" style={{ fontSize: 26, fontWeight: 800, color: 'var(--accent-cyan)' }}>
                                 {displayMarketVal.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
                               </span>
                               {displayMarketCostVal > 0 ? (
                                 <div style={{ textAlign: 'right' }}>
-                                  <div style={{ fontSize: 13, color: displayMarketGain >= 0 ? 'var(--accent-emerald)' : 'var(--accent-rose)', fontWeight: 700 }}>
+                                  <div style={{ fontSize: 14, color: displayMarketGain >= 0 ? 'var(--accent-emerald)' : 'var(--accent-rose)', fontWeight: 700 }}>
                                     {displayMarketGain >= 0 ? '+' : ''}{displayMarketGain.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
                                   </div>
-                                  <div style={{ fontSize: 11, color: displayMarketGain >= 0 ? 'var(--accent-emerald)' : 'var(--accent-rose)', fontWeight: 600 }}>
+                                  <div style={{ fontSize: 12, color: displayMarketGain >= 0 ? 'var(--accent-emerald)' : 'var(--accent-rose)', fontWeight: 700 }}>
                                     {displayMarketGainPct >= 0 ? '↑' : '↓'} {Math.abs(displayMarketGainPct).toFixed(2)} %
                                   </div>
                                 </div>
                               ) : (
-                                <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>PEA, CTO, Crypto</span>
+                                <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>PEA, CTO, Crypto</span>
                               )}
                             </div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--text-secondary)', borderTop: '1px dashed var(--border-subtle)', paddingTop: 12, marginTop: 8 }}>
-                              <span>Coût PRU : <strong style={{ color: 'var(--text-primary)' }}>{displayMarketCostVal.toLocaleString('fr-FR')} €</strong></span>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: 'var(--text-secondary)', borderTop: '1px dashed var(--border-subtle)', paddingTop: 12, marginTop: 10 }}>
+                              <span>Coût PRU : <strong style={{ color: 'var(--text-primary)' }}>{displayMarketCostVal.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €</strong></span>
                               <span>DCA Bourse : <strong style={{ color: 'var(--text-primary)' }}>{marketDCAVal.toLocaleString('fr-FR')} €/mois</strong></span>
                             </div>
                           </div>
 
-                          <div className="card" style={{ borderLeft: '4px solid var(--accent-emerald)', background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.08) 0%, rgba(15, 23, 42, 0.7) 100%)', padding: 14 }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                          <div className="card" style={{ borderLeft: '4px solid var(--accent-emerald)', background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.08) 0%, rgba(15, 23, 42, 0.7) 100%)', padding: 16 }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
                               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                <span style={{ fontSize: 18 }}>🛡️</span>
-                                <strong style={{ fontSize: 14, color: 'var(--text-primary)' }}>Épargne &amp; Patrimoine Hors-Bourse</strong>
+                                <span style={{ fontSize: 20 }}>🛡️</span>
+                                <strong style={{ fontSize: 15, color: 'var(--text-primary)' }}>Épargne &amp; Patrimoine Hors-Bourse</strong>
                               </div>
-                              <span className="badge" style={{ fontSize: 11, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: 'var(--text-secondary)' }}>{savingsPos.length} comptes</span>
+                              <span className="badge" style={{ fontSize: 12, padding: '3px 8px', background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', color: 'var(--text-primary)', fontWeight: 600 }}>{savingsPos.length} comptes</span>
                             </div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', margin: '4px 0 8px 0' }}>
-                              <span className="mono" style={{ fontSize: 24, fontWeight: 700, color: 'var(--accent-emerald)' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', margin: '6px 0 10px 0' }}>
+                              <span className="mono" style={{ fontSize: 26, fontWeight: 800, color: 'var(--accent-emerald)' }}>
                                 {displaySavingsVal.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
                               </span>
                             </div>
                             
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 12, marginTop: 12 }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 13, marginTop: 12 }}>
                               <span style={{ color: 'var(--text-secondary)' }}>Intérêts acquis à date</span>
                               <div style={{ textAlign: 'right' }}>
-                                <span style={{ padding: '2px 6px', borderRadius: 12, border: '1px solid var(--accent-emerald)', background: 'rgba(16, 185, 129, 0.1)', color: 'var(--accent-emerald)', fontSize: 9, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4, marginRight: 8, verticalAlign: 'middle' }}>
+                                <span style={{ padding: '3px 8px', borderRadius: 12, border: '1px solid var(--accent-emerald)', background: 'rgba(16, 185, 129, 0.12)', color: 'var(--accent-emerald)', fontSize: 11, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4, marginRight: 8, verticalAlign: 'middle' }}>
                                   <span style={{ width: 4, height: 4, borderRadius: '50%', background: 'var(--accent-emerald)' }}></span> RÉEL
                                 </span>
-                                <strong style={{ color: 'var(--accent-emerald)' }}>+{displaySavingsGain.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}</strong>
+                                <strong style={{ color: 'var(--accent-emerald)', fontSize: 15 }}>+{displaySavingsGain.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}</strong>
                               </div>
                             </div>
                             
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 12, marginTop: 8 }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 13, marginTop: 10 }}>
                               <div style={{ display: 'flex', flexDirection: 'column' }}>
                                 <span style={{ color: 'var(--text-secondary)' }}>Projection sur 12 mois</span>
-                                <span style={{ padding: '2px 6px', borderRadius: 12, border: '1px solid var(--accent-purple)', background: 'rgba(168, 85, 247, 0.1)', color: 'var(--accent-purple)', fontSize: 9, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4, width: 'fit-content', marginTop: 4 }}>
+                                <span style={{ padding: '3px 8px', borderRadius: 12, border: '1px solid var(--accent-purple)', background: 'rgba(168, 85, 247, 0.12)', color: 'var(--accent-purple)', fontSize: 11, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4, width: 'fit-content', marginTop: 4 }}>
                                   <span style={{ width: 4, height: 4, borderRadius: '50%', background: 'var(--accent-purple)' }}></span> PROJETÉ
                                 </span>
                               </div>
                               <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
-                                <strong style={{ color: 'var(--accent-purple)', fontSize: 14 }}>+{displaySavingsAnnualInt.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}</strong>
-                                <span style={{ fontSize: 9, color: 'var(--text-tertiary)', marginTop: 2 }}>si le solde actuel est conservé un an</span>
+                                <strong style={{ color: 'var(--accent-purple)', fontSize: 15 }}>+{displaySavingsAnnualInt.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}</strong>
+                                <span style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>si le solde actuel est conservé un an</span>
                               </div>
                             </div>
                             
-                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--text-secondary)', borderTop: '1px dashed var(--border-subtle)', paddingTop: 12, marginTop: 12 }}>
-                              <span>Apports cumulés : <strong style={{ color: 'var(--text-primary)' }}>{displaySavingsCostVal.toLocaleString('fr-FR')} €</strong></span>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: 'var(--text-secondary)', borderTop: '1px dashed var(--border-subtle)', paddingTop: 12, marginTop: 12 }}>
+                              <span>Apports cumulés : <strong style={{ color: 'var(--text-primary)' }}>{displaySavingsCostVal.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €</strong></span>
                               <span>Épargne DCA : <strong style={{ color: 'var(--text-primary)' }}>{savingsDCAVal.toLocaleString('fr-FR')} €/mois</strong></span>
                             </div>
                           </div>
@@ -1377,10 +1379,11 @@ export default function HomePage() {
               })()}
 
               {/* Quick Analysis Bar */}
-              <div className="card" style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-                <span style={{ fontSize: 20 }}>🔍</span>
+              <div className="card" style={{ display: 'flex', gap: 12, alignItems: 'center', padding: '14px 18px' }}>
+                <span style={{ fontSize: 22 }}>🔍</span>
                 <input
                   className="input"
+                  style={{ fontSize: 14 }}
                   placeholder="Analyse X-FAB dans mon portefeuille... | Compare cet ETF à mon ACWI..."
                   value={queryInput}
                   onChange={(e) => setQueryInput(e.target.value)}
@@ -1388,21 +1391,21 @@ export default function HomePage() {
                   disabled={isRunning}
                   id="quick-analysis-input"
                 />
-                <button className="btn btn-primary" onClick={() => handleRunAnalysis(false)} disabled={isRunning || !queryInput.trim()} id="run-analysis-btn">
+                <button className="btn btn-primary" style={{ fontSize: 14, padding: '10px 20px' }} onClick={() => handleRunAnalysis(false)} disabled={isRunning || !queryInput.trim()} id="run-analysis-btn">
                   {isRunning ? <span className="loading-spinner" /> : 'Analyser'}
                 </button>
               </div>
 
               {/* ⚡ Console de Simulation DCA & Période d'Accumulation */}
-              <div className="card" style={{ borderLeft: '4px solid var(--accent-emerald)', background: 'var(--bg-secondary)', padding: 16 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <span style={{ fontSize: 24 }}>⚡</span>
+              <div className="card" style={{ borderLeft: '4px solid var(--accent-emerald)', background: 'var(--bg-secondary)', padding: 18 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 14 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <span style={{ fontSize: 26 }}>⚡</span>
                     <div>
-                      <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-primary)' }}>
+                      <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--text-primary)' }}>
                         Console d&apos;Accumulation DCA Historique
                       </div>
-                      <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
+                      <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 2 }}>
                         Simulez l&apos;accumulation réelle depuis une date de départ (cours réels Yahoo Finance MAX, reliquats &amp; parts entières).
                       </div>
                     </div>
@@ -1414,7 +1417,7 @@ export default function HomePage() {
                       type="button"
                       className={`btn btn-sm ${dcaGlobalStartDate.startsWith('2025-01') ? 'btn-primary' : 'btn-secondary'}`}
                       onClick={() => handleUpdateDcaStartDate('2025-01-05')}
-                      style={{ fontSize: 12 }}
+                      style={{ fontSize: 13, padding: '6px 12px' }}
                     >
                       1 An (2025)
                     </button>
@@ -1422,7 +1425,7 @@ export default function HomePage() {
                       type="button"
                       className={`btn btn-sm ${dcaGlobalStartDate.startsWith('2023-01') ? 'btn-primary' : 'btn-secondary'}`}
                       onClick={() => handleUpdateDcaStartDate('2023-01-05')}
-                      style={{ fontSize: 12 }}
+                      style={{ fontSize: 13, padding: '6px 12px' }}
                     >
                       3 Ans (2023)
                     </button>
@@ -1430,7 +1433,7 @@ export default function HomePage() {
                       type="button"
                       className={`btn btn-sm ${dcaGlobalStartDate.startsWith('2021-01') ? 'btn-primary' : 'btn-secondary'}`}
                       onClick={() => handleUpdateDcaStartDate('2021-01-05')}
-                      style={{ fontSize: 12 }}
+                      style={{ fontSize: 13, padding: '6px 12px' }}
                     >
                       5 Ans (2021)
                     </button>
@@ -1438,7 +1441,7 @@ export default function HomePage() {
                       type="button"
                       className={`btn btn-sm ${dcaGlobalStartDate.startsWith('2003-01') ? 'btn-primary' : 'btn-secondary'}`}
                       onClick={() => handleUpdateDcaStartDate('2003-01-05')}
-                      style={{ fontSize: 12 }}
+                      style={{ fontSize: 13, padding: '6px 12px' }}
                     >
                       23 Ans (2003)
                     </button>
@@ -1449,7 +1452,7 @@ export default function HomePage() {
                         value={dcaGlobalStartDate}
                         onChange={handleUpdateDcaStartDate}
                       />
-                      <span style={{ fontSize: 12, color: 'var(--accent-cyan)', fontWeight: 600, background: 'rgba(6, 182, 212, 0.1)', padding: '6px 12px', borderRadius: 8, border: '1px solid rgba(6, 182, 212, 0.2)' }}>
+                      <span style={{ fontSize: 13, color: 'var(--accent-cyan)', fontWeight: 600, background: 'rgba(6, 182, 212, 0.12)', padding: '6px 12px', borderRadius: 8, border: '1px solid rgba(6, 182, 212, 0.3)' }}>
                         {formatDCAElapsedTime(dcaGlobalStartDate)}
                       </span>
                     </div>
@@ -3104,6 +3107,97 @@ export default function HomePage() {
           🧪
         </button>
       )}
+      {/* 📱 Mobile Bottom Navigation Bar (Smartphones & Tablets) */}
+      <nav className="mobile-bottom-nav" aria-label="Navigation Mobile">
+        <button
+          type="button"
+          className={`mobile-nav-btn ${currentView === 'dashboard' ? 'active' : ''}`}
+          onClick={() => {
+            setCurrentView('dashboard');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
+          id="mob-nav-dashboard"
+        >
+          <span className="icon">📊</span>
+          <span>Bord</span>
+        </button>
+
+        <button
+          type="button"
+          className={`mobile-nav-btn ${currentView === 'envelopes' ? 'active' : ''}`}
+          onClick={() => {
+            setCurrentView('envelopes');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
+          id="mob-nav-envelopes"
+        >
+          <span className="icon">🏛️</span>
+          <span>Fiscalité</span>
+        </button>
+
+        <button
+          type="button"
+          className={`mobile-nav-btn ${currentView === 'revenue' ? 'active' : ''}`}
+          onClick={() => {
+            setCurrentView('revenue');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
+          id="mob-nav-revenue"
+        >
+          <span className="icon">💰</span>
+          <span>Budget</span>
+        </button>
+
+        <button
+          type="button"
+          className={`mobile-nav-btn ${currentView === 'analysis' ? 'active' : ''}`}
+          onClick={() => {
+            setCurrentView('analysis');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
+          id="mob-nav-analysis"
+        >
+          <span className="icon">🔬</span>
+          <span>Analyse</span>
+        </button>
+
+        <button
+          type="button"
+          className={`mobile-nav-btn ${currentView === 'risk' ? 'active' : ''}`}
+          onClick={() => {
+            setCurrentView('risk');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
+          id="mob-nav-risk"
+        >
+          <span className="icon">⚡</span>
+          <span>Risque</span>
+        </button>
+
+        <button
+          type="button"
+          className={`mobile-nav-btn ${currentView === 'reports' ? 'active' : ''}`}
+          onClick={() => {
+            setCurrentView('reports');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
+          id="mob-nav-reports"
+        >
+          <span className="icon">📰</span>
+          <span>Rapports</span>
+        </button>
+
+        <button
+          type="button"
+          className="mobile-nav-btn"
+          onClick={() => setShowProfileModal(true)}
+          id="mob-nav-profile"
+        >
+          <span className="icon">⚙️</span>
+          <span>Profil</span>
+        </button>
+      </nav>
+
       <BenchmarkWidget visible={showBenchmark} onClose={() => setShowBenchmark(false)} />
     </div>
   );

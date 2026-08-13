@@ -84,7 +84,7 @@ export default function CustomDatePicker({ value, onChange, showDaySelector = tr
           padding: '7px 12px',
           color: 'var(--accent-cyan)',
           fontFamily: 'var(--font-mono)',
-          fontSize: 12,
+          fontSize: 13,
           fontWeight: 700,
           cursor: 'pointer',
           transition: 'all 0.2s ease',
@@ -92,10 +92,10 @@ export default function CustomDatePicker({ value, onChange, showDaySelector = tr
         }}
       >
         <span style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, overflow: 'hidden' }}>
-          <span style={{ fontSize: 13, flexShrink: 0 }}>📅</span>
+          <span style={{ fontSize: 14, flexShrink: 0 }}>📅</span>
           <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{formattedLabel}</span>
         </span>
-        <span style={{ fontSize: 10, opacity: 0.7, transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s ease', marginLeft: 4 }}>
+        <span style={{ fontSize: 11, opacity: 0.8, transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s ease', marginLeft: 4 }}>
           ▼
         </span>
       </button>

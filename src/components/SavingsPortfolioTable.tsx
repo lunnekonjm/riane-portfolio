@@ -30,11 +30,11 @@ export default function SavingsPortfolioTable({
   if (savingsPositions.length === 0) {
     return (
       <div className="card" style={{ padding: 24, textAlign: 'center', marginBottom: 24, border: '1px dashed var(--border-accent)' }}>
-        <h3 style={{ fontSize: 16, color: 'var(--text-primary)', marginBottom: 6 }}>🛡️ Épargne, Livrets, PEE &amp; Patrimoine</h3>
-        <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 16 }}>
+        <h3 style={{ fontSize: 18, color: 'var(--text-primary)', marginBottom: 8, fontWeight: 700 }}>🛡️ Épargne, Livrets, PEE &amp; Patrimoine</h3>
+        <p style={{ fontSize: 14, color: 'var(--text-secondary)', marginBottom: 18 }}>
           Ajoutez vos Livrets A, LDDS, PEE (Natixis), Assurance-Vie ou SCPI pour suivre votre patrimoine hors-bourse et calculer vos intérêts réels.
         </p>
-        <button className="btn btn-primary" onClick={onAddSavingsPosition}>
+        <button className="btn btn-primary" onClick={onAddSavingsPosition} style={{ fontSize: 14 }}>
           ➕ Ajouter un compte épargne / livret
         </button>
       </div>
@@ -42,109 +42,109 @@ export default function SavingsPortfolioTable({
   }
 
   return (
-    <div className="card" style={{ marginBottom: 28, borderLeft: '4px solid var(--accent-emerald)' }}>
+    <div className="card" style={{ marginBottom: 28, borderLeft: '4px solid var(--accent-emerald)', padding: 18 }}>
       {/* Header Banner */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12, marginBottom: 16, borderBottom: '1px solid var(--border-subtle)', paddingBottom: 12 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 14, marginBottom: 18, borderBottom: '1px solid var(--border-subtle)', paddingBottom: 14 }}>
         <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ fontSize: 20 }}>🛡️</span>
-            <h3 style={{ fontSize: 18, margin: 0, fontWeight: 700, color: 'var(--text-primary)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            <span style={{ fontSize: 24 }}>🛡️</span>
+            <h3 style={{ fontSize: 18, margin: 0, fontWeight: 800, color: 'var(--text-primary)' }}>
               Épargne &amp; Patrimoine Hors-Bourse
             </h3>
-            <span className="badge badge-emerald" style={{ fontSize: 11 }}>Règle des Quinzaines (Livrets) &amp; Plus-Value Latente</span>
+            <span className="badge badge-emerald" style={{ fontSize: 12, padding: '4px 10px', fontWeight: 600 }}>Règle des Quinzaines &amp; Plus-Value Latente</span>
           </div>
-          <p style={{ fontSize: 12, color: 'var(--text-secondary)', margin: '4px 0 0 0' }}>
-            Suivi des livrets réglementés, fonds d&apos;épargne salariale (Natixis, Amundi ESR) et assurance-vie.
+          <p style={{ fontSize: 13, color: 'var(--text-secondary)', margin: '6px 0 0 0' }}>
+            Suivi des livrets réglementés (Art. R221-3 CMF), fonds d&apos;épargne salariale et assurance-vie.
           </p>
         </div>
-        <button className="btn btn-primary btn-sm" onClick={onAddSavingsPosition} style={{ fontSize: 12 }}>
+        <button className="btn btn-primary btn-sm" onClick={onAddSavingsPosition} style={{ fontSize: 13, padding: '8px 14px' }}>
           ➕ Ajouter un compte épargne
         </button>
       </div>
 
       {/* KPI Cards Bar */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10, marginBottom: 16 }}>
-        <div style={{ background: 'var(--bg-tertiary)', padding: 12, borderRadius: 8 }}>
-          <span style={{ fontSize: 11, color: 'var(--text-muted)', display: 'block', textTransform: 'uppercase' }}>Solde Épargne Total</span>
-          <strong className="mono" style={{ fontSize: 18, color: 'var(--accent-emerald)' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12, marginBottom: 18 }}>
+        <div style={{ background: 'var(--bg-tertiary)', padding: 14, borderRadius: 10, border: '1px solid var(--border-subtle)' }}>
+          <span style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', textTransform: 'uppercase', fontWeight: 600, letterSpacing: '0.4px' }}>Solde Épargne Total</span>
+          <strong className="mono" style={{ fontSize: 20, color: 'var(--accent-emerald)', fontWeight: 800, marginTop: 4, display: 'block' }}>
             {totalValue.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
           </strong>
         </div>
-        <div style={{ background: 'var(--bg-tertiary)', padding: 12, borderRadius: 8 }}>
-          <span style={{ fontSize: 11, color: 'var(--text-muted)', display: 'block', textTransform: 'uppercase' }}>Intérêts Estimés / An</span>
-          <strong className="mono" style={{ fontSize: 18, color: 'var(--accent-cyan)' }}>
+        <div style={{ background: 'var(--bg-tertiary)', padding: 14, borderRadius: 10, border: '1px solid var(--border-subtle)' }}>
+          <span style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', textTransform: 'uppercase', fontWeight: 600, letterSpacing: '0.4px' }}>Intérêts Estimés / An</span>
+          <strong className="mono" style={{ fontSize: 20, color: 'var(--accent-cyan)', fontWeight: 800, marginTop: 4, display: 'block' }}>
             +{totalAnnualInterest.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })} /an
           </strong>
         </div>
-        <div style={{ background: 'var(--bg-tertiary)', padding: 12, borderRadius: 8 }}>
-          <span style={{ fontSize: 11, color: 'var(--text-muted)', display: 'block', textTransform: 'uppercase' }}>Épargne Mensuelle (DCA)</span>
-          <strong className="mono" style={{ fontSize: 18, color: 'var(--accent-amber)' }}>
+        <div style={{ background: 'var(--bg-tertiary)', padding: 14, borderRadius: 10, border: '1px solid var(--border-subtle)' }}>
+          <span style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', textTransform: 'uppercase', fontWeight: 600, letterSpacing: '0.4px' }}>Épargne Mensuelle (DCA)</span>
+          <strong className="mono" style={{ fontSize: 20, color: 'var(--accent-amber)', fontWeight: 800, marginTop: 4, display: 'block' }}>
             +{totalMonthlyDCA.toLocaleString('fr-FR')} € /mois
           </strong>
         </div>
       </div>
 
-      {/* Table */}
-      <div style={{ overflowX: 'auto' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, textAlign: 'left' }}>
+      {/* Table with Touch Responsive Scrolling */}
+      <div className="table-responsive">
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14, textAlign: 'left', minWidth: 700 }}>
           <thead>
-            <tr style={{ color: 'var(--text-muted)', borderBottom: '1px solid var(--border-subtle)', textTransform: 'uppercase', fontSize: 11 }}>
-              <th style={{ padding: '8px 10px' }}>Compte / Actif</th>
-              <th style={{ padding: '8px 10px' }}>Organisme</th>
-              <th style={{ padding: '8px 10px' }}>Enveloppe</th>
-              <th style={{ padding: '8px 10px', textAlign: 'right' }}>Rendement</th>
-              <th style={{ padding: '8px 10px', textAlign: 'right' }}>Solde Actuel</th>
-              <th style={{ padding: '8px 10px', textAlign: 'right' }}>Intérêts Générés</th>
-              <th style={{ padding: '8px 10px', textAlign: 'right' }}>Versements DCA</th>
-              <th style={{ padding: '8px 10px', textAlign: 'center' }}>Plafond Léguel</th>
-              <th style={{ padding: '8px 10px', textAlign: 'center' }}>Action</th>
+            <tr style={{ color: 'var(--text-secondary)', borderBottom: '1px solid var(--border-medium)', textTransform: 'uppercase', fontSize: 12, fontWeight: 700, letterSpacing: '0.5px' }}>
+              <th style={{ padding: '10px 12px' }}>Compte / Actif</th>
+              <th style={{ padding: '10px 12px' }}>Organisme</th>
+              <th style={{ padding: '10px 12px' }}>Enveloppe</th>
+              <th style={{ padding: '10px 12px', textAlign: 'right' }}>Rendement</th>
+              <th style={{ padding: '10px 12px', textAlign: 'right' }}>Solde Actuel</th>
+              <th style={{ padding: '10px 12px', textAlign: 'right' }}>Intérêts Générés</th>
+              <th style={{ padding: '10px 12px', textAlign: 'right' }}>Versements DCA</th>
+              <th style={{ padding: '10px 12px', textAlign: 'center' }}>Plafond Légal</th>
+              <th style={{ padding: '10px 12px', textAlign: 'center' }}>Action</th>
             </tr>
           </thead>
           <tbody>
             {calculations.map(({ position, interest }) => {
               const envClass = position.envelope.toLowerCase();
               return (
-                <tr key={position.id} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                  <td style={{ padding: '10px' }}>
-                    <strong style={{ color: 'var(--text-primary)', display: 'block' }}>{position.name}</strong>
+                <tr key={position.id} style={{ borderBottom: '1px solid var(--border-subtle)', transition: 'background 0.15s' }}>
+                  <td style={{ padding: '12px' }}>
+                    <strong style={{ color: 'var(--text-primary)', display: 'block', fontSize: 14 }}>{position.name}</strong>
                     {position.dcaStartDate && (
-                      <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>Début DCA : {position.dcaStartDate}</span>
+                      <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Début DCA : {position.dcaStartDate}</span>
                     )}
                   </td>
-                  <td style={{ padding: '10px', color: 'var(--text-secondary)', fontSize: 12 }}>
+                  <td style={{ padding: '12px', color: 'var(--text-secondary)', fontSize: 13 }}>
                     {position.institutionName || '—'}
                   </td>
-                  <td style={{ padding: '10px' }}>
-                    <span className={`envelope-tag ${envClass}`}>{position.envelope}</span>
+                  <td style={{ padding: '12px' }}>
+                    <span className={`envelope-tag ${envClass}`} style={{ fontSize: 12, padding: '3px 8px' }}>{position.envelope}</span>
                   </td>
-                  <td style={{ padding: '10px', textAlign: 'right', fontWeight: 600, color: 'var(--accent-emerald)' }}>
+                  <td style={{ padding: '12px', textAlign: 'right', fontWeight: 700, color: 'var(--accent-emerald)', fontSize: 14 }}>
                     {interest.effectiveRatePercent.toFixed(2)} %
                   </td>
-                  <td style={{ padding: '10px', textAlign: 'right', fontWeight: 700 }} className="mono">
+                  <td style={{ padding: '12px', textAlign: 'right', fontWeight: 800, fontSize: 15 }} className="mono">
                     {interest.currentBalance.toLocaleString('fr-FR', { style: 'currency', currency: position.currency })}
                   </td>
-                  <td style={{ padding: '10px', textAlign: 'right' }} className="mono">
-                    <span style={{ color: 'var(--accent-cyan)', fontWeight: 600 }}>
+                  <td style={{ padding: '12px', textAlign: 'right' }} className="mono">
+                    <span style={{ color: 'var(--accent-cyan)', fontWeight: 700, fontSize: 14 }}>
                       +{interest.interestEarnedToDate.toFixed(2)} €
                     </span>
-                    <span style={{ display: 'block', fontSize: 10, color: 'var(--text-muted)' }}>
+                    <span style={{ display: 'block', fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>
                       {interest.isQuinzaineRule ? `(${interest.quinzainesCount} quinzaines)` : `(${interest.daysCount} jours)`}
                     </span>
                   </td>
-                  <td style={{ padding: '10px', textAlign: 'right' }} className="mono">
+                  <td style={{ padding: '12px', textAlign: 'right' }} className="mono">
                     {position.monthlyDCA && position.monthlyDCA > 0 ? (
-                      <span style={{ color: 'var(--accent-amber)', fontWeight: 600 }}>+{position.monthlyDCA} €/mois</span>
+                      <span style={{ color: 'var(--accent-amber)', fontWeight: 700, fontSize: 14 }}>+{position.monthlyDCA} €/mois</span>
                     ) : (
-                      '—'
+                      <span style={{ color: 'var(--text-muted)' }}>—</span>
                     )}
                   </td>
-                  <td style={{ padding: '10px', textAlign: 'center' }}>
+                  <td style={{ padding: '12px', textAlign: 'center' }}>
                     {interest.legalCap ? (
                       <div>
-                        <div style={{ fontSize: 11, fontWeight: 600, color: interest.isCapExceeded ? 'var(--accent-rose)' : 'var(--text-secondary)' }}>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: interest.isCapExceeded ? 'var(--accent-rose)' : 'var(--text-secondary)' }}>
                           {interest.principalDeposited.toLocaleString('fr-FR')} / {interest.legalCap.toLocaleString('fr-FR')} €
                         </div>
-                        <div style={{ background: 'var(--bg-tertiary)', borderRadius: 4, height: 4, width: 80, margin: '3px auto 0 auto', overflow: 'hidden' }}>
+                        <div style={{ background: 'var(--bg-tertiary)', borderRadius: 4, height: 5, width: 90, margin: '4px auto 0 auto', overflow: 'hidden' }}>
                           <div style={{
                             width: `${Math.min(100, interest.capUtilizationPercent || 0)}%`,
                             height: '100%',
@@ -153,14 +153,14 @@ export default function SavingsPortfolioTable({
                         </div>
                       </div>
                     ) : (
-                      <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Sans plafond</span>
+                      <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Sans plafond</span>
                     )}
                   </td>
-                  <td style={{ padding: '10px', textAlign: 'center' }}>
+                  <td style={{ padding: '12px', textAlign: 'center' }}>
                     <button
                       type="button"
-                      className="btn btn-ghost btn-sm"
-                      style={{ fontSize: 11, padding: '2px 6px' }}
+                      className="btn btn-secondary btn-sm"
+                      style={{ fontSize: 12, padding: '4px 10px', fontWeight: 600 }}
                       onClick={() => onEditPosition(position)}
                     >
                       ✏️ Éditer

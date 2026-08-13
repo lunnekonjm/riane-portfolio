@@ -980,29 +980,29 @@ function autoGenerateThemes(
                     </div>
                   </div>
 
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, textAlign: 'center', marginBottom: 12 }}>
-                    <div style={{ background: 'var(--bg-tertiary)', padding: 8, borderRadius: 6 }}>
-                      <span style={{ display: 'block', fontSize: 10, color: 'var(--text-muted)' }}>Parts/Actions</span>
-                      <strong style={{ fontSize: 14, color: 'var(--accent-cyan)' }}>{dcaResult.totalShares}</strong>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 10, textAlign: 'center', marginBottom: 14 }}>
+                    <div style={{ background: 'var(--bg-tertiary)', padding: 10, borderRadius: 8, border: '1px solid var(--border-subtle)' }}>
+                      <span style={{ display: 'block', fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600 }}>Parts/Actions</span>
+                      <strong style={{ fontSize: 16, color: 'var(--accent-cyan)', fontWeight: 800 }}>{dcaResult.totalShares}</strong>
                     </div>
-                    <div style={{ background: 'var(--bg-tertiary)', padding: 8, borderRadius: 6 }}>
-                      <span style={{ display: 'block', fontSize: 10, color: 'var(--text-muted)' }}>PRU Moyen</span>
-                      <strong style={{ fontSize: 14 }}>{dcaResult.avgPrice.toFixed(2)} {sym}</strong>
+                    <div style={{ background: 'var(--bg-tertiary)', padding: 10, borderRadius: 8, border: '1px solid var(--border-subtle)' }}>
+                      <span style={{ display: 'block', fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600 }}>PRU Moyen</span>
+                      <strong style={{ fontSize: 16, color: 'var(--text-primary)', fontWeight: 800 }}>{dcaResult.avgPrice.toFixed(2)} {sym}</strong>
                     </div>
-                    <div style={{ background: 'var(--bg-tertiary)', padding: 8, borderRadius: 6 }}>
-                      <span style={{ display: 'block', fontSize: 10, color: 'var(--text-muted)' }}>Total Investi</span>
-                      <strong style={{ fontSize: 14 }}>{dcaResult.totalInvested.toFixed(0)} {sym}</strong>
+                    <div style={{ background: 'var(--bg-tertiary)', padding: 10, borderRadius: 8, border: '1px solid var(--border-subtle)' }}>
+                      <span style={{ display: 'block', fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600 }}>Total Investi</span>
+                      <strong style={{ fontSize: 16, color: 'var(--text-primary)', fontWeight: 800 }}>{dcaResult.totalInvested.toFixed(0)} {sym}</strong>
                     </div>
-                    <div style={{ background: 'var(--bg-tertiary)', padding: 8, borderRadius: 6 }}>
-                      <span style={{ display: 'block', fontSize: 10, color: 'var(--text-muted)' }}>Total + Cash</span>
-                      <strong style={{ fontSize: 14, color: 'var(--accent-amber)' }}>{totalCapitalWithCash.toFixed(2)} {sym}</strong>
+                    <div style={{ background: 'var(--bg-tertiary)', padding: 10, borderRadius: 8, border: '1px solid var(--border-subtle)' }}>
+                      <span style={{ display: 'block', fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600 }}>Total + Reliquat</span>
+                      <strong style={{ fontSize: 16, color: 'var(--accent-amber)', fontWeight: 800 }}>{totalCapitalWithCash.toFixed(2)} {sym}</strong>
                     </div>
                   </div>
 
                 <button
                   type="button"
                   className="btn btn-secondary"
-                  style={{ width: '100%', fontSize: 12, padding: '8px 12px', borderColor: 'var(--accent-amber)', color: 'var(--accent-amber)' }}
+                  style={{ width: '100%', fontSize: 13, padding: '10px 14px', borderColor: 'var(--accent-amber)', color: 'var(--accent-amber)', fontWeight: 700 }}
                   onClick={handleApplyDCAResult}
                 >
                   📋 Importer cette simulation historique dans mon portefeuille actuel ({dcaResult.totalShares} actions @ {dcaResult.avgPrice.toFixed(2)} {form.currency === 'USD' ? '$' : '€'})

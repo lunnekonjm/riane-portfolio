@@ -69,13 +69,13 @@ export default function AssetBadge({ ticker, name, showTicker = true, style, cla
         <span
           style={{
             fontFamily: 'var(--font-mono)',
-            fontSize: 11,
+            fontSize: 12,
             fontWeight: 700,
             color: 'var(--accent-cyan)',
-            background: 'rgba(6, 182, 212, 0.12)',
-            padding: '2px 8px',
+            background: 'rgba(6, 182, 212, 0.15)',
+            padding: '3px 8px',
             borderRadius: 6,
-            border: '1px solid rgba(6, 182, 212, 0.3)',
+            border: '1px solid rgba(6, 182, 212, 0.35)',
           }}
         >
           {meta.ticker}
@@ -83,9 +83,9 @@ export default function AssetBadge({ ticker, name, showTicker = true, style, cla
         <span
           className={`envelope-tag ${meta.envelope.toLowerCase()}`}
           style={{
-            fontSize: 10,
+            fontSize: 12,
             fontWeight: 700,
-            padding: '2px 8px',
+            padding: '3px 8px',
             borderRadius: 6,
           }}
         >
@@ -94,20 +94,20 @@ export default function AssetBadge({ ticker, name, showTicker = true, style, cla
       </div>
 
       {/* Full Official Title */}
-      <div style={{ fontSize: 13, fontWeight: 700, color: '#ffffff', marginBottom: 4, lineHeight: 1.3 }}>
+      <div style={{ fontSize: 14, fontWeight: 700, color: '#ffffff', marginBottom: 6, lineHeight: 1.35 }}>
         {meta.fullName}
       </div>
 
       {/* ISIN Code */}
-      <div style={{ fontSize: 11, color: 'var(--text-tertiary)', fontFamily: 'var(--font-mono)', marginBottom: 8 }}>
-        ISIN : <strong style={{ color: 'var(--text-secondary)' }}>{meta.isin}</strong>
+      <div style={{ fontSize: 12, color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)', marginBottom: 8 }}>
+        ISIN : <strong style={{ color: 'var(--text-primary)' }}>{meta.isin}</strong>
       </div>
 
       {/* Divider */}
-      <div style={{ height: 1, background: 'rgba(255, 255, 255, 0.1)', marginBottom: 8 }} />
+      <div style={{ height: 1, background: 'rgba(255, 255, 255, 0.12)', marginBottom: 8 }} />
 
       {/* Description */}
-      <div style={{ fontSize: 11, color: 'var(--text-secondary)', lineHeight: 1.45 }}>
+      <div style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.5 }}>
         {meta.description}
       </div>
     </div>

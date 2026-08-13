@@ -365,11 +365,11 @@ export default function InteractiveReportView({
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10, marginBottom: 10 }}>
                   <div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <strong style={{ fontSize: 15, color: 'var(--text-primary)' }}>{card.cleanName}</strong>
-                      <span className="badge badge-cyan" style={{ fontSize: 10, padding: '2px 6px' }}>{card.ticker}</span>
-                      <span className="badge badge-indigo" style={{ fontSize: 10, padding: '2px 6px' }}>{card.envelope}</span>
+                      <strong style={{ fontSize: 16, color: 'var(--text-primary)' }}>{card.cleanName}</strong>
+                      <span className="badge badge-cyan" style={{ fontSize: 12, padding: '3px 8px' }}>{card.ticker}</span>
+                      <span className="badge badge-indigo" style={{ fontSize: 12, padding: '3px 8px' }}>{card.envelope}</span>
                     </div>
-                    <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 3 }}>
+                    <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 4 }}>
                       Valorisation : <strong>{Math.round(card.valEUR).toLocaleString('fr-FR')} €</strong> ({card.weight.toFixed(1)}% du portefeuille)
                     </div>
                   </div>

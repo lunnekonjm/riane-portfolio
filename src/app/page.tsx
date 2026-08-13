@@ -1521,6 +1521,7 @@ export default function HomePage() {
                       </tr>
                     </thead>
                     <tbody>
+                      {(() => {
                         const totalPortfolioValEUR = positions.reduce((sum, p) => {
                           const isMarket = ['PEA', 'PEA-PME', 'CTO', 'SPECULATIVE', 'OPPORTUNISTIC'].includes(p.envelope);
                           if (!isMarket) return sum;

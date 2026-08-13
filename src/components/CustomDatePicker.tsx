@@ -20,6 +20,7 @@ const MONTH_SHORT_FR = [
 
 export default function CustomDatePicker({ value, onChange, showDaySelector = true }: CustomDatePickerProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [popupAlign, setPopupAlign] = useState<'left' | 'right'>('left');
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Parse current value 'YYYY-MM-DD' or 'YYYY-MM'
@@ -38,6 +39,19 @@ export default function CustomDatePicker({ value, onChange, showDaySelector = tr
       setSelectedDay(parseInt(parts[2], 10));
     }
   }, [currentYear, parts[2]]);
+
+  // Smart placement on open
+  useEffect(() => {
+    if (isOpen && containerRef.current) {
+      const rect = containerRef.current.getBoundingClientRect();
+      // If opening to the right (left: 0) would overflow window, align right: 0
+      if (rect.left + 290 > window.innerWidth - 10) {
+        setPopupAlign('right');
+      } else {
+        setPopupAlign('left');
+      }
+    }
+  }, [isOpen]);
 
   // Click outside to close
   useEffect(() => {
@@ -106,16 +120,18 @@ export default function CustomDatePicker({ value, onChange, showDaySelector = tr
           style={{
             position: 'absolute',
             top: 'calc(100% + 6px)',
-            right: 0,
-            zIndex: 999,
-            width: 270,
+            left: popupAlign === 'left' ? 0 : 'auto',
+            right: popupAlign === 'right' ? 0 : 'auto',
+            zIndex: 9999,
+            width: 280,
+            maxWidth: 'calc(100vw - 24px)',
             padding: 14,
             background: '#0f172a',
-            border: '1px solid rgba(255, 255, 255, 0.15)',
+            border: '1px solid rgba(255, 255, 255, 0.18)',
             borderRadius: 14,
-            boxShadow: '0 16px 40px rgba(0, 0, 0, 0.8), 0 0 20px rgba(6, 182, 212, 0.2)',
-            backdropFilter: 'blur(20px)',
-            animation: 'fadeIn 0.2s ease-out',
+            boxShadow: '0 16px 40px rgba(0, 0, 0, 0.85), 0 0 20px rgba(6, 182, 212, 0.25)',
+            backdropFilter: 'blur(24px)',
+            animation: 'fadeIn 0.15s ease-out',
           }}
         >
           {/* Header Year Navigator */}
@@ -148,7 +164,7 @@ export default function CustomDatePicker({ value, onChange, showDaySelector = tr
           {/* Day of Month Selector Bar */}
           {showDaySelector && (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, padding: '6px 10px', background: 'rgba(255, 255, 255, 0.04)', borderRadius: 8 }}>
-              <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Jour exact du versement :</span>
+              <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Jour de versement :</span>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                 <input
                   type="number"
@@ -160,7 +176,7 @@ export default function CustomDatePicker({ value, onChange, showDaySelector = tr
                     setSelectedDay(day);
                     const mm = String(currentMonth + 1).padStart(2, '0');
                     const dd = String(day).padStart(2, '0');
-                    const yyyy = String(currentYear);
+                    const yyyy = String(viewYear);
                     onChange(`${yyyy}-${mm}-${dd}`);
                   }}
                   style={{

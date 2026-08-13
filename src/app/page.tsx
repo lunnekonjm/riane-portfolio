@@ -208,6 +208,9 @@ export default function HomePage() {
   const {
     positions, config, investorProfile, isOnboardingPending,
     totalValue, totalCost, gainLoss, gainLossPercent,
+    marketVal, marketCostVal, marketGain, marketDCAVal,
+    savingsVal, savingsCostVal, savingsGain, savingsAnnualInt, savingsDCAVal,
+    netLiquidationDetails, peaSeniority, setPeaSeniority,
     monthlyDCATotal, saving, pendingCount, filledPositions, fxRates, lastPricesUpdated, marketStatusLabel,
     canUndo, undoLastAction, canRedo, redoLastAction, transactions, recordTransaction,
     addPosition, updatePosition, removePosition, updateConfig, updateInvestorProfile, refreshPrices, resetPortfolio,
@@ -225,80 +228,7 @@ export default function HomePage() {
   const [showTotalValueDropdown, setShowTotalValueDropdown] = useState<boolean>(false);
   const [showTotalCostDropdown, setShowTotalCostDropdown] = useState<boolean>(false);
   const [showGainLossDropdown, setShowGainLossDropdown] = useState<boolean>(false);
-  const [peaSeniority, setPeaSeniority] = useState<'over5' | 'under5'>('over5');
   const [showNetDetailsModal, setShowNetDetailsModal] = useState<boolean>(false);
-
-  const netLiquidationDetails = useMemo(() => {
-    let totalGrossValue = 0;
-    let totalCostBase = 0;
-    let totalGrossGain = 0;
-    let totalEstimatedTax = 0;
-    let peaTax = 0;
-    let ctoTax = 0;
-
-    const activePositions = positions.filter((p) => p.quantity > 0);
-
-    activePositions.forEach((p) => {
-      const isMarket = ['PEA', 'PEA-PME', 'CTO', 'SPECULATIVE', 'OPPORTUNISTIC'].includes(p.envelope);
-      const rateToEUR = (fxRates as any)[p.currency] || 1.0;
-      let val = 0;
-      let cost = 0;
-
-      if (isMarket) {
-        const price = p.currentPrice || p.avgPrice || 1;
-        const avgPrice = p.avgPrice || price;
-        val = p.quantity * price * rateToEUR;
-        cost = p.quantity * avgPrice * rateToEUR;
-      } else {
-        const interest = computeSavingsPositionInterest(p);
-        val = interest.currentBalance * rateToEUR;
-        cost = interest.principalDeposited * rateToEUR;
-      }
-      
-      const gain = val - cost;
-
-      totalGrossValue += val;
-      totalCostBase += cost;
-      totalGrossGain += gain;
-
-      if (gain > 0) {
-        if (p.envelope === 'PEA' || p.envelope === 'PEA-PME') {
-          // 2026 tax reform: 18.6% social contributions
-          const rate = peaSeniority === 'over5' ? 0.186 : 0.314;
-          const tax = gain * rate;
-          peaTax += tax;
-          totalEstimatedTax += tax;
-        } else if (p.envelope === 'CTO' || p.envelope === 'SPECULATIVE' || p.envelope === 'OPPORTUNISTIC') {
-          // 2026 tax reform: 31.4% PFU
-          const tax = gain * 0.314;
-          ctoTax += tax;
-          totalEstimatedTax += tax;
-        } else if (!isMarket) {
-          const metaKey = p.name.toUpperCase().includes('LEP') ? 'LEP' : p.envelope;
-          const metadata = REGULATED_SAVINGS_METADATA[metaKey] || { taxFree: true };
-          if (!metadata.taxFree) {
-            // Assurance-Vie, SCPI, etc. (Some were spared by the 2026 reform and stayed at 30%)
-            const tax = gain * 0.30;
-            totalEstimatedTax += tax;
-          }
-        }
-      }
-    });
-
-    const totalNetValue = totalGrossValue - totalEstimatedTax;
-    const totalNetGain = totalGrossGain - totalEstimatedTax;
-
-    return {
-      totalGrossValue,
-      totalCostBase,
-      totalGrossGain,
-      totalEstimatedTax,
-      peaTax,
-      ctoTax,
-      totalNetValue,
-      totalNetGain,
-    };
-  }, [positions, fxRates, peaSeniority]);
 
   const handleRunGlobalDCACalculation = async (startDate: string) => {
     if (!startDate) return;
@@ -310,7 +240,7 @@ export default function HomePage() {
         const isIntegerOnly = pos.envelope === 'PEA' || pos.envelope === 'PEA-PME' || pos.envelope === 'CTO';
 
         let realLivePrice = pos.currentPrice;
-        if (!realLivePrice || realLivePrice === 10) {
+        if (!realLivePrice) {
           try {
             const q = await getQuote(pos.ticker);
             if (q && q.price > 0) realLivePrice = q.price;
@@ -902,30 +832,19 @@ export default function HomePage() {
                 const displayGainLoss = displayTotalValue - displayTotalCost;
                 const displayGainLossPercent = displayTotalCost > 0 ? (displayGainLoss / displayTotalCost) * 100 : 0;
 
-                const marketPos = positions.filter((p) => !['LIVRET', 'ASSURANCE_VIE', 'PER', 'PEE', 'IMMOBILIER'].includes(p.envelope));
-                const savingsPos = positions.filter((p) => ['LIVRET', 'ASSURANCE_VIE', 'PER', 'PEE', 'IMMOBILIER'].includes(p.envelope));
+                const activePositions = positions.filter((p) => p.quantity > 0);
+                const marketPos = activePositions.filter((p) => !['LIVRET', 'ASSURANCE_VIE', 'PER', 'PEE', 'IMMOBILIER'].includes(p.envelope));
+                const savingsPos = activePositions.filter((p) => ['LIVRET', 'ASSURANCE_VIE', 'PER', 'PEE', 'IMMOBILIER'].includes(p.envelope));
 
-                const marketVal = marketPos.reduce((sum, p) => {
-                  const price = p.currentPrice || p.avgPrice;
-                  const rate = (fxRates as any)[p.currency] || 1.0;
-                  return sum + p.quantity * price * rate;
-                }, 0) / cumulativeInflationFactor;
-
-                const marketCostVal = marketPos.reduce((sum, p) => {
-                  const rate = (fxRates as any)[p.currency] || 1.0;
-                  return sum + p.quantity * p.avgPrice * rate;
-                }, 0) / cumulativeInflationFactor;
-
-                const marketGain = marketVal - marketCostVal;
-                const marketGainPct = marketCostVal > 0 ? (marketGain / marketCostVal) * 100 : 0;
-                const marketDCAVal = marketPos.reduce((sum, p) => sum + (p.monthlyDCA || 0), 0);
-
-                const savingsCalcs = savingsPos.map((p) => computeSavingsPositionInterest(p));
-                const savingsVal = savingsCalcs.reduce((sum, c) => sum + c.currentBalance, 0) / cumulativeInflationFactor;
-                const savingsCostVal = savingsCalcs.reduce((sum, c) => sum + c.principalDeposited, 0) / cumulativeInflationFactor;
-                const savingsGain = savingsVal - savingsCostVal;
-                const savingsAnnualInt = savingsCalcs.reduce((sum, c) => sum + c.projectedAnnualInterest, 0) / cumulativeInflationFactor;
-                const savingsDCAVal = savingsPos.reduce((sum, p) => sum + (p.monthlyDCA || 0), 0);
+                const displayMarketVal = marketVal / cumulativeInflationFactor;
+                const displayMarketCostVal = marketCostVal / cumulativeInflationFactor;
+                const displayMarketGain = displayMarketVal - displayMarketCostVal;
+                const displayMarketGainPct = displayMarketCostVal > 0 ? (displayMarketGain / displayMarketCostVal) * 100 : 0;
+                
+                const displaySavingsVal = savingsVal / cumulativeInflationFactor;
+                const displaySavingsCostVal = savingsCostVal / cumulativeInflationFactor;
+                const displaySavingsGain = displaySavingsVal - displaySavingsCostVal;
+                const displaySavingsAnnualInt = savingsAnnualInt / cumulativeInflationFactor;
 
                 return (
                   <>
@@ -985,11 +904,11 @@ export default function HomePage() {
                                 </div>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4, fontSize: 12 }}>
                                   <span style={{ color: 'var(--text-secondary)' }}>📈 Bourse &amp; Cryptos</span>
-                                  <span style={{ color: 'var(--accent-cyan)' }}>{marketVal.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} €</span>
+                                  <span style={{ color: 'var(--accent-cyan)' }}>{displayMarketVal.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} €</span>
                                 </div>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4, fontSize: 12 }}>
                                   <span style={{ color: 'var(--text-secondary)' }}>🛡️ Épargne &amp; Immo</span>
-                                  <span style={{ color: 'var(--accent-emerald)' }}>{savingsVal.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} €</span>
+                                  <span style={{ color: 'var(--accent-emerald)' }}>{displaySavingsVal.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} €</span>
                                 </div>
                               </div>
                             )}
@@ -1052,11 +971,11 @@ export default function HomePage() {
                                 </div>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4, fontSize: 12 }}>
                                   <span style={{ color: 'var(--text-secondary)' }}>📈 Bourse &amp; Cryptos</span>
-                                  <span style={{ color: 'var(--text-primary)' }}>{marketCostVal.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} €</span>
+                                  <span style={{ color: 'var(--text-primary)' }}>{displayMarketCostVal.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} €</span>
                                 </div>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4, fontSize: 12 }}>
                                   <span style={{ color: 'var(--text-secondary)' }}>🛡️ Épargne &amp; Immo</span>
-                                  <span style={{ color: 'var(--text-primary)' }}>{savingsCostVal.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} €</span>
+                                  <span style={{ color: 'var(--text-primary)' }}>{displaySavingsCostVal.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} €</span>
                                 </div>
                               </div>
                             )}
@@ -1119,11 +1038,11 @@ export default function HomePage() {
                                   </div>
                                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4, fontSize: 12 }}>
                                     <span style={{ color: 'var(--text-secondary)' }}>📈 Bourse &amp; Cryptos</span>
-                                    <span style={{ color: marketGain >= 0 ? 'var(--accent-emerald)' : 'var(--accent-rose)' }}>{marketGain >= 0 ? '+' : ''}{marketGain.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} €</span>
+                                    <span style={{ color: displayMarketGain >= 0 ? 'var(--accent-emerald)' : 'var(--accent-rose)' }}>{displayMarketGain >= 0 ? '+' : ''}{displayMarketGain.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} €</span>
                                   </div>
                                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4, fontSize: 12 }}>
                                     <span style={{ color: 'var(--text-secondary)' }}>🛡️ Intérêts d&apos;Épargne</span>
-                                    <span style={{ color: savingsGain >= 0 ? 'var(--accent-emerald)' : 'var(--accent-rose)' }}>{savingsGain >= 0 ? '+' : ''}{savingsGain.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} €</span>
+                                    <span style={{ color: displaySavingsGain >= 0 ? 'var(--accent-emerald)' : 'var(--accent-rose)' }}>{displaySavingsGain >= 0 ? '+' : ''}{displaySavingsGain.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} €</span>
                                   </div>
                                 </div>
                               )}
@@ -1278,18 +1197,18 @@ export default function HomePage() {
                             </div>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', margin: '4px 0 8px 0' }}>
                               <span className="mono" style={{ fontSize: 20, fontWeight: 700, color: 'var(--accent-cyan)' }}>
-                                {marketVal.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
+                                {displayMarketVal.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
                               </span>
-                              {marketCostVal > 0 ? (
-                                <span style={{ fontSize: 12, color: marketGain >= 0 ? 'var(--accent-emerald)' : 'var(--accent-rose)', fontWeight: 700 }}>
-                                  {marketGain >= 0 ? '+' : ''}{marketGain.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })} ({marketGainPct >= 0 ? '+' : ''}{marketGainPct.toFixed(2)}%)
+                              {displayMarketCostVal > 0 ? (
+                                <span style={{ fontSize: 12, color: displayMarketGain >= 0 ? 'var(--accent-emerald)' : 'var(--accent-rose)', fontWeight: 700 }}>
+                                  {displayMarketGain >= 0 ? '+' : ''}{displayMarketGain.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })} ({displayMarketGainPct >= 0 ? '+' : ''}{displayMarketGainPct.toFixed(2)}%)
                                 </span>
                               ) : (
                                 <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>PEA, CTO, Crypto</span>
                               )}
                             </div>
                             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--text-secondary)', borderTop: '1px dashed var(--border-subtle)', paddingTop: 6 }}>
-                              <span>Coût PRU : {marketCostVal.toLocaleString('fr-FR')} €</span>
+                              <span>Coût PRU : {displayMarketCostVal.toLocaleString('fr-FR')} €</span>
                               <span>DCA Bourse : {marketDCAVal.toLocaleString('fr-FR')} €/mois</span>
                             </div>
                           </div>
@@ -1304,10 +1223,10 @@ export default function HomePage() {
                             </div>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', margin: '4px 0 8px 0' }}>
                               <span className="mono" style={{ fontSize: 20, fontWeight: 700, color: 'var(--accent-emerald)' }}>
-                                {savingsVal.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
+                                {displaySavingsVal.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
                               </span>
-                              <span style={{ fontSize: 12, color: 'var(--accent-cyan)', fontWeight: 700 }}>
-                                +{savingsAnnualInt.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })} /an (intérêts)
+                              <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                                Intérêts projetés (1 an) : <span style={{ color: 'var(--accent-emerald)', borderBottom: '1px dotted var(--accent-emerald)', fontWeight: 600 }}>+{displaySavingsAnnualInt.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} €</span>
                               </span>
                             </div>
                             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--text-secondary)', borderTop: '1px dashed var(--border-subtle)', paddingTop: 6 }}>
@@ -1416,7 +1335,7 @@ export default function HomePage() {
 
                             // Fetch real market quote if pos.currentPrice is missing or corrupted
                             let realLivePrice = pos.currentPrice;
-                            if (!realLivePrice || realLivePrice === 10) {
+                            if (!realLivePrice) {
                               try {
                                 const q = await getQuote(pos.ticker);
                                 if (q && q.price > 0) realLivePrice = q.price;
@@ -2892,6 +2811,31 @@ export default function HomePage() {
               <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
                 Après déduction de la fiscalité (PFU 31.4% et Prélèvements Sociaux)
               </span>
+            </div>
+
+            <div style={{ marginBottom: 16, padding: '10px 14px', background: 'rgba(59, 130, 246, 0.08)', border: '1px solid var(--accent-blue)', borderRadius: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>Hypothèse Fiscale PEA</span>
+                <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>Ancienneté du PEA au retrait</span>
+              </div>
+              <div style={{ display: 'flex', gap: 6, background: 'var(--bg-primary)', padding: 4, borderRadius: 6 }}>
+                <button
+                  type="button"
+                  className={`btn btn-sm ${peaSeniority === 'over5' ? 'btn-primary' : 'btn-ghost'}`}
+                  style={{ fontSize: 11, padding: '4px 8px' }}
+                  onClick={() => setPeaSeniority('over5')}
+                >
+                  &gt; 5 ans (18.6%)
+                </button>
+                <button
+                  type="button"
+                  className={`btn btn-sm ${peaSeniority === 'under5' ? 'btn-primary' : 'btn-ghost'}`}
+                  style={{ fontSize: 11, padding: '4px 8px' }}
+                  onClick={() => setPeaSeniority('under5')}
+                >
+                  &lt; 5 ans (31.4%)
+                </button>
+              </div>
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 20, fontSize: 13 }}>

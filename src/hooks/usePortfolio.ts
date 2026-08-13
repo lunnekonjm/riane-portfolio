@@ -18,7 +18,7 @@ import { getMultipleQuotes, getFxRates } from '@/services/market-data/provider';
 import type { Position, PortfolioConfig, TransactionRecord, InvestorProfile } from '@/types/portfolio';
 import type { User } from 'firebase/auth';
 import { clearAnalysisCache } from '@/utils/analysisCache';
-import { computeSavingsPositionInterest } from '@/engines/savingsInterestEngine';
+import { computeSavingsPositionInterest, REGULATED_SAVINGS_METADATA } from '@/engines/savingsInterestEngine';
 
 export function usePortfolio() {
   const [user, setUser] = useState<User | null>(null);
@@ -482,28 +482,103 @@ export function usePortfolio() {
   /** How many positions still need user input */
   const pendingCount = positions.length - filledPositions.length;
 
-  const totalValue = filledPositions.reduce((sum, p) => {
-    const isMarket = ['PEA', 'PEA-PME', 'CTO', 'SPECULATIVE', 'OPPORTUNISTIC'].includes(p.envelope);
-    if (!isMarket) {
-      const { currentBalance } = computeSavingsPositionInterest(p);
-      const rateToEUR = fxRates[p.currency] || 1.0;
-      return sum + (currentBalance * rateToEUR);
-    }
-    const price = p.currentPrice || p.avgPrice;
-    const rateToEUR = fxRates[p.currency] || 1.0;
-    return sum + (p.quantity * price * rateToEUR);
+  const [peaSeniority, setPeaSeniority] = useState<'over5' | 'under5'>('over5');
+
+  const activePositions = positions.filter((p) => p.quantity > 0);
+
+  const marketPos = activePositions.filter((p) => !['LIVRET', 'ASSURANCE_VIE', 'PER', 'PEE', 'IMMOBILIER'].includes(p.envelope));
+  const savingsPos = activePositions.filter((p) => ['LIVRET', 'ASSURANCE_VIE', 'PER', 'PEE', 'IMMOBILIER'].includes(p.envelope));
+
+  const marketVal = marketPos.reduce((sum, p) => {
+    const price = p.currentPrice || p.avgPrice || 0;
+    const rate = fxRates[p.currency] || 1.0;
+    return sum + p.quantity * price * rate;
   }, 0);
 
-  const totalCost = filledPositions.reduce((sum, p) => {
-    const isMarket = ['PEA', 'PEA-PME', 'CTO', 'SPECULATIVE', 'OPPORTUNISTIC'].includes(p.envelope);
-    if (!isMarket) {
-      const { principalDeposited } = computeSavingsPositionInterest(p);
-      const rateToEUR = fxRates[p.currency] || 1.0;
-      return sum + (principalDeposited * rateToEUR);
-    }
-    const rateToEUR = fxRates[p.currency] || 1.0;
-    return sum + (p.quantity * p.avgPrice * rateToEUR);
+  const marketCostVal = marketPos.reduce((sum, p) => {
+    const rate = fxRates[p.currency] || 1.0;
+    return sum + p.quantity * (p.avgPrice || 0) * rate;
   }, 0);
+
+  const marketGain = marketVal - marketCostVal;
+  const marketDCAVal = marketPos.reduce((sum, p) => sum + (p.monthlyDCA || 0), 0);
+
+  const savingsCalcs = savingsPos.map((p) => computeSavingsPositionInterest(p));
+  const savingsVal = savingsCalcs.reduce((sum, c) => sum + c.currentBalance, 0);
+  const savingsCostVal = savingsCalcs.reduce((sum, c) => sum + c.principalDeposited, 0);
+  const savingsGain = savingsVal - savingsCostVal;
+  const savingsAnnualInt = savingsCalcs.reduce((sum, c) => sum + c.projectedAnnualInterest, 0);
+  const savingsDCAVal = savingsPos.reduce((sum, p) => sum + (p.monthlyDCA || 0), 0);
+
+  const totalValue = marketVal + savingsVal;
+  const totalCost = marketCostVal + savingsCostVal;
+
+  const netLiquidationDetails = (() => {
+    let totalGrossValue = 0;
+    let totalCostBase = 0;
+    let totalGrossGain = 0;
+    let totalEstimatedTax = 0;
+    let peaTax = 0;
+    let ctoTax = 0;
+
+    activePositions.forEach((p) => {
+      const isMarket = ['PEA', 'PEA-PME', 'CTO', 'SPECULATIVE', 'OPPORTUNISTIC'].includes(p.envelope);
+      const rateToEUR = fxRates[p.currency] || 1.0;
+
+      let val = 0;
+      let cost = 0;
+
+      if (isMarket) {
+        const price = p.currentPrice || p.avgPrice || 0;
+        val = p.quantity * price * rateToEUR;
+        cost = p.quantity * (p.avgPrice || 0) * rateToEUR;
+      } else {
+        const { currentBalance, principalDeposited } = computeSavingsPositionInterest(p);
+        val = currentBalance * rateToEUR;
+        cost = principalDeposited * rateToEUR;
+      }
+
+      totalGrossValue += val;
+      totalCostBase += cost;
+
+      const gain = val - cost;
+      totalGrossGain += gain;
+
+      if (gain > 0) {
+        if (p.envelope === 'PEA' || p.envelope === 'PEA-PME') {
+          // 2026 tax reform: 18.6% social contributions
+          const rate = peaSeniority === 'over5' ? 0.186 : 0.314;
+          const tax = gain * rate;
+          peaTax += tax;
+          totalEstimatedTax += tax;
+        } else if (p.envelope === 'CTO' || p.envelope === 'SPECULATIVE' || p.envelope === 'OPPORTUNISTIC') {
+          // 2026 tax reform: 31.4% PFU
+          const tax = gain * 0.314;
+          ctoTax += tax;
+          totalEstimatedTax += tax;
+        } else if (!isMarket) {
+          const metaKey = p.name.toUpperCase().includes('LEP') ? 'LEP' : p.envelope;
+          const metadata = REGULATED_SAVINGS_METADATA[metaKey] || { taxFree: true };
+          if (!metadata.taxFree) {
+            // Assurance-Vie, SCPI, etc. (Some were spared by the 2026 reform and stayed at 30%)
+            const tax = gain * 0.30;
+            totalEstimatedTax += tax;
+          }
+        }
+      }
+    });
+
+    return {
+      totalGrossValue,
+      totalCostBase,
+      totalGrossGain,
+      totalEstimatedTax,
+      peaTax,
+      ctoTax,
+      totalNetValue: totalGrossValue - totalEstimatedTax,
+      totalNetGain: totalGrossGain - totalEstimatedTax,
+    };
+  })();
 
   const monthlyDCATotal = positions.reduce((sum, p) => {
     const monthlyVal = p.monthlyDCA || (p.annualBudget ? p.annualBudget / 12 : 0);
@@ -575,6 +650,18 @@ export function usePortfolio() {
     totalCost,
     gainLoss: totalValue - totalCost,
     gainLossPercent: totalCost > 0 ? ((totalValue - totalCost) / totalCost) * 100 : 0,
+    marketVal,
+    marketCostVal,
+    marketGain,
+    marketDCAVal,
+    savingsVal,
+    savingsCostVal,
+    savingsGain,
+    savingsAnnualInt,
+    savingsDCAVal,
+    netLiquidationDetails,
+    peaSeniority,
+    setPeaSeniority,
     monthlyDCATotal,
     pendingCount,
     filledPositions,

@@ -203,10 +203,11 @@ export function generatePortfolioNotifications(
 
     // 3b. Thematic exposure check (Tolerance buffer = +10.0% to avoid noise on minor 1-2% fluctuations)
     THEMES.forEach((theme) => {
-      const themePositions = filled.filter((p) => theme.tickers.includes(p.ticker) || p.themes.includes(theme.id));
+      const themePositions = filled.filter((p) => theme.tickers.includes(p.ticker) || (p.themes && Array.isArray(p.themes) && p.themes.includes(theme.id)));
       const themeValueEUR = themePositions.reduce((sum, p) => {
         const val = p.quantity * (p.currentPrice || p.avgPrice) * (fxRates[p.currency] || 1);
-        const weight = p.themes.length > 0 ? 1 / p.themes.length : 1;
+        const themesList = p.themes && Array.isArray(p.themes) ? p.themes : [];
+        const weight = themesList.length > 0 ? 1 / themesList.length : 1;
         return sum + val * weight;
       }, 0);
 

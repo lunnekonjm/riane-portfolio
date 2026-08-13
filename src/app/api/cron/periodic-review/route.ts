@@ -67,10 +67,10 @@ async function fetchFxRatesServer(): Promise<Record<string, number>> {
 
 export async function GET(request: NextRequest) {
   const cronSecret = process.env.CRON_SECRET;
-  if (cronSecret) {
+  if (process.env.NODE_ENV === 'production' || cronSecret) {
     const authHeader = request.headers.get('authorization');
-    if (authHeader !== `Bearer ${cronSecret}`) {
-      return NextResponse.json({ error: 'Non autorisé' }, { status: 401 });
+    if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
+      return NextResponse.json({ error: 'Non autorisé : secret manquant ou invalide' }, { status: 401 });
     }
   }
 

@@ -60,44 +60,18 @@ function getMonthlyDates(startDateStr: string): string[] {
 }
 
 /**
- * Perform DCA Simulation for a position with REAL MAX Historical Data & Strict Inception Rules
+ * Pure deterministic core DCA calculation from an array of months and a price lookup Map.
  */
-export async function simulatePositionDCA(
-  ticker: string,
+export function calculateDCAFromPriceMap(
+  months: string[],
+  priceMap: Map<string, number>,
   monthlyBudget: number,
-  startDateStr: string,
   currentPriceFallback: number,
   isIntegerOnly: boolean = true,
   frequency: 'monthly' | 'quarterly' | 'semestrial' | 'annual' = 'monthly',
   depositMonth: number = 1,
-  depositDay: number = 5
-): Promise<DCASimulationResult> {
-  const months = getMonthlyDates(startDateStr);
-
-  // Fetch REAL MAX historical prices from Yahoo Finance
-  let priceMap = new Map<string, number>();
-  let earliestDate: string | null = null;
-  let earliestPrice: number = 0;
-
-  try {
-    const historical = await getHistoricalData(ticker, 'MAX');
-    if (historical && historical.length > 0) {
-      for (const pt of historical) {
-        const monthKey = pt.date.slice(0, 7);
-        const p = pt.adjustedClose || pt.close;
-        if (p > 0) {
-          priceMap.set(monthKey, p);
-          if (!earliestDate || monthKey < earliestDate) {
-            earliestDate = monthKey;
-            earliestPrice = p;
-          }
-        }
-      }
-    }
-  } catch (err) {
-    console.warn(`[DCASimulation] Could not fetch MAX history for ${ticker}:`, err);
-  }
-
+  earliestDate: string | null = null
+): DCASimulationResult {
   let cumulativeShares = 0;
   let cumulativeCost = 0;
   let rolloverCash = 0;
@@ -128,8 +102,6 @@ export async function simulatePositionDCA(
     const isPreInception = earliestDate && monthKey < earliestDate;
 
     if (isPreInception || !existsYet) {
-      // Asset did NOT exist yet on this date:
-      // Money is accumulated in uninvested cash buffer until launch.
       rolloverCash += budgetForMonth;
       logs.push({
         date: monthKey,
@@ -151,7 +123,6 @@ export async function simulatePositionDCA(
     
     let sharesBought = 0;
     if (isIntegerOnly) {
-      // PEA / PEA-PME / CTO Rule: Only full integer shares allowed!
       sharesBought = Math.floor(cashAvailable / price);
     } else {
       sharesBought = cashAvailable / price;
@@ -167,7 +138,7 @@ export async function simulatePositionDCA(
     logs.push({
       date: monthKey,
       sharePrice: parseFloat(price.toFixed(2)),
-      monthlyBudget,
+      monthlyBudget: budgetForMonth,
       cashAvailable: parseFloat(cashAvailable.toFixed(2)),
       sharesBought: isIntegerOnly ? Math.floor(sharesBought) : parseFloat(sharesBought.toFixed(4)),
       spent: parseFloat(spent.toFixed(2)),
@@ -178,15 +149,14 @@ export async function simulatePositionDCA(
     });
   }
 
-  const latestPrice = priceMap.get(months[months.length - 1]) || currentPriceFallback || (logs.length > 0 ? logs[logs.length - 1].sharePrice : 0) || (ticker.includes('GPEA') ? 4.91 : 100);
+  const latestPrice = priceMap.get(months[months.length - 1]) || currentPriceFallback || (logs.length > 0 ? logs[logs.length - 1].sharePrice : 0) || (currentPriceFallback > 0 ? currentPriceFallback : 100);
   let totalSharesFinal = isIntegerOnly ? Math.floor(cumulativeShares) : parseFloat(cumulativeShares.toFixed(4));
   let avgPriceFinal = totalSharesFinal > 0 ? cumulativeCost / totalSharesFinal : 0;
   let totalInvestedFinal = parseFloat(cumulativeCost.toFixed(2));
 
-  // ABSOLUTE SAFETY FALLBACK FOR DCA SIMULATION:
-  // If simulation yields 0 shares despite positive budget (e.g. rate limit 429 or missing data point):
+  // Safety fallback if no shares acquired despite positive budget:
   if (totalSharesFinal <= 0 && monthlyBudget > 0) {
-    const validPrice = currentPriceFallback > 0 ? currentPriceFallback : (ticker.includes('GPEA') ? 4.91 : 100);
+    const validPrice = currentPriceFallback > 0 ? currentPriceFallback : (logs.length > 0 && logs[0].sharePrice > 0 ? logs[0].sharePrice : 100);
     const estMonths = Math.max(1, totalMonths);
     const totalEstBudget = monthlyBudget * estMonths;
     totalSharesFinal = isIntegerOnly ? Math.max(1, Math.floor(totalEstBudget / validPrice)) : parseFloat((totalEstBudget / validPrice).toFixed(4));
@@ -204,4 +174,53 @@ export async function simulatePositionDCA(
     earliestAvailableDate: earliestDate,
     logs,
   };
+}
+
+/**
+ * Perform DCA Simulation for a position with REAL MAX Historical Data & Strict Inception Rules
+ */
+export async function simulatePositionDCA(
+  ticker: string,
+  monthlyBudget: number,
+  startDateStr: string,
+  currentPriceFallback: number,
+  isIntegerOnly: boolean = true,
+  frequency: 'monthly' | 'quarterly' | 'semestrial' | 'annual' = 'monthly',
+  depositMonth: number = 1,
+  depositDay: number = 5
+): Promise<DCASimulationResult> {
+  const months = getMonthlyDates(startDateStr);
+
+  // Fetch REAL MAX historical prices from Yahoo Finance
+  let priceMap = new Map<string, number>();
+  let earliestDate: string | null = null;
+
+  try {
+    const historical = await getHistoricalData(ticker, 'MAX');
+    if (historical && historical.length > 0) {
+      for (const pt of historical) {
+        const monthKey = pt.date.slice(0, 7);
+        const p = pt.adjustedClose || pt.close;
+        if (p > 0) {
+          priceMap.set(monthKey, p);
+          if (!earliestDate || monthKey < earliestDate) {
+            earliestDate = monthKey;
+          }
+        }
+      }
+    }
+  } catch (err) {
+    console.warn(`[DCASimulation] Could not fetch MAX history for ${ticker}:`, err);
+  }
+
+  return calculateDCAFromPriceMap(
+    months,
+    priceMap,
+    monthlyBudget,
+    currentPriceFallback,
+    isIntegerOnly,
+    frequency,
+    depositMonth,
+    earliestDate
+  );
 }

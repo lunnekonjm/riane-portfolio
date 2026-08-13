@@ -64,7 +64,7 @@ export async function generateGroundedNewsSummary(
   articles: NewsItem[],
   periodLabel: string = 'Trimestre'
 ): Promise<GroundedNewsSummary | null> {
-  const apiKey = process.env.GEMINI_API_KEY || process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
+  const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
 
   if (!apiKey) {
     return null;

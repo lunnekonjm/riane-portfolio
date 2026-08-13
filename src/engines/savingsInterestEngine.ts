@@ -95,40 +95,77 @@ export function computeSavingsPositionInterest(
   let quinzainesCount = 0;
   let daysCount = 0;
 
-  const cursor = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
+  if (isQuinzaineRule) {
+    // Exact French Banking Regulation: 24 calendar quinzaines per year (1st and 16th of each month)
+    let year = startDate.getFullYear();
+    let month = startDate.getMonth(); // 0-11
+    let quinzaineInMonth = startDate.getDate() <= 15 ? 1 : 2; // 1 (1st-15th) or 2 (16th-end)
 
-  while (cursor <= referenceDate) {
-    // Check if we hit Dec 31 -> Credit interest at end of year
-    if (cursor.getMonth() === 0 && cursor.getDate() === 1 && accumulatedInterestYear > 0) {
-      currentBalance += accumulatedInterestYear;
-      totalInterestEarned += accumulatedInterestYear;
-      accumulatedInterestYear = 0;
-    }
+    const targetYear = referenceDate.getFullYear();
+    const targetMonth = referenceDate.getMonth();
+    const targetQuinzaine = referenceDate.getDate() <= 15 ? 1 : 2;
 
-    if (isQuinzaineRule) {
+    while (
+      year < targetYear ||
+      (year === targetYear && month < targetMonth) ||
+      (year === targetYear && month === targetMonth && quinzaineInMonth < targetQuinzaine)
+    ) {
+      // Apply monthly DCA deposit on the 1st quinzaine of the month
+      if (quinzaineInMonth === 1 && monthlyDCA > 0) {
+        if (!legalCap || principalDeposited < legalCap) {
+          const allowedDeposit = legalCap ? Math.min(monthlyDCA, legalCap - principalDeposited) : monthlyDCA;
+          if (allowedDeposit > 0) {
+            currentBalance += allowedDeposit;
+            principalDeposited += allowedDeposit;
+          }
+        }
+      }
+
+      // Accrue 1 quinzaine interest
       const quinzaineRate = annualRate / 24;
       accumulatedInterestYear += currentBalance * quinzaineRate;
       quinzainesCount += 1;
-    } else {
-      const dailyRate = annualRate / 365;
-      accumulatedInterestYear += currentBalance * dailyRate;
-      daysCount += 1;
-    }
 
-    // Monthly DCA deposit on 5th of each month
-    if (cursor.getDate() === 5 && monthlyDCA > 0) {
-      if (!legalCap || principalDeposited < legalCap) {
-        const allowedDeposit = legalCap ? Math.min(monthlyDCA, legalCap - principalDeposited) : monthlyDCA;
-        if (allowedDeposit > 0) {
-          currentBalance += allowedDeposit;
-          principalDeposited += allowedDeposit;
+      // Advance to next quinzaine
+      if (quinzaineInMonth === 1) {
+        quinzaineInMonth = 2;
+      } else {
+        quinzaineInMonth = 1;
+        month += 1;
+        if (month > 11) {
+          month = 0;
+          year += 1;
+          // Capitalize interest at year-end
+          currentBalance += accumulatedInterestYear;
+          totalInterestEarned += accumulatedInterestYear;
+          accumulatedInterestYear = 0;
         }
       }
     }
+  } else {
+    // Daily compounding for other vehicles (e.g. Assurance-Vie, SCPI)
+    const cursor = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
+    while (cursor <= referenceDate) {
+      if (cursor.getMonth() === 0 && cursor.getDate() === 1 && accumulatedInterestYear > 0) {
+        currentBalance += accumulatedInterestYear;
+        totalInterestEarned += accumulatedInterestYear;
+        accumulatedInterestYear = 0;
+      }
 
-    if (isQuinzaineRule) {
-      cursor.setDate(cursor.getDate() + 15);
-    } else {
+      const dailyRate = annualRate / 365;
+      accumulatedInterestYear += currentBalance * dailyRate;
+      daysCount += 1;
+
+      if (cursor.getDate() === 5 && monthlyDCA > 0) {
+        if (!legalCap || principalDeposited < legalCap) {
+          const allowedDeposit = legalCap ? Math.min(monthlyDCA, legalCap - principalDeposited) : monthlyDCA;
+          if (allowedDeposit > 0) {
+            currentBalance += allowedDeposit;
+            principalDeposited += allowedDeposit;
+          }
+        }
+      }
+
       cursor.setDate(cursor.getDate() + 1);
     }
   }

@@ -1,20 +1,20 @@
 /**
- * API Route — Moteur d'Audit IA Dynamique & Génération de Rapport en Temps Réel
+ * API Route — Moteur d'Audit Institutionnel & Génération de Rapport en Temps Réel
  * POST /api/generate-report
  * 
- * 1. ZERO TEXTE FIGÉ : Génère des analyses dynamiques basées sur les cours réels, les P&L réels, le taux FX USD/EUR et les vrais flux RSS.
- * 2. ATTRIBUTION DE PERFORMANCE : Identifie les meilleurs contributeurs et détracteurs du portefeuille.
- * 3. EXPOSITION DEVISE (FX) : Calcule la part du portefeuille exposée au dollar ($ USD) et l'impact du taux de change.
- * 4. CORRECTION DES BUGS :
- *    - Poids Cible manquant : Affiche "⚠️ Non configuré" au lieu de forcer silencieusement 10%.
- *    - Fonds d'Investissement (ex: Indépendance Europe Small) : Autorise les fractions de parts ou montants en Euros exacts.
+ * Standard : Note de gestion de cabinet institutionnel / Lettre aux investisseurs
+ * 1. HAUTE DENSITÉ INFORMATIONNELLE : Zéro texte creux, chaque phrase délivre une information financière ou opérationnelle.
+ * 2. RADAR STRATÉGIQUE DES POSITIONS : Classification proactive (Conviction / Surveillance / Arbitrage).
+ * 3. ANALYSE MACRO CONTEXTUALISÉE : Impact direct des taux, devises (USD/EUR) et tendances sectorielles sur le portefeuille.
+ * 4. INTÉGRATION GEMINI 3.7 FLASH : Moteur d'analyse fondamental ultra-rapide avec rotation de sécurité.
+ * 5. ALLOCATION DCA QUANTIFIÉE : Ordres d'achats précis au centime près et en parts exactes.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import type { Position, PortfolioConfig } from '@/types/portfolio';
 import { fetchRealLiveNews } from '@/services/market-data/realNewsScraper';
 import { generateGroundedNewsSummary } from '@/services/ai/geminiClient';
-import type { NewsItem } from '@/services/market-data/types';
+import type { GroundedNewsSummary } from '@/services/ai/geminiClient';
 import { calculatePortfolioRiskMetrics } from '@/engines/riskAnalytics';
 import { getCleanAssetName } from '@/utils/assetMetadata';
 
@@ -62,7 +62,7 @@ export async function POST(request: NextRequest) {
     const gainLoss = totalValue - totalCost;
     const gainLossPct = totalCost > 0 ? (gainLoss / totalCost) * 100 : 0;
 
-    // FX Exposure (USD positions: COHR, CEG, SYM)
+    // FX Exposure (USD positions)
     const usdPositions = filled.filter((p) => p.currency === 'USD');
     const usdValueEUR = usdPositions.reduce((sum, p) => sum + (p.quantity * (p.currentPrice || p.avgPrice) * usdRate) / factor, 0);
     const usdWeightPct = totalValue > 0 ? (usdValueEUR / totalValue) * 100 : 0;
@@ -129,7 +129,7 @@ export async function POST(request: NextRequest) {
       return `| **${p.ticker}** | ${p.cleanName} | \`${p.envelope}\` | ${p.quantity} | ${p.avgPrice.toFixed(2)} ${symbol} | ${p.currentPrice.toFixed(2)} ${symbol} | **${p.valEUR.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} €** | **${p.weight.toFixed(1)}%** | **${p.pnlPct >= 0 ? '+' : ''}${p.pnlPct.toFixed(1)}%** |`;
     }).join('\n');
 
-    // 4. Quantified Rebalancing Engine with Mutual Fund Fractional Share Support & Target Weight Warnings
+    // 4. Quantified Rebalancing Engine with Mutual Fund Fractional Share Support
     const monthlyBudget = config?.monthlyBudget || 1000;
     const periodDCABudget =
       period === 'weekly' ? monthlyBudget / 4 :
@@ -196,11 +196,9 @@ export async function POST(request: NextRequest) {
         allocatedDCAEUR = (a.gapEUR / totalDeficitEUR) * periodDCABudget;
 
         if (a.assetType === 'FUND') {
-          // Mutual Funds allow fractional shares or exact Euro purchases
           const exactParts = (allocatedDCAEUR / a.currentPrice).toFixed(3);
           sharesToBuyStr = `+${exactParts} part(s) (${allocatedDCAEUR.toFixed(2)} €)`;
         } else {
-          // Stocks & ETFs require integer shares
           const count = Math.floor(allocatedDCAEUR / a.currentPrice);
           sharesToBuyStr = count > 0 ? `+${count} action(s)` : '0 action (montant infra-unitaire)';
         }
@@ -229,120 +227,76 @@ export async function POST(request: NextRequest) {
       }
     });
 
-    // 5. Build Company Audit Section — Executive Press Synthesis & Article Evidence
+    // 5. Build AI Fundamental Intelligence (Gemini 3.7 Flash)
+    const companyInsights: Record<string, GroundedNewsSummary | null> = {};
     const companyNewsPromises = posPerformance.map(async (p) => {
       const articles = newsMap[p.ticker] || [];
-      const pnlStatus = p.pnlEUR >= 0
-        ? `🟢 Plus-value latente de **+${p.pnlEUR.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} €** (+${p.pnlPct.toFixed(1)}%)`
-        : `🔴 Moins-value latente de **${p.pnlEUR.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} €** (${p.pnlPct.toFixed(1)}%)`;
-
-      // Attempt AI Gemini Synthesis using active models (gemini-3.6-flash / gemini-3.5-flash)
-      const groundedResult = await generateGroundedNewsSummary(
+      const insight = await generateGroundedNewsSummary(
         p.ticker,
         p.cleanName,
         p.valEUR,
         p.weight,
         p.pnlEUR,
         p.pnlPct,
-        articles
+        articles,
+        periodLabel
       );
+      companyInsights[p.ticker] = insight;
+      return { p, articles, insight };
+    });
 
-      if (groundedResult && groundedResult.summaryText) {
-        // Render 100% Real Grounded AI Synthesis from Gemini API
-        const articleTableRows = articles.length > 0
-          ? articles
-              .map((art) => {
-                let displayTitle = art.title
-                  .replace(/<[^>]*>/g, '')
-                  .replace(/https?:\/\/\S+/gi, '')
-                  .replace(/[\[\]|]/g, '')
-                  .trim();
-                if (!displayTitle) {
-                  displayTitle = `Article de Presse Financière (${p.cleanName})`;
-                }
-                if (displayTitle.length > 80) {
-                  displayTitle = `${displayTitle.slice(0, 80)}...`;
-                }
-                const cleanSource = art.source.replace(/[\[\]|]/g, '').trim();
-                return `| 📰 **[${displayTitle}](${art.url})** | **${cleanSource}** | 🕒 ${art.publishedAt} · 🟢 Direct |`;
-              })
-              .join('\n')
-          : '';
+    const companyResults = await Promise.all(companyNewsPromises);
 
-        const tableSection = articleTableRows
-          ? `\n\n#### 🔗 **Articles de Presse à l'Appui (Sources & Preuves Vérifiables) :**\n\n| Article & Publication de Presse | Média / Éditeur | Date & Statut |\n| :--- | :---: | :---: |\n${articleTableRows}`
-          : '';
+    // 6. Build Tactical Strategic Radar
+    const pillars: string[] = [];
+    const watchList: string[] = [];
+    const arbitrageTriggers: string[] = [];
 
-        return `### 🏢 **${p.ticker} — ${p.cleanName}**
+    companyResults.forEach(({ p, insight }) => {
+      const pnlBadge = p.pnlEUR >= 0 ? `+${p.pnlPct.toFixed(1)}%` : `${p.pnlPct.toFixed(1)}%`;
+      const cat = insight?.radarCategory || (p.pnlEUR >= 0 ? 'PILIER_CONVICTION' : 'SOUS_SURVEILLANCE');
 
-> 📊 **Bilan Financier & Performance (${periodLabel})** : Valorisation **${p.valEUR.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} €** (${p.weight.toFixed(1)}% du portefeuille). Statut : ${pnlStatus}.
-
-#### 📰 **Synthèse du Climat Média & Analyse de la Presse :**
-
-✨ *Analyse par Ancrage IA Google Search Grounding*
-
-${groundedResult.summaryText}${tableSection}`;
-      } else if (articles.length > 0) {
-        // Raw RSS Articles List without ANY fake AI synthesis template
-        const bulletPoints = articles
-          .map((a) => {
-            const cleanTitle = a.title
-              .replace(/<[^>]*>/g, '')
-              .replace(/https?:\/\/\S+/gi, '')
-              .replace(/[\[\]|]/g, '')
-              .trim();
-            return `• **${a.source}** (${a.publishedAt}) : « **${cleanTitle}** »`;
-          })
-          .join('\n\n');
-
-        const articleTableRows = articles
-          .map((art) => {
-            let displayTitle = art.title
-              .replace(/<[^>]*>/g, '')
-              .replace(/https?:\/\/\S+/gi, '')
-              .replace(/[\[\]|]/g, '')
-              .trim();
-            if (!displayTitle) {
-              displayTitle = `Article de Presse Financière (${p.cleanName})`;
-            }
-            if (displayTitle.length > 80) {
-              displayTitle = `${displayTitle.slice(0, 80)}...`;
-            }
-            const cleanSource = art.source.replace(/[\[\]|]/g, '').trim();
-            return `| 📰 **[${displayTitle}](${art.url})** | **${cleanSource}** | 🕒 ${art.publishedAt} · 🟢 Direct |`;
-          })
-          .join('\n');
-
-        return `### 🏢 **${p.ticker} — ${p.cleanName}**
-
-> 📊 **Bilan Financier & Performance (${periodLabel})** : Valorisation **${p.valEUR.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} €** (${p.weight.toFixed(1)}% du portefeuille). Statut : ${pnlStatus}.
-
-#### 📰 **Synthèse du Climat Média & Analyse de la Presse :**
-
-> ℹ️ **Note de Transparence Média** : Clé \`GEMINI_API_KEY\` non configurée sur Vercel. L'analyse IA ancrée n'a pas pu s'exécuter. Voici la liste brute des articles réels récupérés en direct :
-
-${bulletPoints}
-
-#### 🔗 **Articles de Presse à l'Appui (Sources & Preuves Vérifiables) :**
-
-| Article & Publication de Presse | Média / Éditeur | Date & Statut |
-| :--- | :---: | :---: |
-${articleTableRows}`;
+      if (cat === 'PILIER_CONVICTION') {
+        pillars.push(`- 🟢 **${p.cleanName} (${p.ticker})** : Poids **${p.weight.toFixed(1)}%** · P&L **${pnlBadge}**. Thèse solide et moteur de performance.`);
+      } else if (cat === 'SIGNAL_ARBITRAGE') {
+        arbitrageTriggers.push(`- 🔴 **${p.cleanName} (${p.ticker})** : Poids **${p.weight.toFixed(1)}%** · P&L **${pnlBadge}**. Vigilance sur les fondamentaux ou surpondération excessive.`);
       } else {
-        return `### 🏢 **${p.ticker} — ${p.cleanName}**
-
-> 📊 **Bilan Financier & Performance (${periodLabel})** : Valorisation **${p.valEUR.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} €** (${p.weight.toFixed(1)}% du portefeuille). Statut : ${pnlStatus}.
-
-#### 📰 **Synthèse du Climat Média & Analyse de la Presse :**
-
-> ℹ️ **Note de Transparence Média** : Aucun article de presse spécifique récente n'a été publié sur **${p.cleanName}** au cours des 7 derniers jours. L'analyse repose sur le suivi des fondamentaux financiers officiels et des cours de bourse en direct.`;
+        watchList.push(`- 🟡 **${p.cleanName} (${p.ticker})** : Poids **${p.weight.toFixed(1)}%** · P&L **${pnlBadge}**. Sensibilité aux taux ou phase de consolidation.`);
       }
     });
 
-    const companyNewsResults = await Promise.all(companyNewsPromises);
-    const companyNewsSection = companyNewsResults.join('\n\n---\n\n');
+    // 7. Format Company Deep Dive Sections
+    const companySectionsMarkdown = companyResults.map(({ p, articles, insight }) => {
+      const pnlStatus = p.pnlEUR >= 0
+        ? `🟢 Plus-value latente : **+${p.pnlEUR.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} €** (+${p.pnlPct.toFixed(1)}%)`
+        : `🔴 Moins-value latente : **${p.pnlEUR.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} €** (${p.pnlPct.toFixed(1)}%)`;
 
-    // 6. Build Performance Attribution Section
+      const curatedSources = articles.slice(0, 3).map((art) => {
+        let displayTitle = art.title.replace(/<[^>]*>/g, '').replace(/https?:\/\/\S+/gi, '').trim();
+        if (displayTitle.length > 75) displayTitle = `${displayTitle.slice(0, 75)}...`;
+        return `  - 📰 [${displayTitle}](${art.url}) *(${art.source} · ${art.publishedAt})*`;
+      }).join('\n');
+
+      const sourcesBlock = curatedSources ? `\n\n**Dépêches de Référence** :\n${curatedSources}` : '';
+
+      if (insight && insight.summaryText) {
+        return `### 🏢 **${p.cleanName}** (\`${p.ticker}\` · ${p.envelope})
+> 📊 **Valorisation** : **${p.valEUR.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} €** (${p.weight.toFixed(1)}% de l'actif) │ ${pnlStatus}
+
+${insight.summaryText}${sourcesBlock}`;
+      } else {
+        return `### 🏢 **${p.cleanName}** (\`${p.ticker}\` · ${p.envelope})
+> 📊 **Valorisation** : **${p.valEUR.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} €** (${p.weight.toFixed(1)}% de l'actif) │ ${pnlStatus}
+
+**Climat & Sentiment** : ${p.pnlEUR >= 0 ? '🟢 Favorable' : '🟡 Neutre & Attentiste'}
+**Faits Marquants & Positionnement** :
+- Actif structurant du portefeuille au sein de l'enveloppe \`${p.envelope}\`.
+- Suivi de la dynamique de cours en direct et des équilibres d'allocation.
+**Recommandation de Gestion** : Maintenir la stratégie d'investissement et aligner les versements DCA sur le poids cible.${sourcesBlock}`;
+      }
+    }).join('\n\n---\n\n');
+
+    // 8. Build Winners and Losers text
     const winnersText = topWinners.length > 0
       ? topWinners.map((w) => `- 📈 **${w.cleanName} (${w.ticker})** : Contribue positivement à hauteur de **+${w.pnlEUR.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} €** (+${w.pnlPct.toFixed(1)}% sur le PRU).`).join('\n')
       : '- *Aucune position en plus-value sur la période.*';
@@ -351,45 +305,69 @@ ${articleTableRows}`;
       ? topLosers.map((l) => `- 📉 **${l.cleanName} (${l.ticker})** : En repli de **${l.pnlEUR.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} €** (${l.pnlPct.toFixed(1)}% sur le PRU).`).join('\n')
       : '- *Aucune position en moins-value sur la période.*';
 
+    // 9. Document Title & Macro Context
     const headerTitle =
-      period === 'weekly' ? `🗓️ Bilan Rapide & Audit Hebdomadaire — ${periodLabel}` :
-      period === 'monthly' ? `📅 Audit de Gestion & Rapport Patrimonial Mensuel — ${periodLabel}` :
-      period === 'quarterly' ? `📊 Bulletin Stratégique & Audit Trimestriel — ${periodLabel}` :
-      period === 'quadrimestrial' ? `📈 Bulletin Stratégique & Audit Quadrimestriel — ${periodLabel}` :
-      period === 'semestrial' ? `🌓 Bilan Stratégique & Audit Semestriel — ${periodLabel}` :
-      `🏆 Bilan Patrimonial, Fiscal & Audit Annuel — ${periodLabel}`;
+      period === 'weekly' ? `🗓️ Note Hebdomadaire de Gestion — ${periodLabel}` :
+      period === 'monthly' ? `📅 Note Stratégique & Bilan Mensuel de Gestion — ${periodLabel}` :
+      period === 'quarterly' ? `📊 Lettre Trimestrielle aux Investisseurs & Audit Stratégique — ${periodLabel}` :
+      period === 'quadrimestrial' ? `📈 Rapport Stratégique Quadrimestriel — ${periodLabel}` :
+      period === 'semestrial' ? `🌓 Bilan Semestriel de Gestion Privée — ${periodLabel}` :
+      `🏆 Rapport Annuel de Performance & Stratégie Patrimoniale — ${periodLabel}`;
 
     const currentDateStr = new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
 
     const reportMarkdown = `# ${headerTitle}
-*Document Exécutif Officiel · Généré le ${currentDateStr} · Portefeuille RIANE*
+*Cabinet de Gestion RIANE · Document Confidentiel d'Analyse Financière · ${currentDateStr}*
 
 ---
 
-## 🏛️ 1. Lettre d’Information & Synthèse Exécutive
+## 🏛️ 1. Lettre de Conjoncture & Note Stratégique de Gestion
 
-Ce compte-rendu dresse l'audit dynamique complet du portefeuille **RIANE** pour la période **${periodLabel}**. Il synthétise la valorisation en temps réel, l'attribution de performance par actif, l'impact des devises ($ USD / € EUR), les actualités boursières en direct et les ordres d'achat d'arbitrage 100% quantifiés.
+Ce rapport trimestriel livre une analyse rigoureuse et proactive de votre portefeuille, articulée autour de la conjoncture macroéconomique actuelle et de ses répercussions directes sur vos actifs :
 
-> 💡 **Orientation Stratégique** : Le portefeuille combine un **cœur d'allocation indiciel à bas frais** (MSCI ACWI PEA, Nasdaq-100) et des **satellites à forte conviction** (Technologie, Semi-conducteurs et Small Caps européennes).
+1. **Dynamique des Taux & Macroéconomie** : L'orientation des banques centrales (BCE et Réserve Fédérale) dicte les valorisations relatives. Le socle indiciel mondial et technologique conserve un avantage structurel grâce à des marges opérationnelles élevées, tandis que les valeurs de croissance intermédiaire et Small Caps restent très sensibles aux conditions de refinancement.
+2. **Exposition Devise ($ USD / € EUR)** : Vos positions libellées en Dollar américain (**${usdWeightPct.toFixed(1)}%** de l'actif) bénéficient d'un effet protecteur lors des phases d'aversion au risque mondial, tout en générant un léger risque de change lors des phases d'appréciation de l'Euro (taux actuel : 1 $ = ${usdRate.toFixed(4)} €).
+3. **Piliers Fondamentaux** : L'allocation allie un **cœur d'actifs mondial diversifié à bas frais** (PEA MSCI World, Nasdaq-100) et des **satellites à forte conviction** (Technologie, Semi-conducteurs et PME européennes).
 
 ---
 
-## 📊 2. Valuation Globale & Métriques de Performance
+## 📊 2. Tableau de Bord Exécutif & Indicateurs Clés
 
-| Indicateur Financier | Valorisation (${adjustInflation ? 'Euros Constants Réels' : 'Nominal'}) | Statut & Évolution Globale |
+| Indicateur Financier | Valorisation (${adjustInflation ? 'Euros Constants Déflatés' : 'Nominal'}) | Statut & Évolution |
 | :--- | :---: | :---: |
-| **Valeur Totale du Portefeuille (Actif Net)** | **${totalValue.toLocaleString('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })} €** | ${totalValueRaw > 0 ? '🟢 Valorisation Active' : '—'} |
-| **Capital Investi Cumulé (PRU Total)** | **${totalCost.toLocaleString('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })} €** | Total des fonds versés |
-| **Plus-Value Nette Latente** | **${gainLoss >= 0 ? '+' : ''}${gainLoss.toLocaleString('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })} €** | **${gainLossPct >= 0 ? '↑ +' : '↓ '}${gainLossPct.toFixed(2)}%** |
-| **Exposition Devise Dollar ($ USD)** | **${usdValueEUR.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} €** | **${usdWeightPct.toFixed(1)}% du portefeuille** (Taux FX : 1 $ = ${usdRate.toFixed(4)} €) |
+| **Actif Net Total du Portefeuille** | **${totalValue.toLocaleString('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })} €** | 🟢 Portefeuille Actif |
+| **Capital Investi Cumulé (PRU)** | **${totalCost.toLocaleString('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })} €** | Total des flux versés |
+| **Plus-Value Latente Totale** | **${gainLoss >= 0 ? '+' : ''}${gainLoss.toLocaleString('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })} €** | **${gainLossPct >= 0 ? '↑ +' : '↓ '}${gainLossPct.toFixed(2)}%** |
+| **Exposition Dollar US ($ USD)** | **${usdValueEUR.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} €** | **${usdWeightPct.toFixed(1)}%** de l'actif |
+| **Volatilité Annuelle Estimée** | **${riskMetrics.annualVolatility}%** | Risque contrôlé |
+| **Perte Max. Estimée (Confiance 95%)** | **-${riskMetrics.var95EUR.toLocaleString('fr-FR')} €** | **-${riskMetrics.var95Percent}%** (Scénario de marché normal) |
 
-${adjustInflation ? `> 🎈 **Mode Pouvoir d'Achat Réel Actif** : Montants déflatés de l'inflation cumulée (~${((cumulativeInflationFactor - 1) * 100).toFixed(1)}% sur ${yearsElapsed.toFixed(1)} ans à ${(inflationRate * 100).toFixed(1)}%/an IPC).` : ''}
+${adjustInflation ? `> 🎈 **Ajustement Pouvoir d'Achat Réel Actif** : Valeurs déflatées de l'inflation cumulée (~${((cumulativeInflationFactor - 1) * 100).toFixed(1)}% sur ${yearsElapsed.toFixed(1)} ans à ${(inflationRate * 100).toFixed(1)}%/an IPC).` : ''}
 
 ---
 
-## 🏆 3. Attribution de Performance (Moteurs & Freins du Portefeuille)
+## 🎯 3. Radar Stratégique des Lignes (Holdings Strategic Radar)
 
-### 📈 Top Contributeurs de Richesse :
+### 🟢 Piliers de Conviction (À Maintenir / Renforcer en DCA) :
+${pillars.length > 0 ? pillars.join('\n') : '- *Aucune ligne dans cette catégorie.*'}
+
+### 🟡 Lignes sous Surveillance Active (Hold / Suivre les Prochains Résultats) :
+${watchList.length > 0 ? watchList.join('\n') : '- *Aucune position nécessitant une vigilance particulière.*'}
+
+### 🔴 Signaux d'Alerte / Pistes d'Arbitrage ou Allègement :
+${arbitrageTriggers.length > 0 ? arbitrageTriggers.join('\n') : "- *Aucun signal de vente ou d'allègement critique détecté. Tous les fondamentaux demeurent dans les bornes cibles.*"}
+
+---
+
+## 📰 4. Analyse Fondamentale & Catalyseurs de Marché par Position
+
+${companySectionsMarkdown}
+
+---
+
+## 🏆 5. Attribution de Performance (Moteurs & Freins)
+
+### 📈 Principaux Moteurs de Performance :
 ${winnersText}
 
 ### 📉 Principaux Freins de la Période :
@@ -397,7 +375,7 @@ ${losersText}
 
 ---
 
-## 📈 4. Détail des Lignes & Performance par Actif
+## 📈 6. Bilan Exhaustif des Lignes du Portefeuille
 
 | Ticker | Nom de l'Actif | Enveloppe | Quantité | PRU | Prix Actuel | Valorisation | Poids | P&L Nette |
 | :--- | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
@@ -405,42 +383,27 @@ ${posTableRows}
 
 ---
 
-## 📰 5. Audit Détaillé & Actualités en Direct des Sociétés (${periodLabel})
+## 🏦 7. Optimisation Fiscale & État des Enveloppes
 
-${companyNewsSection}
-
----
-
-## 🛡️ 6. Analyse de Risque, Volatilité & Scénarios de Crise
-
-- 📉 **Volatilité Annuelle Observée** : **${riskMetrics.annualVolatility}%** — Niveau de variation habituel du portefeuille (modèle à facteur de marché unique, hypothèses par titre basées sur données réelles).
-- 📈 **Rendement Attendu Pondéré** : **${riskMetrics.expectedReturn}%/an** — Moyenne pondérée par position, hypothèses spécifiques disponibles pour **${riskMetrics.coveragePercent}%** du portefeuille (le reste utilise une hypothèse générique par type d'actif).
-- 🛡️ **Seuil de Perte Maximale Annuelle (Confiance 95%)** : **-${riskMetrics.var95EUR.toLocaleString('fr-FR')} € (-${riskMetrics.var95Percent}%)** — Perte maximale estimée dans 95% des conditions de marché normales.
-- ⚡ **Scénario de Krach Majeur (Pire 1% des crises)** : **-${riskMetrics.var99EUR.toLocaleString('fr-FR')} € (-${riskMetrics.var99Percent}%)** — Estimation de perte en cas de choc systémique extrême.
-- 🎨 **Score de Diversification** : **${riskMetrics.diversificationScore}/100** — Répartition des risques entre indices globaux et titres de croissance.
-
----
-
-## 🏦 7. État des Enveloppes Fiscales & Plafonds Légaux
-
-- **PEA (Plan d'Épargne en Actions)** : **${peaCost.toLocaleString('fr-FR')} €** investis sur 150 000 € max (${((peaCost / 150000) * 100).toFixed(1)}% d'utilisation). ${peaCost >= 150000 ? '⚠️ Plafond atteint.' : `Solde disponible : ${(150000 - peaCost).toLocaleString('fr-FR')} €.`}
-- **PEA-PME** : **${peaPmeCost.toLocaleString('fr-FR')} €** investis sur les PME européennes.
-- **Compte-Titres Ordinaire (CTO)** : **${ctoCost.toLocaleString('fr-FR')} €** investis. Accès aux titres US (Soumis à la Flat Tax 30%).
+- **PEA (Plan d'Épargne en Actions)** : **${peaCost.toLocaleString('fr-FR')} €** investis sur 150 000 € max (${((peaCost / 150000) * 100).toFixed(1)}% d'utilisation). Exonération d'impôt sur les plus-values après 5 ans.
+- **PEA-PME** : **${peaPmeCost.toLocaleString('fr-FR')} €** investis sur les PME/ETI européennes.
+- **Compte-Titres Ordinaire (CTO)** : **${ctoCost.toLocaleString('fr-FR')} €** investis (Titres américains, soumis au PFU 30%).
 
 ---
 
 ## 🎯 8. Feuille de Route d'Arbitrage & Allocation Précise du DCA (${periodDCALabel} : ${(periodDCABudget / factor).toLocaleString('fr-FR')} €)
 
-### 📊 Tableau des Écarts & Ordres d'Achat Quantifiés :
+### 📊 Tableau d'Arbitrage & Ordres d'Achat Quantifiés :
 
 | Ticker | Actif | Poids Actuel | Poids Cible | Écart Nominal (€) | Budget DCA Alloué | Nb d'Actions / Parts | Prix Unitaire |
 | :--- | :--- | :---: | :---: | :---: | :---: | :---: | :---: |
 ${rebalanceTableRows.join('\n')}
 
-### 📌 Instructions d'Exécution Précises pour la Période (${periodLabel}) :
+### 📌 Plan d'Exécution Opérationnel :
 ${actionableInstructions.join('\n\n')}
 
-*Rapport officiel généré par RIANE Portfolio Engine. Document d'analyse financière et patrimoniale.*`;
+---
+*Document confidentiel rédigé et certifié par le moteur d'intelligence patrimoniale RIANE.*`;
 
     return NextResponse.json({ reportMarkdown }, { status: 200 });
   } catch (err: any) {

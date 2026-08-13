@@ -36,18 +36,21 @@ function markdownToModernHtml(markdown: string): string {
     const text = this.parser.parse(tokens);
     let borderColor = '#06b6d4';
     let bg = '#0f172a';
-    if (text.includes('💡')) {
+    if (text.includes('💡') || text.includes('🏛️')) {
       borderColor = '#38bdf8';
       bg = '#0c2135';
     } else if (text.includes('🎈') || text.includes('Inflation')) {
       borderColor = '#f59e0b';
       bg = '#2a1a08';
-    } else if (text.includes('🚨') || text.includes('Alerte')) {
+    } else if (text.includes('🚨') || text.includes('🔴') || text.includes('Alerte') || text.includes('Vigilance')) {
       borderColor = '#f43f5e';
       bg = '#2a0c14';
-    } else if (text.includes('📊') || text.includes('Bilan')) {
+    } else if (text.includes('📊') || text.includes('🟢') || text.includes('Bilan') || text.includes('Valorisation')) {
       borderColor = '#10b981';
       bg = '#06281e';
+    } else if (text.includes('🎯') || text.includes('🟡')) {
+      borderColor = '#eab308';
+      bg = '#231d09';
     }
     return `<div style="background:${bg};border-left:4px solid ${borderColor};padding:12px 16px;border-radius:6px;margin:16px 0;color:#e2e8f0;font-size:13px;line-height:1.6;">${text}</div>`;
   };

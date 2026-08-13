@@ -8,17 +8,37 @@ export interface ModelQuotaLimits {
 
 export interface ModelEntry {
   id: string;
-  family: 'gemini-2.5' | 'gemini-3' | 'gemini-3.1' | 'gemini-3.5' | 'gemini-3.6';
-  capabilities: ('text' | 'grounding')[];
+  family: 'gemini-2.5' | 'gemini-3' | 'gemini-3.1' | 'gemini-3.5' | 'gemini-3.6' | 'gemini-3.7';
+  capabilities: ('text' | 'grounding' | 'reasoning')[];
   quotas: Partial<Record<QuotaKind, ModelQuotaLimits>>;
   knownUnavailable?: boolean;
 }
 
 /**
- * Registre des modèles Gemini — adapté pour RIANE Portfolio
- * Focus sur text generation et grounding search
+ * Registre des modèles Gemini — RIANE Portfolio
+ * Intègre la nouvelle génération Gemini 3.7 Flash
  */
 export const MODEL_REGISTRY: ModelEntry[] = [
+  // Flagship Tier — Gemini 3.7
+  {
+    id: 'gemini-3.7-flash',
+    family: 'gemini-3.7',
+    capabilities: ['text', 'grounding', 'reasoning'],
+    quotas: {
+      generation: { rpm: 15, rpd: 1000, tpm: 1000000 },
+      groundingSearch: { rpm: 15, rpd: 1500, tpm: 1000000 },
+    },
+  },
+  {
+    id: 'gemini-3.7-flash-thinking',
+    family: 'gemini-3.7',
+    capabilities: ['text', 'reasoning'],
+    quotas: {
+      generation: { rpm: 10, rpd: 500, tpm: 500000 },
+    },
+  },
+
+  // High Performance Standard Tier
   {
     id: 'gemini-3.6-flash',
     family: 'gemini-3.6',
@@ -44,6 +64,8 @@ export const MODEL_REGISTRY: ModelEntry[] = [
       groundingSearch: { rpm: 10, rpd: 1500, tpm: 250000 },
     },
   },
+
+  // High Quota Fallback Tier (Lite)
   {
     id: 'gemini-3.5-flash-lite',
     family: 'gemini-3.5',

@@ -761,7 +761,7 @@ function autoGenerateThemes(
 
               <div className="form-row" style={{ marginBottom: 16 }}>
                 <div className="form-group" style={{ flex: 1 }}>
-                  <label className="form-label">Taux d&apos;intérêt annuel (%)</label>
+                  <label className="form-label">Taux d&apos;intérêt / Rendement annuel (%)</label>
                   <input
                     className="input mono"
                     type="number"
@@ -777,25 +777,92 @@ function autoGenerateThemes(
                     id="input-interest-rate"
                   />
                 </div>
-                <div className="form-group" style={{ flex: 1 }}>
-                  <label className="form-label">Épargne mensuelle (DCA)</label>
-                  <input
-                    className="input mono"
-                    type="number"
-                    step="10"
-                    min="0"
-                    value={form.monthlyDCA ?? ''}
-                    onChange={(e) => handleOptionalNumber('monthlyDCA', e.target.value)}
-                    placeholder="ex: 200 € / mois"
-                    id="input-savings-dca"
-                  />
+              </div>
+
+              {/* Stratégie de versement régulier (Identique au module Actions/Bourse) */}
+              <div style={{
+                background: 'var(--bg-tertiary)',
+                border: '1px solid var(--border-accent)',
+                borderRadius: 'var(--radius-md)',
+                padding: 16,
+                marginBottom: 20
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                  <span style={{ fontWeight: 600, fontSize: 14, color: 'var(--accent-emerald)' }}>
+                    🔄 Stratégie de versement régulier
+                  </span>
                 </div>
-                <div className="form-group" style={{ flex: 1.2 }}>
-                  <label className="form-label">Début des versements (DCA)</label>
-                  <CustomDatePicker
-                    value={dcaStartDate}
-                    onChange={setDcaStartDate}
-                  />
+                
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 12 }}>
+                  <div className="form-group">
+                    <label className="form-label" style={{ fontSize: 'var(--text-xs)', textTransform: 'uppercase', letterSpacing: '0.4px', fontWeight: 600 }}>Fréquence</label>
+                    <CustomSelect
+                      value={form.dcaFrequency || 'monthly'}
+                      options={[
+                        { label: 'Mensuel', value: 'monthly' },
+                        { label: 'Trimestriel', value: 'quarterly' },
+                        { label: 'Semestriel', value: 'semestrial' },
+                        { label: 'Annuel', value: 'annual' },
+                      ]}
+                      onChange={(val) => handleChange('dcaFrequency', val as string)}
+                    />
+                  </div>
+                  
+                  <div className="form-group">
+                    <label className="form-label" style={{ fontSize: 'var(--text-xs)', textTransform: 'uppercase', letterSpacing: '0.4px', fontWeight: 600 }}>Jour (cible)</label>
+                    <CustomSelect
+                      value={(form.dcaDepositDay || 5).toString()}
+                      options={Array.from({ length: 31 }, (_, i) => ({ label: (i + 1).toString(), value: (i + 1).toString() }))}
+                      onChange={(val) => handleChange('dcaDepositDay', parseInt(val as string))}
+                    />
+                  </div>
+
+                  {(form.dcaFrequency === 'annual' || form.dcaFrequency === 'quarterly' || form.dcaFrequency === 'semestrial') && (
+                    <div className="form-group">
+                      <label className="form-label" style={{ fontSize: 'var(--text-xs)', textTransform: 'uppercase', letterSpacing: '0.4px', fontWeight: 600 }}>Mois (cible)</label>
+                      <CustomSelect
+                        value={(form.dcaDepositMonth || 1).toString()}
+                        options={[
+                          { label: 'Janvier', value: '1' },
+                          { label: 'Février', value: '2' },
+                          { label: 'Mars', value: '3' },
+                          { label: 'Avril', value: '4' },
+                          { label: 'Mai', value: '5' },
+                          { label: 'Juin', value: '6' },
+                          { label: 'Juillet', value: '7' },
+                          { label: 'Août', value: '8' },
+                          { label: 'Septembre', value: '9' },
+                          { label: 'Octobre', value: '10' },
+                          { label: 'Novembre', value: '11' },
+                          { label: 'Décembre', value: '12' },
+                        ]}
+                        onChange={(val) => handleChange('dcaDepositMonth', parseInt(val as string))}
+                      />
+                    </div>
+                  )}
+                  
+                  <div className="form-group">
+                    <label className="form-label" style={{ fontSize: 'var(--text-xs)', textTransform: 'uppercase', letterSpacing: '0.4px', fontWeight: 600 }}>Montant ({form.currency === 'USD' ? '$' : form.currency === 'GBP' ? '£' : '€'})</label>
+                    <input
+                      className="input mono"
+                      type="number"
+                      step="10"
+                      min="0"
+                      style={{ fontSize: 13, padding: '8px 10px' }}
+                      value={form.monthlyDCA ?? ''}
+                      onChange={(e) => handleOptionalNumber('monthlyDCA', e.target.value)}
+                      placeholder="ex: 150"
+                      id="input-savings-monthly-dca"
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label" style={{ fontSize: 'var(--text-xs)', textTransform: 'uppercase', letterSpacing: '0.4px', fontWeight: 600 }}>Début du versement (DCA)</label>
+                    <CustomDatePicker
+                      value={dcaStartDate}
+                      onChange={setDcaStartDate}
+                    />
+                  </div>
                 </div>
               </div>
 

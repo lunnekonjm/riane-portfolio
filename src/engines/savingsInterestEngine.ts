@@ -110,13 +110,25 @@ export function computeSavingsPositionInterest(
     const targetMonth = referenceDate.getMonth();
     const targetQuinzaine = referenceDate.getDate() <= 15 ? 1 : 2;
 
+    const depositQuinzaine = position.dcaDepositDay && position.dcaDepositDay > 15 ? 2 : 1;
+    const isDepositMonth = (m: number) => {
+      if (!position.dcaFrequency || position.dcaFrequency === 'monthly') return true;
+      if (position.dcaFrequency === 'quarterly') return (m % 3) === 0;
+      if (position.dcaFrequency === 'semestrial') return (m % 6) === 0;
+      if (position.dcaFrequency === 'annual') {
+        const targetM = (position.dcaDepositMonth !== undefined ? position.dcaDepositMonth - 1 : 0);
+        return m === targetM;
+      }
+      return true;
+    };
+
     while (
       year < targetYear ||
       (year === targetYear && month < targetMonth) ||
       (year === targetYear && month === targetMonth && quinzaineInMonth < targetQuinzaine)
     ) {
-      // Apply monthly DCA deposit on the 1st quinzaine of the month
-      if (quinzaineInMonth === 1 && monthlyDCA > 0) {
+      // Apply DCA deposit according to frequency and target quinzaine
+      if (quinzaineInMonth === depositQuinzaine && isDepositMonth(month) && monthlyDCA > 0) {
         if (!legalCap || principalDeposited < legalCap) {
           const allowedDeposit = legalCap ? Math.min(monthlyDCA, legalCap - principalDeposited) : monthlyDCA;
           if (allowedDeposit > 0) {
@@ -149,6 +161,18 @@ export function computeSavingsPositionInterest(
     }
   } else {
     // Daily compounding for other vehicles (e.g. Assurance-Vie, SCPI)
+    const depositDay = position.dcaDepositDay || 5;
+    const isDepositMonthDaily = (m: number) => {
+      if (!position.dcaFrequency || position.dcaFrequency === 'monthly') return true;
+      if (position.dcaFrequency === 'quarterly') return (m % 3) === 0;
+      if (position.dcaFrequency === 'semestrial') return (m % 6) === 0;
+      if (position.dcaFrequency === 'annual') {
+        const targetM = (position.dcaDepositMonth !== undefined ? position.dcaDepositMonth - 1 : 0);
+        return m === targetM;
+      }
+      return true;
+    };
+
     const cursor = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
     while (cursor <= referenceDate) {
       if (cursor.getMonth() === 0 && cursor.getDate() === 1 && accumulatedInterestYear > 0) {
@@ -161,7 +185,7 @@ export function computeSavingsPositionInterest(
       accumulatedInterestYear += currentBalance * dailyRate;
       daysCount += 1;
 
-      if (cursor.getDate() === 5 && monthlyDCA > 0) {
+      if (cursor.getDate() === depositDay && isDepositMonthDaily(cursor.getMonth()) && monthlyDCA > 0) {
         if (!legalCap || principalDeposited < legalCap) {
           const allowedDeposit = legalCap ? Math.min(monthlyDCA, legalCap - principalDeposited) : monthlyDCA;
           if (allowedDeposit > 0) {

@@ -2431,6 +2431,7 @@ export default function HomePage() {
               inflationRate={inflationRate}
               yearsElapsed={Math.max(0, (new Date().getFullYear() - (parseInt(dcaGlobalStartDate.slice(0, 4)) || 2024)) + (new Date().getMonth() / 12))}
               onShowToast={showToast}
+              onTestEmail={handleTestEmail}
               uid={user?.uid}
             />
           )}
@@ -2721,6 +2722,31 @@ export default function HomePage() {
               </div>
             )}
 
+            {/* 🛠️ Developer Test Tools */}
+            <div style={{ padding: 14, background: 'rgba(6, 182, 212, 0.08)', borderRadius: 10, border: '1px dashed var(--accent-cyan)', marginTop: 14 }}>
+              <div style={{ fontSize: 11, color: 'var(--accent-cyan)', textTransform: 'uppercase', fontWeight: 800, marginBottom: 8 }}>
+                🛠️ Outils de Test (Notifications &amp; Mails)
+              </div>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  onClick={handleTestNotification}
+                  style={{ fontSize: 12, borderColor: 'var(--accent-cyan)', color: 'var(--accent-cyan)', fontWeight: 600 }}
+                >
+                  🔔 Tester Notification
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  onClick={handleTestEmail}
+                  style={{ fontSize: 12, borderColor: 'var(--accent-violet)', color: 'var(--accent-violet)', fontWeight: 600 }}
+                >
+                  📧 Tester Envoi Email (Resend)
+                </button>
+              </div>
+            </div>
+
             <div style={{ marginTop: 24, display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
               <button className="btn btn-secondary" onClick={() => setShowProfileModal(false)}>Fermer</button>
               <div style={{ display: 'flex', gap: 8 }}>
@@ -2793,6 +2819,8 @@ export default function HomePage() {
           }}
           onNavigateView={setCurrentView}
           onOpenRebalance={openRebalanceModal}
+          onTestNotification={handleTestNotification}
+          onTestEmail={handleTestEmail}
         />
       )}
 

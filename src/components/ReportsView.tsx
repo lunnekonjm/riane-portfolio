@@ -22,9 +22,10 @@ interface ReportsViewProps {
   fxRates: Record<string, number>;
   adjustInflation: boolean;
   cumulativeInflationFactor: number;
-  inflationRate: number;
-  yearsElapsed: number;
+  inflationRate?: number;
+  yearsElapsed?: number;
   onShowToast: (msg: string, type?: 'success' | 'error') => void;
+  onTestEmail?: () => void;
   uid?: string | null;
 }
 
@@ -41,9 +42,10 @@ export default function ReportsView({
   fxRates,
   adjustInflation,
   cumulativeInflationFactor,
-  inflationRate,
-  yearsElapsed,
+  inflationRate = 0.02,
+  yearsElapsed = 0,
   onShowToast,
+  onTestEmail,
   uid,
 }: ReportsViewProps) {
   const [selectedPeriod, setSelectedPeriod] = useState<ReportPeriod>('monthly');
@@ -318,6 +320,18 @@ export default function ReportsView({
           >
             🔒 Annuel (2026)
           </button>
+
+          {onTestEmail && (
+            <button
+              type="button"
+              className="btn btn-secondary"
+              style={{ fontSize: 12, padding: '6px 12px', borderColor: 'var(--accent-cyan)', color: 'var(--accent-cyan)', fontWeight: 700 }}
+              onClick={onTestEmail}
+              title="Tester l'envoi de la newsletter par email via Resend"
+            >
+              📧 Tester envoi email
+            </button>
+          )}
 
           {savedReports.length > 0 && (
             <button

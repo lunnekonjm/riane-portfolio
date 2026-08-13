@@ -13,6 +13,8 @@ interface NotificationCenterModalProps {
   onOpenRebalance?: () => void;
   onOpenAnalysis?: (query?: string) => void;
   onNavigateView?: (view: 'dashboard' | 'envelopes' | 'analysis' | 'risk' | 'reports') => void;
+  onTestNotification?: () => void;
+  onTestEmail?: () => void;
 }
 
 export default function NotificationCenterModal({
@@ -25,6 +27,8 @@ export default function NotificationCenterModal({
   onOpenRebalance,
   onOpenAnalysis,
   onNavigateView,
+  onTestNotification,
+  onTestEmail,
 }: NotificationCenterModalProps) {
   const [activeTab, setActiveTab] = useState<'alerts' | 'settings'>('alerts');
   const [selectedCategory, setSelectedCategory] = useState<NotificationCategory | 'all'>('all');
@@ -110,16 +114,29 @@ export default function NotificationCenterModal({
                 ))}
               </div>
 
-              {notifications.length > 0 && (
-                <div style={{ display: 'flex', gap: 6 }}>
-                  <button className="btn btn-sm btn-secondary" onClick={onMarkAllAsRead} style={{ fontSize: 11 }}>
-                    ✓ Tout lire
+              <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                {onTestNotification && (
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-secondary"
+                    onClick={onTestNotification}
+                    style={{ fontSize: 11, color: 'var(--accent-cyan)', borderColor: 'var(--accent-cyan)' }}
+                    title="Générer une notification de test instantanée"
+                  >
+                    🧪 Tester notif
                   </button>
-                  <button className="btn btn-sm btn-secondary" onClick={onClearAll} style={{ fontSize: 11 }}>
-                    🗑 Tout effacer
-                  </button>
-                </div>
-              )}
+                )}
+                {notifications.length > 0 && (
+                  <>
+                    <button className="btn btn-sm btn-secondary" onClick={onMarkAllAsRead} style={{ fontSize: 11 }}>
+                      ✓ Tout lire
+                    </button>
+                    <button className="btn btn-sm btn-secondary" onClick={onClearAll} style={{ fontSize: 11 }}>
+                      🗑 Tout effacer
+                    </button>
+                  </>
+                )}
+              </div>
             </div>
 
             {/* Notification Cards */}
@@ -289,6 +306,26 @@ export default function NotificationCenterModal({
                   <option value={5.0}>±5.0% (Sensibilité Normale)</option>
                   <option value={7.0}>±7.0% (Chocs Majeurs Uniquement)</option>
                 </select>
+              </div>
+            )}
+            {/* Developer Test Tools in Settings */}
+            {(onTestNotification || onTestEmail) && (
+              <div style={{ padding: 14, background: 'rgba(6, 182, 212, 0.08)', borderRadius: 10, border: '1px dashed var(--accent-cyan)' }}>
+                <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--accent-cyan)', marginBottom: 8 }}>
+                  🛠️ Boutons de Test (Développeur)
+                </div>
+                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                  {onTestNotification && (
+                    <button type="button" className="btn btn-sm btn-primary" onClick={onTestNotification}>
+                      🧪 Déclencher une fausse notification
+                    </button>
+                  )}
+                  {onTestEmail && (
+                    <button type="button" className="btn btn-sm btn-secondary" onClick={onTestEmail}>
+                      📧 Envoyer un email de test (Resend)
+                    </button>
+                  )}
+                </div>
               </div>
             )}
           </div>

@@ -5,6 +5,7 @@ import type { Position, PortfolioConfig } from '@/types/portfolio';
 import { generatePeriodicReport, type ReportPeriod } from '@/engines/periodicReportEngine';
 import { getReports, saveReport, deleteAllReports } from '@/services/firebase/firestore';
 import MarkdownRenderer from './MarkdownRenderer';
+import InteractiveReportView from './InteractiveReportView';
 
 interface SavedReportItem {
   id: string;
@@ -31,8 +32,8 @@ interface ReportsViewProps {
 }
 
 const PIPELINE_LOADING_STEPS = [
-  { step: 1, label: '🔍 Grounding Live News & Web Search sur vos 8 lignes (Collecte des annonces et résultats)...' },
-  { step: 2, label: '📊 Audit de Valuation & Calcul des 8 Écarts de Pondération (Nominal & Inflation)...' },
+  { step: 1, label: '🔍 Grounding Gemini 3.7 Flash & Web Search sur vos lignes (Collecte des annonces et résultats)...' },
+  { step: 2, label: '📊 Audit de Valuation & Radar Stratégique des Lignes...' },
   { step: 3, label: '🛡️ Calcul des Risques, VaR 95% & Tirage Maximal en langage clair...' },
   { step: 4, label: '🎯 Calcul Mathématique du DCA : Allocation exacte en Euros et Nombre d\'Actions à acheter...' },
 ];
@@ -58,6 +59,7 @@ export default function ReportsView({
   const [savedReports, setSavedReports] = useState<SavedReportItem[]>([]);
   const [showHistoryModal, setShowHistoryModal] = useState<boolean>(false);
   const [loadingStepIndex, setLoadingStepIndex] = useState<number>(0);
+  const [viewMode, setViewMode] = useState<'interactive' | 'document'>('interactive');
 
   // Period Options Definition with Elapsed Lock Logic
   const periodOptions = [
@@ -73,8 +75,7 @@ export default function ReportsView({
     { period: 'annual' as ReportPeriod, label: 'Exercice 2026', isLocked: true, note: '🔒 Exercice 2026 en cours (Clôture le 31 Décembre 2026)' },
   ];
 
-  // Charge l'historique : Firestore (source durable, inclut les rapports générés par le cron)
-  // fusionné avec le localStorage (compatibilité avec les rapports générés avant cette mise à jour).
+  // Charge l'historique : Firestore (source durable) fusionné avec localStorage
   useEffect(() => {
     let localReports: SavedReportItem[] = [];
     try {
@@ -89,6 +90,8 @@ export default function ReportsView({
       if (localReports.length > 0) {
         const match = localReports.find((r) => r.period === 'monthly') || localReports[0];
         setReportMarkdown(match.content);
+        setSelectedPeriod(match.period);
+        setSelectedPeriodLabel(match.title.replace('Rapport ', ''));
       }
       return;
     }
@@ -103,6 +106,8 @@ export default function ReportsView({
         if (merged.length > 0) {
           const match = merged.find((r) => r.period === 'monthly') || merged[0];
           setReportMarkdown(match.content);
+          setSelectedPeriod(match.period);
+          setSelectedPeriodLabel(match.title.replace('Rapport ', ''));
         }
       })
       .catch(() => {
@@ -111,7 +116,6 @@ export default function ReportsView({
   }, [uid]);
 
   const handleGenerateReport = useCallback(async (period: ReportPeriod, label: string, saveToHistory: boolean = true) => {
-    // Check if period is locked
     const option = periodOptions.find((o) => o.period === period && o.label === label);
     if (option?.isLocked) {
       onShowToast(`🔒 ${option.note}`, 'error');
@@ -123,7 +127,6 @@ export default function ReportsView({
     setGenerating(true);
     setLoadingStepIndex(0);
 
-    // Simulate real multi-agent pipeline steps (1.4s per step -> ~5.6s total deep audit)
     const stepInterval = setInterval(() => {
       setLoadingStepIndex((prev) => (prev < PIPELINE_LOADING_STEPS.length - 1 ? prev + 1 : prev));
     }, 1400);
@@ -163,11 +166,11 @@ export default function ReportsView({
 
         if (uid) {
           saveReport(uid, { ...newReport, generatedBy: 'user' }).catch(() => {
-            // La copie locale reste disponible même si l'écriture Firestore échoue
+            // La copie locale reste disponible
           });
         }
 
-        onShowToast(`Rapport "${label}" généré et archivé !`);
+        onShowToast(`Audit "${label}" généré avec succès !`);
       }
     } catch (err: unknown) {
       clearInterval(stepInterval);
@@ -177,6 +180,36 @@ export default function ReportsView({
       setGenerating(false);
     }
   }, [periodOptions, positions, config, fxRates, adjustInflation, cumulativeInflationFactor, inflationRate, yearsElapsed, uid, onShowToast]);
+
+  // SMART CACHING SELECTOR : Charge instantanément le cache si existant, sinon génère
+  const handleSelectPeriod = (period: ReportPeriod, label: string) => {
+    const option = periodOptions.find((o) => o.period === period && o.label === label);
+    if (option?.isLocked) {
+      onShowToast(`🔒 ${option.note}`, 'error');
+      return;
+    }
+
+    setSelectedPeriod(period);
+    setSelectedPeriodLabel(label);
+
+    // Vérifier si un rapport existe déjà dans le cache
+    const cached = savedReports.find(
+      (r) => r.period === period && (r.title.includes(label) || label.includes(r.title.replace('Rapport ', '')))
+    );
+
+    if (cached && cached.content) {
+      setReportMarkdown(cached.content);
+      onShowToast(`⚡ Rapport "${label}" chargé instantanément depuis le cache !`);
+    } else {
+      // Si pas encore en cache, on lance la génération
+      handleGenerateReport(period, label, true);
+    }
+  };
+
+  const handleForceRegenerate = () => {
+    onShowToast(`🔄 Régénération complète de l'audit "${selectedPeriodLabel}" avec Gemini 3.7 Flash...`);
+    handleGenerateReport(selectedPeriod, selectedPeriodLabel, true);
+  };
 
   const handleSendCurrentReportByEmail = async (customMarkdown?: string, customLabel?: string) => {
     const md = customMarkdown || reportMarkdown;
@@ -208,61 +241,6 @@ export default function ReportsView({
       onShowToast('Erreur réseau lors de l\'envoi de l\'email', 'error');
     } finally {
       setSendingEmail(false);
-    }
-  };
-
-  const handleGenerateAndSendEmail = async () => {
-    onShowToast('Génération et envoi du rapport complet en cours...');
-    setGenerating(true);
-    setLoadingStepIndex(0);
-    const stepInterval = setInterval(() => {
-      setLoadingStepIndex((prev) => (prev < PIPELINE_LOADING_STEPS.length - 1 ? prev + 1 : prev));
-    }, 1400);
-
-    try {
-      const md = await generatePeriodicReport(positions, config, fxRates, {
-        period: selectedPeriod,
-        periodLabel: selectedPeriodLabel,
-        adjustInflation,
-        cumulativeInflationFactor,
-        inflationRate,
-        yearsElapsed,
-      });
-
-      clearInterval(stepInterval);
-      setReportMarkdown(md);
-
-      // Save to history
-      const newReport: SavedReportItem = {
-        id: `report-${Date.now()}`,
-        period: selectedPeriod,
-        title: selectedPeriodLabel,
-        dateStr: selectedPeriodLabel,
-        timestamp: Date.now(),
-        content: md,
-      };
-
-      setSavedReports((prev) => {
-        const filtered = prev.filter((r) => r.title !== selectedPeriodLabel);
-        const updated = [newReport, ...filtered].slice(0, 30);
-        try { localStorage.setItem('riane_saved_reports', JSON.stringify(updated)); } catch {}
-        return updated;
-      });
-
-      if (uid) {
-        saveReport(uid, newReport as unknown as any).catch((err) => {
-          console.warn('[ReportsView] Firestore save failed, saved in local state:', err);
-        });
-      }
-
-      // Send immediately by email
-      await handleSendCurrentReportByEmail(md, selectedPeriodLabel);
-    } catch (err: unknown) {
-      clearInterval(stepInterval);
-      const message = err instanceof Error ? err.message : 'Erreur inconnue';
-      onShowToast(`Erreur : ${message}`, 'error');
-    } finally {
-      setGenerating(false);
     }
   };
 
@@ -320,7 +298,7 @@ export default function ReportsView({
           <div>
             <strong style={{ color: 'var(--text-primary)', fontSize: 14 }}>Rappel de Clôture Périodique Automatique</strong>
             <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>
-              Fin de période mensuelle atteinte (Juillet 2026). Cliquez pour déclencher le grounding IA et archiver votre audit.
+              Fin de période mensuelle atteinte (Juillet 2026). Cliquez pour charger ou régénérer votre audit.
             </div>
           </div>
         </div>
@@ -328,45 +306,45 @@ export default function ReportsView({
           type="button"
           className="btn btn-primary btn-sm"
           style={{ padding: '6px 14px', fontWeight: 700 }}
-          onClick={() => handleGenerateReport('monthly', 'Juillet 2026', true)}
+          onClick={() => handleSelectPeriod('monthly', 'Juillet 2026')}
           disabled={generating}
         >
-          ⚡ Lancer l&apos;Audit IA (Juillet 2026)
+          ⚡ Consulter l&apos;Audit IA (Juillet 2026)
         </button>
       </div>
 
-      {/* Selector Header Bar */}
+      {/* Selector Header Bar with Smart Caching */}
       <div className="card no-print" style={{ borderLeft: '4px solid var(--accent-violet)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
         <div>
           <h2 style={{ fontSize: 18, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 10 }}>
             <span>📰</span> Rapports &amp; Audits AI Institutionnels
           </h2>
           <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 4 }}>
-            Audits 360° avec grounding d&apos;actualités boursières en direct et verrouillage des périodes non échues.
+            Audits 360° avec mise en cache instantanée, radar tactique et synthèse interactive.
           </p>
         </div>
 
-        {/* Preset Generation Buttons with Locking */}
+        {/* Preset Generation Buttons with Locking & Caching */}
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
           <button
             className={`btn ${selectedPeriod === 'weekly' ? 'btn-primary' : 'btn-secondary'}`}
-            onClick={() => handleGenerateReport('weekly', 'Hebdomadaire (Semaine en cours)', true)}
+            onClick={() => handleSelectPeriod('weekly', 'Hebdomadaire (Semaine en cours)')}
             disabled={generating}
           >
             🗓️ Hebdo
           </button>
           <button
             className={`btn ${selectedPeriod === 'monthly' ? 'btn-primary' : 'btn-secondary'}`}
-            onClick={() => handleGenerateReport('monthly', 'Juillet 2026', true)}
+            onClick={() => handleSelectPeriod('monthly', 'Juillet 2026')}
             disabled={generating}
           >
             📅 Mensuel (Juillet 2026)
           </button>
           <button
-            className="btn btn-secondary"
-            onClick={() => handleGenerateReport('quarterly', 'Q2 2026 (Clôturé)', true)}
+            className={`btn ${selectedPeriod === 'quarterly' ? 'btn-primary' : 'btn-secondary'}`}
+            onClick={() => handleSelectPeriod('quarterly', 'Q2 2026 (Clôturé)')}
             disabled={generating}
-            title="Trimestre révolu — Générer le bilan Q2 2026"
+            title="Trimestre révolu — Bilan Q2 2026"
           >
             📊 Trimestriel (Q2 2026)
           </button>
@@ -376,14 +354,14 @@ export default function ReportsView({
             onClick={() => onShowToast('🔒 Le trimestre Q3 2026 est en cours. Clôture le 30 Septembre 2026.', 'error')}
             title="🔒 Période non échue — Clôture le 30 Septembre 2026"
           >
-            🔒 Trimestriel (Q3 2026)
+            🔒 Q3 2026
           </button>
 
           <button
-            className="btn btn-secondary"
-            onClick={() => handleGenerateReport('semestrial', 'S1 2026 (Clôturé)', true)}
+            className={`btn ${selectedPeriod === 'semestrial' ? 'btn-primary' : 'btn-secondary'}`}
+            onClick={() => handleSelectPeriod('semestrial', 'S1 2026 (Clôturé)')}
             disabled={generating}
-            title="Semestre révolu — Générer le bilan S1 2026"
+            title="Semestre révolu — Bilan S1 2026"
           >
             🌓 Semestriel (S1 2026)
           </button>
@@ -393,14 +371,14 @@ export default function ReportsView({
             onClick={() => onShowToast('🔒 Le semestre S2 2026 est en cours. Clôture le 31 Décembre 2026.', 'error')}
             title="🔒 Période non échue — Clôture le 31 Décembre 2026"
           >
-            🔒 Semestriel (S2 2026)
+            🔒 S2 2026
           </button>
 
           <button
-            className="btn btn-secondary"
-            onClick={() => handleGenerateReport('annual', 'Exercice 2025 (Clôturé)', true)}
+            className={`btn ${selectedPeriod === 'annual' ? 'btn-primary' : 'btn-secondary'}`}
+            onClick={() => handleSelectPeriod('annual', 'Exercice 2025 (Clôturé)')}
             disabled={generating}
-            title="Exercice révolu — Générer le bilan 2025"
+            title="Exercice révolu — Bilan 2025"
           >
             🏆 Annuel (2025)
           </button>
@@ -410,18 +388,7 @@ export default function ReportsView({
             onClick={() => onShowToast('🔒 L\'exercice 2026 est en cours. Clôture le 31 Décembre 2026.', 'error')}
             title="🔒 Exercice en cours — Clôture le 31 Décembre 2026"
           >
-            🔒 Annuel (2026)
-          </button>
-
-          <button
-            type="button"
-            className="btn btn-secondary"
-            style={{ fontSize: 12, padding: '6px 12px', borderColor: 'var(--accent-cyan)', color: 'var(--accent-cyan)', fontWeight: 700 }}
-            onClick={handleGenerateAndSendEmail}
-            disabled={generating || sendingEmail}
-            title="Génère un audit IA complet et l'envoie directement à votre boîte mail via Resend"
-          >
-            {sendingEmail ? '⏳ Envoi email...' : '📧 Générer & Envoyer par Email'}
+            🔒 2026
           </button>
 
           {savedReports.length > 0 && (
@@ -461,18 +428,71 @@ export default function ReportsView({
           </div>
         ) : reportMarkdown ? (
           <div>
-            {/* Toolbar */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, marginBottom: 20 }} className="no-print">
-              <button
-                type="button"
-                className="btn btn-ghost btn-sm"
-                style={{ color: 'var(--accent-rose)', fontSize: 12 }}
-                onClick={handleClearHistory}
-              >
-                🗑️ Supprimer définitivement tout l&apos;historique &amp; la vue
-              </button>
+            {/* View Mode Toggle & Actions Toolbar */}
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                flexWrap: 'wrap',
+                gap: 12,
+                marginBottom: 20,
+                paddingBottom: 16,
+                borderBottom: '1px solid var(--border-subtle)',
+              }}
+              className="no-print"
+            >
+              {/* Mode Switcher */}
+              <div style={{ display: 'flex', background: 'var(--bg-tertiary)', borderRadius: 8, padding: 3, border: '1px solid var(--border-subtle)' }}>
+                <button
+                  type="button"
+                  style={{
+                    background: viewMode === 'interactive' ? 'linear-gradient(135deg, #06b6d4, #3b82f6)' : 'transparent',
+                    color: viewMode === 'interactive' ? '#ffffff' : 'var(--text-secondary)',
+                    border: 'none',
+                    borderRadius: 6,
+                    padding: '6px 14px',
+                    fontSize: 12.5,
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease',
+                  }}
+                  onClick={() => setViewMode('interactive')}
+                >
+                  ✨ Synthèse Interactive
+                </button>
+                <button
+                  type="button"
+                  style={{
+                    background: viewMode === 'document' ? 'linear-gradient(135deg, #06b6d4, #3b82f6)' : 'transparent',
+                    color: viewMode === 'document' ? '#ffffff' : 'var(--text-secondary)',
+                    border: 'none',
+                    borderRadius: 6,
+                    padding: '6px 14px',
+                    fontSize: 12.5,
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease',
+                  }}
+                  onClick={() => setViewMode('document')}
+                >
+                  📄 Document Officiel (Markdown)
+                </button>
+              </div>
 
-              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+              {/* Action Buttons */}
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  style={{ borderColor: 'var(--accent-cyan)', color: 'var(--accent-cyan)' }}
+                  onClick={handleForceRegenerate}
+                  disabled={generating}
+                  title="Relance l'audit IA complet avec les dernières données en direct"
+                >
+                  🔄 Régénérer IA
+                </button>
+
                 <button
                   type="button"
                   className="btn btn-sm"
@@ -480,8 +500,8 @@ export default function ReportsView({
                     background: 'linear-gradient(135deg, #10b981, #06b6d4)',
                     color: '#000000',
                     fontWeight: 800,
-                    fontSize: 13,
-                    padding: '8px 16px',
+                    fontSize: 12.5,
+                    padding: '6px 14px',
                     borderRadius: 8,
                     boxShadow: '0 4px 12px rgba(16, 185, 129, 0.35)',
                     display: 'flex',
@@ -494,34 +514,50 @@ export default function ReportsView({
                   disabled={sendingEmail}
                   title="Recevoir cet audit complet formaté en HTML dans votre boîte mail"
                 >
-                  {sendingEmail ? '⏳ Envoi en cours...' : `📧 Envoyer l'audit (${selectedPeriodLabel}) par Email`}
+                  {sendingEmail ? '⏳ Envoi...' : `📧 Envoyer par Email`}
                 </button>
-                <button className="btn btn-secondary btn-sm" onClick={copyToClipboard}>
-                  📋 Copier Markdown
+
+                <button className="btn btn-secondary btn-sm" onClick={copyToClipboard} style={{ fontSize: 12 }}>
+                  📋 Copier
                 </button>
-                <button className="btn btn-primary btn-sm" onClick={handlePrint}>
+                <button className="btn btn-primary btn-sm" onClick={handlePrint} style={{ fontSize: 12 }}>
                   🖨️ Imprimer / PDF
                 </button>
               </div>
             </div>
 
-            {/* Executive Document Paper Wrapper */}
-            <div
-              id="report-print-area"
-              style={{
-                width: '100%',
-                maxWidth: '100%',
-                boxSizing: 'border-box',
-                overflowX: 'auto',
-                background: 'rgba(15, 23, 42, 0.95)',
-                border: '1px solid rgba(6, 182, 212, 0.3)',
-                borderRadius: 12,
-                padding: '24px 24px',
-                boxShadow: '0 10px 30px rgba(0, 0, 0, 0.5)',
-              }}
-            >
-              <MarkdownRenderer content={reportMarkdown} />
-            </div>
+            {/* View Rendering */}
+            {viewMode === 'interactive' ? (
+              <InteractiveReportView
+                reportMarkdown={reportMarkdown}
+                positions={positions}
+                config={config}
+                fxRates={fxRates}
+                selectedPeriodLabel={selectedPeriodLabel}
+                onSendEmail={() => handleSendCurrentReportByEmail()}
+                onRegenerate={handleForceRegenerate}
+                sendingEmail={sendingEmail}
+                generating={generating}
+                onShowToast={onShowToast}
+              />
+            ) : (
+              <div
+                id="report-print-area"
+                style={{
+                  width: '100%',
+                  maxWidth: '100%',
+                  boxSizing: 'border-box',
+                  overflowX: 'auto',
+                  background: 'rgba(15, 23, 42, 0.95)',
+                  border: '1px solid rgba(6, 182, 212, 0.3)',
+                  borderRadius: 12,
+                  padding: '24px 24px',
+                  boxShadow: '0 10px 30px rgba(0, 0, 0, 0.5)',
+                }}
+              >
+                <MarkdownRenderer content={reportMarkdown} />
+              </div>
+            )}
           </div>
         ) : (
           <div style={{ textAlign: 'center', padding: '70px 20px', color: 'var(--text-muted)' }}>
@@ -531,11 +567,11 @@ export default function ReportsView({
               L&apos;historique des rapports est vide. Cliquez sur l&apos;un des boutons ci-dessus pour déclencher le grounding et générer un audit.
             </div>
             <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
-              <button className="btn btn-primary" onClick={() => handleGenerateReport('monthly', 'Juillet 2026', true)}>
-                ⚡ Générer l&apos;Audit Mensuel (Juillet 2026)
+              <button className="btn btn-primary" onClick={() => handleSelectPeriod('monthly', 'Juillet 2026')}>
+                ⚡ Consulter / Générer l&apos;Audit Mensuel (Juillet 2026)
               </button>
-              <button className="btn btn-secondary" onClick={() => handleGenerateReport('quarterly', 'Q2 2026 (Clôturé)', true)}>
-                📊 Générer le Bilan Q2 2026 (Clôturé)
+              <button className="btn btn-secondary" onClick={() => handleSelectPeriod('quarterly', 'Q2 2026 (Clôturé)')}>
+                📊 Bilan Q2 2026 (Clôturé)
               </button>
             </div>
           </div>
@@ -568,6 +604,7 @@ export default function ReportsView({
                   onClick={() => {
                     setReportMarkdown(rep.content);
                     setSelectedPeriod(rep.period);
+                    setSelectedPeriodLabel(rep.title.replace('Rapport ', ''));
                     setShowHistoryModal(false);
                     onShowToast(`Rapport "${rep.title}" chargé depuis les archives`);
                   }}

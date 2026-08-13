@@ -788,10 +788,10 @@ function autoGenerateThemes(
             </div>
           </div>
 
-          {/* Row 2: Manual Inputs for Stock (Quantity, PRU) */}
+          {/* Row 3: Quantity + Avg Price + Current Price */}
           <div className="form-row" style={{ marginTop: 16, marginBottom: 16 }}>
-            <div className="form-group" style={{ flex: 1 }}>
-              <label className="form-label">Quantité (Parts) *</label>
+            <div className="form-group">
+              <label className="form-label">Quantité ({form.assetType === 'STOCK' ? 'Actions' : 'Parts'})</label>
               <input
                 className="input mono"
                 type="number"
@@ -799,12 +799,12 @@ function autoGenerateThemes(
                 min="0"
                 value={form.quantity || ''}
                 onChange={(e) => handleNumberChange('quantity', e.target.value)}
-                placeholder="ex: 10"
-                required
+                placeholder="0"
+                id="input-quantity"
               />
             </div>
-            <div className="form-group" style={{ flex: 1 }}>
-              <label className="form-label">Prix de Revient (PRU) *</label>
+            <div className="form-group">
+              <label className="form-label">PRU d&apos;Achat ({form.currency === 'USD' ? '$' : form.currency === 'GBP' ? '£' : '€'})</label>
               <input
                 className="input mono"
                 type="number"
@@ -812,12 +812,12 @@ function autoGenerateThemes(
                 min="0"
                 value={form.avgPrice || ''}
                 onChange={(e) => handleNumberChange('avgPrice', e.target.value)}
-                placeholder="ex: 100.0"
-                required
+                placeholder="0.00"
+                id="input-avg-price"
               />
             </div>
-            <div className="form-group" style={{ flex: 1 }}>
-              <label className="form-label">Prix Actuel</label>
+            <div className="form-group">
+              <label className="form-label">Prix actuel ({form.currency === 'USD' ? '$' : form.currency === 'GBP' ? '£' : '€'})</label>
               <input
                 className="input mono"
                 type="number"
@@ -825,10 +825,21 @@ function autoGenerateThemes(
                 min="0"
                 value={form.currentPrice || ''}
                 onChange={(e) => handleOptionalNumber('currentPrice', e.target.value)}
-                placeholder="Auto ou manuel"
+                placeholder="Auto-refresh"
+                id="input-current-price"
               />
             </div>
           </div>
+
+          {/* Value display */}
+          {totalValue > 0 && (
+            <div style={{ padding: '12px 16px', background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-md)', marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ color: 'var(--text-secondary)', fontSize: 13 }}>Valeur actuelle</span>
+              <span className="mono" style={{ fontSize: 18, fontWeight: 700, color: 'var(--accent-cyan)' }}>
+                {totalValue.toLocaleString('fr-FR', { style: 'currency', currency: form.currency })}
+              </span>
+            </div>
+          )}
 
           {/* Row 2.5: Auto-Calculateur DCA */}
           <div style={{
@@ -1057,58 +1068,6 @@ function autoGenerateThemes(
           })()}
           </div>
 
-          {/* Row 3: Quantity + Avg Price + Current Price */}
-          <div className="form-row">
-            <div className="form-group">
-              <label className="form-label">Quantité ({form.assetType === 'STOCK' ? 'Actions' : 'Parts'})</label>
-              <input
-                className="input mono"
-                type="number"
-                step="any"
-                min="0"
-                value={form.quantity || ''}
-                onChange={(e) => handleNumberChange('quantity', e.target.value)}
-                placeholder="0"
-                id="input-quantity"
-              />
-            </div>
-            <div className="form-group">
-              <label className="form-label">PRU d&apos;Achat ({form.currency === 'USD' ? '$' : form.currency === 'GBP' ? '£' : '€'})</label>
-              <input
-                className="input mono"
-                type="number"
-                step="any"
-                min="0"
-                value={form.avgPrice || ''}
-                onChange={(e) => handleNumberChange('avgPrice', e.target.value)}
-                placeholder="0.00"
-                id="input-avg-price"
-              />
-            </div>
-            <div className="form-group">
-              <label className="form-label">Prix actuel ({form.currency === 'USD' ? '$' : form.currency === 'GBP' ? '£' : '€'})</label>
-              <input
-                className="input mono"
-                type="number"
-                step="any"
-                min="0"
-                value={form.currentPrice || ''}
-                onChange={(e) => handleOptionalNumber('currentPrice', e.target.value)}
-                placeholder="Auto-refresh"
-                id="input-current-price"
-              />
-            </div>
-          </div>
-
-          {/* Value display */}
-          {totalValue > 0 && (
-            <div style={{ padding: '12px 16px', background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-md)', marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ color: 'var(--text-secondary)', fontSize: 13 }}>Valeur actuelle</span>
-              <span className="mono" style={{ fontSize: 18, fontWeight: 700, color: 'var(--accent-cyan)' }}>
-                {totalValue.toLocaleString('fr-FR', { style: 'currency', currency: form.currency })}
-              </span>
-            </div>
-          )}
 
           {/* Row 4: DCA + Annual Budget */}
           <div className="form-row">

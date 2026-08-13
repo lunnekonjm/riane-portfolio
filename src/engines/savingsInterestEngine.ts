@@ -62,10 +62,15 @@ export function computeSavingsPositionInterest(
   const monthlyDCA = position.monthlyDCA || 0;
 
   let startDate = new Date();
-  if (position.dcaStartDate) {
-    const parts = position.dcaStartDate.split('-');
-    if (parts.length === 3) {
-      startDate = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+  if (position.dcaStartDate && typeof position.dcaStartDate === 'string') {
+    const parts = position.dcaStartDate.trim().split('-');
+    if (parts.length >= 2) {
+      const y = parseInt(parts[0], 10);
+      const m = parseInt(parts[1], 10) - 1;
+      const d = parts[2] ? parseInt(parts[2], 10) : 1;
+      if (!isNaN(y) && !isNaN(m) && !isNaN(d)) {
+        startDate = new Date(y, m, d);
+      }
     }
   }
 

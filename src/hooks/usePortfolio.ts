@@ -477,7 +477,12 @@ export function usePortfolio() {
   // ── Computed Values (only from REAL user data with FX conversion) ──
 
   /** Only positions where user has entered real data */
-  const filledPositions = positions.filter((p) => p.quantity > 0 && p.avgPrice > 0);
+  const filledPositions = positions.filter((p) => {
+    if (['LIVRET', 'ASSURANCE_VIE', 'PER', 'PEE', 'IMMOBILIER'].includes(p.envelope)) {
+      return p.quantity > 0 && ((p.avgPrice || 0) > 0 || (p.monthlyDCA || 0) > 0);
+    }
+    return p.quantity > 0 && p.avgPrice > 0;
+  });
 
   /** How many positions still need user input */
   const pendingCount = positions.length - filledPositions.length;

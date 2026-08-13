@@ -71,4 +71,29 @@ describe('savingsInterestEngine', () => {
     expect(result.interestEarnedToDate).toBe(0);
     expect(result.quinzainesCount).toBe(0);
   });
+
+  it('correctly simulates historical monthly DCA on Livret A from 2024 with quinzaines and capitalization', () => {
+    const livretDcaPos: Position = {
+      id: 'pos-livret-dca',
+      ticker: 'LIVRET-A',
+      name: 'Livret A',
+      envelope: 'LIVRET',
+      assetType: 'CASH',
+      quantity: 1,
+      avgPrice: 0, // 0 € initial capital
+      currency: 'EUR',
+      interestRateOverride: 0.03, // 3%
+      dcaStartDate: '2024-01-01',
+      monthlyDCA: 200, // 200 € / month
+    };
+
+    // Evaluate in August 2026 (31 completed months: 12 in 2024 + 12 in 2025 + 7 in 2026)
+    const result = computeSavingsPositionInterest(livretDcaPos, new Date('2026-08-15'));
+
+    expect(result.isQuinzaineRule).toBe(true);
+    expect(result.principalDeposited).toBe(6200); // 31 months * 200 € = 6 200 €
+    expect(result.quinzainesCount).toBeGreaterThanOrEqual(60);
+    expect(result.interestEarnedToDate).toBeGreaterThan(240); // ~251.82 €
+    expect(result.currentBalance).toBeGreaterThan(6440); // ~6 451.82 €
+  });
 });

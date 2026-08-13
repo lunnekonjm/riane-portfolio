@@ -1,11 +1,12 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import type { Position } from '@/types/portfolio';
 import { THEMES } from '@/data/themes';
 import { simulatePositionDCA, type DCASimulationResult } from '@/engines/dcaSimulation';
 import { searchAssets, ASSET_REGISTRY, type RegisteredAsset } from '@/data/assetRegistry';
 import { getQuote, getCompanyProfile, searchYahooFinance } from '@/services/market-data/provider';
+import { computeSavingsPositionInterest } from '@/engines/savingsInterestEngine';
 import CustomDatePicker from '@/components/CustomDatePicker';
 
 interface PositionEditorProps {
@@ -557,6 +558,19 @@ function autoGenerateThemes(
 
   const isSavingsEnvelope = form.envelope === 'LIVRET' || form.envelope === 'ASSURANCE_VIE' || form.envelope === 'PER' || form.envelope === 'PEE' || form.envelope === 'IMMOBILIER';
 
+  const liveSavingsInterest = useMemo(() => {
+    if (!isSavingsEnvelope) return null;
+    const tempPos: Position = {
+      ...form,
+      quantity: 1,
+      avgPrice: form.avgPrice || 0,
+      currentPrice: form.avgPrice || 0,
+      monthlyDCA: form.monthlyDCA,
+      dcaStartDate: dcaStartDate,
+    };
+    return computeSavingsPositionInterest(tempPos);
+  }, [isSavingsEnvelope, form, dcaStartDate]);
+
   const availableAssetTypeOptions = ASSET_TYPE_OPTIONS.filter((opt) => {
     if (isSavingsEnvelope) {
       return ['SAVINGS', 'BOND', 'FUND', 'REAL_ESTATE'].includes(opt.value);
@@ -712,7 +726,7 @@ function autoGenerateThemes(
                     className="input"
                     value={form.name}
                     onChange={(e) => handleChange('name', e.target.value)}
-                    placeholder="ex: Livret A, FCPE PEG, SCPI Corum Origin..."
+                    placeholder="ex: Livret A, LDDS, Fonds Euro, SCPI..."
                     required
                     id="input-name"
                   />
@@ -727,28 +741,27 @@ function autoGenerateThemes(
                     id="input-institution"
                   />
                 </div>
-                <div className="form-group" style={{ flex: 1 }}>
-                  <label className="form-label">Solde Total ({form.currency === 'USD' ? '$' : '€'}) *</label>
+                <div className="form-group" style={{ flex: 1.2 }}>
+                  <label className="form-label">Capital initial / de départ ({form.currency === 'USD' ? '$' : '€'})</label>
                   <input
                     className="input mono"
                     type="number"
                     step="any"
                     min="0"
-                    value={form.avgPrice || ''}
+                    value={form.avgPrice !== undefined && form.avgPrice !== null ? form.avgPrice : ''}
                     onChange={(e) => {
                       const val = parseFloat(e.target.value) || 0;
                       setForm((prev) => ({ ...prev, avgPrice: val, currentPrice: val, quantity: 1 }));
                     }}
-                    placeholder="15000"
-                    required
+                    placeholder="0"
                     id="input-solde"
                   />
                 </div>
               </div>
 
-              <div className="form-row" style={{ marginBottom: 20 }}>
+              <div className="form-row" style={{ marginBottom: 16 }}>
                 <div className="form-group" style={{ flex: 1 }}>
-                  <label className="form-label">Taux d&apos;intérêt / Rendement (%)</label>
+                  <label className="form-label">Taux d&apos;intérêt annuel (%)</label>
                   <input
                     className="input mono"
                     type="number"
@@ -777,14 +790,66 @@ function autoGenerateThemes(
                     id="input-savings-dca"
                   />
                 </div>
-                <div className="form-group" style={{ flex: 1 }}>
-                  <label className="form-label">Début du versement (DCA)</label>
+                <div className="form-group" style={{ flex: 1.2 }}>
+                  <label className="form-label">Début des versements (DCA)</label>
                   <CustomDatePicker
                     value={dcaStartDate}
                     onChange={setDcaStartDate}
                   />
                 </div>
               </div>
+
+              {/* Dynamic Live Calculation Card for Savings / Livret */}
+              {liveSavingsInterest && (
+                <div style={{
+                  background: 'linear-gradient(135deg, rgba(6, 182, 212, 0.08) 0%, rgba(16, 185, 129, 0.08) 100%)',
+                  border: '1px solid var(--border-medium)',
+                  borderRadius: 'var(--radius-md)',
+                  padding: 14,
+                  marginBottom: 20,
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span style={{ fontSize: 16 }}>⚡</span>
+                      <strong className="text-xs font-bold text-primary" style={{ textTransform: 'uppercase', letterSpacing: '0.4px' }}>
+                        Calcul &amp; Projection en direct ({liveSavingsInterest.isQuinzaineRule ? 'Règle des Quinzaines' : 'Intérêts composés'})
+                      </strong>
+                    </div>
+                    <span className="badge-projected">
+                      {liveSavingsInterest.quinzainesCount > 0 ? `${liveSavingsInterest.quinzainesCount} quinzaines écoulées` : 'Calcul immédiat'}
+                    </span>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 10 }}>
+                    <div>
+                      <span className="text-xs text-secondary" style={{ display: 'block', marginBottom: 2 }}>Versements Cumulés</span>
+                      <strong className="text-sm font-bold text-primary mono">
+                        {liveSavingsInterest.principalDeposited.toLocaleString('fr-FR', { style: 'currency', currency: form.currency })}
+                      </strong>
+                    </div>
+                    <div>
+                      <span className="text-xs text-secondary" style={{ display: 'block', marginBottom: 2 }}>Intérêts Acquis</span>
+                      <strong className="text-sm font-bold mono" style={{ color: 'var(--accent-emerald)' }}>
+                        +{liveSavingsInterest.interestEarnedToDate.toLocaleString('fr-FR', { style: 'currency', currency: form.currency })}
+                      </strong>
+                    </div>
+                    <div>
+                      <span className="text-xs text-secondary" style={{ display: 'block', marginBottom: 2 }}>Solde Total Actuel</span>
+                      <strong className="text-base font-extrabold mono" style={{ color: 'var(--accent-cyan)' }}>
+                        {liveSavingsInterest.currentBalance.toLocaleString('fr-FR', { style: 'currency', currency: form.currency })}
+                      </strong>
+                    </div>
+                    {liveSavingsInterest.legalCap && (
+                      <div>
+                        <span className="text-xs text-secondary" style={{ display: 'block', marginBottom: 2 }}>Plafond ({liveSavingsInterest.capUtilizationPercent}%)</span>
+                        <strong className="text-sm font-bold mono text-primary">
+                          {liveSavingsInterest.legalCap.toLocaleString('fr-FR')} €
+                        </strong>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
             </>
           ) : (
             <>

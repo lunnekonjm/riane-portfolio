@@ -386,9 +386,9 @@ function parseInline(text: string): React.ReactNode {
           key={`code-${keyIdx++}`}
           style={{
             fontFamily: 'var(--font-mono, monospace)',
-            fontSize: 11,
+            fontSize: 'var(--text-xs)',
             background: 'rgba(255, 255, 255, 0.08)',
-            padding: '1px 5px',
+            padding: '2px 6px',
             borderRadius: 4,
             color: 'var(--accent-cyan, #06b6d4)',
           }}

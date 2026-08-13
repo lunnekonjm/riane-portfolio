@@ -326,7 +326,7 @@ export default function EnvelopesTaxView({
             alignItems: 'center',
             justifyContent: 'center',
             color: '#fff',
-            fontSize: 11,
+            fontSize: 'var(--text-xs)',
             fontWeight: 700,
             whiteSpace: 'nowrap',
           }}>
@@ -342,7 +342,7 @@ export default function EnvelopesTaxView({
             alignItems: 'center',
             justifyContent: 'center',
             color: '#fff',
-            fontSize: 11,
+            fontSize: 'var(--text-xs)',
             fontWeight: 700,
             whiteSpace: 'nowrap',
           }}>
@@ -427,19 +427,19 @@ export default function EnvelopesTaxView({
             {/* Metrics */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, background: 'var(--bg-tertiary)', padding: 12, borderRadius: 10 }}>
               <div>
-                <span style={{ fontSize: 11, color: 'var(--text-muted)', display: 'block' }}>Versé (PRU)</span>
+                <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', display: 'block' }}>Versé (PRU)</span>
                 <strong className="mono" style={{ fontSize: 14 }}>
                   {s.totalCost > 0 ? s.totalCost.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' }) : '—'}
                 </strong>
               </div>
               <div>
-                <span style={{ fontSize: 11, color: 'var(--text-muted)', display: 'block' }}>Valeur Actuelle</span>
+                <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', display: 'block' }}>Valeur Actuelle</span>
                 <strong className="mono" style={{ fontSize: 14, color: 'var(--accent-cyan)' }}>
                   {s.totalValue > 0 ? s.totalValue.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' }) : '—'}
                 </strong>
               </div>
               <div>
-                <span style={{ fontSize: 11, color: 'var(--text-muted)', display: 'block' }}>Plus-Value Brute</span>
+                <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', display: 'block' }}>Plus-Value Brute</span>
                 <strong className={`mono ${s.gainLoss >= 0 ? 'stat-gain' : 'stat-loss'}`} style={{ fontSize: 14 }}>
                   {s.totalCost > 0 ? `${s.gainLoss >= 0 ? '+' : ''}${s.gainLoss.toFixed(0)}€ (${s.gainLossPercent >= 0 ? '+' : ''}${s.gainLossPercent.toFixed(1)}%)` : '—'}
                 </strong>
@@ -486,7 +486,7 @@ export default function EnvelopesTaxView({
                     }}
                   />
                 </div>
-                <span style={{ fontSize: 11, color: 'var(--text-muted)', display: 'block', marginTop: 4 }}>
+                <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', display: 'block', marginTop: 4 }}>
                   ℹ️ Calculé dynamiquement : 225 000 € - {peaCost.toLocaleString('fr-FR')} € (PEA) = {maxPeaPmeAllowed.toLocaleString('fr-FR')} € max autorisés sur PEA-PME.
                 </span>
               </div>
@@ -625,11 +625,11 @@ export default function EnvelopesTaxView({
             <label className="form-label" style={{ fontSize: 12 }}>Part de Plus-Value Imposable (Calculée automatiquement)</label>
             <div className="input mono" style={{ background: 'var(--bg-secondary)', fontWeight: 700, color: 'var(--accent-cyan)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <span>{(actualGainRatio * 100).toFixed(1)}% de gains</span>
-              <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 400 }}>
+              <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', fontWeight: 500 }}>
                 {((1 - actualGainRatio) * 100).toFixed(1)}% capital non imposable
               </span>
             </div>
-            <span style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4, display: 'block' }}>
+            <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', marginTop: 4, display: 'block' }}>
               ℹ️ Calculé depuis l&apos;évolution réelle de votre portefeuille sur l&apos;enveloppe {simEnvelope} ({simTotalVal > 0 ? `${simTotalGain.toFixed(0)}€ de plus-value sur ${simTotalVal.toFixed(0)}€` : 'd&apos;après le portefeuille global'}).
             </span>
           </div>
@@ -640,19 +640,19 @@ export default function EnvelopesTaxView({
           <div style={{ background: 'var(--bg-secondary)', padding: 20, borderRadius: 12, border: '1px solid var(--border-medium)' }}>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 16, marginBottom: 16 }}>
               <div>
-                <span style={{ fontSize: 11, color: 'var(--text-muted)', display: 'block' }}>Retrait Brut Simulé</span>
+                <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', display: 'block' }}>Retrait Brut Simulé</span>
                 <strong className="mono" style={{ fontSize: 20 }}>{grossWithdrawal.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}</strong>
               </div>
               <div>
-                <span style={{ fontSize: 11, color: 'var(--text-muted)', display: 'block' }}>Capital Restitué (Exonéré)</span>
+                <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', display: 'block' }}>Capital Restitué (Exonéré)</span>
                 <strong className="mono" style={{ fontSize: 18, color: 'var(--accent-emerald)' }}>{withdrawnCapital.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}</strong>
               </div>
               <div>
-                <span style={{ fontSize: 11, color: 'var(--text-muted)', display: 'block' }}>Plus-Value Imposable ({(actualGainRatio * 100).toFixed(1)}%)</span>
+                <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', display: 'block' }}>Plus-Value Imposable ({(actualGainRatio * 100).toFixed(1)}%)</span>
                 <strong className="mono" style={{ fontSize: 18, color: 'var(--accent-amber)' }}>{withdrawnGain.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}</strong>
               </div>
               <div>
-                <span style={{ fontSize: 11, color: 'var(--text-muted)', display: 'block' }}>Total Impôts & Cotisations</span>
+                <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', display: 'block' }}>Total Impôts & Cotisations</span>
                 <strong className="mono" style={{ fontSize: 18, color: 'var(--accent-rose)' }}>-{totalTax.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}</strong>
               </div>
             </div>
@@ -669,7 +669,7 @@ export default function EnvelopesTaxView({
               </div>
 
               <div style={{ textAlign: 'right', background: 'var(--bg-tertiary)', padding: '12px 20px', borderRadius: 10, border: '1px solid var(--border-accent)' }}>
-                <span style={{ fontSize: 11, color: 'var(--text-muted)', display: 'block', textTransform: 'uppercase' }}>Net Reçu en Compte Bancaire</span>
+                <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', display: 'block', textTransform: 'uppercase', fontWeight: 600 }}>Net Reçu en Compte Bancaire</span>
                 <strong className="mono" style={{ fontSize: 24, color: 'var(--accent-emerald)' }}>
                   {netReceived.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
                 </strong>

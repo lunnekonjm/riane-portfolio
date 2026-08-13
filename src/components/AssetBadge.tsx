@@ -134,12 +134,13 @@ export default function AssetBadge({ ticker, name, showTicker = true, style, cla
       {showTicker && (
         <span
           style={{
-            fontSize: 11,
+            fontSize: 'var(--text-xs)',
             fontFamily: 'var(--font-mono)',
-            color: 'var(--text-tertiary)',
-            background: 'rgba(255, 255, 255, 0.06)',
-            padding: '1px 5px',
+            color: 'var(--text-secondary)',
+            background: 'rgba(255, 255, 255, 0.08)',
+            padding: '2px 6px',
             borderRadius: 4,
+            fontWeight: 500,
           }}
         >
           {ticker}

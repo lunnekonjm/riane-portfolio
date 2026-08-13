@@ -97,13 +97,13 @@ export default function NotificationCenterModal({
           <div>
             {/* Category Filter Pills & Action Buttons */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
-              <div style={{ display: 'flex', gap: 6 }}>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                 {(['all', 'dca', 'fiscal', 'risk', 'outlier'] as const).map((cat) => (
                   <button
                     key={cat}
                     className={`btn btn-sm ${selectedCategory === cat ? 'btn-primary' : 'btn-secondary'}`}
                     onClick={() => setSelectedCategory(cat)}
-                    style={{ fontSize: 11, padding: '4px 10px' }}
+                    style={{ fontSize: 'var(--text-xs)', padding: '5px 12px', fontWeight: 600 }}
                   >
                     {cat === 'all' && 'Toutes'}
                     {cat === 'dca' && '💸 DCA'}
@@ -120,7 +120,7 @@ export default function NotificationCenterModal({
                     type="button"
                     className="btn btn-sm btn-secondary"
                     onClick={onTestNotification}
-                    style={{ fontSize: 11, color: 'var(--accent-cyan)', borderColor: 'var(--accent-cyan)' }}
+                    style={{ fontSize: 'var(--text-xs)', color: 'var(--accent-cyan)', borderColor: 'var(--accent-cyan)', fontWeight: 600 }}
                     title="Générer une notification de test instantanée"
                   >
                     🧪 Tester notif
@@ -128,10 +128,10 @@ export default function NotificationCenterModal({
                 )}
                 {notifications.length > 0 && (
                   <>
-                    <button className="btn btn-sm btn-secondary" onClick={onMarkAllAsRead} style={{ fontSize: 11 }}>
+                    <button className="btn btn-sm btn-secondary" onClick={onMarkAllAsRead} style={{ fontSize: 'var(--text-xs)', fontWeight: 600 }}>
                       ✓ Tout lire
                     </button>
-                    <button className="btn btn-sm btn-secondary" onClick={onClearAll} style={{ fontSize: 11 }}>
+                    <button className="btn btn-sm btn-secondary" onClick={onClearAll} style={{ fontSize: 'var(--text-xs)', fontWeight: 600 }}>
                       🗑 Tout effacer
                     </button>
                   </>
@@ -144,7 +144,7 @@ export default function NotificationCenterModal({
               <div style={{ textAlign: 'center', padding: '40px 20px', background: 'var(--bg-tertiary)', borderRadius: 12 }}>
                 <span style={{ fontSize: 36, display: 'block', marginBottom: 8 }}>🎉</span>
                 <div style={{ fontWeight: 600, fontSize: 14 }}>Aucune notification active</div>
-                <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>
+                <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', marginTop: 4 }}>
                   Votre portefeuille respecte parfaitement les règles d&apos;allocation et de fiscalité.
                 </div>
               </div>
@@ -165,15 +165,15 @@ export default function NotificationCenterModal({
                       <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--text-primary)' }}>
                         {n.title}
                       </div>
-                      <span className="mono" style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                      <span className="mono" style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)' }}>
                         {new Date(n.timestamp).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
                       </span>
                     </div>
-                    <p style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.5, margin: 0 }}>
+                    <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', lineHeight: 1.5, margin: 0 }}>
                       {n.message}
                     </p>
                     {n.actionHint && (
-                      <div style={{ fontSize: 11, color: 'var(--text-primary)', background: 'rgba(255, 255, 255, 0.05)', padding: '6px 10px', borderRadius: 6, marginTop: 8, borderLeft: '3px solid var(--accent-cyan)', lineHeight: 1.4, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 6 }}>
+                      <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-primary)', background: 'rgba(255, 255, 255, 0.05)', padding: '8px 12px', borderRadius: 6, marginTop: 8, borderLeft: '3px solid var(--accent-cyan)', lineHeight: 1.4, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 6 }}>
                         <div>
                           <strong>👉 Que faire :</strong> {n.actionHint}
                         </div>
@@ -181,7 +181,7 @@ export default function NotificationCenterModal({
                           <button
                             type="button"
                             className="btn btn-primary btn-sm"
-                            style={{ fontSize: 10, padding: '3px 8px', whiteSpace: 'nowrap' }}
+                            style={{ fontSize: 'var(--text-xs)', padding: '4px 10px', whiteSpace: 'nowrap', fontWeight: 600 }}
                             onClick={() => {
                               onClose();
                               if (n.actionType === 'open-envelopes') onNavigateView?.('envelopes');
@@ -208,7 +208,7 @@ export default function NotificationCenterModal({
             <div style={{ padding: 14, background: 'var(--bg-tertiary)', borderRadius: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
                 <div style={{ fontWeight: 700, fontSize: 13 }}>💸 Rappels de Versement DCA Mensuel</div>
-                <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 2 }}>
+                <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', marginTop: 2 }}>
                   Notification automatique à la date choisie pour exécuter votre plan d&apos;épargne.
                 </div>
               </div>
@@ -224,7 +224,7 @@ export default function NotificationCenterModal({
 
             {settings.dcaReminderEnabled && (
               <div style={{ padding: '10px 14px', background: 'var(--bg-secondary)', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Jour du versement mensuel :</span>
+                <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)' }}>Jour du versement mensuel :</span>
                 <select
                   value={settings.dcaDayOfMonth}
                   onChange={(e) => onUpdateSettings({ ...settings, dcaDayOfMonth: parseInt(e.target.value) || 1 })}
@@ -244,7 +244,7 @@ export default function NotificationCenterModal({
             <div style={{ padding: 14, background: 'var(--bg-tertiary)', borderRadius: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
                 <div style={{ fontWeight: 700, fontSize: 13 }}>🏛️ Alertes Plafond Légal PEA (150k€)</div>
-                <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 2 }}>
+                <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', marginTop: 2 }}>
                   Avertissement dès 90% de remplissage et saturation pour réorienter le DCA vers le CTO.
                 </div>
               </div>
@@ -262,7 +262,7 @@ export default function NotificationCenterModal({
             <div style={{ padding: 14, background: 'var(--bg-tertiary)', borderRadius: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
                 <div style={{ fontWeight: 700, fontSize: 13 }}>⚡ Alertes Dérive Thématique & Risque</div>
-                <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 2 }}>
+                <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', marginTop: 2 }}>
                   Signalement si l&apos;exposition à un thème dépasse la limite max de gestion.
                 </div>
               </div>
@@ -280,7 +280,7 @@ export default function NotificationCenterModal({
             <div style={{ padding: 14, background: 'var(--bg-tertiary)', borderRadius: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
                 <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--accent-rose)' }}>🚨 Alertes Krach Boursier & Variations Anormales (Outliers)</div>
-                <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 2 }}>
+                <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', marginTop: 2 }}>
                   Détection proactive en cas de baisse brutal ou d&apos;envolée exceptionnelle d&apos;un actif.
                 </div>
               </div>

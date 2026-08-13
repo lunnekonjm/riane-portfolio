@@ -393,12 +393,12 @@ export default function InteractiveReportView({
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
                   <span
                     style={{
-                      fontSize: 11,
+                      fontSize: 'var(--text-xs)',
                       fontWeight: 700,
                       color: categoryBadgeColor,
-                      background: 'rgba(255, 255, 255, 0.04)',
+                      background: 'rgba(255, 255, 255, 0.06)',
                       border: `1px solid ${categoryBadgeColor}`,
-                      padding: '2px 8px',
+                      padding: '3px 9px',
                       borderRadius: 12,
                     }}
                   >
@@ -406,11 +406,11 @@ export default function InteractiveReportView({
                   </span>
                   <span
                     style={{
-                      fontSize: 11,
+                      fontSize: 'var(--text-xs)',
                       fontWeight: 600,
                       color: sentimentBadgeColor,
-                      background: 'rgba(255, 255, 255, 0.04)',
-                      padding: '2px 8px',
+                      background: 'rgba(255, 255, 255, 0.06)',
+                      padding: '3px 9px',
                       borderRadius: 12,
                     }}
                   >
@@ -423,15 +423,15 @@ export default function InteractiveReportView({
                   style={{
                     background: 'rgba(6, 182, 212, 0.08)',
                     borderLeft: '3px solid var(--accent-cyan)',
-                    padding: '8px 12px',
+                    padding: '10px 14px',
                     borderRadius: '0 6px 6px 0',
-                    fontSize: 12.5,
-                    color: '#e2e8f0',
-                    lineHeight: 1.45,
+                    fontSize: 'var(--text-sm)',
+                    color: 'var(--text-secondary)',
+                    lineHeight: 1.5,
                     marginBottom: 12,
                   }}
                 >
-                  <strong style={{ color: 'var(--accent-cyan)', display: 'block', fontSize: 11, textTransform: 'uppercase', marginBottom: 2 }}>
+                  <strong style={{ color: 'var(--accent-cyan)', display: 'block', fontSize: 'var(--text-xs)', textTransform: 'uppercase', marginBottom: 4 }}>
                     Recommandation de Gestion :
                   </strong>
                   {card.recommendation}
@@ -440,10 +440,10 @@ export default function InteractiveReportView({
                 {/* Expandable Catalysts & Sources */}
                 {isExpanded && (
                   <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: 12, marginTop: 10 }}>
-                    <strong style={{ fontSize: 11, color: 'var(--text-secondary)', textTransform: 'uppercase', display: 'block', marginBottom: 6 }}>
+                    <strong style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', textTransform: 'uppercase', display: 'block', marginBottom: 6 }}>
                       ⚡ Catalyseurs Récents &amp; Marché :
                     </strong>
-                    <ul style={{ margin: 0, paddingLeft: 16, fontSize: 12, color: '#cbd5e1', lineHeight: 1.5 }}>
+                    <ul style={{ margin: 0, paddingLeft: 16, fontSize: 'var(--text-xs)', color: 'var(--text-tertiary)', lineHeight: 1.5 }}>
                       {card.catalysts.map((cat, idx) => (
                         <li key={idx} style={{ marginBottom: 4 }}>{cat}</li>
                       ))}
@@ -451,7 +451,7 @@ export default function InteractiveReportView({
 
                     {card.sources.length > 0 && (
                       <div style={{ marginTop: 10 }}>
-                        <strong style={{ fontSize: 11, color: 'var(--text-secondary)', textTransform: 'uppercase', display: 'block', marginBottom: 4 }}>
+                        <strong style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', textTransform: 'uppercase', display: 'block', marginBottom: 4 }}>
                           📰 Articles &amp; Sources Vérifiées :
                         </strong>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -462,7 +462,7 @@ export default function InteractiveReportView({
                               target="_blank"
                               rel="noopener noreferrer"
                               style={{
-                                fontSize: 11,
+                                fontSize: 'var(--text-xs)',
                                 color: 'var(--accent-cyan)',
                                 textDecoration: 'none',
                                 whiteSpace: 'nowrap',
@@ -486,10 +486,11 @@ export default function InteractiveReportView({
                 className="btn btn-ghost btn-sm"
                 style={{
                   marginTop: 10,
-                  fontSize: 11,
+                  fontSize: 'var(--text-xs)',
                   color: 'var(--accent-cyan)',
                   padding: '4px 0',
                   justifyContent: 'center',
+                  fontWeight: 600,
                 }}
                 onClick={() => toggleCard(card.ticker)}
               >

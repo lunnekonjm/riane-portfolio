@@ -138,7 +138,7 @@ function ConfigNeeded() {
           padding: 16,
           borderRadius: 'var(--radius-md)',
           textAlign: 'left',
-          fontSize: 11,
+          fontSize: 'var(--text-xs)',
           fontFamily: 'var(--font-mono)',
           color: 'var(--text-secondary)',
           overflow: 'auto',
@@ -640,7 +640,7 @@ export default function HomePage() {
             <div style={{ fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
               {user.displayName || user.email || 'Investisseur'}
             </div>
-            <div style={{ fontSize: 11, color: 'var(--accent-emerald)', fontWeight: 500 }}>● Session Sécurisée</div>
+            <div style={{ fontSize: 'var(--text-xs)', color: 'var(--accent-emerald)', fontWeight: 600 }}>● Session Sécurisée</div>
           </div>
           <button
             className="btn-ghost"
@@ -691,9 +691,9 @@ export default function HomePage() {
                 <span style={{
                   background: 'var(--accent-rose)',
                   color: 'white',
-                  fontSize: 10,
+                  fontSize: 'var(--text-xs)',
                   fontWeight: 800,
-                  padding: '2px 6px',
+                  padding: '2px 7px',
                   borderRadius: 10,
                 }}>
                   {unreadNotificationsCount}
@@ -872,18 +872,18 @@ export default function HomePage() {
                   
                   {/* Légende de Provenance des Chiffres */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: 12, borderTop: '1px dashed var(--border-subtle)', paddingTop: 12, marginTop: 4, flexWrap: 'wrap' }}>
-                    <span style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.5, fontWeight: 600 }}>Provenance des chiffres :</span>
+                    <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: 0.5, fontWeight: 700 }}>Provenance des chiffres :</span>
                     
-                    <span style={{ padding: '2px 8px', borderRadius: 12, border: '1px solid var(--accent-emerald)', background: 'rgba(16, 185, 129, 0.1)', color: 'var(--accent-emerald)', fontSize: 10, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                      <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--accent-emerald)' }}></span> RÉEL — SAISI PAR VOUS
+                    <span className="badge-real">
+                      <span className="dot"></span> RÉEL — SAISI PAR VOUS
                     </span>
                     
-                    <span style={{ padding: '2px 8px', borderRadius: 12, border: '1px solid var(--accent-amber)', background: 'rgba(245, 158, 11, 0.1)', color: 'var(--accent-amber)', fontSize: 10, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                    <span style={{ padding: '3px 10px', borderRadius: 12, border: '1px solid var(--accent-amber)', background: 'rgba(245, 158, 11, 0.14)', color: 'var(--accent-amber)', fontSize: 'var(--text-xs)', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                       <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--accent-amber)' }}></span> ESTIMÉ — DONNÉE MANQUANTE
                     </span>
                     
-                    <span style={{ padding: '2px 8px', borderRadius: 12, border: '1px solid var(--accent-purple)', background: 'rgba(168, 85, 247, 0.1)', color: 'var(--accent-purple)', fontSize: 10, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                      <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--accent-purple)' }}></span> PROJETÉ — CALCUL FUTUR
+                    <span className="badge-projected">
+                      <span className="dot"></span> PROJETÉ — CALCUL FUTUR
                     </span>
                   </div>
                 </div>
@@ -932,14 +932,14 @@ export default function HomePage() {
                     <div className="grid-4">
                       <div className="card" data-tooltip="Valeur marchande globale de votre patrimoine convertie en €">
                         <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                          <span className="card-title" style={{ textTransform: 'uppercase', letterSpacing: '0.5px', fontSize: 13, fontWeight: 700 }}>
+                          <span className="card-title text-sm font-bold" style={{ textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                             {adjustInflation ? 'Valeur Réelle (Ajustée)' : 'Valeur Totale'}
                           </span>
-                          <span style={{ padding: '3px 10px', borderRadius: 12, border: '1px solid var(--accent-emerald)', background: 'rgba(16, 185, 129, 0.12)', color: 'var(--accent-emerald)', fontSize: 11, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                            <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--accent-emerald)' }}></span> RÉEL
+                          <span className="badge-real">
+                            <span className="dot"></span> RÉEL
                           </span>
                         </div>
-                        <div className="card-value" style={{ color: displayTotalValue > 0 ? 'var(--accent-cyan)' : 'var(--text-muted)', fontSize: 28, fontWeight: 800 }}>
+                        <div className="card-value font-extrabold text-3xl" style={{ color: displayTotalValue > 0 ? 'var(--accent-cyan)' : 'var(--text-muted)' }}>
                           {displayTotalValue > 0
                             ? displayTotalValue.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })
                             : '—'}
@@ -948,15 +948,12 @@ export default function HomePage() {
                           <div style={{ marginTop: 8, position: 'relative' }}>
                             <button
                               type="button"
-                              className="btn btn-secondary btn-sm"
+                              className="btn btn-secondary btn-sm text-xs font-semibold"
                               style={{
-                                fontSize: 12,
                                 padding: '5px 10px',
-                                borderRadius: 8,
                                 background: 'rgba(59, 130, 246, 0.15)',
                                 color: 'var(--accent-blue)',
                                 border: '1px solid rgba(59, 130, 246, 0.35)',
-                                fontWeight: 600,
                                 display: 'inline-flex',
                                 alignItems: 'center',
                                 gap: 6,
@@ -967,56 +964,57 @@ export default function HomePage() {
                               }}
                             >
                               <span>📊 Répartition des Enveloppes</span>
-                              <span style={{ fontSize: 11 }}>{showTotalValueDropdown ? '▲' : '▼'}</span>
+                              <span className="text-xs">{showTotalValueDropdown ? '▲' : '▼'}</span>
                             </button>
                             {showTotalValueDropdown && (
-                              <div className="dca-dropdown" style={{ position: 'absolute', top: '100%', left: 0, marginTop: 4, zIndex: 10, minWidth: 280, background: 'var(--bg-secondary)', border: '1px solid var(--border-medium)', borderRadius: 10, padding: 14, boxShadow: '0 8px 24px rgba(0, 0, 0, 0.6)' }}>
-                                <div style={{ fontSize: 13, fontWeight: 700, color: 'white', marginBottom: 10, borderBottom: '1px solid var(--border-subtle)', paddingBottom: 6 }}>
-                                  Répartition de la Valeur Totale
+                              <div className="popover-card">
+                                <div className="popover-header">
+                                  <span>Répartition de la Valeur Totale</span>
                                 </div>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6, fontSize: 13 }}>
-                                  <span style={{ color: 'var(--text-secondary)' }}>📈 Bourse &amp; Cryptos</span>
+                                <div className="popover-row">
+                                  <span className="text-secondary">📈 Bourse &amp; Cryptos</span>
                                   <strong style={{ color: 'var(--accent-cyan)' }}>{displayMarketVal.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} €</strong>
                                 </div>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6, fontSize: 13 }}>
-                                  <span style={{ color: 'var(--text-secondary)' }}>🛡️ Épargne &amp; Immo</span>
+                                <div className="popover-row">
+                                  <span className="text-secondary">🛡️ Épargne &amp; Immo</span>
                                   <strong style={{ color: 'var(--accent-emerald)' }}>{displaySavingsVal.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} €</strong>
                                 </div>
                               </div>
                             )}
                           </div>
                         )}
-                        {displayTotalValue === 0 && <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>À renseigner</span>}
+                        {displayTotalValue === 0 && <span className="text-sm text-muted">À renseigner</span>}
                         
                         {(positions.length - filledPositions.length) > 0 && (
-                          <div style={{ background: 'rgba(245, 158, 11, 0.08)', border: '1px dashed var(--accent-amber)', borderRadius: 8, padding: '10px 14px', fontSize: 12, color: 'var(--text-secondary)', marginTop: 12, lineHeight: 1.4 }}>
+                          <div style={{ background: 'rgba(245, 158, 11, 0.08)', border: '1px dashed var(--accent-amber)', borderRadius: 8, padding: '10px 14px', marginTop: 12, lineHeight: 1.4 }} className="text-xs text-secondary">
                             <span style={{ color: 'var(--accent-amber)', fontWeight: 700 }}>{(positions.length - filledPositions.length)} position{(positions.length - filledPositions.length) > 1 ? 's' : ''}</span> sans prix ni PRU renseigné est provisoirement valorisée à titre indicatif.<br/>
                             <a href="#" onClick={(e) => { e.preventDefault(); window.scrollTo({ top: 500, behavior: 'smooth' }); }} style={{ color: 'var(--accent-cyan)', textDecoration: 'underline', marginTop: 4, display: 'inline-block', fontWeight: 600 }}>Compléter maintenant →</a>
                           </div>
                         )}
-                        <span style={{ fontSize: 13, color: 'var(--accent-cyan)', display: 'block', marginTop: 12, fontWeight: 700 }}>
+                        <span className="text-sm font-bold" style={{ color: 'var(--accent-cyan)', display: 'block', marginTop: 12 }}>
                           ✓ {filledPositions.length}/{positions.length} positions renseignées
                         </span>
                       </div>
+
                       <div className="card" data-tooltip="Total des capitaux réellement investis (somme des PRU)">
                         <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                          <span className="card-title" style={{ textTransform: 'uppercase', letterSpacing: '0.5px', fontSize: 13, fontWeight: 700 }}>
+                          <span className="card-title text-sm font-bold" style={{ textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                             {adjustInflation ? 'Coût Total Réel' : 'Coût Total (PRU)'}
                           </span>
-                          <span style={{ padding: '3px 10px', borderRadius: 12, border: '1px solid var(--accent-emerald)', background: 'rgba(16, 185, 129, 0.12)', color: 'var(--accent-emerald)', fontSize: 11, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                            <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--accent-emerald)' }}></span> RÉEL
+                          <span className="badge-real">
+                            <span className="dot"></span> RÉEL
                           </span>
                           <button
                             type="button"
-                            className="btn btn-ghost btn-sm"
-                            style={{ padding: '2px 8px', fontSize: 13, color: 'var(--accent-cyan)', fontWeight: 600 }}
+                            className="btn btn-ghost btn-sm text-sm font-semibold"
+                            style={{ padding: '2px 8px', color: 'var(--accent-cyan)' }}
                             onClick={() => openGlossary('PRU')}
                             data-tooltip="Définition et calcul du PRU"
                           >
                             💡 PRU
                           </button>
                         </div>
-                        <div className="card-value" style={{ fontSize: 28, fontWeight: 800 }}>
+                        <div className="card-value font-extrabold text-3xl">
                           {displayTotalCost > 0
                             ? displayTotalCost.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })
                             : '—'}
@@ -1025,15 +1023,12 @@ export default function HomePage() {
                           <div style={{ marginTop: 8, position: 'relative' }}>
                             <button
                               type="button"
-                              className="btn btn-secondary btn-sm"
+                              className="btn btn-secondary btn-sm text-xs font-semibold"
                               style={{
-                                fontSize: 12,
                                 padding: '5px 10px',
-                                borderRadius: 8,
                                 background: 'rgba(59, 130, 246, 0.15)',
                                 color: 'var(--accent-blue)',
                                 border: '1px solid rgba(59, 130, 246, 0.35)',
-                                fontWeight: 600,
                                 display: 'inline-flex',
                                 alignItems: 'center',
                                 gap: 6,
@@ -1044,65 +1039,66 @@ export default function HomePage() {
                               }}
                             >
                               <span>📊 Détail des Apports</span>
-                              <span style={{ fontSize: 11 }}>{showTotalCostDropdown ? '▲' : '▼'}</span>
+                              <span className="text-xs">{showTotalCostDropdown ? '▲' : '▼'}</span>
                             </button>
                             {showTotalCostDropdown && (
-                              <div className="dca-dropdown" style={{ position: 'absolute', top: '100%', left: 0, marginTop: 4, zIndex: 10, minWidth: 280, background: 'var(--bg-secondary)', border: '1px solid var(--border-medium)', borderRadius: 10, padding: 14, boxShadow: '0 8px 24px rgba(0, 0, 0, 0.6)' }}>
-                                <div style={{ fontSize: 13, fontWeight: 700, color: 'white', marginBottom: 10, borderBottom: '1px solid var(--border-subtle)', paddingBottom: 6 }}>
-                                  Apports Investis (PRU)
+                              <div className="popover-card">
+                                <div className="popover-header">
+                                  <span>Apports Investis (PRU)</span>
                                 </div>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6, fontSize: 13 }}>
-                                  <span style={{ color: 'var(--text-secondary)' }}>📈 Bourse &amp; Cryptos</span>
-                                  <strong style={{ color: 'var(--text-primary)' }}>{displayMarketCostVal.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} €</strong>
+                                <div className="popover-row">
+                                  <span className="text-secondary">📈 Bourse &amp; Cryptos</span>
+                                  <strong className="text-primary">{displayMarketCostVal.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} €</strong>
                                 </div>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6, fontSize: 13 }}>
-                                  <span style={{ color: 'var(--text-secondary)' }}>🛡️ Épargne &amp; Immo</span>
-                                  <strong style={{ color: 'var(--text-primary)' }}>{displaySavingsCostVal.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} €</strong>
+                                <div className="popover-row">
+                                  <span className="text-secondary">🛡️ Épargne &amp; Immo</span>
+                                  <strong className="text-primary">{displaySavingsCostVal.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} €</strong>
                                 </div>
                               </div>
                             )}
                           </div>
                         )}
-                        {displayTotalCost === 0 && <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>Entrez vos PRU réels</span>}
+                        {displayTotalCost === 0 && <span className="text-sm text-muted">Entrez vos PRU réels</span>}
                       </div>
+
                       <div className="card" data-tooltip="Plus ou moins-value latente et valeur nette de liquidation après impôts">
                         <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                          <span className="card-title" style={{ textTransform: 'uppercase', letterSpacing: '0.5px', fontSize: 13, fontWeight: 700 }}>
+                          <span className="card-title text-sm font-bold" style={{ textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                             {adjustInflation ? 'Plus/Moins-Value Réelle' : 'Plus / Moins-Value'}
                           </span>
-                          <span style={{ padding: '3px 10px', borderRadius: 12, border: '1px solid var(--accent-emerald)', background: 'rgba(16, 185, 129, 0.12)', color: 'var(--accent-emerald)', fontSize: 11, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                            <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--accent-emerald)' }}></span> RÉEL
+                          <span className="badge-real">
+                            <span className="dot"></span> RÉEL
                           </span>
                         </div>
                         {displayTotalCost > 0 ? (
                           <>
                             <div style={{ display: 'flex', alignItems: 'baseline', gap: 12 }}>
-                              <div className={`card-value ${displayGainLoss >= 0 ? 'stat-gain' : 'stat-loss'}`} style={{ fontSize: 28, fontWeight: 800 }}>
+                              <div className={`card-value font-extrabold text-3xl ${displayGainLoss >= 0 ? 'stat-gain' : 'stat-loss'}`}>
                                 {displayGainLoss >= 0 ? '+' : ''}{displayGainLoss.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
                               </div>
-                              <span className={`stat-change ${displayGainLoss >= 0 ? 'positive' : 'negative'}`} style={{ fontSize: 13, fontWeight: 700 }}>
+                              <span className={`stat-change text-sm font-bold ${displayGainLoss >= 0 ? 'positive' : 'negative'}`}>
                                 {displayGainLossPercent >= 0 ? '↑' : '↓'} {Math.abs(displayGainLossPercent).toFixed(2)}%
                               </span>
                             </div>
                             
                             <div style={{ marginTop: 14 }}>
-                              <span style={{ fontSize: 13, color: 'var(--text-secondary)', display: 'block', marginBottom: 6, fontWeight: 600 }}>Net Retrait</span>
+                              <span className="text-sm text-secondary font-semibold" style={{ display: 'block', marginBottom: 6 }}>Net Retrait</span>
                               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 6 }}>
                                 <button
                                   type="button"
-                                  className="btn btn-secondary btn-sm"
+                                  className="btn btn-secondary btn-sm text-xs font-semibold"
                                   onClick={() => setShowNetDetailsModal(true)}
                                   style={{
-                                    fontSize: 12, padding: '6px 10px', borderRadius: 8,
+                                    padding: '6px 10px',
                                     background: 'rgba(59, 130, 246, 0.12)', color: 'var(--text-secondary)',
-                                    border: '1px solid rgba(59, 130, 246, 0.3)', fontWeight: 600,
+                                    border: '1px solid rgba(59, 130, 246, 0.3)',
                                     display: 'flex', alignItems: 'center', gap: 6
                                   }}
                                 >
                                   <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--accent-blue)' }}></span>
                                   PEA {peaSeniority === 'over5' ? '> 5 ans' : '< 5 ans'} · charges {peaSeniority === 'over5' ? '18,6 %' : '31,4 %'} ⓘ
                                 </button>
-                                <span style={{ fontSize: 18, fontWeight: 800, color: 'var(--accent-emerald)' }}>
+                                <span className="text-xl font-extrabold" style={{ color: 'var(--accent-emerald)' }}>
                                   {(netLiquidationDetails.totalNetValue / cumulativeInflationFactor).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
                                 </span>
                               </div>
@@ -1111,15 +1107,12 @@ export default function HomePage() {
                             <div style={{ marginTop: 10, position: 'relative' }}>
                               <button
                                 type="button"
-                                className="btn btn-secondary btn-sm"
+                                className="btn btn-secondary btn-sm text-xs font-semibold"
                                 style={{
-                                  fontSize: 12,
                                   padding: '5px 10px',
-                                  borderRadius: 8,
                                   background: 'rgba(16, 185, 129, 0.15)',
                                   color: 'var(--accent-emerald)',
                                   border: '1px solid rgba(16, 185, 129, 0.35)',
-                                  fontWeight: 600,
                                   display: 'inline-flex',
                                   alignItems: 'center',
                                   gap: 6,
@@ -1130,19 +1123,19 @@ export default function HomePage() {
                                 }}
                               >
                                 <span>📊 Ventilation des Gains</span>
-                                <span style={{ fontSize: 11 }}>{showGainLossDropdown ? '▲' : '▼'}</span>
+                                <span className="text-xs">{showGainLossDropdown ? '▲' : '▼'}</span>
                               </button>
                               {showGainLossDropdown && (
-                                <div className="dca-dropdown" style={{ position: 'absolute', top: '100%', left: 0, marginTop: 4, zIndex: 10, minWidth: 280, background: 'var(--bg-secondary)', border: '1px solid var(--border-medium)', borderRadius: 10, padding: 14, boxShadow: '0 8px 24px rgba(0, 0, 0, 0.6)' }}>
-                                  <div style={{ fontSize: 13, fontWeight: 700, color: 'white', marginBottom: 10, borderBottom: '1px solid var(--border-subtle)', paddingBottom: 6 }}>
-                                    Plus-Values &amp; Intérêts Latents
+                                <div className="popover-card">
+                                  <div className="popover-header">
+                                    <span>Plus-Values &amp; Intérêts Latents</span>
                                   </div>
-                                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6, fontSize: 13 }}>
-                                    <span style={{ color: 'var(--text-secondary)' }}>📈 Bourse &amp; Cryptos</span>
+                                  <div className="popover-row">
+                                    <span className="text-secondary">📈 Bourse &amp; Cryptos</span>
                                     <strong style={{ color: displayMarketGain >= 0 ? 'var(--accent-emerald)' : 'var(--accent-rose)' }}>{displayMarketGain >= 0 ? '+' : ''}{displayMarketGain.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} €</strong>
                                   </div>
-                                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6, fontSize: 13 }}>
-                                    <span style={{ color: 'var(--text-secondary)' }}>🛡️ Intérêts d&apos;Épargne</span>
+                                  <div className="popover-row">
+                                    <span className="text-secondary">🛡️ Intérêts d&apos;Épargne</span>
                                     <strong style={{ color: displaySavingsGain >= 0 ? 'var(--accent-emerald)' : 'var(--accent-rose)' }}>{displaySavingsGain >= 0 ? '+' : ''}{displaySavingsGain.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} €</strong>
                                   </div>
                                 </div>
@@ -1151,26 +1144,27 @@ export default function HomePage() {
                           </>
                         ) : (
                           <>
-                            <div className="card-value" style={{ color: 'var(--text-muted)' }}>—</div>
-                            <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>Calculé depuis vos PRU</span>
+                            <div className="card-value text-muted">—</div>
+                            <span className="text-sm text-muted">Calculé depuis vos PRU</span>
                           </>
                         )}
                       </div>
+
                       <div className="card" style={{ cursor: 'pointer', position: 'relative' }} onClick={() => setShowConfigEditor(true)} data-tooltip="Somme totale de vos versements d'accumulation">
                         <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
                           <div>
-                            <span className="card-title" style={{ textTransform: 'uppercase', letterSpacing: '0.5px', fontSize: 13, fontWeight: 700 }}>DCA &amp; Épargne</span>
+                            <span className="card-title text-sm font-bold" style={{ textTransform: 'uppercase', letterSpacing: '0.5px' }}>DCA &amp; Épargne</span>
                             <div style={{ marginTop: 4 }}>
-                              <span style={{ padding: '3px 10px', borderRadius: 12, border: '1px solid var(--accent-emerald)', background: 'rgba(16, 185, 129, 0.12)', color: 'var(--accent-emerald)', fontSize: 11, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                                <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--accent-emerald)' }}></span> RÉEL
+                              <span className="badge-real">
+                                <span className="dot"></span> RÉEL
                               </span>
                             </div>
                           </div>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                             <button
                               type="button"
-                              className="btn btn-ghost btn-sm"
-                              style={{ padding: '2px 8px', fontSize: 13, color: 'var(--accent-cyan)', fontWeight: 600 }}
+                              className="btn btn-ghost btn-sm text-sm font-semibold"
+                              style={{ padding: '2px 8px', color: 'var(--accent-cyan)' }}
                               onClick={(e) => {
                                 e.stopPropagation();
                                 openGlossary('DCA');
@@ -1179,21 +1173,21 @@ export default function HomePage() {
                             >
                               💡 DCA
                             </button>
-                            <span style={{ fontSize: 16, color: 'var(--text-muted)' }}>⚙️</span>
+                            <span className="text-lg text-muted">⚙️</span>
                           </div>
                         </div>
 
-                        <div className="card-value" style={{ color: dcaBreakdown.monthlyEquivalent > 0 ? 'var(--accent-emerald)' : 'var(--text-muted)', display: 'flex', alignItems: 'baseline', gap: 6, flexWrap: 'wrap', fontSize: 28, fontWeight: 800 }}>
+                        <div className="card-value font-extrabold text-3xl" style={{ color: dcaBreakdown.monthlyEquivalent > 0 ? 'var(--accent-emerald)' : 'var(--text-muted)', display: 'flex', alignItems: 'baseline', gap: 6, flexWrap: 'wrap' }}>
                           <span>
                             {dcaBreakdown.monthlyEquivalent > 0
                               ? (dcaBreakdown.monthlyEquivalent / cumulativeInflationFactor).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })
                               : '0,00 €'}
                           </span>
-                          <span style={{ fontSize: 15, color: 'var(--text-secondary)', fontWeight: 600 }}>
+                          <span className="text-md font-semibold text-secondary">
                             {dcaBreakdown.monthlyEquivalent > 0 ? '/mois (lissés)' : ''}
                           </span>
                         </div>
-                        <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 8, marginBottom: 12, lineHeight: 1.4 }}>
+                        <div className="card-subtitle" style={{ marginTop: 8, marginBottom: 12 }}>
                           Moyenne annualisée de vos versements programmés — pas un flux mensuel littéral.
                         </div>
 
@@ -1202,15 +1196,12 @@ export default function HomePage() {
                           {dcaBreakdown.activeFrequenciesCount > 0 ? (
                             <button
                               type="button"
-                              className="btn btn-secondary btn-sm"
+                              className="btn btn-secondary btn-sm text-xs font-semibold"
                               style={{
-                                fontSize: 12,
                                 padding: '5px 10px',
-                                borderRadius: 8,
                                 background: 'rgba(6, 182, 212, 0.15)',
                                 color: 'var(--accent-cyan)',
                                 border: '1px solid rgba(6, 182, 212, 0.35)',
-                                fontWeight: 600,
                                 display: 'inline-flex',
                                 alignItems: 'center',
                                 gap: 6,
@@ -1221,72 +1212,53 @@ export default function HomePage() {
                               }}
                             >
                               <span>📊 Détail des Fréquences ({dcaBreakdown.activeFrequenciesCount})</span>
-                              <span style={{ fontSize: 11 }}>{showDcaFrequencyDropdown ? '▲' : '▼'}</span>
+                              <span className="text-xs">{showDcaFrequencyDropdown ? '▲' : '▼'}</span>
                             </button>
                           ) : (
-                            <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>
+                            <span className="text-sm text-muted">
                               ✍️ Définissez le DCA par position
                             </span>
                           )}
 
                           {/* Dropdown Popover */}
                           {showDcaFrequencyDropdown && (
-                            <div
-                              onClick={(e) => e.stopPropagation()}
-                              style={{
-                                position: 'absolute',
-                                top: '120%',
-                                left: 0,
-                                minWidth: 280,
-                                background: 'rgba(15, 23, 42, 0.98)',
-                                border: '1px solid var(--accent-cyan)',
-                                borderRadius: 12,
-                                padding: 14,
-                                boxShadow: '0 10px 28px rgba(0, 0, 0, 0.7)',
-                                backdropFilter: 'blur(16px)',
-                                zIndex: 100,
-                                fontSize: 13,
-                                display: 'flex',
-                                flexDirection: 'column',
-                                gap: 8,
-                              }}
-                            >
-                              <div style={{ fontWeight: 700, color: 'white', borderBottom: '1px solid var(--border-subtle)', paddingBottom: 6, marginBottom: 4, display: 'flex', justifyContent: 'space-between' }}>
+                            <div className="popover-card" onClick={(e) => e.stopPropagation()}>
+                              <div className="popover-header">
                                 <span>Ventilation des Versements</span>
-                                <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{positions.length} positions</span>
+                                <span className="text-xs text-secondary">{positions.length} positions</span>
                               </div>
 
                               {dcaBreakdown.monthlyCount > 0 && (
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                  <span style={{ color: 'var(--text-secondary)' }}>📅 Mensuel ({dcaBreakdown.monthlyCount})</span>
+                                <div className="popover-row">
+                                  <span className="text-secondary">📅 Mensuel ({dcaBreakdown.monthlyCount})</span>
                                   <strong style={{ color: 'var(--accent-emerald)' }}>{dcaBreakdown.monthlySum.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} € / mois</strong>
                                 </div>
                               )}
 
                               {dcaBreakdown.quarterlyCount > 0 && (
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                  <span style={{ color: 'var(--text-secondary)' }}>📆 Trimestriel ({dcaBreakdown.quarterlyCount})</span>
+                                <div className="popover-row">
+                                  <span className="text-secondary">📆 Trimestriel ({dcaBreakdown.quarterlyCount})</span>
                                   <strong style={{ color: 'var(--accent-cyan)' }}>{dcaBreakdown.quarterlySum.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} € / trim</strong>
                                 </div>
                               )}
 
                               {dcaBreakdown.semestrialCount > 0 && (
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                  <span style={{ color: 'var(--text-secondary)' }}>🌓 Semestriel ({dcaBreakdown.semestrialCount})</span>
+                                <div className="popover-row">
+                                  <span className="text-secondary">🌓 Semestriel ({dcaBreakdown.semestrialCount})</span>
                                   <strong style={{ color: 'var(--accent-amber)' }}>{dcaBreakdown.semestrialSum.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} € / sem</strong>
                                 </div>
                               )}
 
                               {dcaBreakdown.annualCount > 0 && (
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                  <span style={{ color: 'var(--text-secondary)' }}>🎆 Annuel ({dcaBreakdown.annualCount})</span>
+                                <div className="popover-row">
+                                  <span className="text-secondary">🎆 Annuel ({dcaBreakdown.annualCount})</span>
                                   <strong style={{ color: 'var(--accent-rose)' }}>{dcaBreakdown.annualSum.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} € / an</strong>
                                 </div>
                               )}
 
-                              <div style={{ borderTop: '1px dashed var(--border-subtle)', paddingTop: 8, marginTop: 4, display: 'flex', justifyContent: 'space-between', fontWeight: 700, color: 'white' }}>
+                              <div className="popover-total-row">
                                 <span>💰 Cumul Annuel Global</span>
-                                <span style={{ color: 'var(--accent-emerald)', fontSize: 14 }}>{dcaBreakdown.totalAnnualCumulative.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} € / an</span>
+                                <span className="text-base" style={{ color: 'var(--accent-emerald)' }}>{dcaBreakdown.totalAnnualCumulative.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} € / an</span>
                               </div>
                             </div>
                           )}
@@ -1301,74 +1273,74 @@ export default function HomePage() {
                           <div className="card" style={{ borderLeft: '4px solid var(--accent-cyan)', background: 'linear-gradient(135deg, rgba(6, 182, 212, 0.08) 0%, rgba(15, 23, 42, 0.7) 100%)', padding: 16 }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
                               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                <span style={{ fontSize: 20 }}>📈</span>
-                                <strong style={{ fontSize: 15, color: 'var(--text-primary)' }}>Portefeuille Boursier &amp; Cryptos</strong>
+                                <span className="text-xl">📈</span>
+                                <strong className="text-md font-bold text-primary">Portefeuille Boursier &amp; Cryptos</strong>
                               </div>
-                              <span className="badge" style={{ fontSize: 12, padding: '3px 8px', background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', color: 'var(--text-primary)', fontWeight: 600 }}>{marketPos.length} positions</span>
+                              <span className="badge text-xs font-semibold text-primary" style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', padding: '3px 8px' }}>{marketPos.length} positions</span>
                             </div>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', margin: '6px 0 10px 0' }}>
-                              <span className="mono" style={{ fontSize: 26, fontWeight: 800, color: 'var(--accent-cyan)' }}>
+                              <span className="mono font-extrabold text-3xl" style={{ color: 'var(--accent-cyan)' }}>
                                 {displayMarketVal.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
                               </span>
                               {displayMarketCostVal > 0 ? (
                                 <div style={{ textAlign: 'right' }}>
-                                  <div style={{ fontSize: 14, color: displayMarketGain >= 0 ? 'var(--accent-emerald)' : 'var(--accent-rose)', fontWeight: 700 }}>
+                                  <div className="text-base font-bold" style={{ color: displayMarketGain >= 0 ? 'var(--accent-emerald)' : 'var(--accent-rose)' }}>
                                     {displayMarketGain >= 0 ? '+' : ''}{displayMarketGain.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
                                   </div>
-                                  <div style={{ fontSize: 12, color: displayMarketGain >= 0 ? 'var(--accent-emerald)' : 'var(--accent-rose)', fontWeight: 700 }}>
+                                  <div className="text-xs font-bold" style={{ color: displayMarketGain >= 0 ? 'var(--accent-emerald)' : 'var(--accent-rose)' }}>
                                     {displayMarketGainPct >= 0 ? '↑' : '↓'} {Math.abs(displayMarketGainPct).toFixed(2)} %
                                   </div>
                                 </div>
                               ) : (
-                                <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>PEA, CTO, Crypto</span>
+                                <span className="text-sm text-muted">PEA, CTO, Crypto</span>
                               )}
                             </div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: 'var(--text-secondary)', borderTop: '1px dashed var(--border-subtle)', paddingTop: 12, marginTop: 10 }}>
-                              <span>Coût PRU : <strong style={{ color: 'var(--text-primary)' }}>{displayMarketCostVal.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €</strong></span>
-                              <span>DCA Bourse : <strong style={{ color: 'var(--text-primary)' }}>{marketDCAVal.toLocaleString('fr-FR')} €/mois</strong></span>
+                            <div className="card-footer-stats">
+                              <span>Coût PRU : <strong className="text-primary">{displayMarketCostVal.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €</strong></span>
+                              <span>DCA Bourse : <strong className="text-primary">{marketDCAVal.toLocaleString('fr-FR')} €/mois</strong></span>
                             </div>
                           </div>
 
                           <div className="card" style={{ borderLeft: '4px solid var(--accent-emerald)', background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.08) 0%, rgba(15, 23, 42, 0.7) 100%)', padding: 16 }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
                               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                <span style={{ fontSize: 20 }}>🛡️</span>
-                                <strong style={{ fontSize: 15, color: 'var(--text-primary)' }}>Épargne &amp; Patrimoine Hors-Bourse</strong>
+                                <span className="text-xl">🛡️</span>
+                                <strong className="text-md font-bold text-primary">Épargne &amp; Patrimoine Hors-Bourse</strong>
                               </div>
-                              <span className="badge" style={{ fontSize: 12, padding: '3px 8px', background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', color: 'var(--text-primary)', fontWeight: 600 }}>{savingsPos.length} comptes</span>
+                              <span className="badge text-xs font-semibold text-primary" style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', padding: '3px 8px' }}>{savingsPos.length} comptes</span>
                             </div>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', margin: '6px 0 10px 0' }}>
-                              <span className="mono" style={{ fontSize: 26, fontWeight: 800, color: 'var(--accent-emerald)' }}>
+                              <span className="mono font-extrabold text-3xl" style={{ color: 'var(--accent-emerald)' }}>
                                 {displaySavingsVal.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
                               </span>
                             </div>
                             
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 13, marginTop: 12 }}>
-                              <span style={{ color: 'var(--text-secondary)', fontWeight: 500 }}>Intérêts acquis à date</span>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 12 }}>
+                              <span className="text-sm text-secondary font-medium">Intérêts acquis à date</span>
                               <div style={{ textAlign: 'right' }}>
-                                <span style={{ padding: '3px 8px', borderRadius: 12, border: '1px solid var(--accent-emerald)', background: 'rgba(16, 185, 129, 0.12)', color: 'var(--accent-emerald)', fontSize: 11, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4, marginRight: 8, verticalAlign: 'middle' }}>
-                                  <span style={{ width: 4, height: 4, borderRadius: '50%', background: 'var(--accent-emerald)' }}></span> RÉEL
+                                <span className="badge-real" style={{ marginRight: 8 }}>
+                                  <span className="dot"></span> RÉEL
                                 </span>
-                                <strong style={{ color: 'var(--accent-emerald)', fontSize: 15 }}>+{displaySavingsGain.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}</strong>
+                                <strong className="text-md font-bold" style={{ color: 'var(--accent-emerald)' }}>+{displaySavingsGain.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}</strong>
                               </div>
                             </div>
                             
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 13, marginTop: 10 }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 10 }}>
                               <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                <span style={{ color: 'var(--text-secondary)', fontWeight: 500 }}>Projection sur 12 mois</span>
-                                <span style={{ padding: '3px 8px', borderRadius: 12, border: '1px solid var(--accent-purple)', background: 'rgba(168, 85, 247, 0.12)', color: 'var(--accent-purple)', fontSize: 11, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4, width: 'fit-content', marginTop: 4 }}>
-                                  <span style={{ width: 4, height: 4, borderRadius: '50%', background: 'var(--accent-purple)' }}></span> PROJETÉ
+                                <span className="text-sm text-secondary font-medium">Projection sur 12 mois</span>
+                                <span className="badge-projected" style={{ width: 'fit-content', marginTop: 4 }}>
+                                  <span className="dot"></span> PROJETÉ
                                 </span>
                               </div>
                               <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
-                                <strong style={{ color: 'var(--accent-purple)', fontSize: 16, fontWeight: 800 }}>+{displaySavingsAnnualInt.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}</strong>
-                                <span style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 3, fontWeight: 500 }}>si le solde actuel est conservé un an</span>
+                                <strong className="text-lg font-extrabold" style={{ color: 'var(--accent-purple, #a855f7)' }}>+{displaySavingsAnnualInt.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}</strong>
+                                <span className="kpi-annotation" style={{ marginTop: 3 }}>si le solde actuel est conservé un an</span>
                               </div>
                             </div>
                             
-                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: 'var(--text-secondary)', borderTop: '1px dashed var(--border-subtle)', paddingTop: 12, marginTop: 12 }}>
-                              <span>Apports cumulés : <strong style={{ color: 'var(--text-primary)' }}>{displaySavingsCostVal.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €</strong></span>
-                              <span>Épargne DCA : <strong style={{ color: 'var(--text-primary)' }}>{savingsDCAVal.toLocaleString('fr-FR')} €/mois</strong></span>
+                            <div className="card-footer-stats">
+                              <span>Apports cumulés : <strong className="text-primary">{displaySavingsCostVal.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €</strong></span>
+                              <span>Épargne DCA : <strong className="text-primary">{savingsDCAVal.toLocaleString('fr-FR')} €/mois</strong></span>
                             </div>
                           </div>
                         </div>
@@ -1688,7 +1660,7 @@ export default function HomePage() {
                         📋 Charger mon portefeuille prédéfini
                       </button>
                     </div>
-                    <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 12, maxWidth: 420 }}>
+                    <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-tertiary)', marginTop: 12, maxWidth: 420 }}>
                       Le portefeuille prédéfini charge vos actifs habituels (ETF ACWI, Nasdaq, PEA-PME, CTO) avec quantités à zéro.
                       Vous n&apos;aurez plus qu&apos;à renseigner vos données réelles.
                     </div>
@@ -1705,7 +1677,7 @@ export default function HomePage() {
                           key={tab.id}
                           type="button"
                           className={`btn ${selectedEnvelopeFilter === tab.id ? 'btn-primary' : 'btn-ghost'}`}
-                          style={{ fontSize: 11, padding: '4px 10px', borderRadius: 20 }}
+                          style={{ fontSize: 'var(--text-xs)', padding: '4px 10px', borderRadius: 20 }}
                           onClick={() => setSelectedEnvelopeFilter(tab.id)}
                         >
                           {tab.label}
@@ -1779,7 +1751,7 @@ export default function HomePage() {
                             <td style={{ fontWeight: 600 }}>
                               <AssetBadge ticker={pos.ticker} name={pos.name} showTicker={false} />
                               {!hasFilled && (
-                                <span style={{ display: 'block', fontSize: 11, color: 'var(--accent-amber)', fontWeight: 400 }}>
+                                <span style={{ display: 'block', fontSize: 'var(--text-xs)', color: 'var(--accent-amber)', fontWeight: 400 }}>
                                   ✍️ Cliquez pour renseigner
                                 </span>
                               )}
@@ -1819,7 +1791,7 @@ export default function HomePage() {
                                     <span>{pl >= 0 ? '↑' : '↓'}</span>
                                     <span>{pl >= 0 ? '+' : ''}{plPct.toFixed(1)}%</span>
                                   </div>
-                                  <div style={{ fontSize: 11, opacity: 0.95, fontWeight: 600, marginTop: 2 }}>
+                                  <div style={{ fontSize: 'var(--text-xs)', opacity: 0.95, fontWeight: 600, marginTop: 2 }}>
                                     ({pl >= 0 ? '+' : ''}{Math.round(pl).toLocaleString('fr-FR')} {pos.currency === 'EUR' ? '€' : '$'})
                                   </div>
                                 </div>
@@ -1832,7 +1804,7 @@ export default function HomePage() {
                                   <strong style={{ color: currentWeightPct > maxCapPct ? 'var(--accent-rose)' : 'var(--text-primary)' }}>
                                     {currentWeightPct.toFixed(1)}%
                                   </strong>
-                                  <span style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>
+                                  <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-tertiary)' }}>
                                     / {maxCapPct.toFixed(1)}% max
                                   </span>
                                 </div>
@@ -1856,7 +1828,7 @@ export default function HomePage() {
                                   {currentWeightPct > maxCapPct ? (
                                     <span
                                       className="badge badge-rose"
-                                      style={{ fontSize: 11, padding: '2px 7px', fontWeight: 700 }}
+                                      style={{ fontSize: 'var(--text-xs)', padding: '2px 7px', fontWeight: 700 }}
                                       title={`Alerte sur-concentration : +${(currentWeightPct - maxCapPct).toFixed(1)}% au-dessus du plafond recommandé (${maxCapPct.toFixed(1)}% max)`}
                                     >
                                       ⚠️ +{(currentWeightPct - maxCapPct).toFixed(1)}% (Surchargé)
@@ -1864,7 +1836,7 @@ export default function HomePage() {
                                   ) : currentWeightPct >= maxCapPct * 0.85 ? (
                                     <span
                                       className="badge badge-amber"
-                                      style={{ fontSize: 11, padding: '2px 7px', fontWeight: 700 }}
+                                      style={{ fontSize: 'var(--text-xs)', padding: '2px 7px', fontWeight: 700 }}
                                       title={`Proche du plafond max : ${capUsagePct.toFixed(0)}% du cap d'allocation consommé`}
                                     >
                                       ⚡ {capUsagePct.toFixed(0)}% du cap
@@ -1872,7 +1844,7 @@ export default function HomePage() {
                                   ) : (
                                     <span
                                       className="badge badge-emerald"
-                                      style={{ fontSize: 11, padding: '2px 7px', fontWeight: 700 }}
+                                      style={{ fontSize: 'var(--text-xs)', padding: '2px 7px', fontWeight: 700 }}
                                       title={`Niveau optimal : ${capUsagePct.toFixed(0)}% du plafond max d'allocation`}
                                     >
                                       ✓ OK ({capUsagePct.toFixed(0)}%)
@@ -1960,7 +1932,7 @@ export default function HomePage() {
                         <button
                           type="button"
                           className="btn btn-ghost btn-sm"
-                          style={{ fontSize: 11, color: 'var(--accent-cyan)' }}
+                          style={{ fontSize: 'var(--text-xs)', color: 'var(--accent-cyan)', fontWeight: 600 }}
                           onClick={() => setShowThemeInfoModal(true)}
                           title="Voir les formules et explications des plafonds"
                         >
@@ -1970,7 +1942,7 @@ export default function HomePage() {
                       <button
                         type="button"
                         className="btn btn-secondary btn-sm"
-                        style={{ fontSize: 11 }}
+                        style={{ fontSize: 'var(--text-xs)', fontWeight: 600 }}
                         onClick={() => setShowEmptyThemes(!showEmptyThemes)}
                       >
                         {showEmptyThemes ? '🙈 Masquer thèmes à 0%' : '👁️ Afficher tous les thèmes'}
@@ -1987,7 +1959,7 @@ export default function HomePage() {
                           <div className="theme-bar-row" key={theme.id} style={{ marginBottom: 12 }}>
                             <div style={{ width: 190, display: 'flex', flexDirection: 'column' }}>
                               <span className="theme-bar-label" style={{ fontWeight: 600 }}>{theme.label}</span>
-                              <span style={{ fontSize: 10, color: 'var(--text-tertiary)' }}>Plafond recommandé : {maxPct}%</span>
+                              <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)' }}>Plafond recommandé : {maxPct}%</span>
                             </div>
                             <div className="theme-bar-track">
                               <div
@@ -2082,7 +2054,7 @@ export default function HomePage() {
                         </div>
                       </div>
                       <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                        <button type="button" className="btn btn-ghost btn-sm" style={{ fontSize: 11, color: 'var(--accent-cyan)' }} onClick={() => openGlossary('var')}>
+                        <button type="button" className="btn btn-ghost btn-sm" style={{ fontSize: 'var(--text-xs)', color: 'var(--accent-cyan)', fontWeight: 600 }} onClick={() => openGlossary('var')}>
                           💡 Explication des Risques
                         </button>
                         <span className="badge badge-cyan" style={{ fontSize: 12, padding: '4px 10px' }}>
@@ -2094,46 +2066,46 @@ export default function HomePage() {
                     <div className="grid-4" style={{ marginBottom: 8, marginTop: 12, gap: 16 }}>
                       <div style={{ background: 'var(--bg-tertiary)', padding: 14, borderRadius: 10, border: '1px solid var(--border-subtle)' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <span style={{ fontSize: 11, color: 'var(--text-tertiary)', fontWeight: 600, textTransform: 'uppercase' }}>Volatilité Annuelle</span>
+                          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', fontWeight: 600, textTransform: 'uppercase' }}>Volatilité Annuelle</span>
                           <span style={{ fontSize: 14 }}>📉</span>
                         </div>
                         <strong className="mono" style={{ fontSize: 22, color: 'var(--accent-amber)', display: 'block', margin: '4px 0' }}>{metrics.annualVolatility}%</strong>
-                        <div style={{ fontSize: 11, color: 'var(--text-secondary)', lineHeight: 1.3 }}>
+                        <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
                           Amplitude moyenne des cours. 19% correspond à un profil dynamique équilibré.
                         </div>
                       </div>
 
                       <div style={{ background: 'var(--bg-tertiary)', padding: 14, borderRadius: 10, border: '1px solid var(--border-subtle)' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <span style={{ fontSize: 11, color: 'var(--text-tertiary)', fontWeight: 600, textTransform: 'uppercase' }}>VaR 95% (Choc Normal)</span>
+                          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', fontWeight: 600, textTransform: 'uppercase' }}>VaR 95% (Choc Normal)</span>
                           <span style={{ fontSize: 14 }}>🛡️</span>
                         </div>
                         <strong className="mono" style={{ fontSize: 22, color: 'var(--accent-rose)', display: 'block', margin: '4px 0' }}>-{metrics.var95EUR.toLocaleString('fr-FR')} €</strong>
-                        <div style={{ fontSize: 11, color: 'var(--accent-rose)', fontWeight: 600 }}>-{metrics.var95Percent}% de perte max</div>
-                        <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 2, lineHeight: 1.3 }}>
+                        <div style={{ fontSize: 'var(--text-xs)', color: 'var(--accent-rose)', fontWeight: 600 }}>-{metrics.var95Percent}% de perte max</div>
+                        <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', marginTop: 2, lineHeight: 1.4 }}>
                           Pertes maximales estimées dans 95% des scénarios de marché normaux (1 an).
                         </div>
                       </div>
 
                       <div style={{ background: 'var(--bg-tertiary)', padding: 14, borderRadius: 10, border: '1px solid var(--border-subtle)' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <span style={{ fontSize: 11, color: 'var(--text-tertiary)', fontWeight: 600, textTransform: 'uppercase' }}>VaR 99% (Krach 1%)</span>
+                          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', fontWeight: 600, textTransform: 'uppercase' }}>VaR 99% (Krach 1%)</span>
                           <span style={{ fontSize: 14 }}>⚡</span>
                         </div>
                         <strong className="mono" style={{ fontSize: 22, color: 'var(--accent-rose)', display: 'block', margin: '4px 0' }}>-{metrics.var99EUR.toLocaleString('fr-FR')} €</strong>
-                        <div style={{ fontSize: 11, color: 'var(--accent-rose)', fontWeight: 600 }}>-{metrics.var99Percent}% de perte max</div>
-                        <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 2, lineHeight: 1.3 }}>
+                        <div style={{ fontSize: 'var(--text-xs)', color: 'var(--accent-rose)', fontWeight: 600 }}>-{metrics.var99Percent}% de perte max</div>
+                        <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', marginTop: 2, lineHeight: 1.4 }}>
                           Choc extrême estimé lors du pire 1% des crises financières historiques.
                         </div>
                       </div>
 
                       <div style={{ background: 'var(--bg-tertiary)', padding: 14, borderRadius: 10, border: '1px solid var(--border-subtle)' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <span style={{ fontSize: 11, color: 'var(--text-tertiary)', fontWeight: 600, textTransform: 'uppercase' }}>Ratio de Sharpe Estimé</span>
+                          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', fontWeight: 600, textTransform: 'uppercase' }}>Ratio de Sharpe Estimé</span>
                           <span style={{ fontSize: 14 }}>⚖️</span>
                         </div>
                         <strong className="mono" style={{ fontSize: 22, color: 'var(--accent-emerald)', display: 'block', margin: '4px 0' }}>{metrics.estimatedSharpeRatio}</strong>
-                        <div style={{ fontSize: 11, color: 'var(--text-secondary)', lineHeight: 1.3 }}>
+                        <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
                           Rendement obtenu par unité de risque pris (&gt; 0.3 = rendement positif).
                         </div>
                       </div>
@@ -2183,21 +2155,21 @@ export default function HomePage() {
 
                   <div className="grid-3" style={{ marginBottom: 20 }}>
                     <div style={{ background: 'var(--bg-tertiary)', padding: 14, borderRadius: 10, border: '1px solid var(--border-subtle)' }}>
-                      <span style={{ fontSize: 12, color: 'var(--text-tertiary)', fontWeight: 600 }}>Perte Estimée sur le Portefeuille</span>
+                      <span style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600 }}>Perte Estimée sur le Portefeuille</span>
                       <div style={{ fontSize: 24, fontWeight: 700, color: 'var(--accent-rose)', fontFamily: 'var(--font-mono)', margin: '4px 0' }}>
                         {selectedStressResult.portfolioLoss.toLocaleString('fr-FR')} €
                       </div>
-                      <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Montant nominal déprécié</div>
+                      <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)' }}>Montant nominal déprécié</div>
                     </div>
                     <div style={{ background: 'var(--bg-tertiary)', padding: 14, borderRadius: 10, border: '1px solid var(--border-subtle)' }}>
-                      <span style={{ fontSize: 12, color: 'var(--text-tertiary)', fontWeight: 600 }}>Coût Estimé de Rééquilibrage</span>
+                      <span style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600 }}>Coût Estimé de Rééquilibrage</span>
                       <div style={{ fontSize: 20, fontWeight: 700, fontFamily: 'var(--font-mono)', margin: '4px 0' }}>
                         {Math.round(selectedStressResult.rebalanceCostEstimate).toLocaleString('fr-FR')} €
                       </div>
-                      <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Frais et frottements d&apos;arbitrage</div>
+                      <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)' }}>Frais et frottements d&apos;arbitrage</div>
                     </div>
                     <div style={{ background: 'var(--bg-tertiary)', padding: 14, borderRadius: 10, border: '1px solid var(--border-subtle)' }}>
-                      <span style={{ fontSize: 12, color: 'var(--text-tertiary)', fontWeight: 600 }}>Impact sur vos Objectifs</span>
+                      <span style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600 }}>Impact sur vos Objectifs</span>
                       <div style={{ fontSize: 13, color: 'var(--accent-amber)', fontWeight: 600, marginTop: 6 }}>
                         {selectedStressResult.objectiveImpact}
                       </div>
@@ -2219,7 +2191,7 @@ export default function HomePage() {
                               Impact Détail par Actif ({displayAssets.length} titres)
                             </h4>
                             {proxyCount > 0 && (
-                              <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 2 }}>
+                              <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', marginTop: 2 }}>
                                 💡 {proxyCount} actif(s) créés après ce krach sont modélisés par leur indice sectoriel proxy.
                               </div>
                             )}
@@ -2229,7 +2201,7 @@ export default function HomePage() {
                             <button
                               type="button"
                               className="btn btn-secondary btn-sm"
-                              style={{ fontSize: 11 }}
+                              style={{ fontSize: 'var(--text-xs)', fontWeight: 600 }}
                               onClick={() => setHideProxyAssets(!hideProxyAssets)}
                             >
                               {hideProxyAssets ? '👁️ Afficher tous les actifs (avec Proxies)' : '🔒 Masquer les actifs créés après la crise'}
@@ -2247,7 +2219,7 @@ export default function HomePage() {
                                   <button
                                     type="button"
                                     className="badge badge-amber"
-                                    style={{ fontSize: 11, padding: '2px 8px', cursor: 'pointer', border: '1px solid rgba(245, 158, 11, 0.5)', fontWeight: 700 }}
+                                    style={{ fontSize: 'var(--text-xs)', padding: '2px 8px', cursor: 'pointer', border: '1px solid rgba(245, 158, 11, 0.5)', fontWeight: 700 }}
                                     onClick={() => setActiveProxyModalAsset(asset)}
                                     title="Cliquer pour voir l'explication de la simulation par proxy"
                                   >
@@ -2284,14 +2256,14 @@ export default function HomePage() {
                             <h4 style={{ fontSize: 16, fontWeight: 700, color: 'var(--accent-amber)', margin: 0 }}>
                               Plan d&apos;Action &amp; Décisions Stratégiques Anti-Crise
                             </h4>
-                            <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
+                            <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)' }}>
                               Recommandations d&apos;arbitrage concrètes dérivées du comportement de votre portefeuille
                             </div>
                           </div>
                         </div>
                         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                          <span className="badge badge-amber" style={{ fontSize: 10 }}>Moteur de Risque Paramétrique</span>
-                          <span className="badge badge-cyan" style={{ fontSize: 10 }}>Gemini 3.5 Lite / 3.6 Flash</span>
+                          <span className="badge badge-amber" style={{ fontSize: 'var(--text-xs)', fontWeight: 600 }}>Moteur de Risque Paramétrique</span>
+                          <span className="badge badge-cyan" style={{ fontSize: 'var(--text-xs)', fontWeight: 600 }}>Gemini 3.5 Lite / 3.6 Flash</span>
                         </div>
                       </div>
 
@@ -2312,7 +2284,7 @@ export default function HomePage() {
                           >
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                               <strong style={{ fontSize: 14, color: 'var(--accent-cyan)' }}>🎯 {plan.title}</strong>
-                              <span className="badge badge-amber" style={{ fontSize: 10 }}>Action Recommandée</span>
+                              <span className="badge badge-amber" style={{ fontSize: 'var(--text-xs)', fontWeight: 600 }}>Action Recommandée</span>
                             </div>
 
                             <p style={{ fontSize: 13, color: 'var(--text-secondary)', margin: 0, lineHeight: 1.4 }}>
@@ -2531,7 +2503,7 @@ export default function HomePage() {
                             <span className="badge badge-emerald" style={{ fontSize: 13, padding: '4px 10px', fontWeight: 700 }}>
                               Acheter +{inst.recommendedShares} part{inst.recommendedShares > 1 ? 's' : ''} ({inst.recommendedCost} €)
                             </span>
-                            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>
+                            <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', marginTop: 4, fontWeight: 500 }}>
                               Nouveau poids : {inst.newWeightAfter}%
                             </div>
                           </>
@@ -2605,7 +2577,7 @@ export default function HomePage() {
                             <span className="badge badge-rose" style={{ fontSize: 13, padding: '4px 10px', fontWeight: 700, background: 'rgba(244, 63, 94, 0.2)', color: 'var(--accent-rose)' }}>
                               🔻 Vendre {Math.abs(inst.deltaShares)} part{Math.abs(inst.deltaShares) > 1 ? 's' : ''} ({inst.deltaCostEUR.toLocaleString('fr-FR')} €)
                             </span>
-                            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>
+                            <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', marginTop: 4, fontWeight: 500 }}>
                               Nouveau poids : {inst.newWeightAfter}%
                             </div>
                           </>
@@ -2614,7 +2586,7 @@ export default function HomePage() {
                             <span className="badge badge-emerald" style={{ fontSize: 13, padding: '4px 10px', fontWeight: 700 }}>
                               🟢 Acheter +{inst.deltaShares} part{inst.deltaShares > 1 ? 's' : ''} ({inst.deltaCostEUR.toLocaleString('fr-FR')} €)
                             </span>
-                            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>
+                            <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', marginTop: 4, fontWeight: 500 }}>
                               Nouveau poids : {inst.newWeightAfter}%
                             </div>
                           </>
@@ -2695,18 +2667,18 @@ export default function HomePage() {
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginTop: 16 }}>
               <div style={{ padding: 14, background: 'var(--bg-tertiary)', borderRadius: 10 }}>
-                <div style={{ fontSize: 11, color: 'var(--text-tertiary)', textTransform: 'uppercase', marginBottom: 4 }}>Adresse Email</div>
+                <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: 4, fontWeight: 600 }}>Adresse Email</div>
                 <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)' }}>{user.email}</div>
               </div>
 
               <div style={{ padding: 14, background: 'var(--bg-tertiary)', borderRadius: 10 }}>
-                <div style={{ fontSize: 11, color: 'var(--text-tertiary)', textTransform: 'uppercase', marginBottom: 4 }}>Identifiant Unique (UID)</div>
+                <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: 4, fontWeight: 600 }}>Identifiant Unique (UID)</div>
                 <div className="mono" style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{user.uid}</div>
               </div>
 
               <div style={{ padding: 14, background: 'var(--bg-tertiary)', borderRadius: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
-                  <div style={{ fontSize: 11, color: 'var(--text-tertiary)', textTransform: 'uppercase' }}>Fournisseur d&apos;Accès</div>
+                  <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', textTransform: 'uppercase', fontWeight: 600 }}>Fournisseur d&apos;Accès</div>
                   <div style={{ fontSize: 13, fontWeight: 600, marginTop: 2 }}>{user.providerData[0]?.providerId === 'google.com' ? 'Google OAuth 2.0' : 'Email / Mot de passe'}</div>
                 </div>
                 <span style={{ fontSize: 20 }}>🛡️</span>
@@ -2716,26 +2688,26 @@ export default function HomePage() {
             {/* Investor Profile Card */}
             {investorProfile && investorProfile.onboardingCompleted && (
               <div style={{ padding: 14, background: 'linear-gradient(135deg, rgba(6, 182, 212, 0.08) 0%, rgba(139, 92, 246, 0.08) 100%)', borderRadius: 10, border: '1px solid var(--border-medium)', marginTop: 14 }}>
-                <div style={{ fontSize: 11, color: 'var(--text-tertiary)', textTransform: 'uppercase', marginBottom: 8 }}>Profil Investisseur</div>
+                <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: 8, fontWeight: 600 }}>Profil Investisseur</div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
                   <div>
-                    <span style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>Risque</span>
+                    <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)' }}>Risque</span>
                     <div style={{ fontSize: 13, fontWeight: 600 }}>
                       {investorProfile.riskProfile === 'conservative' ? '🛡️ Conservateur' : investorProfile.riskProfile === 'balanced' ? '⚖️ Équilibré' : investorProfile.riskProfile === 'dynamic' ? '🚀 Dynamique' : '⚡ Agressif'}
                     </div>
                   </div>
                   <div>
-                    <span style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>Horizon</span>
+                    <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)' }}>Horizon</span>
                     <div style={{ fontSize: 13, fontWeight: 600 }}>⏳ {investorProfile.horizonYears} ans</div>
                   </div>
                   <div>
-                    <span style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>Objectif</span>
+                    <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)' }}>Objectif</span>
                     <div style={{ fontSize: 13, fontWeight: 600 }}>
                       {investorProfile.objective === 'wealth-building' ? '🏗️ Patrimoine' : investorProfile.objective === 'passive-income' ? '💰 Revenus' : investorProfile.objective === 'financial-independence' ? '🏝️ Indépendance' : '🎯 Spéculation'}
                     </div>
                   </div>
                   <div>
-                    <span style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>Drawdown max</span>
+                    <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)' }}>Drawdown max</span>
                     <div style={{ fontSize: 13, fontWeight: 600 }}>📉 -{(investorProfile.maxDrawdownTolerance * 100).toFixed(0)}%</div>
                   </div>
                 </div>
@@ -2744,7 +2716,7 @@ export default function HomePage() {
 
             {/* 🛠️ Developer Test Tools */}
             <div style={{ padding: 14, background: 'rgba(6, 182, 212, 0.08)', borderRadius: 10, border: '1px dashed var(--accent-cyan)', marginTop: 14 }}>
-              <div style={{ fontSize: 11, color: 'var(--accent-cyan)', textTransform: 'uppercase', fontWeight: 800, marginBottom: 8 }}>
+              <div style={{ fontSize: 'var(--text-xs)', color: 'var(--accent-cyan)', textTransform: 'uppercase', fontWeight: 800, marginBottom: 8 }}>
                 🛠️ Outils de Test (Notifications &amp; Mails)
               </div>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>

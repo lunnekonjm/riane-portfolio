@@ -95,7 +95,7 @@ export default function CustomDatePicker({ value, onChange, showDaySelector = tr
           <span style={{ fontSize: 14, flexShrink: 0 }}>📅</span>
           <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{formattedLabel}</span>
         </span>
-        <span style={{ fontSize: 11, opacity: 0.8, transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s ease', marginLeft: 4 }}>
+        <span style={{ fontSize: 'var(--text-xs)', opacity: 0.8, transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s ease', marginLeft: 4 }}>
           ▼
         </span>
       </button>
@@ -237,7 +237,7 @@ export default function CustomDatePicker({ value, onChange, showDaySelector = tr
                 onChange(`${yyyy}-${mm}-${dd}`);
                 setIsOpen(false);
               }}
-              style={{ fontSize: 11, padding: '4px 6px', color: 'var(--accent-cyan)' }}
+              style={{ fontSize: 'var(--text-xs)', padding: '4px 6px', color: 'var(--accent-cyan)', fontWeight: 600 }}
             >
               Aujourd&apos;hui
             </button>
@@ -249,7 +249,7 @@ export default function CustomDatePicker({ value, onChange, showDaySelector = tr
                 onChange(`2024-01-${String(selectedDay).padStart(2, '0')}`);
                 setIsOpen(false);
               }}
-              style={{ fontSize: 11, padding: '4px 6px', color: 'var(--text-muted)' }}
+              style={{ fontSize: 'var(--text-xs)', padding: '4px 6px', color: 'var(--text-secondary)' }}
             >
               Janv 2024
             </button>
@@ -261,7 +261,7 @@ export default function CustomDatePicker({ value, onChange, showDaySelector = tr
                 onChange(`2003-01-${String(selectedDay).padStart(2, '0')}`);
                 setIsOpen(false);
               }}
-              style={{ fontSize: 11, padding: '4px 6px', color: 'var(--text-muted)' }}
+              style={{ fontSize: 'var(--text-xs)', padding: '4px 6px', color: 'var(--text-secondary)' }}
             >
               2003 (Origine)
             </button>

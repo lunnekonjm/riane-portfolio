@@ -169,13 +169,13 @@ export default function GlossaryInfoModal({ onClose, initialTerm }: GlossaryInfo
                     <span style={{ fontWeight: 800, fontSize: 16, color: 'var(--accent-cyan)' }}>{item.term}</span>
                     <span style={{ fontSize: 13, color: 'var(--text-primary)', marginLeft: 8, fontWeight: 600 }}>({item.fullName})</span>
                   </div>
-                  <span className="badge badge-violet" style={{ fontSize: 10 }}>{item.category}</span>
+                  <span className="badge badge-violet" style={{ fontSize: 'var(--text-xs)' }}>{item.category}</span>
                 </div>
                 <p style={{ fontSize: 13, lineHeight: 1.6, color: 'var(--text-secondary)', margin: '0 0 8px 0' }}>
                   {item.definition}
                 </p>
-                <div style={{ fontSize: 12, padding: '8px 12px', background: 'var(--bg-secondary)', borderRadius: 6, color: 'var(--accent-emerald)', borderLeft: '3px solid var(--accent-emerald)' }}>
-                  💡 <strong>Exemple concras :</strong> {item.example}
+                <div style={{ fontSize: 'var(--text-xs)', padding: '8px 12px', background: 'var(--bg-secondary)', borderRadius: 6, color: 'var(--accent-emerald)', borderLeft: '3px solid var(--accent-emerald)', lineHeight: 1.4 }}>
+                  💡 <strong>Exemple concret :</strong> {item.example}
                 </div>
               </div>
             ))

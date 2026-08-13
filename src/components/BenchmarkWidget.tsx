@@ -253,7 +253,7 @@ export default function BenchmarkWidget({ visible, onClose }: BenchmarkWidgetPro
                   <span className="mono" style={{ fontWeight: 600, color: 'var(--accent-cyan)' }}>{p.ticker}</span>
                   {isEditing ? (
                     <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-                      <span style={{ fontSize: 11, fontWeight: 600 }}>Qté:</span>
+                      <span style={{ fontSize: 'var(--text-xs)', fontWeight: 600, color: 'var(--text-secondary)' }}>Qté:</span>
                       <input
                         type="number"
                         value={p.quantity}
@@ -261,9 +261,9 @@ export default function BenchmarkWidget({ visible, onClose }: BenchmarkWidgetPro
                           const val = parseFloat(e.target.value) || 0;
                           setPositions(positions.map((pos) => (pos.ticker === p.ticker ? { ...pos, quantity: val } : pos)));
                         }}
-                        style={{ width: 50, fontSize: 12, padding: '2px 4px', background: 'var(--bg-tertiary)', border: '1px solid var(--border-medium)', borderRadius: 4, color: 'var(--text-primary)' }}
+                        style={{ width: 50, fontSize: 'var(--text-xs)', padding: '2px 4px', background: 'var(--bg-tertiary)', border: '1px solid var(--border-medium)', borderRadius: 4, color: 'var(--text-primary)' }}
                       />
-                      <span style={{ fontSize: 11, fontWeight: 600 }}>PRU:</span>
+                      <span style={{ fontSize: 'var(--text-xs)', fontWeight: 600, color: 'var(--text-secondary)' }}>PRU:</span>
                       <input
                         type="number"
                         step="0.001"
@@ -272,7 +272,7 @@ export default function BenchmarkWidget({ visible, onClose }: BenchmarkWidgetPro
                           const val = parseFloat(e.target.value) || 0;
                           setPositions(positions.map((pos) => (pos.ticker === p.ticker ? { ...pos, avgPrice: val } : pos)));
                         }}
-                        style={{ width: 60, fontSize: 12, padding: '2px 4px', background: 'var(--bg-tertiary)', border: '1px solid var(--border-medium)', borderRadius: 4, color: 'var(--text-primary)' }}
+                        style={{ width: 60, fontSize: 'var(--text-xs)', padding: '2px 4px', background: 'var(--bg-tertiary)', border: '1px solid var(--border-medium)', borderRadius: 4, color: 'var(--text-primary)' }}
                       />
                     </div>
                   ) : (
@@ -313,7 +313,7 @@ export default function BenchmarkWidget({ visible, onClose }: BenchmarkWidgetPro
       {/* Footer */}
       <div
         style={{
-          padding: '8px 16px',
+          padding: '10px 16px',
           borderTop: '1px solid var(--border-subtle)',
           display: 'flex',
           justifyContent: 'space-between',
@@ -321,11 +321,11 @@ export default function BenchmarkWidget({ visible, onClose }: BenchmarkWidgetPro
           background: 'rgba(0,0,0,0.1)',
         }}
       >
-        <div style={{ fontSize: 9, color: 'var(--text-tertiary)' }}>
+        <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', fontWeight: 500 }}>
           Achat : 31/07/2026 • PEA-PME Boursobank (PRU frais inclus)
         </div>
         {lastRefresh && (
-          <div style={{ fontSize: 9, color: 'var(--text-tertiary)' }}>
+          <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', fontWeight: 500 }}>
             MAJ : {new Date(lastRefresh).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
           </div>
         )}

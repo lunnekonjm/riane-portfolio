@@ -243,7 +243,7 @@ export default function InvestorOnboarding({ onComplete, existingProfile }: Inve
                       <span style={{ fontSize: 20 }}>{obj.icon}</span>
                       <div>
                         <div style={{ fontWeight: 600, fontSize: 13, color: 'var(--text-primary)' }}>{obj.label}</div>
-                        <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 2 }}>{obj.description}</div>
+                        <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', marginTop: 2, lineHeight: 1.4 }}>{obj.description}</div>
                       </div>
                     </button>
                   ))}
@@ -292,7 +292,7 @@ export default function InvestorOnboarding({ onComplete, existingProfile }: Inve
                       <span style={{ fontSize: 20 }}>{exp.icon}</span>
                       <div>
                         <div style={{ fontWeight: 600, fontSize: 13, color: 'var(--text-primary)' }}>{exp.label}</div>
-                        <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 2 }}>{exp.description}</div>
+                        <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', marginTop: 2, lineHeight: 1.4 }}>{exp.description}</div>
                       </div>
                     </button>
                   ))}

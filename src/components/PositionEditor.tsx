@@ -102,7 +102,7 @@ function CustomSelect<T extends string>({
           {selectedOption.icon && <span style={{ fontSize: 13, flexShrink: 0 }}>{selectedOption.icon}</span>}
           <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontSize: 12 }}>{selectedOption.label}</span>
         </span>
-        <span style={{ fontSize: 10, color: 'var(--text-muted)', marginLeft: 8 }}>▼</span>
+        <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', marginLeft: 8 }}>▼</span>
       </button>
 
       {isOpen && (
@@ -887,7 +887,7 @@ function autoGenerateThemes(
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 12, marginBottom: 14 }}>
               <div className="form-group">
-                <label className="form-label" style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.4px' }}>Date d'entrée DCA</label>
+                <label className="form-label" style={{ fontSize: 'var(--text-xs)', textTransform: 'uppercase', letterSpacing: '0.4px', fontWeight: 600 }}>Date d'entrée DCA</label>
                 <CustomDatePicker
                   value={dcaStartDate}
                   onChange={setDcaStartDate}
@@ -925,7 +925,7 @@ function autoGenerateThemes(
                 <p style={{ fontSize: 12, color: 'var(--text-secondary)', margin: 0, lineHeight: '1.5' }}>
                   Versement prévu de <strong>{(form.monthlyDCA || (form.annualBudget ? form.annualBudget / 12 : 100)).toLocaleString('fr-FR')} {form.currency === 'USD' ? '$' : '€'}</strong> ({form.dcaFrequency === 'annual' ? 'par an' : form.dcaFrequency === 'quarterly' ? 'par trimestre' : form.dcaFrequency === 'semestrial' ? 'par semestre' : 'par mois'}) à partir de <strong>{dcaStartDate || 'mois prochain'}</strong>.
                 </p>
-                <p style={{ fontSize: 11, color: 'var(--accent-emerald)', marginTop: 8, margin: 0, fontWeight: 600 }}>
+                <p style={{ fontSize: 'var(--text-xs)', color: 'var(--accent-emerald)', marginTop: 8, margin: 0, fontWeight: 600 }}>
                   ✓ Vos positions réelles actuelles ({form.quantity || 0} parts @ {(form.avgPrice || 0).toFixed(2)} {form.currency === 'USD' ? '$' : '€'}) sont conservées et ne sont pas écrasées.
                 </p>
               </div>
@@ -948,7 +948,7 @@ function autoGenerateThemes(
                     <button
                       type="button"
                       className="btn btn-ghost"
-                      style={{ fontSize: 11, padding: '2px 8px' }}
+                      style={{ fontSize: 'var(--text-xs)', padding: '2px 8px', fontWeight: 600 }}
                       onClick={() => setShowDCAHistory(!showDCAHistory)}
                     >
                       {showDCAHistory ? 'Masquer historique' : '🔍 Voir historique mois par mois'}
@@ -967,7 +967,7 @@ function autoGenerateThemes(
                     marginBottom: 12,
                   }}>
                     <div>
-                      <span style={{ fontSize: 11, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.4px', fontWeight: 600 }}>
+                      <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.4px', fontWeight: 600 }}>
                         Gain / Perte Réalisé(e) du DCA
                       </span>
                       <div style={{ fontSize: 18, fontWeight: 800, color: totalProfitLoss >= 0 ? 'var(--accent-emerald)' : 'var(--accent-rose)', margin: '2px 0' }}>
@@ -975,7 +975,7 @@ function autoGenerateThemes(
                       </div>
                     </div>
                     <div style={{ textAlign: 'right' }}>
-                      <span style={{ fontSize: 11, color: 'var(--text-muted)', display: 'block' }}>Valeur Portefeuille Actuelle</span>
+                      <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', display: 'block' }}>Valeur Portefeuille Actuelle</span>
                       <strong style={{ fontSize: 16, color: 'var(--accent-cyan)' }}>{currentValue.toFixed(2)} {sym}</strong>
                     </div>
                   </div>
@@ -1009,10 +1009,10 @@ function autoGenerateThemes(
                 </button>
 
                 {showDCAHistory && (
-                  <div style={{ marginTop: 12, maxHeight: 180, overflowY: 'auto', fontSize: 11 }}>
+                  <div style={{ marginTop: 12, maxHeight: 180, overflowY: 'auto', fontSize: 'var(--text-xs)' }}>
                     <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                       <thead>
-                        <tr style={{ color: 'var(--text-muted)', borderBottom: '1px solid var(--border-subtle)' }}>
+                        <tr style={{ color: 'var(--text-secondary)', borderBottom: '1px solid var(--border-subtle)' }}>
                           <th>Mois</th>
                           <th>Cours</th>
                           <th>Disponible</th>
@@ -1024,14 +1024,14 @@ function autoGenerateThemes(
                       </thead>
                       <tbody>
                         {dcaResult.logs.map((log) => (
-                          <tr key={log.date} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                            <td>{log.date}</td>
+                          <tr key={log.date} style={{ borderBottom: '1px solid var(--border-subtle)', color: 'var(--text-secondary)' }}>
+                            <td style={{ padding: '4px 0' }}>{log.date}</td>
                             <td>{log.sharePrice} {form.currency === 'USD' ? '$' : '€'}</td>
                             <td>{log.cashAvailable} {form.currency === 'USD' ? '$' : '€'}</td>
                             <td style={{ color: 'var(--accent-cyan)', fontWeight: 600 }}>+{log.sharesBought}</td>
                             <td style={{ color: 'var(--accent-amber)' }}>{log.rolloverCash} {form.currency === 'USD' ? '$' : '€'}</td>
-                            <td>{log.cumulativeShares}</td>
-                            <td>{log.cumulativePRU} {form.currency === 'USD' ? '$' : '€'}</td>
+                            <td style={{ fontWeight: 600 }}>{log.cumulativeShares}</td>
+                            <td style={{ color: 'var(--accent-amber)' }}>{log.cumulativePRU} {form.currency === 'USD' ? '$' : '€'}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -1060,7 +1060,7 @@ function autoGenerateThemes(
             
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 12 }}>
               <div className="form-group">
-                <label className="form-label" style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.4px' }}>Fréquence</label>
+                <label className="form-label" style={{ fontSize: 'var(--text-xs)', textTransform: 'uppercase', letterSpacing: '0.4px', fontWeight: 600 }}>Fréquence</label>
                 <CustomSelect
                   value={form.dcaFrequency || 'monthly'}
                   options={[
@@ -1074,7 +1074,7 @@ function autoGenerateThemes(
               </div>
               
               <div className="form-group">
-                <label className="form-label" style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.4px' }}>Jour (cible)</label>
+                <label className="form-label" style={{ fontSize: 'var(--text-xs)', textTransform: 'uppercase', letterSpacing: '0.4px', fontWeight: 600 }}>Jour (cible)</label>
                 <CustomSelect
                   value={(form.dcaDepositDay || 5).toString()}
                   options={Array.from({ length: 31 }, (_, i) => ({ label: (i + 1).toString(), value: (i + 1).toString() }))}
@@ -1084,7 +1084,7 @@ function autoGenerateThemes(
 
               {(form.dcaFrequency === 'annual' || form.dcaFrequency === 'quarterly' || form.dcaFrequency === 'semestrial') && (
                 <div className="form-group">
-                  <label className="form-label" style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.4px' }}>Mois (cible)</label>
+                  <label className="form-label" style={{ fontSize: 'var(--text-xs)', textTransform: 'uppercase', letterSpacing: '0.4px', fontWeight: 600 }}>Mois (cible)</label>
                   <CustomSelect
                     value={(form.dcaDepositMonth || 1).toString()}
                     options={[
@@ -1107,7 +1107,7 @@ function autoGenerateThemes(
               )}
               
               <div className="form-group">
-                <label className="form-label" style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.4px' }}>Montant ({form.currency === 'USD' ? '$' : form.currency === 'GBP' ? '£' : '€'})</label>
+                <label className="form-label" style={{ fontSize: 'var(--text-xs)', textTransform: 'uppercase', letterSpacing: '0.4px', fontWeight: 600 }}>Montant ({form.currency === 'USD' ? '$' : form.currency === 'GBP' ? '£' : '€'})</label>
                 <input
                   className="input mono"
                   type="number"
@@ -1144,7 +1144,7 @@ function autoGenerateThemes(
                     key={pct}
                     type="button"
                     className="btn btn-secondary btn-sm"
-                    style={{ fontSize: 10, padding: '2px 6px' }}
+                    style={{ fontSize: 'var(--text-xs)', padding: '3px 8px', fontWeight: 600 }}
                     onClick={() => handleChange('targetWeight', pct / 100)}
                   >
                     {pct}%
@@ -1171,7 +1171,7 @@ function autoGenerateThemes(
                     key={pct}
                     type="button"
                     className="btn btn-secondary btn-sm"
-                    style={{ fontSize: 10, padding: '2px 6px' }}
+                    style={{ fontSize: 'var(--text-xs)', padding: '3px 8px', fontWeight: 600 }}
                     onClick={() => handleChange('maxWeight', pct / 100)}
                   >
                     {pct}%
@@ -1185,7 +1185,7 @@ function autoGenerateThemes(
           <div className="form-group" style={{ marginBottom: 20 }}>
             <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span>Thèmes d&apos;Investissement</span>
-              <span style={{ fontSize: 11, color: 'var(--accent-violet)', fontWeight: 600 }}>✨ Générés automatiquement selon le secteur</span>
+              <span style={{ fontSize: 'var(--text-xs)', color: 'var(--accent-violet)', fontWeight: 600 }}>✨ Générés automatiquement selon le secteur</span>
             </label>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
               {form.themes.map((t) => (

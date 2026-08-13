@@ -63,11 +63,11 @@ export default function MonteCarloModal({ initialCapital, monthlyDCA, positions 
 
         {/* Sync Button & Precision Mode Selector */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, flexWrap: 'wrap', gap: 8 }}>
-          <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
+          <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)' }}>
             Versements projetés : <strong style={{ color: 'var(--accent-cyan)' }}>{capitalInput.toLocaleString('fr-FR')} €</strong> (Départ) + <strong style={{ color: 'var(--accent-emerald)' }}>{(dcaInput * horizonYears * 12).toLocaleString('fr-FR')} €</strong> ({dcaInput} €/mois × {horizonYears * 12}m) = <strong style={{ color: 'white' }}>{(capitalInput + dcaInput * horizonYears * 12).toLocaleString('fr-FR')} €</strong>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <span style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>Précision Monte Carlo :</span>
+            <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', fontWeight: 500 }}>Précision Monte Carlo :</span>
             {[
               { label: '⚡ Fast (2.5k)', val: 2500, tooltip: 'Rendu ultra-rapide (5 ms)' },
               { label: '📊 Standard (10k)', val: 10000, tooltip: 'Étalon-or standard de l\'industrie (25 ms)' },
@@ -78,8 +78,8 @@ export default function MonteCarloModal({ initialCapital, monthlyDCA, positions 
                 type="button"
                 className="btn"
                 style={{
-                  fontSize: 11,
-                  padding: '3px 8px',
+                  fontSize: 'var(--text-xs)',
+                  padding: '4px 8px',
                   background: numSimulations === mode.val ? 'var(--accent-cyan)' : 'var(--bg-tertiary)',
                   color: numSimulations === mode.val ? '#0a0e17' : 'var(--text-secondary)',
                   fontWeight: numSimulations === mode.val ? 700 : 500,
@@ -94,7 +94,7 @@ export default function MonteCarloModal({ initialCapital, monthlyDCA, positions 
             <button
               type="button"
               className="btn btn-secondary btn-sm"
-              style={{ fontSize: 11, color: 'var(--accent-cyan)', padding: '3px 8px' }}
+              style={{ fontSize: 'var(--text-xs)', color: 'var(--accent-cyan)', padding: '4px 8px', fontWeight: 600 }}
               onClick={() => {
                 setCapitalInput(initialCapital > 0 ? Math.round(initialCapital) : 10000);
                 setDcaInput(monthlyDCA > 0 ? Math.round(monthlyDCA) : 500);
@@ -111,7 +111,7 @@ export default function MonteCarloModal({ initialCapital, monthlyDCA, positions 
           <div style={{ flex: '1 1 120px', minWidth: 110 }}>
             <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 4, fontWeight: 600 }}>
               Capital Initial (€)
-              <span style={{ fontSize: 11, color: 'var(--accent-cyan)', display: 'block', fontWeight: 600 }}>Placé au départ</span>
+              <span style={{ fontSize: 'var(--text-xs)', color: 'var(--accent-cyan)', display: 'block', fontWeight: 600 }}>Placé au départ</span>
             </label>
             <input
               type="number"
@@ -124,7 +124,7 @@ export default function MonteCarloModal({ initialCapital, monthlyDCA, positions 
           <div style={{ flex: '1 1 110px', minWidth: 100 }}>
             <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 4, fontWeight: 600 }}>
               DCA Mensuel (€)
-              <span style={{ fontSize: 11, color: 'var(--accent-emerald)', display: 'block', fontWeight: 600 }}>Ajout chaque mois</span>
+              <span style={{ fontSize: 'var(--text-xs)', color: 'var(--accent-emerald)', display: 'block', fontWeight: 600 }}>Ajout chaque mois</span>
             </label>
             <input
               type="number"
@@ -143,7 +143,7 @@ export default function MonteCarloModal({ initialCapital, monthlyDCA, positions 
                   type="button"
                   className={`btn btn-sm ${horizonYears === h ? 'btn-primary' : 'btn-secondary'}`}
                   onClick={() => setHorizonYears(h)}
-                  style={{ fontSize: 11, padding: '4px 4px', flex: 1 }}
+                  style={{ fontSize: 'var(--text-xs)', padding: '4px 4px', flex: 1, fontWeight: 600 }}
                 >
                   {h}a
                 </button>
@@ -151,7 +151,7 @@ export default function MonteCarloModal({ initialCapital, monthlyDCA, positions 
             </div>
           </div>
           <div style={{ flex: '1.2 1 150px', minWidth: 140 }}>
-            <label style={{ fontSize: 11, color: 'var(--text-tertiary)', display: 'block', marginBottom: 4 }}>Fiscalité Enveloppe</label>
+            <label style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', display: 'block', marginBottom: 4, fontWeight: 600 }}>Fiscalité Enveloppe</label>
             <select
               className="input"
               value={taxEnvelope}
@@ -164,7 +164,7 @@ export default function MonteCarloModal({ initialCapital, monthlyDCA, positions 
             </select>
           </div>
           <div style={{ flex: '0.8 1 80px', minWidth: 70 }}>
-            <label style={{ fontSize: 11, color: 'var(--text-tertiary)', display: 'block', marginBottom: 4 }}>Rendement (%)</label>
+            <label style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', display: 'block', marginBottom: 4, fontWeight: 600 }}>Rendement (%)</label>
             <input
               type="number"
               step="0.5"
@@ -175,7 +175,7 @@ export default function MonteCarloModal({ initialCapital, monthlyDCA, positions 
             />
           </div>
           <div style={{ flex: '0.8 1 80px', minWidth: 70 }}>
-            <label style={{ fontSize: 11, color: 'var(--text-tertiary)', display: 'block', marginBottom: 4 }}>Volatilité (%)</label>
+            <label style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', display: 'block', marginBottom: 4, fontWeight: 600 }}>Volatilité (%)</label>
             <input
               type="number"
               step="0.5"
@@ -269,37 +269,37 @@ export default function MonteCarloModal({ initialCapital, monthlyDCA, positions 
           {/* Key Summary Cards */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12 }}>
             <div className="card" style={{ background: 'var(--bg-tertiary)', borderLeft: '4px solid var(--text-tertiary)', padding: 12 }}>
-              <span style={{ fontSize: 11, color: 'var(--text-tertiary)', textTransform: 'uppercase' }}>Total Investi</span>
+              <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', textTransform: 'uppercase', fontWeight: 600 }}>Total Investi</span>
               <div style={{ fontSize: 18, fontWeight: 700, marginTop: 4 }}>
                 {simulation.totalInvestedFinal.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })}
               </div>
-              <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Versements cumulés</span>
+              <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)' }}>Versements cumulés</span>
             </div>
             <div className="card" style={{ background: 'var(--bg-tertiary)', borderLeft: '4px solid var(--accent-rose)', padding: 12 }}>
-              <span style={{ fontSize: 11, color: 'var(--accent-rose)', textTransform: 'uppercase' }}>Pessimiste (P10)</span>
+              <span style={{ fontSize: 'var(--text-xs)', color: 'var(--accent-rose)', textTransform: 'uppercase', fontWeight: 600 }}>Pessimiste (P10)</span>
               <div style={{ fontSize: 18, fontWeight: 700, marginTop: 4, color: 'var(--accent-rose)' }}>
                 {simulation.finalP10.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })}
               </div>
-              <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Marché baissier (10%)</span>
+              <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)' }}>Marché baissier (10%)</span>
             </div>
             <div className="card" style={{ background: 'var(--bg-tertiary)', borderLeft: '4px solid var(--accent-cyan)', padding: 12 }}>
-              <span style={{ fontSize: 11, color: 'var(--accent-cyan)', textTransform: 'uppercase' }}>Médiane Attendue (P50)</span>
+              <span style={{ fontSize: 'var(--text-xs)', color: 'var(--accent-cyan)', textTransform: 'uppercase', fontWeight: 600 }}>Médiane Attendue (P50)</span>
               <div style={{ fontSize: 17, fontWeight: 700, marginTop: 4, color: 'var(--accent-cyan)' }}>
-                {simulation.finalP50.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })} <span style={{ fontSize: 11, fontWeight: 400, color: 'var(--text-tertiary)' }}>(Brut)</span>
+                {simulation.finalP50.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })} <span style={{ fontSize: 'var(--text-xs)', fontWeight: 400, color: 'var(--text-secondary)' }}>(Brut)</span>
               </div>
               <div style={{ fontSize: 13, fontWeight: 700, color: 'white', marginTop: 2 }}>
                 Net en Poche : {simulation.finalP50Net.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })}
               </div>
-              <span style={{ fontSize: 11, color: 'var(--accent-emerald)', fontWeight: 600, display: 'block', marginTop: 2 }}>
+              <span style={{ fontSize: 'var(--text-xs)', color: 'var(--accent-emerald)', fontWeight: 600, display: 'block', marginTop: 2 }}>
                 Rente Net : {simulation.monthlyPassiveIncomeP50Net.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })}/mois (4%)
               </span>
             </div>
             <div className="card" style={{ background: 'var(--bg-tertiary)', borderLeft: '4px solid var(--accent-emerald)', padding: 12 }}>
-              <span style={{ fontSize: 11, color: 'var(--accent-emerald)', textTransform: 'uppercase' }}>Optimiste (P90)</span>
+              <span style={{ fontSize: 'var(--text-xs)', color: 'var(--accent-emerald)', textTransform: 'uppercase', fontWeight: 600 }}>Optimiste (P90)</span>
               <div style={{ fontSize: 18, fontWeight: 700, marginTop: 4, color: 'var(--accent-emerald)' }}>
                 {simulation.finalP90.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })}
               </div>
-              <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Marché haussier (90%)</span>
+              <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)' }}>Marché haussier (90%)</span>
             </div>
           </div>
 
@@ -317,7 +317,7 @@ export default function MonteCarloModal({ initialCapital, monthlyDCA, positions 
 
                 return (
                   <div key={sum.year} style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: 12 }}>
-                    <span style={{ width: 45, fontWeight: 600, color: 'var(--text-tertiary)' }}>An {sum.year}</span>
+                    <span style={{ width: 45, fontWeight: 600, color: 'var(--text-secondary)' }}>An {sum.year}</span>
                     <div style={{ flex: 1, height: 18, background: 'var(--bg-tertiary)', borderRadius: 4, position: 'relative', overflow: 'hidden' }}>
                       {/* P90 bar background */}
                       <div style={{ position: 'absolute', top: 0, bottom: 0, left: 0, width: `${p90Pct}%`, background: 'rgba(16, 185, 129, 0.2)' }} />
@@ -335,7 +335,7 @@ export default function MonteCarloModal({ initialCapital, monthlyDCA, positions 
                 );
               })}
             </div>
-            <div style={{ display: 'flex', gap: 16, justifyContent: 'center', marginTop: 12, fontSize: 11, color: 'var(--text-tertiary)' }}>
+            <div style={{ display: 'flex', gap: 16, justifyContent: 'center', marginTop: 12, fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', fontWeight: 500 }}>
               <span>🔴 Bear (P10)</span>
               <span>🟦 Médiane (P50)</span>
               <span>🟢 Bull (P90)</span>
@@ -351,13 +351,13 @@ export default function MonteCarloModal({ initialCapital, monthlyDCA, positions 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12 }}>
               {simulation.targetMilestones.map((m) => (
                 <div key={m.targetAmount} style={{ padding: 12, background: 'var(--bg-tertiary)', borderRadius: 8, textAlign: 'center' }}>
-                  <span style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>
+                  <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', fontWeight: 600 }}>
                     Objectif {m.targetAmount.toLocaleString('fr-FR')} €
                   </span>
                   <div style={{ fontSize: 18, fontWeight: 800, color: m.successProbability > 50 ? 'var(--accent-emerald)' : 'var(--accent-amber)', marginTop: 2 }}>
                     {m.successProbability.toFixed(1)}%
                   </div>
-                  <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>de chance de succès</span>
+                  <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)' }}>de chance de succès</span>
                 </div>
               ))}
             </div>

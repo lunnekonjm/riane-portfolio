@@ -130,7 +130,7 @@ export default function TransactionHistoryModal({
                         </td>
                         <td style={{ padding: '12px 14px' }}>
                           <div style={{ fontWeight: 600, fontSize: 13 }}>{tx.name}</div>
-                          <span className="badge badge-secondary mono" style={{ fontSize: 10 }}>{tx.ticker}</span>
+                          <span className="badge badge-secondary mono" style={{ fontSize: 'var(--text-xs)' }}>{tx.ticker}</span>
                         </td>
                         <td style={{ padding: '12px 14px', whiteSpace: 'nowrap' }}>
                           {tx.type === 'REBALANCE' && <span className="badge badge-primary">🎯 Rééquilibrage</span>}

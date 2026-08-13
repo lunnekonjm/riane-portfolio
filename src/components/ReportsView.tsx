@@ -612,9 +612,9 @@ export default function ReportsView({
                   <div>
                     <strong style={{ color: 'var(--text-primary)', fontSize: 14 }}>{rep.title}</strong>
                     {rep.generatedBy === 'cron' && (
-                      <span className="badge badge-cyan" style={{ marginLeft: 8, fontSize: 10 }}>🤖 Auto</span>
+                      <span className="badge badge-cyan" style={{ marginLeft: 8, fontSize: 'var(--text-xs)' }}>🤖 Auto</span>
                     )}
-                    <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 2 }}>
+                    <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', marginTop: 2 }}>
                       Généré le {rep.dateStr}
                     </div>
                   </div>
@@ -622,7 +622,7 @@ export default function ReportsView({
                     <button
                       className="btn btn-secondary btn-sm"
                       type="button"
-                      style={{ fontSize: 11, color: 'var(--accent-emerald)', borderColor: 'var(--accent-emerald)' }}
+                      style={{ fontSize: 'var(--text-xs)', color: 'var(--accent-emerald)', borderColor: 'var(--accent-emerald)', fontWeight: 600 }}
                       onClick={(e) => {
                         e.stopPropagation();
                         handleSendCurrentReportByEmail(rep.content, rep.title);
@@ -631,7 +631,7 @@ export default function ReportsView({
                     >
                       📧 Envoyer
                     </button>
-                    <button className="btn btn-primary btn-sm" type="button" style={{ fontSize: 11 }}>
+                    <button className="btn btn-primary btn-sm" type="button" style={{ fontSize: 'var(--text-xs)', fontWeight: 600 }}>
                       📖 Consulter
                     </button>
                   </div>

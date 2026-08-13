@@ -557,7 +557,7 @@ export function AnalysisChatView({
           <span>➕</span> Nouvelle Discussion
         </button>
 
-        <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-tertiary)', textTransform: 'uppercase', marginTop: 8 }}>
+        <div style={{ fontSize: 'var(--text-xs)', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', marginTop: 8 }}>
           Historique des Analyses ({sessions.length})
         </div>
 
@@ -594,7 +594,7 @@ export function AnalysisChatView({
                   >
                     💬 {s.title}
                   </div>
-                  <div style={{ fontSize: 10, color: 'var(--text-tertiary)', marginTop: 2 }}>
+                  <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', marginTop: 2 }}>
                     {new Date(s.createdAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })} · {s.messages.length} message(s)
                   </div>
                 </div>
@@ -606,7 +606,7 @@ export function AnalysisChatView({
                   style={{
                     background: 'transparent',
                     border: 'none',
-                    color: 'var(--text-tertiary)',
+                    color: 'var(--text-secondary)',
                     cursor: 'pointer',
                     fontSize: 12,
                     padding: '2px 4px',
@@ -646,7 +646,7 @@ export function AnalysisChatView({
             <span style={{ fontSize: 20 }}>🔬</span>
             <div>
               <h3 style={{ fontSize: 15, fontWeight: 700, margin: 0 }}>{activeSession?.title || 'Analyse IA'}</h3>
-              <div style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>
+              <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)' }}>
                 Multi-Agents Gemini 3.5 Lite / 3.6 Flash · Background Task Active ⚡
               </div>
             </div>
@@ -655,7 +655,7 @@ export function AnalysisChatView({
           <button
             type="button"
             className="btn btn-ghost btn-sm"
-            style={{ fontSize: 11, color: 'var(--accent-cyan)' }}
+            style={{ fontSize: 'var(--text-xs)', color: 'var(--accent-cyan)', fontWeight: 600 }}
             onClick={() => onOpenGlossary()}
           >
             📚 Lexique & Explications
@@ -771,7 +771,7 @@ export function AnalysisChatView({
                         <span className="badge badge-cyan">🎯 Synthèse Analyste IA</span>
                         {msg.result.research?.isGrounded && <span className="badge badge-emerald">✨ Ancrage Web Direct</span>}
                       </div>
-                      <span style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>
+                      <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)' }}>
                         {new Date(msg.createdAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
                       </span>
                     </div>

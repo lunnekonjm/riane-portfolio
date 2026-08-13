@@ -52,7 +52,6 @@ export const FEATURE_CHAINS: Record<FeatureId, FeatureRequirement> = {
     requiredQuotaKind: 'generation',
     degradeInsteadOfFallback: false,
     chain: [
-      'gemini-3.7-flash-thinking',
       'gemini-3.7-flash',
       'gemini-3.5-flash-lite',
       'gemini-3.1-flash-lite',

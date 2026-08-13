@@ -19,7 +19,7 @@ export interface ModelEntry {
  * Intègre la nouvelle génération Gemini 3.7 Flash
  */
 export const MODEL_REGISTRY: ModelEntry[] = [
-  // Flagship Tier — Gemini 3.7
+  // Flagship Tier — Gemini 3.7 (avec raisonnement / thinking paramétrable)
   {
     id: 'gemini-3.7-flash',
     family: 'gemini-3.7',
@@ -27,14 +27,6 @@ export const MODEL_REGISTRY: ModelEntry[] = [
     quotas: {
       generation: { rpm: 15, rpd: 1000, tpm: 1000000 },
       groundingSearch: { rpm: 15, rpd: 1500, tpm: 1000000 },
-    },
-  },
-  {
-    id: 'gemini-3.7-flash-thinking',
-    family: 'gemini-3.7',
-    capabilities: ['text', 'reasoning'],
-    quotas: {
-      generation: { rpm: 10, rpd: 500, tpm: 500000 },
     },
   },
 

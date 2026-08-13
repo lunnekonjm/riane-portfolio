@@ -24,9 +24,8 @@ export interface GroundedNewsSummary {
 
 // Ordre d'utilisation optimisé avec Gemini 3.7 Flash en tête
 const MODEL_ROTATION_TIERS = [
-  // TIER 1 : Modèles de pointe ultra-rapides & raisonnement
+  // TIER 1 : Modèle de pointe ultra-rapide & raisonnement hybride
   'gemini-3.7-flash',
-  'gemini-3.7-flash-thinking',
 
   // TIER 2 : Modèles Lite Haute Capacité (15 RPM / 500 RPD)
   'gemini-3.5-flash-lite',

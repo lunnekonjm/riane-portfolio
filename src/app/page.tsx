@@ -1344,7 +1344,7 @@ export default function HomePage() {
                             </div>
                             
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 13, marginTop: 12 }}>
-                              <span style={{ color: 'var(--text-secondary)' }}>Intérêts acquis à date</span>
+                              <span style={{ color: 'var(--text-secondary)', fontWeight: 500 }}>Intérêts acquis à date</span>
                               <div style={{ textAlign: 'right' }}>
                                 <span style={{ padding: '3px 8px', borderRadius: 12, border: '1px solid var(--accent-emerald)', background: 'rgba(16, 185, 129, 0.12)', color: 'var(--accent-emerald)', fontSize: 11, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4, marginRight: 8, verticalAlign: 'middle' }}>
                                   <span style={{ width: 4, height: 4, borderRadius: '50%', background: 'var(--accent-emerald)' }}></span> RÉEL
@@ -1355,14 +1355,14 @@ export default function HomePage() {
                             
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 13, marginTop: 10 }}>
                               <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                <span style={{ color: 'var(--text-secondary)' }}>Projection sur 12 mois</span>
+                                <span style={{ color: 'var(--text-secondary)', fontWeight: 500 }}>Projection sur 12 mois</span>
                                 <span style={{ padding: '3px 8px', borderRadius: 12, border: '1px solid var(--accent-purple)', background: 'rgba(168, 85, 247, 0.12)', color: 'var(--accent-purple)', fontSize: 11, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4, width: 'fit-content', marginTop: 4 }}>
                                   <span style={{ width: 4, height: 4, borderRadius: '50%', background: 'var(--accent-purple)' }}></span> PROJETÉ
                                 </span>
                               </div>
                               <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
-                                <strong style={{ color: 'var(--accent-purple)', fontSize: 15 }}>+{displaySavingsAnnualInt.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}</strong>
-                                <span style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>si le solde actuel est conservé un an</span>
+                                <strong style={{ color: 'var(--accent-purple)', fontSize: 16, fontWeight: 800 }}>+{displaySavingsAnnualInt.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}</strong>
+                                <span style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 3, fontWeight: 500 }}>si le solde actuel est conservé un an</span>
                               </div>
                             </div>
                             
@@ -1856,7 +1856,7 @@ export default function HomePage() {
                                   {currentWeightPct > maxCapPct ? (
                                     <span
                                       className="badge badge-rose"
-                                      style={{ fontSize: 9, padding: '1px 5px' }}
+                                      style={{ fontSize: 11, padding: '2px 7px', fontWeight: 700 }}
                                       title={`Alerte sur-concentration : +${(currentWeightPct - maxCapPct).toFixed(1)}% au-dessus du plafond recommandé (${maxCapPct.toFixed(1)}% max)`}
                                     >
                                       ⚠️ +{(currentWeightPct - maxCapPct).toFixed(1)}% (Surchargé)
@@ -1864,7 +1864,7 @@ export default function HomePage() {
                                   ) : currentWeightPct >= maxCapPct * 0.85 ? (
                                     <span
                                       className="badge badge-amber"
-                                      style={{ fontSize: 9, padding: '1px 5px' }}
+                                      style={{ fontSize: 11, padding: '2px 7px', fontWeight: 700 }}
                                       title={`Proche du plafond max : ${capUsagePct.toFixed(0)}% du cap d'allocation consommé`}
                                     >
                                       ⚡ {capUsagePct.toFixed(0)}% du cap
@@ -1872,7 +1872,7 @@ export default function HomePage() {
                                   ) : (
                                     <span
                                       className="badge badge-emerald"
-                                      style={{ fontSize: 9, padding: '1px 5px' }}
+                                      style={{ fontSize: 11, padding: '2px 7px', fontWeight: 700 }}
                                       title={`Niveau optimal : ${capUsagePct.toFixed(0)}% du plafond max d'allocation`}
                                     >
                                       ✓ OK ({capUsagePct.toFixed(0)}%)
@@ -2241,13 +2241,13 @@ export default function HomePage() {
                           <div key={i} className="theme-bar-row" style={{ marginBottom: 12, padding: '8px 12px', background: 'var(--bg-tertiary)', borderRadius: 8, border: '1px solid var(--border-subtle)' }}>
                             <div style={{ width: 220, display: 'flex', flexDirection: 'column' }}>
                               <AssetBadge ticker={asset.ticker} name={asset.name} showTicker={false} />
-                              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
-                                <span style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--text-tertiary)' }}>{asset.ticker}</span>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
+                                <span style={{ fontSize: 12, fontFamily: 'var(--font-mono)', color: 'var(--accent-cyan)', fontWeight: 600 }}>{asset.ticker}</span>
                                 {asset.isProxySimulated && (
                                   <button
                                     type="button"
                                     className="badge badge-amber"
-                                    style={{ fontSize: 9, padding: '1px 6px', cursor: 'pointer', border: '1px solid rgba(245, 158, 11, 0.4)' }}
+                                    style={{ fontSize: 11, padding: '2px 8px', cursor: 'pointer', border: '1px solid rgba(245, 158, 11, 0.5)', fontWeight: 700 }}
                                     onClick={() => setActiveProxyModalAsset(asset)}
                                     title="Cliquer pour voir l'explication de la simulation par proxy"
                                   >

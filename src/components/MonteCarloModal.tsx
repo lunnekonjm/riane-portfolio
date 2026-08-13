@@ -107,36 +107,36 @@ export default function MonteCarloModal({ initialCapital, monthlyDCA, positions 
         </div>
 
         {/* Input Parameters Panel — Optimized 1-Line Flex Layout */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: 12, background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-md)', margin: '4px 0 6px 0', border: '1px solid var(--border-subtle)', flexWrap: 'wrap' }}>
-          <div style={{ flex: '1 1 110px', minWidth: 100 }}>
-            <label style={{ fontSize: 11, color: 'var(--text-tertiary)', display: 'block', marginBottom: 4 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: 14, background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-md)', margin: '6px 0 10px 0', border: '1px solid var(--border-subtle)', flexWrap: 'wrap' }}>
+          <div style={{ flex: '1 1 120px', minWidth: 110 }}>
+            <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 4, fontWeight: 600 }}>
               Capital Initial (€)
-              <span style={{ fontSize: 9, color: 'var(--accent-cyan)', display: 'block', fontWeight: 400 }}>Placé au départ</span>
+              <span style={{ fontSize: 11, color: 'var(--accent-cyan)', display: 'block', fontWeight: 600 }}>Placé au départ</span>
             </label>
             <input
               type="number"
               className="input mono"
               value={capitalInput}
               onChange={(e) => setCapitalInput(Number(e.target.value))}
-              style={{ fontSize: 13, padding: '6px 8px', width: '100%' }}
+              style={{ fontSize: 14, padding: '6px 10px', width: '100%', fontWeight: 700 }}
             />
           </div>
-          <div style={{ flex: '1 1 100px', minWidth: 90 }}>
-            <label style={{ fontSize: 11, color: 'var(--text-tertiary)', display: 'block', marginBottom: 4 }}>
+          <div style={{ flex: '1 1 110px', minWidth: 100 }}>
+            <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 4, fontWeight: 600 }}>
               DCA Mensuel (€)
-              <span style={{ fontSize: 9, color: 'var(--accent-emerald)', display: 'block', fontWeight: 400 }}>Ajout chaque mois</span>
+              <span style={{ fontSize: 11, color: 'var(--accent-emerald)', display: 'block', fontWeight: 600 }}>Ajout chaque mois</span>
             </label>
             <input
               type="number"
               className="input mono"
               value={dcaInput}
               onChange={(e) => setDcaInput(Number(e.target.value))}
-              style={{ fontSize: 13, padding: '6px 8px', width: '100%' }}
+              style={{ fontSize: 14, padding: '6px 10px', width: '100%', fontWeight: 700 }}
             />
           </div>
-          <div style={{ flex: '1 1 130px', minWidth: 120 }}>
-            <label style={{ fontSize: 11, color: 'var(--text-tertiary)', display: 'block', marginBottom: 4 }}>Horizon (Ans)</label>
-            <div style={{ display: 'flex', gap: 2 }}>
+          <div style={{ flex: '1 1 140px', minWidth: 130 }}>
+            <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 4, fontWeight: 600 }}>Horizon (Ans)</label>
+            <div style={{ display: 'flex', gap: 4 }}>
               {[5, 10, 15, 20, 25].map((h) => (
                 <button
                   key={h}

@@ -144,10 +144,10 @@ export default function BenchmarkWidget({ visible, onClose }: BenchmarkWidgetPro
             {isEditing ? '💾' : '✏️'}
           </button>
           <div>
-            <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', letterSpacing: '0.5px' }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', letterSpacing: '0.5px' }}>
               ÉTALON BOURSOBANK
             </div>
-            <div style={{ fontSize: 9, color: 'var(--text-tertiary)', textTransform: 'uppercase' }}>
+            <div style={{ fontSize: 12, color: 'var(--text-secondary)', textTransform: 'uppercase', fontWeight: 600 }}>
               Portefeuille Virtuel de Référence
             </div>
           </div>
@@ -161,7 +161,7 @@ export default function BenchmarkWidget({ visible, onClose }: BenchmarkWidgetPro
               border: 'none',
               color: 'var(--accent-cyan)',
               cursor: refreshing ? 'wait' : 'pointer',
-              fontSize: 14,
+              fontSize: 16,
               padding: 4,
               borderRadius: 6,
               opacity: refreshing ? 0.5 : 1,
@@ -175,9 +175,9 @@ export default function BenchmarkWidget({ visible, onClose }: BenchmarkWidgetPro
             style={{
               background: 'none',
               border: 'none',
-              color: 'var(--text-tertiary)',
+              color: 'var(--text-secondary)',
               cursor: 'pointer',
-              fontSize: 16,
+              fontSize: 18,
               padding: '2px 6px',
               borderRadius: 6,
             }}
@@ -190,33 +190,33 @@ export default function BenchmarkWidget({ visible, onClose }: BenchmarkWidgetPro
       {/* Summary Bar */}
       <div
         style={{
-          padding: '10px 16px',
+          padding: '12px 16px',
           display: 'grid',
           gridTemplateColumns: '1fr 1fr 1fr',
-          gap: 8,
+          gap: 10,
           borderBottom: '1px solid var(--border-subtle)',
-          background: 'rgba(0,0,0,0.15)',
+          background: 'rgba(0,0,0,0.25)',
         }}
       >
         <div>
-          <div style={{ fontSize: 9, color: 'var(--text-tertiary)', textTransform: 'uppercase' }}>Investi</div>
-          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>
+          <div style={{ fontSize: 12, color: 'var(--text-secondary)', textTransform: 'uppercase', fontWeight: 600 }}>Investi</div>
+          <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>
             {formatMoney(totalInvested)} €
           </div>
         </div>
         <div>
-          <div style={{ fontSize: 9, color: 'var(--text-tertiary)', textTransform: 'uppercase' }}>Valeur</div>
-          <div style={{ fontSize: 13, fontWeight: 700, color: allLoaded ? 'var(--text-primary)' : 'var(--text-tertiary)' }}>
+          <div style={{ fontSize: 12, color: 'var(--text-secondary)', textTransform: 'uppercase', fontWeight: 600 }}>Valeur</div>
+          <div style={{ fontSize: 14, fontWeight: 700, color: allLoaded ? 'var(--text-primary)' : 'var(--text-secondary)' }}>
             {allLoaded ? formatMoney(totalCurrent) + ' €' : '...'}
           </div>
         </div>
         <div>
-          <div style={{ fontSize: 9, color: 'var(--text-tertiary)', textTransform: 'uppercase' }}>P/L</div>
+          <div style={{ fontSize: 12, color: 'var(--text-secondary)', textTransform: 'uppercase', fontWeight: 600 }}>P/L</div>
           <div
             style={{
-              fontSize: 13,
+              fontSize: 14,
               fontWeight: 700,
-              color: allLoaded ? (pnl >= 0 ? 'var(--accent-green)' : 'var(--accent-rose)') : 'var(--text-tertiary)',
+              color: allLoaded ? (pnl >= 0 ? 'var(--accent-green)' : 'var(--accent-rose)') : 'var(--text-secondary)',
             }}
           >
             {allLoaded ? `${pnl >= 0 ? '+' : ''}${formatMoney(pnl)} € (${pnlPct >= 0 ? '+' : ''}${pnlPct.toFixed(2)}%)` : '...'}
@@ -246,14 +246,14 @@ export default function BenchmarkWidget({ visible, onClose }: BenchmarkWidgetPro
               }}
             >
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                   {p.name}
                 </div>
-                <div style={{ fontSize: 10, color: 'var(--text-tertiary)', display: 'flex', gap: 8, marginTop: 2, alignItems: 'center' }}>
-                  <span className="mono">{p.ticker}</span>
+                <div style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'flex', gap: 8, marginTop: 3, alignItems: 'center' }}>
+                  <span className="mono" style={{ fontWeight: 600, color: 'var(--accent-cyan)' }}>{p.ticker}</span>
                   {isEditing ? (
                     <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-                      <span style={{ fontSize: 9 }}>Qté:</span>
+                      <span style={{ fontSize: 11, fontWeight: 600 }}>Qté:</span>
                       <input
                         type="number"
                         value={p.quantity}
@@ -261,9 +261,9 @@ export default function BenchmarkWidget({ visible, onClose }: BenchmarkWidgetPro
                           const val = parseFloat(e.target.value) || 0;
                           setPositions(positions.map((pos) => (pos.ticker === p.ticker ? { ...pos, quantity: val } : pos)));
                         }}
-                        style={{ width: 45, fontSize: 10, padding: '1px 3px', background: 'var(--bg-tertiary)', border: '1px solid var(--border-medium)', borderRadius: 4, color: 'var(--text-primary)' }}
+                        style={{ width: 50, fontSize: 12, padding: '2px 4px', background: 'var(--bg-tertiary)', border: '1px solid var(--border-medium)', borderRadius: 4, color: 'var(--text-primary)' }}
                       />
-                      <span style={{ fontSize: 9 }}>PRU:</span>
+                      <span style={{ fontSize: 11, fontWeight: 600 }}>PRU:</span>
                       <input
                         type="number"
                         step="0.001"
@@ -272,7 +272,7 @@ export default function BenchmarkWidget({ visible, onClose }: BenchmarkWidgetPro
                           const val = parseFloat(e.target.value) || 0;
                           setPositions(positions.map((pos) => (pos.ticker === p.ticker ? { ...pos, avgPrice: val } : pos)));
                         }}
-                        style={{ width: 55, fontSize: 10, padding: '1px 3px', background: 'var(--bg-tertiary)', border: '1px solid var(--border-medium)', borderRadius: 4, color: 'var(--text-primary)' }}
+                        style={{ width: 60, fontSize: 12, padding: '2px 4px', background: 'var(--bg-tertiary)', border: '1px solid var(--border-medium)', borderRadius: 4, color: 'var(--text-primary)' }}
                       />
                     </div>
                   ) : (
@@ -284,30 +284,26 @@ export default function BenchmarkWidget({ visible, onClose }: BenchmarkWidgetPro
                 </div>
               </div>
 
-              <div style={{ textAlign: 'right', minWidth: 90 }}>
-                {p.loading ? (
-                  <div className="loading-spinner" style={{ width: 14, height: 14, marginLeft: 'auto' }} />
-                ) : hasPrice ? (
-                  <>
-                    <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)' }}>
-                      {formatMoney(current)} €
-                    </div>
-                    <div
-                      style={{
-                        fontSize: 10,
-                        fontWeight: 600,
-                        color: linePnl >= 0 ? 'var(--accent-green)' : 'var(--accent-rose)',
-                      }}
-                    >
-                      {linePnl >= 0 ? '+' : ''}{formatMoney(linePnl)} €
-                      <span style={{ marginLeft: 4, opacity: 0.8 }}>
-                        ({linePnlPct >= 0 ? '+' : ''}{linePnlPct.toFixed(1)}%)
-                      </span>
-                    </div>
-                  </>
-                ) : (
-                  <div style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>—</div>
-                )}
+              {/* Price & PnL */}
+              <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: hasPrice ? 'var(--text-primary)' : 'var(--text-secondary)' }} className="mono">
+                  {hasPrice ? `${(p.currentPrice! * p.quantity).toFixed(2)} €` : 'Chargement...'}
+                </div>
+                <div
+                  style={{
+                    fontSize: 12,
+                    fontWeight: 700,
+                    color: hasPrice
+                      ? linePnl >= 0
+                        ? 'var(--accent-green)'
+                        : 'var(--accent-rose)'
+                      : 'var(--text-secondary)',
+                  }}
+                >
+                  {hasPrice
+                    ? `${linePnl >= 0 ? '+' : ''}${formatMoney(linePnl)} € (${linePnlPct >= 0 ? '+' : ''}${linePnlPct.toFixed(1)}%)`
+                    : ''}
+                </div>
               </div>
             </div>
           );

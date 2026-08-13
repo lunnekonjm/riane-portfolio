@@ -33,12 +33,20 @@ export default function RootLayout({
                 window.addEventListener('load', function() {
                   navigator.serviceWorker.register('/sw.js').then(
                     function(registration) {
-                      console.log('[PWA] ServiceWorker registered with scope: ', registration.scope);
+                      registration.update();
+                      console.log('[PWA] ServiceWorker registered & updated: ', registration.scope);
                     },
                     function(err) {
                       console.log('[PWA] ServiceWorker registration failed: ', err);
                     }
                   );
+                });
+              }
+              if (typeof window !== 'undefined' && 'caches' in window) {
+                caches.keys().then(function(keys) {
+                  keys.forEach(function(k) {
+                    if (k !== 'riane-portfolio-v3') caches.delete(k);
+                  });
                 });
               }
             `,

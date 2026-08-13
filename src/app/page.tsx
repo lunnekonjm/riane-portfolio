@@ -1317,8 +1317,8 @@ export default function HomePage() {
                             
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 12 }}>
                               <span className="text-sm text-secondary font-medium">Intérêts acquis à date</span>
-                              <div style={{ textAlign: 'right' }}>
-                                <span className="badge-real" style={{ marginRight: 8 }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <span className="badge-real">
                                   <span className="dot"></span> RÉEL
                                 </span>
                                 <strong className="text-md font-bold" style={{ color: 'var(--accent-emerald)' }}>+{displaySavingsGain.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}</strong>
@@ -1326,15 +1326,14 @@ export default function HomePage() {
                             </div>
                             
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 10 }}>
-                              <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                <span className="text-sm text-secondary font-medium">Projection sur 12 mois</span>
-                                <span className="badge-projected" style={{ width: 'fit-content', marginTop: 4 }}>
+                              <span className="text-sm text-secondary font-medium" data-tooltip="Estimation des intérêts annuels perçus si les soldes actuels sont conservés sur 12 mois">
+                                Projection annuelle (12 mois)
+                              </span>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <span className="badge-projected">
                                   <span className="dot"></span> PROJETÉ
                                 </span>
-                              </div>
-                              <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
-                                <strong className="text-lg font-extrabold" style={{ color: 'var(--accent-purple, #a855f7)' }}>+{displaySavingsAnnualInt.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}</strong>
-                                <span className="kpi-annotation" style={{ marginTop: 3 }}>si le solde actuel est conservé un an</span>
+                                <strong className="text-md font-bold" style={{ color: 'var(--accent-purple, #a855f7)' }}>+{displaySavingsAnnualInt.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}</strong>
                               </div>
                             </div>
                             

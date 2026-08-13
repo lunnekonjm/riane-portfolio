@@ -462,12 +462,17 @@ export default function HomePage() {
   };
 
   const handleTestEmail = async () => {
+    const targetEmail = user?.email;
     showToast('Envoi de l\'email de test en cours...');
     try {
-      const res = await fetch('/api/test-email', { method: 'POST' });
+      const res = await fetch('/api/test-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: targetEmail }),
+      });
       const data = await res.json();
-      if (res.ok) {
-        showToast('Email de test envoyé avec succès !');
+      if (res.ok && data.success) {
+        showToast(`Email de test envoyé avec succès à ${targetEmail || 'votre adresse'} !`);
       } else {
         showToast(data.error || 'Erreur lors de l\'envoi de l\'email', 'error');
       }

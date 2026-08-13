@@ -159,7 +159,7 @@ export async function GET(request: NextRequest) {
           toEmail: ownerEmail,
           subject: `${periodEmoji} RIANE Portfolio — Revue ${label} disponible`,
           reportMarkdown,
-          dashboardUrl: baseUrl,
+          dashboardUrl: `${baseUrl}/?view=reports`,
         });
 
         results.push({ period, ok: true });

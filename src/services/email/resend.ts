@@ -128,8 +128,8 @@ export async function sendPeriodicReportEmail(params: {
       const cta = `
       <!-- FOOTER & CTA -->
       <div style="padding:24px;text-align:center;background-color:#111;border-top:1px solid #222;">
-        <a href="${params.dashboardUrl}" style="display:inline-block;background-color:#ffffff;color:#000000;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:600;font-size:15px;margin-bottom:16px;">
-          Ouvrir le Tableau de Bord
+        <a href="${params.dashboardUrl}" style="display:inline-block;background:linear-gradient(135deg, #06b6d4, #10b981);color:#000000;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:700;font-size:15px;margin-bottom:16px;box-shadow:0 4px 14px rgba(6, 182, 212, 0.4);">
+          📊 Ouvrir l&apos;Audit dans l&apos;Application RIANE
         </a>
         <p style="margin:0;font-size:12px;color:#666;">
           Ce rapport est généré de manière sécurisée par l'IA de votre instance RIANE. 

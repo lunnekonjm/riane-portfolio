@@ -178,12 +178,23 @@ export default function HomePage() {
   const [rebalanceTab, setRebalanceTab] = useState<'dca' | 'active'>('dca');
   const [dcaGlobalStartDate, setDcaGlobalStartDate] = useState<string>('2024-01-05');
 
-  // Sync saved DCA start date from localStorage on client mount
+  // Sync saved DCA start date & URL deep-linking view on client mount
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const savedDate = localStorage.getItem('riane_dca_start_date');
       if (savedDate) {
         setDcaGlobalStartDate(savedDate);
+      }
+
+      // Handle direct deep links (e.g. ?view=reports from emails)
+      try {
+        const params = new URLSearchParams(window.location.search);
+        const viewParam = params.get('view') as PageView | null;
+        if (viewParam && ['dashboard', 'envelopes', 'revenue', 'analysis', 'risk', 'audit', 'reports'].includes(viewParam)) {
+          setCurrentView(viewParam);
+        }
+      } catch {
+        // ignore
       }
     }
   }, []);
@@ -2438,6 +2449,7 @@ export default function HomePage() {
               onShowToast={showToast}
               onTestEmail={handleTestEmail}
               uid={user?.uid}
+              userEmail={user?.email}
             />
           )}
         </div>

@@ -27,6 +27,7 @@ interface ReportsViewProps {
   onShowToast: (msg: string, type?: 'success' | 'error') => void;
   onTestEmail?: () => void;
   uid?: string | null;
+  userEmail?: string | null;
 }
 
 const PIPELINE_LOADING_STEPS = [
@@ -47,14 +48,16 @@ export default function ReportsView({
   onShowToast,
   onTestEmail,
   uid,
+  userEmail,
 }: ReportsViewProps) {
   const [selectedPeriod, setSelectedPeriod] = useState<ReportPeriod>('monthly');
   const [selectedPeriodLabel, setSelectedPeriodLabel] = useState<string>('Juillet 2026');
   const [reportMarkdown, setReportMarkdown] = useState<string>('');
   const [generating, setGenerating] = useState<boolean>(false);
-  const [loadingStepIndex, setLoadingStepIndex] = useState<number>(0);
+  const [sendingEmail, setSendingEmail] = useState<boolean>(false);
   const [savedReports, setSavedReports] = useState<SavedReportItem[]>([]);
   const [showHistoryModal, setShowHistoryModal] = useState<boolean>(false);
+  const [loadingStepIndex, setLoadingStepIndex] = useState<number>(0);
 
   // Period Options Definition with Elapsed Lock Logic
   const periodOptions = [
@@ -166,13 +169,102 @@ export default function ReportsView({
 
         onShowToast(`Rapport "${label}" généré et archivé !`);
       }
-    } catch {
+    } catch (err: unknown) {
       clearInterval(stepInterval);
-      onShowToast('Erreur lors de la génération du rapport', 'error');
+      const message = err instanceof Error ? err.message : 'Erreur inconnue';
+      onShowToast(`Erreur lors de la génération du rapport : ${message}`, 'error');
     } finally {
       setGenerating(false);
     }
-  }, [positions, config, fxRates, adjustInflation, cumulativeInflationFactor, inflationRate, yearsElapsed, onShowToast]);
+  }, [periodOptions, positions, config, fxRates, adjustInflation, cumulativeInflationFactor, inflationRate, yearsElapsed, uid, onShowToast]);
+
+  const handleSendCurrentReportByEmail = async (customMarkdown?: string, customLabel?: string) => {
+    const md = customMarkdown || reportMarkdown;
+    const label = customLabel || selectedPeriodLabel;
+    if (!md) {
+      onShowToast('Veuillez d\'abord générer un rapport avant de l\'envoyer par email.', 'error');
+      return;
+    }
+    setSendingEmail(true);
+    onShowToast(`Envoi de l'audit ${label} par email...`);
+    try {
+      const res = await fetch('/api/send-report-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: userEmail,
+          periodLabel: label,
+          period: selectedPeriod,
+          reportMarkdown: md,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        onShowToast(`✅ Audit ${label} envoyé avec succès à votre adresse email !`);
+      } else {
+        onShowToast(data.error || 'Erreur lors de l\'envoi de l\'email', 'error');
+      }
+    } catch {
+      onShowToast('Erreur réseau lors de l\'envoi de l\'email', 'error');
+    } finally {
+      setSendingEmail(false);
+    }
+  };
+
+  const handleGenerateAndSendEmail = async () => {
+    onShowToast('Génération et envoi du rapport complet en cours...');
+    setGenerating(true);
+    setLoadingStepIndex(0);
+    const stepInterval = setInterval(() => {
+      setLoadingStepIndex((prev) => (prev < PIPELINE_LOADING_STEPS.length - 1 ? prev + 1 : prev));
+    }, 1400);
+
+    try {
+      const md = await generatePeriodicReport(positions, config, fxRates, {
+        period: selectedPeriod,
+        periodLabel: selectedPeriodLabel,
+        adjustInflation,
+        cumulativeInflationFactor,
+        inflationRate,
+        yearsElapsed,
+      });
+
+      clearInterval(stepInterval);
+      setReportMarkdown(md);
+
+      // Save to history
+      const newReport: SavedReportItem = {
+        id: `report-${Date.now()}`,
+        period: selectedPeriod,
+        title: selectedPeriodLabel,
+        dateStr: selectedPeriodLabel,
+        timestamp: Date.now(),
+        content: md,
+      };
+
+      setSavedReports((prev) => {
+        const filtered = prev.filter((r) => r.title !== selectedPeriodLabel);
+        const updated = [newReport, ...filtered].slice(0, 30);
+        try { localStorage.setItem('riane_saved_reports', JSON.stringify(updated)); } catch {}
+        return updated;
+      });
+
+      if (uid) {
+        saveReport(uid, newReport as unknown as any).catch((err) => {
+          console.warn('[ReportsView] Firestore save failed, saved in local state:', err);
+        });
+      }
+
+      // Send immediately by email
+      await handleSendCurrentReportByEmail(md, selectedPeriodLabel);
+    } catch (err: unknown) {
+      clearInterval(stepInterval);
+      const message = err instanceof Error ? err.message : 'Erreur inconnue';
+      onShowToast(`Erreur : ${message}`, 'error');
+    } finally {
+      setGenerating(false);
+    }
+  };
 
   const copyToClipboard = () => {
     if (!reportMarkdown) return;
@@ -321,17 +413,16 @@ export default function ReportsView({
             🔒 Annuel (2026)
           </button>
 
-          {onTestEmail && (
-            <button
-              type="button"
-              className="btn btn-secondary"
-              style={{ fontSize: 12, padding: '6px 12px', borderColor: 'var(--accent-cyan)', color: 'var(--accent-cyan)', fontWeight: 700 }}
-              onClick={onTestEmail}
-              title="Tester l'envoi de la newsletter par email via Resend"
-            >
-              📧 Tester envoi email
-            </button>
-          )}
+          <button
+            type="button"
+            className="btn btn-secondary"
+            style={{ fontSize: 12, padding: '6px 12px', borderColor: 'var(--accent-cyan)', color: 'var(--accent-cyan)', fontWeight: 700 }}
+            onClick={handleGenerateAndSendEmail}
+            disabled={generating || sendingEmail}
+            title="Génère un audit IA complet et l'envoie directement à votre boîte mail via Resend"
+          >
+            {sendingEmail ? '⏳ Envoi email...' : '📧 Générer & Envoyer par Email'}
+          </button>
 
           {savedReports.length > 0 && (
             <button
@@ -381,12 +472,22 @@ export default function ReportsView({
                 🗑️ Supprimer définitivement tout l&apos;historique &amp; la vue
               </button>
 
-              <div style={{ display: 'flex', gap: 10 }}>
+              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  style={{ borderColor: 'var(--accent-emerald)', color: 'var(--accent-emerald)', fontWeight: 700 }}
+                  onClick={() => handleSendCurrentReportByEmail()}
+                  disabled={sendingEmail}
+                  title="Recevoir ce rapport complet formaté en HTML dans votre boîte mail"
+                >
+                  {sendingEmail ? '⏳ Envoi en cours...' : '📧 M\'envoyer ce rapport par Email'}
+                </button>
                 <button className="btn btn-secondary btn-sm" onClick={copyToClipboard}>
-                  📋 Copier le rapport Markdown
+                  📋 Copier Markdown
                 </button>
                 <button className="btn btn-primary btn-sm" onClick={handlePrint}>
-                  🖨️ Imprimer / Imprimer en PDF
+                  🖨️ Imprimer / PDF
                 </button>
               </div>
             </div>

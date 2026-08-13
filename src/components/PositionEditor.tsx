@@ -178,10 +178,17 @@ export default function PositionEditor({ position, initialEnvelope, onSave, onCl
     avgPrice: position?.avgPrice || 0,
     currentPrice: position?.currentPrice,
     themes: position?.themes || [],
-    monthlyDCA: position?.monthlyDCA !== undefined 
-      ? position.monthlyDCA 
-      : (position?.annualBudget ? Math.round(position.annualBudget / 12) : undefined),
+    monthlyDCA: position?.dcaFrequency === 'annual' 
+      ? (position.annualBudget || (position.monthlyDCA ? position.monthlyDCA * 12 : undefined))
+      : (position?.dcaFrequency === 'semestrial' 
+          ? (position.monthlyDCA ? position.monthlyDCA * 6 : undefined)
+          : (position?.dcaFrequency === 'quarterly' 
+              ? (position.monthlyDCA ? position.monthlyDCA * 3 : undefined)
+              : position?.monthlyDCA)),
     annualBudget: position?.annualBudget,
+    dcaFrequency: position?.dcaFrequency || 'monthly',
+    dcaDepositMonth: position?.dcaDepositMonth || 1,
+    dcaDepositDay: position?.dcaDepositDay || 5,
     targetWeight: position?.targetWeight,
     maxWeight: position?.maxWeight,
     institutionName: position?.institutionName || '',
@@ -611,6 +618,23 @@ function autoGenerateThemes(
       }
     }
 
+    let finalMonthlyDCA = form.monthlyDCA;
+    let finalAnnualBudget = form.annualBudget;
+
+    // Convert the unified UI "amount" back to the expected underlying properties
+    if (form.dcaFrequency === 'annual') {
+      finalAnnualBudget = form.monthlyDCA;
+      finalMonthlyDCA = undefined; // Ensure we don't double count
+    } else if (form.dcaFrequency === 'semestrial' && form.monthlyDCA) {
+      finalMonthlyDCA = form.monthlyDCA / 6;
+      finalAnnualBudget = undefined;
+    } else if (form.dcaFrequency === 'quarterly' && form.monthlyDCA) {
+      finalMonthlyDCA = form.monthlyDCA / 3;
+      finalAnnualBudget = undefined;
+    } else {
+      finalAnnualBudget = undefined;
+    }
+
     onSave({
       ...form,
       ticker: finalTicker,
@@ -618,6 +642,8 @@ function autoGenerateThemes(
       quantity: finalQuantity,
       avgPrice: finalAvgPrice,
       currentPrice: finalCurrentPrice,
+      monthlyDCA: finalMonthlyDCA,
+      annualBudget: finalAnnualBudget,
       dcaStartDate,
       updatedAt: Date.now(),
     });
@@ -868,55 +894,17 @@ function autoGenerateThemes(
               </div>
 
               <div className="form-group">
-                <label className="form-label" style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.4px' }}>Fréquence</label>
+                <label className="form-label" style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.4px' }}>Jour du mois</label>
                 <select
                   className="input"
                   style={{ fontSize: 13, padding: '8px 10px' }}
-                  value={form.dcaFrequency || 'monthly'}
-                  onChange={(e) => handleChange('dcaFrequency', e.target.value)}
+                  value={form.dcaDepositDay || 5}
+                  onChange={(e) => handleChange('dcaDepositDay', parseInt(e.target.value))}
                 >
-                  <option value="monthly">Mensuel</option>
-                  <option value="quarterly">Trimestriel</option>
-                  <option value="semestrial">Semestriel</option>
-                  <option value="annual">Annuel</option>
+                  {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => (
+                    <option key={day} value={day}>{day}</option>
+                  ))}
                 </select>
-              </div>
-
-              {(form.dcaFrequency === 'annual' || form.dcaFrequency === 'quarterly' || form.dcaFrequency === 'semestrial') && (
-                <div className="form-group">
-                  <label className="form-label" style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.4px' }}>Mois du versement</label>
-                  <select
-                    className="input"
-                    style={{ fontSize: 13, padding: '8px 10px' }}
-                    value={form.dcaDepositMonth || 1}
-                    onChange={(e) => handleChange('dcaDepositMonth', parseInt(e.target.value))}
-                  >
-                    <option value={1}>Janvier</option>
-                    <option value={2}>Février</option>
-                    <option value={3}>Mars</option>
-                    <option value={4}>Avril</option>
-                    <option value={5}>Mai</option>
-                    <option value={6}>Juin</option>
-                    <option value={7}>Juillet</option>
-                    <option value={8}>Août</option>
-                    <option value={9}>Septembre</option>
-                    <option value={10}>Octobre</option>
-                    <option value={11}>Novembre</option>
-                    <option value={12}>Décembre</option>
-                  </select>
-                </div>
-              )}
-
-              <div className="form-group">
-                <label className="form-label" style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.4px' }}>Versement ({form.currency === 'USD' ? '$' : form.currency === 'GBP' ? '£' : '€'})</label>
-                <input
-                  type="number"
-                  className="input mono"
-                  style={{ fontSize: 13, padding: '8px 10px' }}
-                  value={form.monthlyDCA ?? ''}
-                  onChange={(e) => handleOptionalNumber('monthlyDCA', e.target.value)}
-                  placeholder="100"
-                />
               </div>
             </div>
 
@@ -1069,10 +1057,46 @@ function autoGenerateThemes(
           </div>
 
 
-          {/* Row 4: DCA + Annual Budget */}
-          <div className="form-row">
-            <div className="form-group">
-              <label className="form-label">DCA mensuel ({form.currency === 'USD' ? '$' : form.currency === 'GBP' ? '£' : '€'})</label>
+          {/* Row 4: DCA Strategy */}
+          <div className="form-row" style={{ alignItems: 'flex-end' }}>
+            <div className="form-group" style={{ flex: 1 }}>
+              <label className="form-label">Fréquence de versement</label>
+              <select
+                className="input"
+                value={form.dcaFrequency || 'monthly'}
+                onChange={(e) => handleChange('dcaFrequency', e.target.value)}
+              >
+                <option value="monthly">Mensuel</option>
+                <option value="quarterly">Trimestriel</option>
+                <option value="semestrial">Semestriel</option>
+                <option value="annual">Annuel</option>
+              </select>
+            </div>
+            {(form.dcaFrequency === 'annual' || form.dcaFrequency === 'quarterly' || form.dcaFrequency === 'semestrial') && (
+              <div className="form-group" style={{ flex: 1 }}>
+                <label className="form-label">Mois (cible)</label>
+                <select
+                  className="input"
+                  value={form.dcaDepositMonth || 1}
+                  onChange={(e) => handleChange('dcaDepositMonth', parseInt(e.target.value))}
+                >
+                  <option value={1}>Janvier</option>
+                  <option value={2}>Février</option>
+                  <option value={3}>Mars</option>
+                  <option value={4}>Avril</option>
+                  <option value={5}>Mai</option>
+                  <option value={6}>Juin</option>
+                  <option value={7}>Juillet</option>
+                  <option value={8}>Août</option>
+                  <option value={9}>Septembre</option>
+                  <option value={10}>Octobre</option>
+                  <option value={11}>Novembre</option>
+                  <option value={12}>Décembre</option>
+                </select>
+              </div>
+            )}
+            <div className="form-group" style={{ flex: 1 }}>
+              <label className="form-label">Montant ({form.currency === 'USD' ? '$' : form.currency === 'GBP' ? '£' : '€'})</label>
               <input
                 className="input mono"
                 type="number"
@@ -1080,21 +1104,8 @@ function autoGenerateThemes(
                 min="0"
                 value={form.monthlyDCA ?? ''}
                 onChange={(e) => handleOptionalNumber('monthlyDCA', e.target.value)}
-                placeholder="—"
+                placeholder="ex: 150"
                 id="input-monthly-dca"
-              />
-            </div>
-            <div className="form-group">
-              <label className="form-label">Budget annuel ({form.currency === 'USD' ? '$' : form.currency === 'GBP' ? '£' : '€'})</label>
-              <input
-                className="input mono"
-                type="number"
-                step="100"
-                min="0"
-                value={form.annualBudget ?? ''}
-                onChange={(e) => handleOptionalNumber('annualBudget', e.target.value)}
-                placeholder="—"
-                id="input-annual-budget"
               />
             </div>
           </div>

@@ -1073,6 +1073,15 @@ function autoGenerateThemes(
                 />
               </div>
               
+              <div className="form-group">
+                <label className="form-label" style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.4px' }}>Jour (cible)</label>
+                <CustomSelect
+                  value={(form.dcaDepositDay || 5).toString()}
+                  options={Array.from({ length: 31 }, (_, i) => ({ label: (i + 1).toString(), value: (i + 1).toString() }))}
+                  onChange={(val) => handleChange('dcaDepositDay', parseInt(val as string))}
+                />
+              </div>
+
               {(form.dcaFrequency === 'annual' || form.dcaFrequency === 'quarterly' || form.dcaFrequency === 'semestrial') && (
                 <div className="form-group">
                   <label className="form-label" style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.4px' }}>Mois (cible)</label>

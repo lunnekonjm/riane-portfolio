@@ -56,6 +56,7 @@ export default function ReportsView({
 
   // Period Options Definition with Elapsed Lock Logic
   const periodOptions = [
+    { period: 'weekly' as ReportPeriod, label: 'Hebdomadaire (Semaine en cours)', isLocked: false, note: 'Semaine écoulée — Disponible' },
     { period: 'monthly' as ReportPeriod, label: 'Juillet 2026', isLocked: false, note: 'Mois clôturé — Disponible' },
     { period: 'quarterly' as ReportPeriod, label: 'Q2 2026 (Clôturé)', isLocked: false, note: 'Trimestre révolu — Disponible' },
     { period: 'quarterly' as ReportPeriod, label: 'Q3 2026', isLocked: true, note: '🔒 Q3 2026 en cours (Clôture le 30 Septembre 2026)' },
@@ -253,6 +254,13 @@ export default function ReportsView({
 
         {/* Preset Generation Buttons with Locking */}
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+          <button
+            className={`btn ${selectedPeriod === 'weekly' ? 'btn-primary' : 'btn-secondary'}`}
+            onClick={() => handleGenerateReport('weekly', 'Hebdomadaire (Semaine en cours)', true)}
+            disabled={generating}
+          >
+            🗓️ Hebdo
+          </button>
           <button
             className={`btn ${selectedPeriod === 'monthly' ? 'btn-primary' : 'btn-secondary'}`}
             onClick={() => handleGenerateReport('monthly', 'Juillet 2026', true)}

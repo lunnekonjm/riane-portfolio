@@ -78,21 +78,97 @@ export function generatePortfolioNotifications(
     }
   }
 
-  // ── 2. Monthly DCA Reminder ──
+  // ── 2. DCA Reminders (Dynamic Frequency) ──
   if (settings.dcaReminderEnabled) {
-    const isReminderDay = Math.abs(currentDay - settings.dcaDayOfMonth) <= 2 || currentDay === 1;
-    if (isReminderDay) {
+    const currentMonth = currentDate.getMonth() + 1; // 1-12
+    const dcaPositions = filled.filter((p) => p.dcaFrequency);
+    
+    // Group positions by frequency to avoid spamming multiple notifications
+    let hasMonthly = false;
+    const dueQuarterly: Position[] = [];
+    const dueSemestrial: Position[] = [];
+    const dueAnnual: Position[] = [];
+
+    dcaPositions.forEach((p) => {
+      const dayTarget = p.dcaDepositDay || settings.dcaDayOfMonth || 5;
+      const isDayNear = Math.abs(currentDay - dayTarget) <= 3 || currentDay === 1;
+
+      if (!isDayNear) return;
+
+      if (p.dcaFrequency === 'monthly') {
+        hasMonthly = true;
+      } else if (p.dcaFrequency === 'quarterly') {
+        const m = p.dcaDepositMonth || 1;
+        if ((currentMonth - m) % 3 === 0) dueQuarterly.push(p);
+      } else if (p.dcaFrequency === 'semestrial') {
+        const m = p.dcaDepositMonth || 1;
+        if ((currentMonth - m) % 6 === 0) dueSemestrial.push(p);
+      } else if (p.dcaFrequency === 'annual') {
+        const m = p.dcaDepositMonth || 1;
+        if (currentMonth === m) dueAnnual.push(p);
+      }
+    });
+
+    if (hasMonthly) {
       notifications.push({
-        id: `notif-dca-reminder-${currentDate.getFullYear()}-${currentDate.getMonth()}`,
+        id: `notif-dca-monthly-${currentDate.getFullYear()}-${currentMonth}`,
         category: 'dca',
         title: '💸 Rappel Versement DCA Mensuel',
-        message: `C'est la période de versement ! Votre budget DCA configuré est de ${monthlyBudget.toLocaleString('fr-FR')} €/mois. Pensez à exécuter vos ordres.`,
-        actionHint: `Action Recommandée : Exécutez le rééquilibrage automatique pour orienter votre DCA de ${monthlyBudget.toLocaleString('fr-FR')} € vers les lignes sous-pondérées.`,
-        actionCtaLabel: `🎯 Répartir mon DCA (${monthlyBudget}€)`,
+        message: `C'est la période de versement pour vos actifs mensuels ! Budget cible : ${monthlyBudget.toLocaleString('fr-FR')} €/mois.`,
+        actionHint: `Action Recommandée : Exécutez le rééquilibrage automatique pour orienter votre DCA vers les lignes sous-pondérées.`,
+        actionCtaLabel: `🎯 Répartir mon DCA`,
         actionType: 'open-rebalance',
         timestamp: now,
         read: false,
         priority: 'medium',
+      });
+    }
+
+    if (dueQuarterly.length > 0) {
+      const names = dueQuarterly.map((p) => p.ticker).join(', ');
+      notifications.push({
+        id: `notif-dca-quarterly-${currentDate.getFullYear()}-${currentMonth}`,
+        category: 'dca',
+        title: '📆 Rappel DCA Trimestriel',
+        message: `Il est temps d'allouer vos versements trimestriels pour : ${names}.`,
+        actionHint: `Action Recommandée : N'oubliez pas vos actifs à fréquence réduite pour maintenir l'équilibre de votre portefeuille.`,
+        actionCtaLabel: `🎯 Voir les positions`,
+        actionType: 'open-rebalance',
+        timestamp: now,
+        read: false,
+        priority: 'medium',
+      });
+    }
+
+    if (dueSemestrial.length > 0) {
+      const names = dueSemestrial.map((p) => p.ticker).join(', ');
+      notifications.push({
+        id: `notif-dca-semestrial-${currentDate.getFullYear()}-${currentMonth}`,
+        category: 'dca',
+        title: '🌓 Rappel DCA Semestriel',
+        message: `Il est temps d'allouer vos versements semestriels pour : ${names}.`,
+        actionHint: `Action Recommandée : Ces actifs nécessitent votre attention 2 fois par an.`,
+        actionCtaLabel: `🎯 Voir les positions`,
+        actionType: 'open-rebalance',
+        timestamp: now,
+        read: false,
+        priority: 'high',
+      });
+    }
+
+    if (dueAnnual.length > 0) {
+      const names = dueAnnual.map((p) => p.ticker).join(', ');
+      notifications.push({
+        id: `notif-dca-annual-${currentDate.getFullYear()}-${currentMonth}`,
+        category: 'dca',
+        title: '🏆 Rappel DCA Annuel',
+        message: `C'est le mois de versement annuel pour : ${names}.`,
+        actionHint: `Action Recommandée : Ces actifs stratégiques nécessitent une allocation annuelle selon votre plan.`,
+        actionCtaLabel: `🎯 Voir les positions`,
+        actionType: 'open-rebalance',
+        timestamp: now,
+        read: false,
+        priority: 'high',
       });
     }
   }

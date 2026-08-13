@@ -24,10 +24,17 @@ export const maxDuration = 120;
 function periodsDueToday(date: Date): { period: ReportPeriod; label: string }[] {
   const due: { period: ReportPeriod; label: string }[] = [];
   const day = date.getDate();
+  const dayOfWeek = date.getDay(); // 0 (Sun) - 6 (Sat)
   const month = date.getMonth() + 1; // 1-12
   const year = date.getFullYear();
 
-  if (day !== 1) return due; // Toutes les revues se déclenchent le 1er du mois
+  // Weekly report: every Friday (5)
+  if (dayOfWeek === 5) {
+    const weekNumber = Math.ceil(day / 7);
+    due.push({ period: 'weekly', label: `Semaine ${weekNumber} - ${date.toLocaleDateString('fr-FR', { month: 'long' })}` });
+  }
+
+  if (day !== 1) return due; // Toutes les revues plus longues se déclenchent le 1er du mois
 
   const monthLabel = date.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
   due.push({ period: 'monthly', label: monthLabel.charAt(0).toUpperCase() + monthLabel.slice(1) });
@@ -147,7 +154,7 @@ export async function GET(request: NextRequest) {
           });
 
         // Email récapitulatif
-        const periodEmoji = { monthly: '📅', quarterly: '📊', quadrimestrial: '📈', semestrial: '🌓', annual: '🏆' }[period];
+        const periodEmoji = { weekly: '🗓️', monthly: '📅', quarterly: '📊', quadrimestrial: '📈', semestrial: '🌓', annual: '🏆' }[period];
         await sendPeriodicReportEmail({
           toEmail: ownerEmail,
           subject: `${periodEmoji} RIANE Portfolio — Revue ${label} disponible`,

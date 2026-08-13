@@ -18,7 +18,7 @@ import type { NewsItem } from '@/services/market-data/types';
 import { calculatePortfolioRiskMetrics } from '@/engines/riskAnalytics';
 import { getCleanAssetName } from '@/utils/assetMetadata';
 
-export type ReportPeriod = 'monthly' | 'quarterly' | 'quadrimestrial' | 'semestrial' | 'annual';
+export type ReportPeriod = 'weekly' | 'monthly' | 'quarterly' | 'quadrimestrial' | 'semestrial' | 'annual';
 
 export async function POST(request: NextRequest) {
   try {
@@ -132,6 +132,7 @@ export async function POST(request: NextRequest) {
     // 4. Quantified Rebalancing Engine with Mutual Fund Fractional Share Support & Target Weight Warnings
     const monthlyBudget = config?.monthlyBudget || 1000;
     const periodDCABudget =
+      period === 'weekly' ? monthlyBudget / 4 :
       period === 'monthly' ? monthlyBudget :
       period === 'quarterly' ? monthlyBudget * 3 :
       period === 'quadrimestrial' ? monthlyBudget * 4 :
@@ -139,6 +140,7 @@ export async function POST(request: NextRequest) {
       monthlyBudget * 12;
 
     const periodDCALabel =
+      period === 'weekly' ? 'de la Semaine' :
       period === 'monthly' ? 'du Mois' :
       period === 'quarterly' ? 'du Trimestre (3 mois)' :
       period === 'quadrimestrial' ? 'de la Période (4 mois)' :
@@ -350,6 +352,7 @@ ${articleTableRows}`;
       : '- *Aucune position en moins-value sur la période.*';
 
     const headerTitle =
+      period === 'weekly' ? `🗓️ Bilan Rapide & Audit Hebdomadaire — ${periodLabel}` :
       period === 'monthly' ? `📅 Audit de Gestion & Rapport Patrimonial Mensuel — ${periodLabel}` :
       period === 'quarterly' ? `📊 Bulletin Stratégique & Audit Trimestriel — ${periodLabel}` :
       period === 'quadrimestrial' ? `📈 Bulletin Stratégique & Audit Quadrimestriel — ${periodLabel}` :

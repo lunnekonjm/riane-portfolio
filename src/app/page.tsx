@@ -1521,8 +1521,9 @@ export default function HomePage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {(() => {
                         const totalPortfolioValEUR = positions.reduce((sum, p) => {
+                          const isMarket = ['PEA', 'PEA-PME', 'CTO', 'SPECULATIVE', 'OPPORTUNISTIC'].includes(p.envelope);
+                          if (!isMarket) return sum;
                           const pr = p.currentPrice || p.avgPrice;
                           const rate = (fxRates as any)[p.currency] || 1.0;
                           return sum + p.quantity * pr * rate;

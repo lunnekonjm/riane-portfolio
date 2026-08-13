@@ -761,124 +761,6 @@ function autoGenerateThemes(
             </>
           ) : (
             <>
-              {/* Autocomplete Search & Ticker Verification Bar */}
-              <div className="form-group" style={{ position: 'relative', marginBottom: 16 }}>
-            <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span>🔍 Rechercher une Action, ETF ou Fond Reconnus *</span>
-              {isVerifyingTicker && <span style={{ fontSize: 12, color: 'var(--accent-cyan)' }}>Vérification du cours...</span>}
-            </label>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <input
-                className="input"
-                value={tickerSearchInput}
-                onChange={(e) => handleSearchInputChange(e.target.value)}
-                onFocus={() => setShowDropdown(searchResults.length > 0)}
-                placeholder="Tapez un nom ou un ticker (ex: LVMH, Air Liquide, CW8, PUST, Nvidia, MSFT...)"
-                id="input-asset-search"
-              />
-              <button
-                type="button"
-                className="btn btn-secondary"
-                onClick={handleVerifyManualTicker}
-                disabled={isVerifyingTicker || !form.ticker}
-                style={{ whiteSpace: 'nowrap', fontSize: 13 }}
-              >
-                {isVerifyingTicker ? <span className="loading-spinner" /> : '🔍 Vérifier le cours'}
-              </button>
-            </div>
-
-            {/* Dropdown Suggestions */}
-            {showDropdown && searchResults.length > 0 && (
-              <div style={{
-                position: 'absolute',
-                top: '100%',
-                left: 0,
-                right: 0,
-                zIndex: 100,
-                background: 'var(--bg-secondary)',
-                border: '1px solid var(--border-accent)',
-                borderRadius: 'var(--radius-md)',
-                boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
-                maxHeight: 220,
-                overflowY: 'auto',
-                marginTop: 4,
-              }}>
-                {searchResults.map((asset) => (
-                  <div
-                    key={asset.ticker}
-                    onClick={() => handleSelectRegisteredAsset(asset)}
-                    style={{
-                      padding: '10px 14px',
-                      borderBottom: '1px solid var(--border-subtle)',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                      transition: 'background 0.15s ease',
-                    }}
-                    onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--bg-tertiary)')}
-                    onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
-                  >
-                    <div>
-                      <strong style={{ color: 'var(--accent-cyan)', fontSize: 14 }}>{asset.ticker}</strong>
-                      <span style={{ fontSize: 13, color: 'var(--text-primary)', marginLeft: 8 }}>{asset.name}</span>
-                    </div>
-                    <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                      <span className="badge badge-cyan" style={{ fontSize: 11 }}>{asset.envelope}</span>
-                      <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{asset.exchange}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* Status Feedback */}
-            {verifiedQuoteText && (
-              <div style={{ fontSize: 12, color: 'var(--accent-emerald)', fontWeight: 600, marginTop: 6 }}>
-                {verifiedQuoteText}
-              </div>
-            )}
-            {tickerError && (
-              <div style={{ fontSize: 12, color: 'var(--accent-rose)', fontWeight: 600, marginTop: 6 }}>
-                {tickerError}
-              </div>
-            )}
-
-            {/* Did You Mean Suggestion Button */}
-            {didYouMeanAsset && (
-              <div style={{ marginTop: 8, padding: 10, background: 'rgba(56, 189, 248, 0.15)', borderRadius: 8, border: '1px solid var(--accent-cyan)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div style={{ fontSize: 13, color: 'var(--text-primary)' }}>
-                  💡 Actif trouvé : <strong>{didYouMeanAsset.name}</strong> ({didYouMeanAsset.ticker} · {didYouMeanAsset.exchange})
-                </div>
-                <button
-                  type="button"
-                  className="btn btn-primary btn-sm"
-                  onClick={() => handleSelectRegisteredAsset(didYouMeanAsset)}
-                  style={{ fontSize: 12 }}
-                >
-                  ✅ Sélectionner {didYouMeanAsset.ticker}
-                </button>
-              </div>
-            )}
-
-            {/* Cached Recent Assets Pills */}
-            {cachedAssets.length > 0 && !showDropdown && (
-              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 10, alignItems: 'center' }}>
-                <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>⏱️ Récemment vérifiés :</span>
-                {cachedAssets.map((asset) => (
-                  <button
-                    key={asset.ticker}
-                    type="button"
-                    className="badge badge-cyan"
-                    onClick={() => handleSelectRegisteredAsset(asset)}
-                    style={{ cursor: 'pointer', fontSize: 11, padding: '3px 8px', border: '1px solid var(--border-subtle)' }}
-                  >
-                    {asset.ticker} ({asset.name})
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
 
           {/* Row 1: Ticker + Name */}
           <div className="form-row">
@@ -902,6 +784,48 @@ function autoGenerateThemes(
                 placeholder="Amundi PEA Global MSCI ACWI..."
                 required
                 id="input-name"
+              />
+            </div>
+          </div>
+
+          {/* Row 2: Manual Inputs for Stock (Quantity, PRU) */}
+          <div className="form-row" style={{ marginTop: 16, marginBottom: 16 }}>
+            <div className="form-group" style={{ flex: 1 }}>
+              <label className="form-label">Quantité (Parts) *</label>
+              <input
+                className="input mono"
+                type="number"
+                step="any"
+                min="0"
+                value={form.quantity || ''}
+                onChange={(e) => handleNumberChange('quantity', e.target.value)}
+                placeholder="ex: 10"
+                required
+              />
+            </div>
+            <div className="form-group" style={{ flex: 1 }}>
+              <label className="form-label">Prix de Revient (PRU) *</label>
+              <input
+                className="input mono"
+                type="number"
+                step="any"
+                min="0"
+                value={form.avgPrice || ''}
+                onChange={(e) => handleNumberChange('avgPrice', e.target.value)}
+                placeholder="ex: 100.0"
+                required
+              />
+            </div>
+            <div className="form-group" style={{ flex: 1 }}>
+              <label className="form-label">Prix Actuel</label>
+              <input
+                className="input mono"
+                type="number"
+                step="any"
+                min="0"
+                value={form.currentPrice || ''}
+                onChange={(e) => handleOptionalNumber('currentPrice', e.target.value)}
+                placeholder="Auto ou manuel"
               />
             </div>
           </div>

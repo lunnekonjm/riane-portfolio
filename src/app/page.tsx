@@ -30,7 +30,7 @@ import AssetBadge from '@/components/AssetBadge';
 import { AnalysisChatView } from '@/components/AnalysisChatView';
 import { getCleanAssetName } from '@/utils/assetMetadata';
 import SavingsPortfolioTable from '@/components/SavingsPortfolioTable';
-import { computeSavingsPositionInterest } from '@/engines/savingsInterestEngine';
+import { computeSavingsPositionInterest, REGULATED_SAVINGS_METADATA } from '@/engines/savingsInterestEngine';
 
 function formatDCAElapsedTime(startDateStr: string): string {
   if (!startDateStr) return '';
@@ -236,11 +236,22 @@ export default function HomePage() {
     const activePositions = positions.filter((p) => p.quantity > 0);
 
     activePositions.forEach((p) => {
-      const price = p.currentPrice || p.avgPrice || 1;
-      const avgPrice = p.avgPrice || price;
+      const isMarket = ['PEA', 'PEA-PME', 'CTO', 'SPECULATIVE', 'OPPORTUNISTIC'].includes(p.envelope);
       const rateToEUR = (fxRates as any)[p.currency] || 1.0;
-      const val = p.quantity * price * rateToEUR;
-      const cost = p.quantity * avgPrice * rateToEUR;
+      let val = 0;
+      let cost = 0;
+
+      if (isMarket) {
+        const price = p.currentPrice || p.avgPrice || 1;
+        const avgPrice = p.avgPrice || price;
+        val = p.quantity * price * rateToEUR;
+        cost = p.quantity * avgPrice * rateToEUR;
+      } else {
+        const interest = computeSavingsPositionInterest(p);
+        val = interest.currentBalance * rateToEUR;
+        cost = interest.principalDeposited * rateToEUR;
+      }
+      
       const gain = val - cost;
 
       totalGrossValue += val;
@@ -253,10 +264,17 @@ export default function HomePage() {
           const tax = gain * rate;
           peaTax += tax;
           totalEstimatedTax += tax;
-        } else if (p.envelope === 'CTO') {
+        } else if (p.envelope === 'CTO' || p.envelope === 'SPECULATIVE' || p.envelope === 'OPPORTUNISTIC') {
           const tax = gain * 0.30;
           ctoTax += tax;
           totalEstimatedTax += tax;
+        } else if (!isMarket) {
+          const metaKey = p.name.toUpperCase().includes('LEP') ? 'LEP' : p.envelope;
+          const metadata = REGULATED_SAVINGS_METADATA[metaKey] || { taxFree: true };
+          if (!metadata.taxFree) {
+            const tax = gain * 0.30;
+            totalEstimatedTax += tax;
+          }
         }
       }
     });

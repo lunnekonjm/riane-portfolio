@@ -222,6 +222,9 @@ export default function HomePage() {
   const [showBenchmark, setShowBenchmark] = useState(false);
 
   const [showDcaFrequencyDropdown, setShowDcaFrequencyDropdown] = useState<boolean>(false);
+  const [showTotalValueDropdown, setShowTotalValueDropdown] = useState<boolean>(false);
+  const [showTotalCostDropdown, setShowTotalCostDropdown] = useState<boolean>(false);
+  const [showGainLossDropdown, setShowGainLossDropdown] = useState<boolean>(false);
   const [peaSeniority, setPeaSeniority] = useState<'over5' | 'under5'>('over5');
   const [showNetDetailsModal, setShowNetDetailsModal] = useState<boolean>(false);
 
@@ -887,7 +890,7 @@ export default function HomePage() {
                 </div>
               )}
 
-              {/* Inflation Factor Calculation */}
+              {/* Inflation Factor & Breakdown Calculations */}
               {(() => {
                 const startYear = parseInt(dcaGlobalStartDate.slice(0, 4)) || 2024;
                 const currentYear = new Date().getFullYear();
@@ -898,6 +901,31 @@ export default function HomePage() {
                 const displayTotalCost = totalCost / cumulativeInflationFactor;
                 const displayGainLoss = displayTotalValue - displayTotalCost;
                 const displayGainLossPercent = displayTotalCost > 0 ? (displayGainLoss / displayTotalCost) * 100 : 0;
+
+                const marketPos = positions.filter((p) => !['LIVRET', 'ASSURANCE_VIE', 'PER', 'PEE', 'IMMOBILIER'].includes(p.envelope));
+                const savingsPos = positions.filter((p) => ['LIVRET', 'ASSURANCE_VIE', 'PER', 'PEE', 'IMMOBILIER'].includes(p.envelope));
+
+                const marketVal = marketPos.reduce((sum, p) => {
+                  const price = p.currentPrice || p.avgPrice;
+                  const rate = (fxRates as any)[p.currency] || 1.0;
+                  return sum + p.quantity * price * rate;
+                }, 0) / cumulativeInflationFactor;
+
+                const marketCostVal = marketPos.reduce((sum, p) => {
+                  const rate = (fxRates as any)[p.currency] || 1.0;
+                  return sum + p.quantity * p.avgPrice * rate;
+                }, 0) / cumulativeInflationFactor;
+
+                const marketGain = marketVal - marketCostVal;
+                const marketGainPct = marketCostVal > 0 ? (marketGain / marketCostVal) * 100 : 0;
+                const marketDCAVal = marketPos.reduce((sum, p) => sum + (p.monthlyDCA || 0), 0);
+
+                const savingsCalcs = savingsPos.map((p) => computeSavingsPositionInterest(p));
+                const savingsVal = savingsCalcs.reduce((sum, c) => sum + c.currentBalance, 0) / cumulativeInflationFactor;
+                const savingsCostVal = savingsCalcs.reduce((sum, c) => sum + c.principalDeposited, 0) / cumulativeInflationFactor;
+                const savingsGain = savingsVal - savingsCostVal;
+                const savingsAnnualInt = savingsCalcs.reduce((sum, c) => sum + c.projectedAnnualInterest, 0) / cumulativeInflationFactor;
+                const savingsDCAVal = savingsPos.reduce((sum, p) => sum + (p.monthlyDCA || 0), 0);
 
                 return (
                   <>
@@ -925,9 +953,51 @@ export default function HomePage() {
                             ? displayTotalValue.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })
                             : '—'}
                         </div>
+                        {displayTotalValue > 0 && (
+                          <div style={{ marginTop: 6, position: 'relative' }}>
+                            <button
+                              type="button"
+                              className="btn btn-secondary btn-sm"
+                              style={{
+                                fontSize: 10,
+                                padding: '3px 8px',
+                                borderRadius: 6,
+                                background: 'rgba(59, 130, 246, 0.12)',
+                                color: 'var(--accent-blue)',
+                                border: '1px solid rgba(59, 130, 246, 0.3)',
+                                fontWeight: 600,
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: 5,
+                              }}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setShowTotalValueDropdown(!showTotalValueDropdown);
+                              }}
+                            >
+                              <span>📊 Répartition des Enveloppes</span>
+                              <span style={{ fontSize: 9 }}>{showTotalValueDropdown ? '▴' : '▾'}</span>
+                            </button>
+                            {showTotalValueDropdown && (
+                              <div className="dca-dropdown" style={{ position: 'absolute', top: '100%', left: 0, marginTop: 4, zIndex: 10, minWidth: 260, background: 'var(--bg-secondary)', border: '1px solid var(--border-medium)', borderRadius: 8, padding: 12, boxShadow: '0 4px 12px rgba(0, 0, 0, 0.5)' }}>
+                                <div style={{ fontSize: 11, fontWeight: 700, color: 'white', marginBottom: 8, borderBottom: '1px solid var(--border-subtle)', paddingBottom: 4 }}>
+                                  Répartition de la Valeur Totale
+                                </div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4, fontSize: 12 }}>
+                                  <span style={{ color: 'var(--text-secondary)' }}>📈 Bourse &amp; Cryptos</span>
+                                  <span style={{ color: 'var(--accent-cyan)' }}>{marketVal.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} €</span>
+                                </div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4, fontSize: 12 }}>
+                                  <span style={{ color: 'var(--text-secondary)' }}>🛡️ Épargne &amp; Immo</span>
+                                  <span style={{ color: 'var(--accent-emerald)' }}>{savingsVal.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} €</span>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
                         {displayTotalValue === 0 && <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>À renseigner</span>}
                         {filledPositions.length > 0 && filledPositions.length < positions.length && (
-                          <span style={{ fontSize: 11, color: 'var(--accent-amber)' }}>{filledPositions.length}/{positions.length} positions renseignées</span>
+                          <span style={{ fontSize: 11, color: 'var(--accent-amber)', display: 'block', marginTop: 4 }}>{filledPositions.length}/{positions.length} positions renseignées</span>
                         )}
                       </div>
                       <div className="card" data-tooltip="Total des capitaux réellement investis (somme des PRU)">
@@ -950,6 +1020,48 @@ export default function HomePage() {
                             ? displayTotalCost.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })
                             : '—'}
                         </div>
+                        {displayTotalCost > 0 && (
+                          <div style={{ marginTop: 6, position: 'relative' }}>
+                            <button
+                              type="button"
+                              className="btn btn-secondary btn-sm"
+                              style={{
+                                fontSize: 10,
+                                padding: '3px 8px',
+                                borderRadius: 6,
+                                background: 'rgba(59, 130, 246, 0.12)',
+                                color: 'var(--accent-blue)',
+                                border: '1px solid rgba(59, 130, 246, 0.3)',
+                                fontWeight: 600,
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: 5,
+                              }}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setShowTotalCostDropdown(!showTotalCostDropdown);
+                              }}
+                            >
+                              <span>📊 Détail des Apports</span>
+                              <span style={{ fontSize: 9 }}>{showTotalCostDropdown ? '▴' : '▾'}</span>
+                            </button>
+                            {showTotalCostDropdown && (
+                              <div className="dca-dropdown" style={{ position: 'absolute', top: '100%', left: 0, marginTop: 4, zIndex: 10, minWidth: 260, background: 'var(--bg-secondary)', border: '1px solid var(--border-medium)', borderRadius: 8, padding: 12, boxShadow: '0 4px 12px rgba(0, 0, 0, 0.5)' }}>
+                                <div style={{ fontSize: 11, fontWeight: 700, color: 'white', marginBottom: 8, borderBottom: '1px solid var(--border-subtle)', paddingBottom: 4 }}>
+                                  Apports Investis (PRU)
+                                </div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4, fontSize: 12 }}>
+                                  <span style={{ color: 'var(--text-secondary)' }}>📈 Bourse &amp; Cryptos</span>
+                                  <span style={{ color: 'var(--text-primary)' }}>{marketCostVal.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} €</span>
+                                </div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4, fontSize: 12 }}>
+                                  <span style={{ color: 'var(--text-secondary)' }}>🛡️ Épargne &amp; Immo</span>
+                                  <span style={{ color: 'var(--text-primary)' }}>{savingsCostVal.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} €</span>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
                         {displayTotalCost === 0 && <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Entrez vos PRU réels</span>}
                       </div>
                       <div className="card" data-tooltip="Plus ou moins-value latente et valeur nette de liquidation après impôts">
@@ -974,6 +1086,47 @@ export default function HomePage() {
                               >
                                 Net Retrait: {(netLiquidationDetails.totalNetValue / cumulativeInflationFactor).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
                               </span>
+                            </div>
+                            
+                            <div style={{ marginTop: 6, position: 'relative' }}>
+                              <button
+                                type="button"
+                                className="btn btn-secondary btn-sm"
+                                style={{
+                                  fontSize: 10,
+                                  padding: '3px 8px',
+                                  borderRadius: 6,
+                                  background: 'rgba(16, 185, 129, 0.12)',
+                                  color: 'var(--accent-emerald)',
+                                  border: '1px solid rgba(16, 185, 129, 0.3)',
+                                  fontWeight: 600,
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: 5,
+                                }}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setShowGainLossDropdown(!showGainLossDropdown);
+                                }}
+                              >
+                                <span>📊 Ventilation des Gains</span>
+                                <span style={{ fontSize: 9 }}>{showGainLossDropdown ? '▴' : '▾'}</span>
+                              </button>
+                              {showGainLossDropdown && (
+                                <div className="dca-dropdown" style={{ position: 'absolute', top: '100%', left: 0, marginTop: 4, zIndex: 10, minWidth: 260, background: 'var(--bg-secondary)', border: '1px solid var(--border-medium)', borderRadius: 8, padding: 12, boxShadow: '0 4px 12px rgba(0, 0, 0, 0.5)' }}>
+                                  <div style={{ fontSize: 11, fontWeight: 700, color: 'white', marginBottom: 8, borderBottom: '1px solid var(--border-subtle)', paddingBottom: 4 }}>
+                                    Plus-Values &amp; Intérêts Latents
+                                  </div>
+                                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4, fontSize: 12 }}>
+                                    <span style={{ color: 'var(--text-secondary)' }}>📈 Bourse &amp; Cryptos</span>
+                                    <span style={{ color: marketGain >= 0 ? 'var(--accent-emerald)' : 'var(--accent-rose)' }}>{marketGain >= 0 ? '+' : ''}{marketGain.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} €</span>
+                                  </div>
+                                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4, fontSize: 12 }}>
+                                    <span style={{ color: 'var(--text-secondary)' }}>🛡️ Intérêts d&apos;Épargne</span>
+                                    <span style={{ color: savingsGain >= 0 ? 'var(--accent-emerald)' : 'var(--accent-rose)' }}>{savingsGain >= 0 ? '+' : ''}{savingsGain.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} €</span>
+                                  </div>
+                                </div>
+                              )}
                             </div>
                           </>
                         ) : (
@@ -1113,29 +1266,6 @@ export default function HomePage() {
 
                     {/* 360° Wealth Breakdown Sub-Cards: Bourse vs Hors-Bourse */}
                     {(() => {
-                      const marketPos = positions.filter((p) => !['LIVRET', 'ASSURANCE_VIE', 'PER', 'PEE', 'IMMOBILIER'].includes(p.envelope));
-                      const savingsPos = positions.filter((p) => ['LIVRET', 'ASSURANCE_VIE', 'PER', 'PEE', 'IMMOBILIER'].includes(p.envelope));
-
-                      const marketVal = marketPos.reduce((sum, p) => {
-                        const price = p.currentPrice || p.avgPrice;
-                        const rate = (fxRates as any)[p.currency] || 1.0;
-                        return sum + p.quantity * price * rate;
-                      }, 0) / cumulativeInflationFactor;
-
-                      const marketCostVal = marketPos.reduce((sum, p) => {
-                        const rate = (fxRates as any)[p.currency] || 1.0;
-                        return sum + p.quantity * p.avgPrice * rate;
-                      }, 0) / cumulativeInflationFactor;
-
-                      const marketGain = marketVal - marketCostVal;
-                      const marketGainPct = marketCostVal > 0 ? (marketGain / marketCostVal) * 100 : 0;
-                      const marketDCAVal = marketPos.reduce((sum, p) => sum + (p.monthlyDCA || 0), 0);
-
-                      const savingsCalcs = savingsPos.map((p) => computeSavingsPositionInterest(p));
-                      const savingsVal = savingsCalcs.reduce((sum, c) => sum + c.currentBalance, 0) / cumulativeInflationFactor;
-                      const savingsAnnualInt = savingsCalcs.reduce((sum, c) => sum + c.projectedAnnualInterest, 0) / cumulativeInflationFactor;
-                      const savingsDCAVal = savingsPos.reduce((sum, p) => sum + (p.monthlyDCA || 0), 0);
-
                       return (
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 12, marginTop: 12, marginBottom: 16 }}>
                           <div className="card" style={{ borderLeft: '4px solid var(--accent-cyan)', background: 'linear-gradient(135deg, rgba(6, 182, 212, 0.08) 0%, rgba(15, 23, 42, 0.7) 100%)', padding: 14 }}>

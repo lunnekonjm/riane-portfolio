@@ -472,16 +472,29 @@ export default function ReportsView({
                 🗑️ Supprimer définitivement tout l&apos;historique &amp; la vue
               </button>
 
-              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
                 <button
                   type="button"
-                  className="btn btn-secondary btn-sm"
-                  style={{ borderColor: 'var(--accent-emerald)', color: 'var(--accent-emerald)', fontWeight: 700 }}
+                  className="btn btn-sm"
+                  style={{
+                    background: 'linear-gradient(135deg, #10b981, #06b6d4)',
+                    color: '#000000',
+                    fontWeight: 800,
+                    fontSize: 13,
+                    padding: '8px 16px',
+                    borderRadius: 8,
+                    boxShadow: '0 4px 12px rgba(16, 185, 129, 0.35)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    cursor: 'pointer',
+                    border: 'none',
+                  }}
                   onClick={() => handleSendCurrentReportByEmail()}
                   disabled={sendingEmail}
-                  title="Recevoir ce rapport complet formaté en HTML dans votre boîte mail"
+                  title="Recevoir cet audit complet formaté en HTML dans votre boîte mail"
                 >
-                  {sendingEmail ? '⏳ Envoi en cours...' : '📧 M\'envoyer ce rapport par Email'}
+                  {sendingEmail ? '⏳ Envoi en cours...' : `📧 Envoyer l'audit (${selectedPeriodLabel}) par Email`}
                 </button>
                 <button className="btn btn-secondary btn-sm" onClick={copyToClipboard}>
                   📋 Copier Markdown
@@ -568,9 +581,23 @@ export default function ReportsView({
                       Généré le {rep.dateStr}
                     </div>
                   </div>
-                  <button className="btn btn-secondary btn-sm" type="button">
-                    📖 Consulter
-                  </button>
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                    <button
+                      className="btn btn-secondary btn-sm"
+                      type="button"
+                      style={{ fontSize: 11, color: 'var(--accent-emerald)', borderColor: 'var(--accent-emerald)' }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleSendCurrentReportByEmail(rep.content, rep.title);
+                      }}
+                      title="Envoyer cette archive par email"
+                    >
+                      📧 Envoyer
+                    </button>
+                    <button className="btn btn-primary btn-sm" type="button" style={{ fontSize: 11 }}>
+                      📖 Consulter
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>

@@ -51,7 +51,7 @@ export default function SavingsPortfolioTable({
             <h3 style={{ fontSize: 18, margin: 0, fontWeight: 700, color: 'var(--text-primary)' }}>
               Épargne &amp; Patrimoine Hors-Bourse
             </h3>
-            <span className="badge badge-emerald" style={{ fontSize: 11 }}>Règle des Quinzaines &amp; Intérêts Dynamiques</span>
+            <span className="badge badge-emerald" style={{ fontSize: 11 }}>Règle des Quinzaines (Livrets) &amp; Plus-Value Latente</span>
           </div>
           <p style={{ fontSize: 12, color: 'var(--text-secondary)', margin: '4px 0 0 0' }}>
             Suivi des livrets réglementés, fonds d&apos;épargne salariale (Natixis, Amundi ESR) et assurance-vie.
@@ -128,7 +128,7 @@ export default function SavingsPortfolioTable({
                       +{interest.interestEarnedToDate.toFixed(2)} €
                     </span>
                     <span style={{ display: 'block', fontSize: 10, color: 'var(--text-muted)' }}>
-                      ({interest.quinzainesCount} quinzaines)
+                      {interest.isQuinzaineRule ? `(${interest.quinzainesCount} quinzaines)` : `(${interest.daysCount} jours)`}
                     </span>
                   </td>
                   <td style={{ padding: '10px', textAlign: 'right' }} className="mono">

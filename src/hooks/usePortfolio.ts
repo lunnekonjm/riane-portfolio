@@ -18,6 +18,7 @@ import { getMultipleQuotes, getFxRates } from '@/services/market-data/provider';
 import type { Position, PortfolioConfig, TransactionRecord, InvestorProfile } from '@/types/portfolio';
 import type { User } from 'firebase/auth';
 import { clearAnalysisCache } from '@/utils/analysisCache';
+import { computeSavingsPositionInterest } from '@/engines/savingsInterestEngine';
 
 export function usePortfolio() {
   const [user, setUser] = useState<User | null>(null);
@@ -482,12 +483,24 @@ export function usePortfolio() {
   const pendingCount = positions.length - filledPositions.length;
 
   const totalValue = filledPositions.reduce((sum, p) => {
+    const isMarket = ['PEA', 'PEA-PME', 'CTO', 'SPECULATIVE', 'OPPORTUNISTIC'].includes(p.envelope);
+    if (!isMarket) {
+      const { currentBalance } = computeSavingsPositionInterest(p);
+      const rateToEUR = fxRates[p.currency] || 1.0;
+      return sum + (currentBalance * rateToEUR);
+    }
     const price = p.currentPrice || p.avgPrice;
     const rateToEUR = fxRates[p.currency] || 1.0;
     return sum + (p.quantity * price * rateToEUR);
   }, 0);
 
   const totalCost = filledPositions.reduce((sum, p) => {
+    const isMarket = ['PEA', 'PEA-PME', 'CTO', 'SPECULATIVE', 'OPPORTUNISTIC'].includes(p.envelope);
+    if (!isMarket) {
+      const { principalDeposited } = computeSavingsPositionInterest(p);
+      const rateToEUR = fxRates[p.currency] || 1.0;
+      return sum + (principalDeposited * rateToEUR);
+    }
     const rateToEUR = fxRates[p.currency] || 1.0;
     return sum + (p.quantity * p.avgPrice * rateToEUR);
   }, 0);

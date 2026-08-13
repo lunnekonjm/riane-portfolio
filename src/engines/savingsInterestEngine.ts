@@ -31,6 +31,8 @@ export interface SavingsInterestResult {
   capUtilizationPercent?: number;
   isCapExceeded: boolean;
   quinzainesCount: number;
+  daysCount?: number;
+  isQuinzaineRule?: boolean;
   effectiveRatePercent: number;
 }
 
@@ -83,12 +85,15 @@ export function computeSavingsPositionInterest(
     };
   }
 
-  // Simulate bi-weekly quinzaines from startDate to referenceDate
+  const isQuinzaineRule = ['LIVRET', 'LEP'].includes(metaKey);
+
+  // Simulate bi-weekly quinzaines or daily interest from startDate to referenceDate
   let currentBalance = initialAmount;
   let principalDeposited = initialAmount;
   let accumulatedInterestYear = 0;
   let totalInterestEarned = 0;
   let quinzainesCount = 0;
+  let daysCount = 0;
 
   const cursor = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
 
@@ -100,11 +105,15 @@ export function computeSavingsPositionInterest(
       accumulatedInterestYear = 0;
     }
 
-    // Bi-weekly interest rate = Annual Rate / 24
-    const quinzaineRate = annualRate / 24;
-    const interestThisQuinzaine = currentBalance * quinzaineRate;
-    accumulatedInterestYear += interestThisQuinzaine;
-    quinzainesCount += 1;
+    if (isQuinzaineRule) {
+      const quinzaineRate = annualRate / 24;
+      accumulatedInterestYear += currentBalance * quinzaineRate;
+      quinzainesCount += 1;
+    } else {
+      const dailyRate = annualRate / 365;
+      accumulatedInterestYear += currentBalance * dailyRate;
+      daysCount += 1;
+    }
 
     // Monthly DCA deposit on 5th of each month
     if (cursor.getDate() === 5 && monthlyDCA > 0) {
@@ -117,8 +126,11 @@ export function computeSavingsPositionInterest(
       }
     }
 
-    // Advance 15 days (1 quinzaine)
-    cursor.setDate(cursor.getDate() + 15);
+    if (isQuinzaineRule) {
+      cursor.setDate(cursor.getDate() + 15);
+    } else {
+      cursor.setDate(cursor.getDate() + 1);
+    }
   }
 
   const currentYearEndInterest = currentBalance * annualRate;
@@ -134,6 +146,8 @@ export function computeSavingsPositionInterest(
     capUtilizationPercent: legalCap ? Math.min(100, Math.round((principalDeposited / legalCap) * 100)) : undefined,
     isCapExceeded: legalCap ? principalDeposited >= legalCap : false,
     quinzainesCount,
+    daysCount,
+    isQuinzaineRule,
     effectiveRatePercent: annualRate * 100,
   };
 }

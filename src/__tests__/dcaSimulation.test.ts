@@ -90,4 +90,26 @@ describe('dcaSimulation Engine', () => {
     expect(result.logs[2].sharesBought).toBe(125);
     expect(result.logs[2].spent).toBe(600);
   });
+
+  it('supports multi-tier historical DCA tranches (e.g. 500€ then 300€)', () => {
+    const result = calculateDCAFromPriceMap(
+      months, // ['2023-01', '2023-02', '2023-03', '2023-04']
+      priceMap,
+      0, // default fallback budget
+      5.0,
+      true,
+      'monthly',
+      1,
+      null,
+      [
+        { id: 'tr1', startDate: '2023-01-01', endDate: '2023-02-28', amount: 500 }, // Jan & Feb = 500€/m
+        { id: 'tr2', startDate: '2023-03-01', endDate: '2023-04-30', amount: 300 }, // Mar & Apr = 300€/m
+      ]
+    );
+
+    expect(result.logs[0].monthlyBudget).toBe(500); // Jan
+    expect(result.logs[1].monthlyBudget).toBe(500); // Feb
+    expect(result.logs[2].monthlyBudget).toBe(300); // Mar
+    expect(result.logs[3].monthlyBudget).toBe(300); // Apr
+  });
 });

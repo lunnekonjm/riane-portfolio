@@ -85,6 +85,20 @@ export function computeSavingsPositionInterest(
   const initialDate = parseDateStr(position.initialDepositDate) || (initialAmount > 0 ? parseDateStr(position.dcaStartDate) : null);
   const dcaStart = hasRecurringDCA ? parseDateStr(position.dcaStartDate) : null;
 
+  // Process and sort historical DCA tranches (multi-paliers)
+  const validTranches = (position.dcaHistory || [])
+    .filter((t) => t && typeof t.amount === 'number' && t.amount > 0 && t.startDate)
+    .map((t) => {
+      const parsedStart = parseDateStr(t.startDate) || new Date();
+      const parsedEnd = t.endDate ? parseDateStr(t.endDate) : null;
+      return {
+        ...t,
+        parsedStart,
+        parsedEnd,
+      };
+    })
+    .sort((a, b) => a.parsedStart.getTime() - b.parsedStart.getTime());
+
   // Process and sort historical ad-hoc deposits
   const validDeposits = (position.depositsHistory || [])
     .filter((d) => d && typeof d.amount === 'number' && d.amount > 0 && d.date)
@@ -97,10 +111,48 @@ export function computeSavingsPositionInterest(
     })
     .sort((a, b) => a.parsedDate.getTime() - b.parsedDate.getTime());
 
+  // Function to evaluate active DCA configuration on any given date
+  const getActiveDCAForDate = (date: Date) => {
+    if (validTranches.length > 0) {
+      const tranche = validTranches.find((t) => {
+        const isAfterStart = t.parsedStart <= date;
+        const isBeforeEnd = !t.parsedEnd || t.parsedEnd >= date;
+        return isAfterStart && isBeforeEnd;
+      });
+      if (tranche) {
+        return {
+          amount: tranche.amount,
+          frequency: tranche.frequency || position.dcaFrequency || 'monthly',
+          depositDay: tranche.depositDay || position.dcaDepositDay || 5,
+          depositMonth: tranche.depositMonth || position.dcaDepositMonth || 1,
+        };
+      }
+      return null;
+    }
+
+    if (hasRecurringDCA) {
+      if (!dcaStart || dcaStart <= date) {
+        return {
+          amount: monthlyDCA,
+          frequency: position.dcaFrequency || 'monthly',
+          depositDay: position.dcaDepositDay || 5,
+          depositMonth: position.dcaDepositMonth || 1,
+        };
+      }
+    }
+    return null;
+  };
+
   // Find the global start date of the timeline
   let earliestDate: Date | null = initialDate;
   if (dcaStart && (!earliestDate || dcaStart < earliestDate)) {
     earliestDate = dcaStart;
+  }
+  if (validTranches.length > 0) {
+    const firstTrancheStart = validTranches[0].parsedStart;
+    if (!earliestDate || firstTrancheStart < earliestDate) {
+      earliestDate = firstTrancheStart;
+    }
   }
   if (validDeposits.length > 0) {
     const firstDepositDate = validDeposits[0].parsedDate;
@@ -186,13 +238,12 @@ export function computeSavingsPositionInterest(
     const targetMonth = referenceDate.getMonth();
     const targetQuinzaine = referenceDate.getDate() <= 15 ? 1 : 2;
 
-    const depositQuinzaine = position.dcaDepositDay && position.dcaDepositDay > 15 ? 2 : 1;
-    const isDepositMonth = (m: number) => {
-      if (!position.dcaFrequency || position.dcaFrequency === 'monthly') return true;
-      if (position.dcaFrequency === 'quarterly') return (m % 3) === 0;
-      if (position.dcaFrequency === 'semestrial') return (m % 6) === 0;
-      if (position.dcaFrequency === 'annual') {
-        const targetM = (position.dcaDepositMonth !== undefined ? position.dcaDepositMonth - 1 : 0);
+    const checkDepositMonth = (m: number, freq?: string, targetDepMonth?: number) => {
+      if (!freq || freq === 'monthly') return true;
+      if (freq === 'quarterly') return (m % 3) === 0;
+      if (freq === 'semestrial') return (m % 6) === 0;
+      if (freq === 'annual') {
+        const targetM = (targetDepMonth !== undefined ? targetDepMonth - 1 : 0);
         return m === targetM;
       }
       return true;
@@ -217,19 +268,19 @@ export function computeSavingsPositionInterest(
         }
       }
 
-      // 2. Apply recurring DCA deposit if within DCA active range
-      const isAfterDcaStart = !dcaStart || (
-        year > dcaStart.getFullYear() ||
-        (year === dcaStart.getFullYear() && month > dcaStart.getMonth()) ||
-        (year === dcaStart.getFullYear() && month === dcaStart.getMonth() && quinzaineInMonth >= (dcaStart.getDate() <= 15 ? 1 : 2))
-      );
+      // 2. Apply recurring DCA deposit if active on this quinzaine
+      const quinzaineMidDate = new Date(year, month, quinzaineInMonth === 1 ? 5 : 20);
+      const activeDCA = getActiveDCAForDate(quinzaineMidDate);
 
-      if (hasRecurringDCA && isAfterDcaStart && quinzaineInMonth === depositQuinzaine && isDepositMonth(month) && monthlyDCA > 0) {
-        if (!legalCap || principalDeposited < legalCap) {
-          const allowedDeposit = legalCap ? Math.min(monthlyDCA, legalCap - principalDeposited) : monthlyDCA;
-          if (allowedDeposit > 0) {
-            currentBalance += allowedDeposit;
-            principalDeposited += allowedDeposit;
+      if (activeDCA && activeDCA.amount > 0) {
+        const targetQ = activeDCA.depositDay > 15 ? 2 : 1;
+        if (quinzaineInMonth === targetQ && checkDepositMonth(month, activeDCA.frequency, activeDCA.depositMonth)) {
+          if (!legalCap || principalDeposited < legalCap) {
+            const allowedDeposit = legalCap ? Math.min(activeDCA.amount, legalCap - principalDeposited) : activeDCA.amount;
+            if (allowedDeposit > 0) {
+              currentBalance += allowedDeposit;
+              principalDeposited += allowedDeposit;
+            }
           }
         }
       }
@@ -257,13 +308,12 @@ export function computeSavingsPositionInterest(
     }
   } else {
     // Daily compounding for other vehicles (PEE, Assurance-Vie, PER, SCPI)
-    const depositDay = position.dcaDepositDay || 5;
-    const isDepositMonthDaily = (m: number) => {
-      if (!position.dcaFrequency || position.dcaFrequency === 'monthly') return true;
-      if (position.dcaFrequency === 'quarterly') return (m % 3) === 0;
-      if (position.dcaFrequency === 'semestrial') return (m % 6) === 0;
-      if (position.dcaFrequency === 'annual') {
-        const targetM = (position.dcaDepositMonth !== undefined ? position.dcaDepositMonth - 1 : 0);
+    const checkDepositMonthDaily = (m: number, freq?: string, targetDepMonth?: number) => {
+      if (!freq || freq === 'monthly') return true;
+      if (freq === 'quarterly') return (m % 3) === 0;
+      if (freq === 'semestrial') return (m % 6) === 0;
+      if (freq === 'annual') {
+        const targetM = (targetDepMonth !== undefined ? targetDepMonth - 1 : 0);
         return m === targetM;
       }
       return true;
@@ -301,14 +351,17 @@ export function computeSavingsPositionInterest(
         }
       }
 
-      // Apply recurring DCA
-      const isAfterDcaStart = !dcaStart || cursor >= dcaStart;
-      if (hasRecurringDCA && isAfterDcaStart && cursor.getDate() === depositDay && isDepositMonthDaily(cursor.getMonth()) && monthlyDCA > 0) {
-        if (!legalCap || principalDeposited < legalCap) {
-          const allowedDeposit = legalCap ? Math.min(monthlyDCA, legalCap - principalDeposited) : monthlyDCA;
-          if (allowedDeposit > 0) {
-            currentBalance += allowedDeposit;
-            principalDeposited += allowedDeposit;
+      // Apply active recurring DCA deposit on scheduled day
+      const activeDCA = getActiveDCAForDate(cursor);
+      if (activeDCA && activeDCA.amount > 0) {
+        const targetDay = activeDCA.depositDay || 5;
+        if (cursor.getDate() === targetDay && checkDepositMonthDaily(cursor.getMonth(), activeDCA.frequency, activeDCA.depositMonth)) {
+          if (!legalCap || principalDeposited < legalCap) {
+            const allowedDeposit = legalCap ? Math.min(activeDCA.amount, legalCap - principalDeposited) : activeDCA.amount;
+            if (allowedDeposit > 0) {
+              currentBalance += allowedDeposit;
+              principalDeposited += allowedDeposit;
+            }
           }
         }
       }

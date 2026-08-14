@@ -10,7 +10,7 @@
  * puis investie à partir du premier cours réel d'introduction.
  */
 
-import type { Position } from '@/types/portfolio';
+import type { Position, DCATranche } from '@/types/portfolio';
 import { getHistoricalData } from '@/services/market-data/provider';
 
 export interface DCASimulationMonthLog {
@@ -61,6 +61,7 @@ function getMonthlyDates(startDateStr: string): string[] {
 
 /**
  * Pure deterministic core DCA calculation from an array of months and a price lookup Map.
+ * Accurately supports multi-tier historical DCA tranches (paliers dans le temps).
  */
 export function calculateDCAFromPriceMap(
   months: string[],
@@ -70,7 +71,8 @@ export function calculateDCAFromPriceMap(
   isIntegerOnly: boolean = true,
   frequency: 'monthly' | 'quarterly' | 'semestrial' | 'annual' = 'monthly',
   depositMonth: number = 1,
-  earliestDate: string | null = null
+  earliestDate: string | null = null,
+  dcaHistory?: DCATranche[]
 ): DCASimulationResult {
   let cumulativeShares = 0;
   let cumulativeCost = 0;
@@ -83,19 +85,40 @@ export function calculateDCAFromPriceMap(
     const monthKey = months[i];
     const price = priceMap.get(monthKey) || (currentPriceFallback > 0 ? currentPriceFallback : undefined);
     
+    // Resolve dynamic budget and frequency for this specific month from DCA tranches if defined
+    let activeBudget = monthlyBudget;
+    let activeFreq = frequency;
+    let activeDepMonth = depositMonth;
+
+    if (dcaHistory && dcaHistory.length > 0) {
+      const tranche = dcaHistory.find((t) => {
+        const startM = t.startDate.slice(0, 7);
+        const endM = t.endDate ? t.endDate.slice(0, 7) : null;
+        return startM <= monthKey && (!endM || endM >= monthKey);
+      });
+
+      if (tranche) {
+        activeBudget = tranche.amount;
+        activeFreq = tranche.frequency || 'monthly';
+        activeDepMonth = tranche.depositMonth || 1;
+      } else {
+        activeBudget = 0;
+      }
+    }
+
     // Calculate if cash deposit occurs in this calendar month
     const monthNum = parseInt(monthKey.slice(5, 7), 10);
     let isDepositMonth = true;
 
-    if (frequency === 'annual') {
-      isDepositMonth = monthNum === depositMonth;
-    } else if (frequency === 'semestrial') {
-      isDepositMonth = ((monthNum - depositMonth) % 6 + 6) % 6 === 0;
-    } else if (frequency === 'quarterly') {
-      isDepositMonth = ((monthNum - depositMonth) % 3 + 3) % 3 === 0;
+    if (activeFreq === 'annual') {
+      isDepositMonth = monthNum === activeDepMonth;
+    } else if (activeFreq === 'semestrial') {
+      isDepositMonth = ((monthNum - activeDepMonth) % 6 + 6) % 6 === 0;
+    } else if (activeFreq === 'quarterly') {
+      isDepositMonth = ((monthNum - activeDepMonth) % 3 + 3) % 3 === 0;
     }
 
-    const budgetForMonth = isDepositMonth ? monthlyBudget : 0;
+    const budgetForMonth = isDepositMonth ? activeBudget : 0;
 
     // Check if asset existed on this date
     const existsYet = price !== undefined && price > 0;
@@ -187,9 +210,18 @@ export async function simulatePositionDCA(
   isIntegerOnly: boolean = true,
   frequency: 'monthly' | 'quarterly' | 'semestrial' | 'annual' = 'monthly',
   depositMonth: number = 1,
-  depositDay: number = 5
+  depositDay: number = 5,
+  dcaHistory?: DCATranche[]
 ): Promise<DCASimulationResult> {
-  const months = getMonthlyDates(startDateStr);
+  let effectiveStartDate = startDateStr;
+  if (dcaHistory && dcaHistory.length > 0) {
+    const sortedStarts = [...dcaHistory].map((t) => t.startDate).sort();
+    if (sortedStarts[0] && sortedStarts[0] < effectiveStartDate) {
+      effectiveStartDate = sortedStarts[0];
+    }
+  }
+
+  const months = getMonthlyDates(effectiveStartDate);
 
   // Fetch REAL MAX historical prices from Yahoo Finance
   let priceMap = new Map<string, number>();
@@ -221,6 +253,7 @@ export async function simulatePositionDCA(
     isIntegerOnly,
     frequency,
     depositMonth,
-    earliestDate
+    earliestDate,
+    dcaHistory
   );
 }

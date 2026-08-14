@@ -152,4 +152,32 @@ describe('savingsInterestEngine', () => {
     // Total interest = 170 €
     expect(result.interestEarnedToDate).toBeCloseTo(170, 0);
   });
+
+  it('accurately computes dynamic interest over multi-tier historical DCA tranches (e.g. 500€/m then 300€/m then 200€/m)', () => {
+    const multiTierPos: Position = {
+      id: 'pos-multi-tier',
+      ticker: 'LIVRET-A',
+      name: 'Livret A Paliers',
+      envelope: 'LIVRET',
+      assetType: 'CASH',
+      quantity: 1,
+      avgPrice: 0,
+      currency: 'EUR',
+      interestRateOverride: 0.03, // 3%
+      dcaHistory: [
+        { id: 't1', startDate: '2022-01-01', endDate: '2022-12-31', amount: 500, label: 'Palier 1 : 500€/m' }, // 12 * 500 = 6000€
+        { id: 't2', startDate: '2023-01-01', endDate: '2023-12-31', amount: 300, label: 'Palier 2 : 300€/m' }, // 12 * 300 = 3600€
+        { id: 't3', startDate: '2024-01-01', endDate: '2024-12-31', amount: 200, label: 'Palier 3 : 200€/m' }, // 12 * 200 = 2400€
+      ],
+    };
+
+    // Evaluated on 2025-01-01 (3 full years)
+    const result = computeSavingsPositionInterest(multiTierPos, new Date('2025-01-01'));
+
+    // Principal deposited: 6000 + 3600 + 2400 = 12 000 €
+    expect(result.principalDeposited).toBe(12000);
+    expect(result.quinzainesCount).toBe(72); // 3 years * 24 quinzaines = 72
+    expect(result.interestEarnedToDate).toBeGreaterThan(600);
+    expect(result.currentBalance).toBeGreaterThan(12600);
+  });
 });

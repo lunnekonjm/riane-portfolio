@@ -17,6 +17,17 @@ export interface SavingsDeposit {
   category?: 'PRIME' | 'ABONDEMENT' | 'LIBRE' | 'INITIAL';
 }
 
+export interface DCATranche {
+  id: string;
+  startDate: string; // Format: YYYY-MM-DD
+  endDate?: string;  // Format: YYYY-MM-DD (optional, if omitted = ongoing / active tranche)
+  amount: number;    // Amount per deposit (e.g. 500 €)
+  frequency?: 'monthly' | 'quarterly' | 'semestrial' | 'annual';
+  depositDay?: number;
+  depositMonth?: number;
+  label?: string;    // e.g. "Phase 1 : 500€/m", "Changement de budget : 300€/m"
+}
+
 export interface Position {
   id: string;
   ticker: string;
@@ -34,7 +45,7 @@ export interface Position {
   targetWeight?: number;
   /** Maximum allowed weight (0-1) */
   maxWeight?: number;
-  /** Monthly DCA amount in EUR */
+  /** Monthly DCA amount in EUR (current / active) */
   monthlyDCA?: number;
   /** DCA Frequency ('monthly' | 'quarterly' | 'semestrial' | 'annual') */
   dcaFrequency?: 'monthly' | 'quarterly' | 'semestrial' | 'annual';
@@ -48,6 +59,8 @@ export interface Position {
   themes: string[];
   /** Specific DCA start date for this position (YYYY-MM-DD) */
   dcaStartDate?: string;
+  /** Multi-tier / historical DCA tranches over time (e.g. 500€/m then 300€/m then 200€/m) */
+  dcaHistory?: DCATranche[];
   /** Opening or initial deposit date for savings positions */
   initialDepositDate?: string;
   /** History of ad-hoc / one-off deposits, bonuses, profit-sharing, or PEE contributions */
@@ -59,7 +72,7 @@ export interface Position {
   /** Regulated legal deposit ceiling (e.g. 22950 for Livret A, 12000 for LDDS) */
   customCap?: number;
   /** Last update timestamp */
-  updatedAt: number;
+  updatedAt?: number;
 }
 
 export interface TransactionRecord {

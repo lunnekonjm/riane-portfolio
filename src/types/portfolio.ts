@@ -9,6 +9,14 @@ export type AssetType = 'ETF' | 'STOCK' | 'FUND' | 'BOND' | 'CRYPTO' | 'CASH' | 
 
 export type Currency = 'EUR' | 'USD' | 'GBP' | 'CHF';
 
+export interface SavingsDeposit {
+  id: string;
+  date: string; // Format: YYYY-MM-DD
+  amount: number;
+  label?: string;
+  category?: 'PRIME' | 'ABONDEMENT' | 'LIBRE' | 'INITIAL';
+}
+
 export interface Position {
   id: string;
   ticker: string;
@@ -40,6 +48,10 @@ export interface Position {
   themes: string[];
   /** Specific DCA start date for this position (YYYY-MM-DD) */
   dcaStartDate?: string;
+  /** Opening or initial deposit date for savings positions */
+  initialDepositDate?: string;
+  /** History of ad-hoc / one-off deposits, bonuses, profit-sharing, or PEE contributions */
+  depositsHistory?: SavingsDeposit[];
   /** Bank or institution holding this wealth/savings account (e.g. BoursoBank, Natixis, Linxea) */
   institutionName?: string;
   /** Annual interest rate / projected return percentage (0.03 = 3.00%) */

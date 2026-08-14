@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useMemo } from 'react';
-import type { Position } from '@/types/portfolio';
+import type { Position, SavingsDeposit } from '@/types/portfolio';
 import { THEMES } from '@/data/themes';
 import { simulatePositionDCA, type DCASimulationResult } from '@/engines/dcaSimulation';
 import { searchAssets, ASSET_REGISTRY, type RegisteredAsset } from '@/data/assetRegistry';
@@ -216,6 +216,40 @@ export default function PositionEditor({ position, initialEnvelope, onSave, onCl
     }
     return new Date().toISOString().split('T')[0];
   });
+
+  // Opening / Initial Deposit Date for savings positions
+  const [initialDepositDate, setInitialDepositDate] = useState<string>(() => {
+    if (position?.initialDepositDate) return position.initialDepositDate;
+    if (position?.dcaStartDate && (!position.monthlyDCA || position.monthlyDCA <= 0)) return position.dcaStartDate;
+    return '2023-01-01';
+  });
+
+  // Historical Ad-Hoc Free Deposits, PEE Bonuses & Profit-Sharing
+  const [depositsHistory, setDepositsHistory] = useState<SavingsDeposit[]>(() => {
+    return position?.depositsHistory ? [...position.depositsHistory] : [];
+  });
+
+  const handleAddDeposit = (category: SavingsDeposit['category'] = 'PRIME') => {
+    const todayStr = new Date().toISOString().split('T')[0];
+    const defaultLabel = category === 'PRIME' ? 'Prime Intéressement' : category === 'ABONDEMENT' ? 'Abondement Employeur' : 'Versement Libre';
+    const newDep: SavingsDeposit = {
+      id: `dep-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      date: todayStr,
+      amount: 1000,
+      label: defaultLabel,
+      category,
+    };
+    setDepositsHistory((prev) => [...prev, newDep]);
+  };
+
+  const handleUpdateDeposit = (id: string, updates: Partial<SavingsDeposit>) => {
+    setDepositsHistory((prev) => prev.map((d) => d.id === id ? { ...d, ...updates } : d));
+  };
+
+  const handleDeleteDeposit = (id: string) => {
+    setDepositsHistory((prev) => prev.filter((d) => d.id !== id));
+  };
+
   const [isCalculatingDCA, setIsCalculatingDCA] = useState<boolean>(false);
   const [dcaResult, setDcaResult] = useState<DCASimulationResult | null>(null);
   const [isFutureDca, setIsFutureDca] = useState<boolean>(false);
@@ -560,16 +594,19 @@ function autoGenerateThemes(
 
   const liveSavingsInterest = useMemo(() => {
     if (!isSavingsEnvelope) return null;
+    const hasDCA = Boolean((form.monthlyDCA && form.monthlyDCA > 0) || (form.annualBudget && form.annualBudget > 0));
     const tempPos: Position = {
       ...form,
       quantity: 1,
       avgPrice: form.avgPrice || 0,
       currentPrice: form.avgPrice || 0,
       monthlyDCA: form.monthlyDCA,
-      dcaStartDate: dcaStartDate,
+      dcaStartDate: hasDCA ? dcaStartDate : undefined,
+      initialDepositDate: initialDepositDate,
+      depositsHistory: depositsHistory,
     };
     return computeSavingsPositionInterest(tempPos);
-  }, [isSavingsEnvelope, form, dcaStartDate]);
+  }, [isSavingsEnvelope, form, dcaStartDate, initialDepositDate, depositsHistory]);
 
   const availableAssetTypeOptions = ASSET_TYPE_OPTIONS.filter((opt) => {
     if (isSavingsEnvelope) {
@@ -650,6 +687,8 @@ function autoGenerateThemes(
       finalAnnualBudget = undefined;
     }
 
+    const hasActiveDCA = Boolean((finalMonthlyDCA && finalMonthlyDCA > 0) || (finalAnnualBudget && finalAnnualBudget > 0));
+
     onSave({
       ...form,
       ticker: finalTicker,
@@ -659,7 +698,9 @@ function autoGenerateThemes(
       currentPrice: finalCurrentPrice,
       monthlyDCA: finalMonthlyDCA,
       annualBudget: finalAnnualBudget,
-      dcaStartDate,
+      dcaStartDate: hasActiveDCA ? dcaStartDate : undefined,
+      initialDepositDate: isSavingsEnvelope ? initialDepositDate : undefined,
+      depositsHistory: isSavingsEnvelope ? depositsHistory : undefined,
       updatedAt: Date.now(),
     });
   };
@@ -712,13 +753,14 @@ function autoGenerateThemes(
               <div style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border-accent)', borderRadius: 'var(--radius-md)', padding: 14, marginBottom: 16 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
                   <span style={{ fontSize: 16 }}>🛡️</span>
-                  <strong style={{ fontSize: 13, color: 'var(--accent-cyan)' }}>Épargne &amp; Enveloppe Sécurisée</strong>
+                  <strong style={{ fontSize: 13, color: 'var(--accent-cyan)' }}>Épargne &amp; Patrimoine Hors-Bourse (Livrets, PEE, Assurance-Vie, SCPI)</strong>
                 </div>
                 <p style={{ fontSize: 12, color: 'var(--text-secondary)', margin: 0 }}>
-                  Indiquez le nom de votre compte (ex: Livret A Bourso, Fonds Euro Linxea, SCPI Primopierre) et le solde total épargné. Aucun cours boursier n&apos;est requis.
+                  Indiquez le nom de votre compte (ex: Livret A Bourso, PEE Entreprise, Fonds Euro Linxea, SCPI Primopierre) et gérez vos apports initiaux, versements libres (primes PEE/intéressement) et versements réguliers (DCA).
                 </p>
               </div>
 
+              {/* Compte & Organisme */}
               <div className="form-row" style={{ marginBottom: 16 }}>
                 <div className="form-group" style={{ flex: 2 }}>
                   <label className="form-label">Nom du compte / de l&apos;actif *</label>
@@ -726,7 +768,7 @@ function autoGenerateThemes(
                     className="input"
                     value={form.name}
                     onChange={(e) => handleChange('name', e.target.value)}
-                    placeholder="ex: Livret A, LDDS, Fonds Euro, SCPI..."
+                    placeholder="ex: Livret A, PEE Amundi, Fonds Euro, SCPI..."
                     required
                     id="input-name"
                   />
@@ -741,8 +783,12 @@ function autoGenerateThemes(
                     id="input-institution"
                   />
                 </div>
+              </div>
+
+              {/* Capital initial & Date d'ouverture & Taux */}
+              <div className="form-row" style={{ marginBottom: 16 }}>
                 <div className="form-group" style={{ flex: 1.2 }}>
-                  <label className="form-label">Capital initial / de départ ({form.currency === 'USD' ? '$' : '€'})</label>
+                  <label className="form-label">Capital initial / Apport de départ ({form.currency === 'USD' ? '$' : '€'})</label>
                   <input
                     className="input mono"
                     type="number"
@@ -757,11 +803,15 @@ function autoGenerateThemes(
                     id="input-solde"
                   />
                 </div>
-              </div>
-
-              <div className="form-row" style={{ marginBottom: 16 }}>
+                <div className="form-group" style={{ flex: 1.2, minWidth: 155 }}>
+                  <label className="form-label">Date du capital initial / Ouverture</label>
+                  <CustomDatePicker
+                    value={initialDepositDate}
+                    onChange={setInitialDepositDate}
+                  />
+                </div>
                 <div className="form-group" style={{ flex: 1 }}>
-                  <label className="form-label">Taux d&apos;intérêt / Rendement annuel (%)</label>
+                  <label className="form-label">Rendement annuel / Taux (%)</label>
                   <input
                     className="input mono"
                     type="number"
@@ -779,7 +829,7 @@ function autoGenerateThemes(
                 </div>
               </div>
 
-              {/* Stratégie de versement régulier (Identique au module Actions/Bourse) */}
+              {/* 📥 SECTION : Versements Libres, Primes PEE & Abondements Exceptionnels */}
               <div style={{
                 background: 'var(--bg-tertiary)',
                 border: '1px solid var(--border-accent)',
@@ -787,11 +837,186 @@ function autoGenerateThemes(
                 padding: 16,
                 marginBottom: 20
               }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                  <span style={{ fontWeight: 600, fontSize: 14, color: 'var(--accent-emerald)' }}>
-                    🔄 Stratégie de versement régulier
-                  </span>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginBottom: 8 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span style={{ fontSize: 16 }}>📥</span>
+                    <span style={{ fontWeight: 700, fontSize: 14, color: 'var(--accent-cyan)' }}>
+                      Versements libres &amp; Primes exceptionnelles (PEE, Intéressement, Abondement)
+                    </span>
+                  </div>
+                  {depositsHistory.length > 0 && (
+                    <span style={{
+                      fontSize: 11,
+                      color: 'var(--accent-cyan)',
+                      background: 'rgba(6, 182, 212, 0.12)',
+                      padding: '2px 8px',
+                      borderRadius: 12,
+                      fontWeight: 700,
+                      border: '1px solid rgba(6, 182, 212, 0.3)',
+                    }}>
+                      {depositsHistory.length} versement{depositsHistory.length > 1 ? 's' : ''} (Total : {depositsHistory.reduce((s, d) => s + (d.amount || 0), 0).toLocaleString('fr-FR')} €)
+                    </span>
+                  )}
                 </div>
+
+                <p style={{ fontSize: 12, color: 'var(--text-secondary)', margin: '0 0 12px 0' }}>
+                  Ajoutez vos primes annuelles, abondements employeur ou versements ponctuels. Chaque versement génère automatiquement ses propres intérêts historiques à partir de sa date exacte.
+                </p>
+
+                {/* Quick Add Preset Buttons */}
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 14 }}>
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    style={{ fontSize: 11, padding: '4px 10px', borderRadius: 8 }}
+                    onClick={() => handleAddDeposit('PRIME')}
+                  >
+                    ➕ Prime Intéressement
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    style={{ fontSize: 11, padding: '4px 10px', borderRadius: 8 }}
+                    onClick={() => {
+                      const todayStr = new Date().toISOString().split('T')[0];
+                      setDepositsHistory((prev) => [
+                        ...prev,
+                        {
+                          id: `dep-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+                          date: todayStr,
+                          amount: 1500,
+                          label: 'Prime Participation',
+                          category: 'PRIME',
+                        }
+                      ]);
+                    }}
+                  >
+                    ➕ Prime Participation
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    style={{ fontSize: 11, padding: '4px 10px', borderRadius: 8 }}
+                    onClick={() => handleAddDeposit('ABONDEMENT')}
+                  >
+                    ➕ Abondement Employeur
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    style={{ fontSize: 11, padding: '4px 10px', borderRadius: 8 }}
+                    onClick={() => handleAddDeposit('LIBRE')}
+                  >
+                    ➕ Versement Libre
+                  </button>
+                </div>
+
+                {/* Deposit List */}
+                {depositsHistory.length === 0 ? (
+                  <div style={{
+                    padding: '12px 14px',
+                    borderRadius: 8,
+                    background: 'rgba(255, 255, 255, 0.02)',
+                    border: '1px dashed var(--border-subtle)',
+                    fontSize: 12,
+                    color: 'var(--text-tertiary)',
+                    textAlign: 'center',
+                  }}>
+                    Aucun versement ponctuel enregistré. Cliquez sur les boutons ci-dessus pour ajouter des primes ou apports libres.
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    {depositsHistory.map((dep, idx) => (
+                      <div
+                        key={dep.id}
+                        style={{
+                          display: 'grid',
+                          gridTemplateColumns: 'minmax(140px, 1.2fr) minmax(130px, 1.5fr) minmax(100px, 1fr) 36px',
+                          gap: 8,
+                          alignItems: 'center',
+                          padding: '8px 10px',
+                          background: 'var(--bg-secondary)',
+                          border: '1px solid var(--border-subtle)',
+                          borderRadius: 8,
+                        }}
+                      >
+                        {/* Date Picker */}
+                        <div>
+                          <label style={{ display: 'block', fontSize: 10, color: 'var(--text-tertiary)', marginBottom: 2 }}>
+                            Date versement #{idx + 1}
+                          </label>
+                          <CustomDatePicker
+                            value={dep.date}
+                            onChange={(newDate) => handleUpdateDeposit(dep.id, { date: newDate })}
+                          />
+                        </div>
+
+                        {/* Libellé */}
+                        <div>
+                          <label style={{ display: 'block', fontSize: 10, color: 'var(--text-tertiary)', marginBottom: 2 }}>
+                            Libellé / Nature
+                          </label>
+                          <input
+                            className="input"
+                            style={{ fontSize: 12, padding: '6px 8px' }}
+                            value={dep.label || ''}
+                            onChange={(e) => handleUpdateDeposit(dep.id, { label: e.target.value })}
+                            placeholder="ex: Prime 2024..."
+                          />
+                        </div>
+
+                        {/* Montant */}
+                        <div>
+                          <label style={{ display: 'block', fontSize: 10, color: 'var(--text-tertiary)', marginBottom: 2 }}>
+                            Montant ({form.currency === 'USD' ? '$' : '€'})
+                          </label>
+                          <input
+                            className="input mono"
+                            type="number"
+                            step="50"
+                            min="0"
+                            style={{ fontSize: 13, padding: '6px 8px', fontWeight: 600 }}
+                            value={dep.amount || ''}
+                            onChange={(e) => handleUpdateDeposit(dep.id, { amount: parseFloat(e.target.value) || 0 })}
+                            placeholder="0"
+                          />
+                        </div>
+
+                        {/* Delete Button */}
+                        <div style={{ display: 'flex', justifyContent: 'center', paddingTop: 14 }}>
+                          <button
+                            type="button"
+                            className="btn btn-ghost"
+                            style={{ padding: '6px', color: 'var(--accent-rose)', minWidth: 'auto', fontSize: 14 }}
+                            onClick={() => handleDeleteDeposit(dep.id)}
+                            title="Supprimer ce versement"
+                          >
+                            🗑️
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* 🔄 SECTION : Stratégie de versement régulier (DCA optionnel) */}
+              <div style={{
+                background: 'var(--bg-tertiary)',
+                border: '1px solid var(--border-accent)',
+                borderRadius: 'var(--radius-md)',
+                padding: 16,
+                marginBottom: 20
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                  <span style={{ fontWeight: 600, fontSize: 14, color: 'var(--accent-emerald)' }}>
+                    🔄 Stratégie de versement régulier (DCA Récurrent)
+                  </span>
+                  <span style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>Optionnel</span>
+                </div>
+                <p style={{ fontSize: 12, color: 'var(--text-secondary)', margin: '0 0 12px 0' }}>
+                  À renseigner uniquement si vous effectuez un virement automatique programmé (ex: 200€/mois). Laissez le montant vide ou à 0 si vous n&apos;avez pas de DCA récurrent.
+                </p>
                 
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 12 }}>
                   <div className="form-group" style={{ minWidth: 115 }}>
@@ -851,7 +1076,7 @@ function autoGenerateThemes(
                       style={{ fontSize: 13, padding: '8px 10px' }}
                       value={form.monthlyDCA ?? ''}
                       onChange={(e) => handleOptionalNumber('monthlyDCA', e.target.value)}
-                      placeholder="ex: 150"
+                      placeholder="0 (laisser vide si pas de DCA)"
                       id="input-savings-monthly-dca"
                     />
                   </div>
@@ -883,7 +1108,7 @@ function autoGenerateThemes(
                       </strong>
                     </div>
                     <span className="badge-projected">
-                      {liveSavingsInterest.quinzainesCount > 0 ? `${liveSavingsInterest.quinzainesCount} quinzaines écoulées` : 'Calcul immédiat'}
+                      {liveSavingsInterest.quinzainesCount > 0 ? `${liveSavingsInterest.quinzainesCount} quinzaines calculées` : 'Calcul dynamique'}
                     </span>
                   </div>
 

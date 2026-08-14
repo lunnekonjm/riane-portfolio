@@ -103,13 +103,37 @@ export default function SavingsPortfolioTable({
           <tbody>
             {calculations.map(({ position, interest }) => {
               const envClass = position.envelope.toLowerCase();
+              const hasActiveDCA = Boolean((position.monthlyDCA && position.monthlyDCA > 0) || (position.annualBudget && position.annualBudget > 0));
+              const depositsCount = position.depositsHistory?.length || 0;
+              const totalAdhocDeposits = position.depositsHistory?.reduce((sum, d) => sum + (d.amount || 0), 0) || 0;
+
               return (
                 <tr key={position.id} style={{ borderBottom: '1px solid var(--border-subtle)', transition: 'background 0.15s' }}>
                   <td style={{ padding: '12px' }}>
                     <strong style={{ color: 'var(--text-primary)', display: 'block', fontSize: 14 }}>{position.name}</strong>
-                    {position.dcaStartDate && (
-                      <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Début DCA : {position.dcaStartDate}</span>
-                    )}
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 3 }}>
+                      {hasActiveDCA && position.dcaStartDate && (
+                        <span style={{ fontSize: 11, color: 'var(--text-secondary)', display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+                          <span>🔄</span> DCA depuis le {position.dcaStartDate}
+                        </span>
+                      )}
+                      {depositsCount > 0 && (
+                        <span style={{
+                          fontSize: 11,
+                          color: 'var(--accent-cyan)',
+                          background: 'rgba(6, 182, 212, 0.1)',
+                          border: '1px solid rgba(6, 182, 212, 0.25)',
+                          padding: '1px 6px',
+                          borderRadius: 4,
+                          fontWeight: 600,
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 3,
+                        }}>
+                          📥 {depositsCount} versement{depositsCount > 1 ? 's' : ''} libre{depositsCount > 1 ? 's' : ''}
+                        </span>
+                      )}
+                    </div>
                   </td>
                   <td style={{ padding: '12px', color: 'var(--text-secondary)', fontSize: 13 }}>
                     {position.institutionName || '—'}
@@ -132,8 +156,14 @@ export default function SavingsPortfolioTable({
                     </span>
                   </td>
                   <td style={{ padding: '12px', textAlign: 'right' }} className="mono">
-                    {position.monthlyDCA && position.monthlyDCA > 0 ? (
-                      <span style={{ color: 'var(--accent-amber)', fontWeight: 700, fontSize: 14 }}>+{position.monthlyDCA} €/mois</span>
+                    {hasActiveDCA ? (
+                      <span style={{ color: 'var(--accent-amber)', fontWeight: 700, fontSize: 14 }}>
+                        +{position.monthlyDCA || (position.annualBudget ? Math.round(position.annualBudget / 12) : 0)} €/mois
+                      </span>
+                    ) : depositsCount > 0 ? (
+                      <span style={{ color: 'var(--accent-cyan)', fontSize: 12, fontWeight: 600 }}>
+                        Libres ({totalAdhocDeposits.toLocaleString('fr-FR')} €)
+                      </span>
                     ) : (
                       <span style={{ color: 'var(--text-muted)' }}>—</span>
                     )}

@@ -1853,15 +1853,22 @@ export default function HomePage() {
                               </div>
                             </td>
                             <td className="mono" style={{ fontSize: 12 }}>
-                              {pos.dcaFrequency === 'annual' || (!pos.monthlyDCA && pos.annualBudget)
-                                ? `${(pos.annualBudget || (pos.monthlyDCA ? pos.monthlyDCA * 12 : 0)).toLocaleString('fr-FR')}€/an`
-                                : pos.dcaFrequency === 'quarterly'
-                                ? `${(pos.monthlyDCA ? pos.monthlyDCA * 3 : 0).toLocaleString('fr-FR')}€/trim`
-                                : pos.dcaFrequency === 'semestrial'
-                                ? `${(pos.monthlyDCA ? pos.monthlyDCA * 6 : 0).toLocaleString('fr-FR')}€/sem`
-                                : pos.monthlyDCA
-                                ? `${pos.monthlyDCA.toLocaleString('fr-FR')}€`
-                                : '—'}
+                              <div>
+                                {pos.dcaFrequency === 'annual' || (!pos.monthlyDCA && pos.annualBudget)
+                                  ? `${(pos.annualBudget || (pos.monthlyDCA ? pos.monthlyDCA * 12 : 0)).toLocaleString('fr-FR')}€/an`
+                                  : pos.dcaFrequency === 'quarterly'
+                                  ? `${(pos.monthlyDCA ? pos.monthlyDCA * 3 : 0).toLocaleString('fr-FR')}€/trim`
+                                  : pos.dcaFrequency === 'semestrial'
+                                  ? `${(pos.monthlyDCA ? pos.monthlyDCA * 6 : 0).toLocaleString('fr-FR')}€/sem`
+                                  : pos.monthlyDCA
+                                  ? `${pos.monthlyDCA.toLocaleString('fr-FR')}€/mois`
+                                  : '—'}
+                              </div>
+                              {Boolean((pos.monthlyDCA && pos.monthlyDCA > 0) || (pos.annualBudget && pos.annualBudget > 0)) && (pos.dcaStartDate || dcaGlobalStartDate) && (
+                                <span style={{ display: 'block', fontSize: 10, color: 'var(--text-secondary)', marginTop: 2, fontFamily: 'var(--font-sans)', whiteSpace: 'nowrap' }}>
+                                  depuis {pos.dcaStartDate || dcaGlobalStartDate}
+                                </span>
+                              )}
                             </td>
                             <td onClick={(e) => e.stopPropagation()}>
                               <div className="row-actions">

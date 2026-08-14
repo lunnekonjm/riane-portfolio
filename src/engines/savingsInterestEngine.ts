@@ -41,6 +41,11 @@ export interface SavingsInterestResult {
  * Deposits made on day 1-15 accrue interest starting day 16.
  * Deposits made on day 16-31 accrue interest starting 1st of next month.
  */
+/**
+ * Calculates real bi-weekly compound interest according to the French "Règle des Quinzaines"
+ * or daily compounding for corporate savings (PEE), PER, and Assurance-Vie.
+ * Accurately supports ad-hoc deposits, employer matching (abondement), and annual bonuses (intéressement/participation).
+ */
 export function computeSavingsPositionInterest(
   position: Position,
   referenceDate: Date = new Date()
@@ -59,23 +64,55 @@ export function computeSavingsPositionInterest(
   const legalCap = position.customCap !== undefined ? position.customCap : metadata.legalCap;
 
   const initialAmount = position.avgPrice || 0;
-  const monthlyDCA = position.monthlyDCA || 0;
+  const hasRecurringDCA = Boolean((position.monthlyDCA && position.monthlyDCA > 0) || (position.annualBudget && position.annualBudget > 0));
+  const monthlyDCA = position.monthlyDCA || (position.annualBudget ? position.annualBudget / 12 : 0);
 
-  let startDate = new Date();
-  if (position.dcaStartDate && typeof position.dcaStartDate === 'string') {
-    const parts = position.dcaStartDate.trim().split('-');
+  // Helper to parse YYYY-MM-DD
+  const parseDateStr = (str?: string): Date | null => {
+    if (!str || typeof str !== 'string') return null;
+    const parts = str.trim().split('-');
     if (parts.length >= 2) {
       const y = parseInt(parts[0], 10);
       const m = parseInt(parts[1], 10) - 1;
       const d = parts[2] ? parseInt(parts[2], 10) : 1;
       if (!isNaN(y) && !isNaN(m) && !isNaN(d)) {
-        startDate = new Date(y, m, d);
+        return new Date(y, m, d);
       }
+    }
+    return null;
+  };
+
+  const initialDate = parseDateStr(position.initialDepositDate) || (initialAmount > 0 ? parseDateStr(position.dcaStartDate) : null);
+  const dcaStart = hasRecurringDCA ? parseDateStr(position.dcaStartDate) : null;
+
+  // Process and sort historical ad-hoc deposits
+  const validDeposits = (position.depositsHistory || [])
+    .filter((d) => d && typeof d.amount === 'number' && d.amount > 0 && d.date)
+    .map((d) => {
+      const parsed = parseDateStr(d.date) || new Date();
+      return {
+        ...d,
+        parsedDate: parsed,
+      };
+    })
+    .sort((a, b) => a.parsedDate.getTime() - b.parsedDate.getTime());
+
+  // Find the global start date of the timeline
+  let earliestDate: Date | null = initialDate;
+  if (dcaStart && (!earliestDate || dcaStart < earliestDate)) {
+    earliestDate = dcaStart;
+  }
+  if (validDeposits.length > 0) {
+    const firstDepositDate = validDeposits[0].parsedDate;
+    if (!earliestDate || firstDepositDate < earliestDate) {
+      earliestDate = firstDepositDate;
     }
   }
 
-  // If start date is in the future, return base balance
-  if (startDate > referenceDate) {
+  const startDate = earliestDate || new Date();
+
+  // If start date is in the future, return base initial balance
+  if (startDate > referenceDate && (!initialDate || initialDate > referenceDate)) {
     return {
       currentBalance: initialAmount,
       principalDeposited: initialAmount,
@@ -92,19 +129,58 @@ export function computeSavingsPositionInterest(
 
   const isQuinzaineRule = ['LIVRET', 'LEP'].includes(metaKey);
 
-  // Simulate bi-weekly quinzaines or daily interest from startDate to referenceDate
-  let currentBalance = initialAmount;
-  let principalDeposited = initialAmount;
+  let currentBalance = 0;
+  let principalDeposited = 0;
+
+  // If initial amount exists and its date is <= referenceDate, apply it at initial date
+  if (initialAmount > 0) {
+    if (!initialDate || initialDate <= referenceDate) {
+      currentBalance += initialAmount;
+      principalDeposited += initialAmount;
+    }
+  }
+
   let accumulatedInterestYear = 0;
   let totalInterestEarned = 0;
   let quinzainesCount = 0;
   let daysCount = 0;
 
   if (isQuinzaineRule) {
-    // Exact French Banking Regulation: 24 calendar quinzaines per year (1st and 16th of each month)
+    // Map each ad-hoc deposit to its quinzaine when interest begins accruing:
+    // - Day 1 to 15: Interest starts 16th of same month (quinzaine 2 of month M)
+    // - Day 16 to 31: Interest starts 1st of next month (quinzaine 1 of month M+1)
+    const depositsWithQuinzaine = validDeposits.map((dep) => {
+      const depY = dep.parsedDate.getFullYear();
+      const depM = dep.parsedDate.getMonth();
+      const depD = dep.parsedDate.getDate();
+
+      let targetY = depY;
+      let targetM = depM;
+      let targetQ = 1;
+
+      if (depD <= 15) {
+        targetQ = 2;
+      } else {
+        targetQ = 1;
+        targetM += 1;
+        if (targetM > 11) {
+          targetM = 0;
+          targetY += 1;
+        }
+      }
+
+      return {
+        ...dep,
+        targetY,
+        targetM,
+        targetQ,
+        applied: false,
+      };
+    });
+
     let year = startDate.getFullYear();
     let month = startDate.getMonth(); // 0-11
-    let quinzaineInMonth = startDate.getDate() <= 15 ? 1 : 2; // 1 (1st-15th) or 2 (16th-end)
+    let quinzaineInMonth = startDate.getDate() <= 15 ? 1 : 2;
 
     const targetYear = referenceDate.getFullYear();
     const targetMonth = referenceDate.getMonth();
@@ -127,8 +203,28 @@ export function computeSavingsPositionInterest(
       (year === targetYear && month < targetMonth) ||
       (year === targetYear && month === targetMonth && quinzaineInMonth < targetQuinzaine)
     ) {
-      // Apply DCA deposit according to frequency and target quinzaine
-      if (quinzaineInMonth === depositQuinzaine && isDepositMonth(month) && monthlyDCA > 0) {
+      // 1. Apply any ad-hoc deposits scheduled for this quinzaine
+      for (const dep of depositsWithQuinzaine) {
+        if (!dep.applied && dep.targetY === year && dep.targetM === month && dep.targetQ === quinzaineInMonth) {
+          dep.applied = true;
+          if (!legalCap || principalDeposited < legalCap) {
+            const allowed = legalCap ? Math.min(dep.amount, legalCap - principalDeposited) : dep.amount;
+            if (allowed > 0) {
+              currentBalance += allowed;
+              principalDeposited += allowed;
+            }
+          }
+        }
+      }
+
+      // 2. Apply recurring DCA deposit if within DCA active range
+      const isAfterDcaStart = !dcaStart || (
+        year > dcaStart.getFullYear() ||
+        (year === dcaStart.getFullYear() && month > dcaStart.getMonth()) ||
+        (year === dcaStart.getFullYear() && month === dcaStart.getMonth() && quinzaineInMonth >= (dcaStart.getDate() <= 15 ? 1 : 2))
+      );
+
+      if (hasRecurringDCA && isAfterDcaStart && quinzaineInMonth === depositQuinzaine && isDepositMonth(month) && monthlyDCA > 0) {
         if (!legalCap || principalDeposited < legalCap) {
           const allowedDeposit = legalCap ? Math.min(monthlyDCA, legalCap - principalDeposited) : monthlyDCA;
           if (allowedDeposit > 0) {
@@ -138,12 +234,12 @@ export function computeSavingsPositionInterest(
         }
       }
 
-      // Accrue 1 quinzaine interest
+      // 3. Accrue 1 quinzaine interest on currentBalance
       const quinzaineRate = annualRate / 24;
       accumulatedInterestYear += currentBalance * quinzaineRate;
       quinzainesCount += 1;
 
-      // Advance to next quinzaine
+      // 4. Advance to next quinzaine
       if (quinzaineInMonth === 1) {
         quinzaineInMonth = 2;
       } else {
@@ -152,7 +248,7 @@ export function computeSavingsPositionInterest(
         if (month > 11) {
           month = 0;
           year += 1;
-          // Capitalize interest at year-end
+          // Capitalize interest on December 31st
           currentBalance += accumulatedInterestYear;
           totalInterestEarned += accumulatedInterestYear;
           accumulatedInterestYear = 0;
@@ -160,7 +256,7 @@ export function computeSavingsPositionInterest(
       }
     }
   } else {
-    // Daily compounding for other vehicles (e.g. Assurance-Vie, SCPI)
+    // Daily compounding for other vehicles (PEE, Assurance-Vie, PER, SCPI)
     const depositDay = position.dcaDepositDay || 5;
     const isDepositMonthDaily = (m: number) => {
       if (!position.dcaFrequency || position.dcaFrequency === 'monthly') return true;
@@ -173,6 +269,11 @@ export function computeSavingsPositionInterest(
       return true;
     };
 
+    const depositsWithDaily = validDeposits.map((dep) => ({
+      ...dep,
+      applied: false,
+    }));
+
     const cursor = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
     while (cursor <= referenceDate) {
       if (cursor.getMonth() === 0 && cursor.getDate() === 1 && accumulatedInterestYear > 0) {
@@ -181,11 +282,28 @@ export function computeSavingsPositionInterest(
         accumulatedInterestYear = 0;
       }
 
-      const dailyRate = annualRate / 365;
-      accumulatedInterestYear += currentBalance * dailyRate;
-      daysCount += 1;
+      // Apply ad-hoc deposits on their exact calendar date
+      for (const dep of depositsWithDaily) {
+        if (
+          !dep.applied &&
+          dep.parsedDate.getFullYear() === cursor.getFullYear() &&
+          dep.parsedDate.getMonth() === cursor.getMonth() &&
+          dep.parsedDate.getDate() === cursor.getDate()
+        ) {
+          dep.applied = true;
+          if (!legalCap || principalDeposited < legalCap) {
+            const allowed = legalCap ? Math.min(dep.amount, legalCap - principalDeposited) : dep.amount;
+            if (allowed > 0) {
+              currentBalance += allowed;
+              principalDeposited += allowed;
+            }
+          }
+        }
+      }
 
-      if (cursor.getDate() === depositDay && isDepositMonthDaily(cursor.getMonth()) && monthlyDCA > 0) {
+      // Apply recurring DCA
+      const isAfterDcaStart = !dcaStart || cursor >= dcaStart;
+      if (hasRecurringDCA && isAfterDcaStart && cursor.getDate() === depositDay && isDepositMonthDaily(cursor.getMonth()) && monthlyDCA > 0) {
         if (!legalCap || principalDeposited < legalCap) {
           const allowedDeposit = legalCap ? Math.min(monthlyDCA, legalCap - principalDeposited) : monthlyDCA;
           if (allowedDeposit > 0) {
@@ -194,6 +312,10 @@ export function computeSavingsPositionInterest(
           }
         }
       }
+
+      const dailyRate = annualRate / 365;
+      accumulatedInterestYear += currentBalance * dailyRate;
+      daysCount += 1;
 
       cursor.setDate(cursor.getDate() + 1);
     }

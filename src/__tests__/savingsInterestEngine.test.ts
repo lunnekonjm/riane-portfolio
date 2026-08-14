@@ -96,4 +96,60 @@ describe('savingsInterestEngine', () => {
     expect(result.interestEarnedToDate).toBeGreaterThan(240); // ~251.82 €
     expect(result.currentBalance).toBeGreaterThan(6440); // ~6 451.82 €
   });
+
+  it('correctly calculates dynamic interest on ad-hoc free deposits and PEE bonuses without recurring DCA', () => {
+    const peePos: Position = {
+      id: 'pos-pee-bonuses',
+      ticker: 'PEE-AMUNDI',
+      name: 'PEE Entreprise',
+      envelope: 'PEE',
+      assetType: 'FUND',
+      quantity: 1,
+      avgPrice: 1000, // 1 000 € initial
+      initialDepositDate: '2023-01-01',
+      currency: 'EUR',
+      interestRateOverride: 0.05, // 5% projected return
+      monthlyDCA: 0, // No recurring monthly DCA
+      depositsHistory: [
+        { id: 'dep-1', date: '2023-05-15', amount: 2500, label: 'Prime Intéressement 2023', category: 'PRIME' },
+        { id: 'dep-2', date: '2024-05-20', amount: 3000, label: 'Prime Participation 2024', category: 'PRIME' },
+        { id: 'dep-3', date: '2024-06-01', amount: 1000, label: 'Abondement Employeur', category: 'ABONDEMENT' },
+      ],
+    };
+
+    const result = computeSavingsPositionInterest(peePos, new Date('2025-01-01'));
+
+    // Principal deposited: 1000 initial + 2500 + 3000 + 1000 = 7 500 €
+    expect(result.principalDeposited).toBe(7500);
+    // Interest earned should be strictly positive and compound from each deposit's specific date
+    expect(result.interestEarnedToDate).toBeGreaterThan(350);
+    expect(result.currentBalance).toBeGreaterThan(7850);
+  });
+
+  it('correctly applies French quinzaine rule to ad-hoc deposits on Livret A', () => {
+    const livretAdHoc: Position = {
+      id: 'pos-livret-adhoc',
+      ticker: 'LIVRET-A',
+      name: 'Livret A Adhoc',
+      envelope: 'LIVRET',
+      assetType: 'CASH',
+      quantity: 1,
+      avgPrice: 0,
+      currency: 'EUR',
+      interestRateOverride: 0.03, // 3%
+      depositsHistory: [
+        { id: 'd1', date: '2024-01-10', amount: 4000, label: 'Virement 1' }, // day 10 -> interest starts Jan 16 (Q2)
+        { id: 'd2', date: '2024-01-20', amount: 2000, label: 'Virement 2' }, // day 20 -> interest starts Feb 1 (Q1)
+      ],
+    };
+
+    // Evaluated at start of next year 2025-01-01 (when all 2024 quinzaines completed)
+    const result = computeSavingsPositionInterest(livretAdHoc, new Date('2025-01-01'));
+
+    expect(result.principalDeposited).toBe(6000);
+    // 4000 € earned for 23 quinzaines: 4000 * (0.03/24) * 23 = 115 €
+    // 2000 € earned for 22 quinzaines: 2000 * (0.03/24) * 22 = 55 €
+    // Total interest = 170 €
+    expect(result.interestEarnedToDate).toBeCloseTo(170, 0);
+  });
 });

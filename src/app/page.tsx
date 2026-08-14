@@ -27,6 +27,7 @@ import CustomDatePicker from '@/components/CustomDatePicker';
 import { getQuote } from '@/services/market-data/provider';
 import TransactionHistoryModal from '@/components/TransactionHistoryModal';
 import AssetBadge from '@/components/AssetBadge';
+import AssetLogo from '@/components/AssetLogo';
 import { AnalysisChatView } from '@/components/AnalysisChatView';
 import { getCleanAssetName } from '@/utils/assetMetadata';
 import SavingsPortfolioTable from '@/components/SavingsPortfolioTable';
@@ -1820,19 +1821,29 @@ export default function HomePage() {
                                     }}
                                     onClick={() => setEditingPosition(pos)}
                                   >
-                                    <td style={{ maxWidth: 180 }}>
-                                      <strong style={{ color: 'var(--text-primary)', display: 'block', fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={pos.name}>
-                                        {pos.name}
-                                      </strong>
-                                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2, flexWrap: 'wrap' }}>
-                                        <span className="mono" style={{ fontSize: 11, color: 'var(--accent-cyan)', fontWeight: 600 }}>
-                                          🏷️ {pos.ticker}
-                                        </span>
-                                        {!hasFilled && (
-                                          <span style={{ fontSize: 10, color: 'var(--accent-amber)' }}>
-                                            ✍️ Renseigner
-                                          </span>
-                                        )}
+                                    <td style={{ maxWidth: 210 }}>
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                        <AssetLogo
+                                          ticker={pos.ticker}
+                                          name={pos.name}
+                                          envelope={pos.envelope}
+                                          size={32}
+                                        />
+                                        <div style={{ minWidth: 0, flex: 1 }}>
+                                          <strong style={{ color: 'var(--text-primary)', display: 'block', fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={pos.name}>
+                                            {pos.name}
+                                          </strong>
+                                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2, flexWrap: 'wrap' }}>
+                                            <span className="mono" style={{ fontSize: 11, color: 'var(--accent-cyan)', fontWeight: 600 }}>
+                                              🏷️ {pos.ticker}
+                                            </span>
+                                            {!hasFilled && (
+                                              <span style={{ fontSize: 10, color: 'var(--accent-amber)' }}>
+                                                ✍️ Renseigner
+                                              </span>
+                                            )}
+                                          </div>
+                                        </div>
                                       </div>
                                     </td>
                                     <td>

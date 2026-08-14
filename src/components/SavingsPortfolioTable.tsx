@@ -3,6 +3,7 @@
 import { useState, useMemo } from 'react';
 import type { Position } from '@/types/portfolio';
 import { computeSavingsPositionInterest } from '@/engines/savingsInterestEngine';
+import AssetLogo from '@/components/AssetLogo';
 
 interface SavingsPortfolioTableProps {
   positions: Position[];
@@ -172,32 +173,42 @@ export default function SavingsPortfolioTable({
 
               return (
                 <tr key={position.id} style={{ cursor: 'pointer' }} onClick={() => onEditPosition(position)}>
-                  <td style={{ maxWidth: 180 }}>
-                    <strong style={{ color: 'var(--text-primary)', display: 'block', fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={position.name}>
-                      {position.name}
-                    </strong>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2, flexWrap: 'wrap' }}>
-                      {position.institutionName && (
-                        <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
-                          🏦 {position.institutionName}
-                        </span>
-                      )}
-                      {depositsCount > 0 && (
-                        <span style={{
-                          fontSize: 10,
-                          color: 'var(--accent-cyan)',
-                          background: 'rgba(6, 182, 212, 0.1)',
-                          border: '1px solid rgba(6, 182, 212, 0.25)',
-                          padding: '1px 5px',
-                          borderRadius: 4,
-                          fontWeight: 600,
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: 2,
-                        }}>
-                          📥 {depositsCount} vers.
-                        </span>
-                      )}
+                  <td style={{ maxWidth: 210 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <AssetLogo
+                        name={position.name}
+                        envelope={position.envelope}
+                        institutionName={position.institutionName}
+                        size={32}
+                      />
+                      <div style={{ minWidth: 0, flex: 1 }}>
+                        <strong style={{ color: 'var(--text-primary)', display: 'block', fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={position.name}>
+                          {position.name}
+                        </strong>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2, flexWrap: 'wrap' }}>
+                          {position.institutionName && (
+                            <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
+                              🏦 {position.institutionName}
+                            </span>
+                          )}
+                          {depositsCount > 0 && (
+                            <span style={{
+                              fontSize: 10,
+                              color: 'var(--accent-cyan)',
+                              background: 'rgba(6, 182, 212, 0.1)',
+                              border: '1px solid rgba(6, 182, 212, 0.25)',
+                              padding: '1px 5px',
+                              borderRadius: 4,
+                              fontWeight: 600,
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 2,
+                            }}>
+                              📥 {depositsCount} vers.
+                            </span>
+                          )}
+                        </div>
+                      </div>
                     </div>
                   </td>
                   <td>

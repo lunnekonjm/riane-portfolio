@@ -1821,7 +1821,7 @@ export default function HomePage() {
                                     }}
                                     onClick={() => setEditingPosition(pos)}
                                   >
-                                    <td style={{ maxWidth: 210 }}>
+                                    <td style={{ minWidth: 170, maxWidth: 260 }}>
                                       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                                         <AssetLogo
                                           ticker={pos.ticker}
@@ -1830,8 +1830,19 @@ export default function HomePage() {
                                           size={32}
                                         />
                                         <div style={{ minWidth: 0, flex: 1 }}>
-                                          <strong style={{ color: 'var(--text-primary)', display: 'block', fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={pos.name}>
-                                            {pos.name}
+                                          <strong
+                                            style={{
+                                              color: 'var(--text-primary)',
+                                              display: 'block',
+                                              fontSize: 13,
+                                              fontWeight: 700,
+                                              lineHeight: 1.3,
+                                              wordBreak: 'break-word',
+                                              whiteSpace: 'normal',
+                                            }}
+                                            title={pos.name}
+                                          >
+                                            {getCleanAssetName(pos.ticker, pos.name)}
                                           </strong>
                                           <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2, flexWrap: 'wrap' }}>
                                             <span className="mono" style={{ fontSize: 11, color: 'var(--accent-cyan)', fontWeight: 600 }}>

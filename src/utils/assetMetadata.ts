@@ -15,6 +15,36 @@ export interface AssetInfo {
 }
 
 export const ASSET_METADATA: Record<string, AssetInfo> = {
+  'CW8.PA': {
+    ticker: 'CW8.PA',
+    name: 'Amundi MSCI World',
+    fullName: 'Amundi MSCI World UCITS ETF EUR Acc',
+    isin: 'LU1681043599',
+    envelope: 'PEA',
+    currency: 'EUR',
+    inceptionYear: 2009,
+    description: 'ETF indiciel mondial éligible PEA répliquant la performance des grandes entreprises des pays développés.',
+  },
+  'DCAM.PA': {
+    ticker: 'DCAM.PA',
+    name: 'Amundi PEA Monde',
+    fullName: 'Amundi PEA Monde MSCI World UCITS ETF Acc',
+    isin: 'FR0010315770',
+    envelope: 'PEA',
+    currency: 'EUR',
+    inceptionYear: 2006,
+    description: 'ETF indiciel mondial éligible PEA répliquant l\'indice MSCI World.',
+  },
+  'WPEA.PA': {
+    ticker: 'WPEA.PA',
+    name: 'iShares MSCI World PEA',
+    fullName: 'iShares MSCI World Swap PEA UCITS ETF EUR Acc',
+    isin: 'IE0002XZSHO1',
+    envelope: 'PEA',
+    currency: 'EUR',
+    inceptionYear: 2024,
+    description: 'ETF mondial BlackRock iShares éligible PEA à frais réduits (0,25%).',
+  },
   'GPEA.PA': {
     ticker: 'GPEA.PA',
     name: 'Amundi PEA Global ACWI',
@@ -94,6 +124,26 @@ export const ASSET_METADATA: Record<string, AssetInfo> = {
     currency: 'USD',
     inceptionYear: 2022,
     description: 'Pionnier américain des systèmes de gestion et d\'automatisation d\'entrepôts pilotés par intelligence artificielle.',
+  },
+  'NVDA': {
+    ticker: 'NVDA',
+    name: 'Nvidia',
+    fullName: 'NVIDIA Corp (GPUs & Accélérateurs IA)',
+    isin: 'US67066G1040',
+    envelope: 'CTO',
+    currency: 'USD',
+    inceptionYear: 1999,
+    description: 'Leader mondial des semi-conducteurs graphiques et des processeurs pour l\'intelligence artificielle.',
+  },
+  'PLTR': {
+    ticker: 'PLTR',
+    name: 'Palantir',
+    fullName: 'Palantir Technologies Inc (Plateformes IA & Data)',
+    isin: 'US69608A1088',
+    envelope: 'CTO',
+    currency: 'USD',
+    inceptionYear: 2020,
+    description: 'Éditeur de logiciels d\'analyse de données et de déploiement d\'IA (AIP, Gotham, Foundry).',
   },
 };
 

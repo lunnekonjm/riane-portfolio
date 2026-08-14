@@ -43,7 +43,7 @@ export default function AssetLogo({
         alignItems: 'center',
         justifyContent: 'center',
         overflow: 'hidden',
-        background: shouldRenderImage ? 'var(--bg-tertiary)' : logoInfo.fallbackColor,
+        background: shouldRenderImage ? '#ffffff' : logoInfo.fallbackColor,
         border: '1px solid var(--border-subtle)',
         boxShadow: '0 2px 6px rgba(0, 0, 0, 0.25)',
         position: 'relative',

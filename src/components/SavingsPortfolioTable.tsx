@@ -173,7 +173,7 @@ export default function SavingsPortfolioTable({
 
               return (
                 <tr key={position.id} style={{ cursor: 'pointer' }} onClick={() => onEditPosition(position)}>
-                  <td style={{ maxWidth: 210 }}>
+                  <td style={{ minWidth: 170, maxWidth: 260 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                       <AssetLogo
                         name={position.name}
@@ -182,7 +182,7 @@ export default function SavingsPortfolioTable({
                         size={32}
                       />
                       <div style={{ minWidth: 0, flex: 1 }}>
-                        <strong style={{ color: 'var(--text-primary)', display: 'block', fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={position.name}>
+                        <strong style={{ color: 'var(--text-primary)', display: 'block', fontSize: 13, fontWeight: 700, lineHeight: 1.3, wordBreak: 'break-word', whiteSpace: 'normal' }} title={position.name}>
                           {position.name}
                         </strong>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2, flexWrap: 'wrap' }}>

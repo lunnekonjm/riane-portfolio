@@ -1,6 +1,6 @@
 /**
  * Annuaire et Résolveur de Logos & Symboles Financiers
- * Fournit des URLs de logos haute résolution (Clearbit / Unavatar / CoinGecko / Émetteurs)
+ * Fournit des URLs de logos haute résolution (Google Favicon 128px CDN / CoinGecko / Émetteurs)
  * avec fallback vectoriel stylisé en cas d'indisponibilité.
  */
 
@@ -21,12 +21,14 @@ const PALETTE_COLORS = [
   'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)', // Indigo
 ];
 
-// Mapping explicite Ticker / Nom -> Domaine officiel pour récupération du logo
+// Mapping explicite Ticker / Code -> Domaine officiel pour récupération du logo 128px
 const TICKER_DOMAIN_MAP: Record<string, { domain?: string; directUrl?: string; emoji?: string }> = {
   // Actions US & Tech
+  'COHR': { domain: 'coherent.com' },
+  'CEG': { domain: 'constellationenergy.com' },
+  'SYM': { domain: 'symbotic.com' },
   'NVDA': { domain: 'nvidia.com' },
   'PLTR': { domain: 'palantir.com' },
-  'COHR': { domain: 'coherent.com' },
   'AAPL': { domain: 'apple.com' },
   'MSFT': { domain: 'microsoft.com' },
   'GOOGL': { domain: 'google.com' },
@@ -46,12 +48,20 @@ const TICKER_DOMAIN_MAP: Record<string, { domain?: string; directUrl?: string; e
   'CRWD': { domain: 'crowdstrike.com' },
   'PANW': { domain: 'paloaltonetworks.com' },
 
-  // Actions Françaises & PEA-PME
+  // Small Caps PEA-PME & Actions Françaises
+  '0P0001DKPM.F': { domain: 'independance-am.com' },
+  '0P0001DKPM': { domain: 'independance-am.com' },
+  'IES': { domain: 'independance-am.com' },
+  'ALRIB.PA': { domain: 'riber.com' },
+  'ALRIB': { domain: 'riber.com' },
+  'RIBER': { domain: 'riber.com' },
   'MEMS.PA': { domain: 'memscap.com' },
+  'MEMS': { domain: 'memscap.com' },
   'ALMEM.PA': { domain: 'memscap.com' },
   'ALALM.PA': { domain: 'alan-allman.com' },
-  'ALRIB.PA': { domain: 'alan-allman.com' },
+  'ALALM': { domain: 'alan-allman.com' },
   'ALERS.PA': { domain: 'eurobio-scientific.com' },
+  'ALERS': { domain: 'eurobio-scientific.com' },
   'MC.PA': { domain: 'lvmh.com' },
   'OR.PA': { domain: 'loreal.com' },
   'RMS.PA': { domain: 'hermes.com' },
@@ -64,12 +74,18 @@ const TICKER_DOMAIN_MAP: Record<string, { domain?: string; directUrl?: string; e
   'ACA.PA': { domain: 'credit-agricole.com' },
 
   // Émetteurs ETF
-  'CW8.PA': { domain: 'amundietf.com' },
+  'PUST.PA': { domain: 'amundi.com' },
+  'PUST': { domain: 'amundi.com' },
+  'CW8.PA': { domain: 'amundi.com' },
+  'CW8': { domain: 'amundi.com' },
+  'DCAM.PA': { domain: 'amundi.com' },
+  'DCAM': { domain: 'amundi.com' },
+  'GPEA.PA': { domain: 'amundi.com' },
+  'GPEA': { domain: 'amundi.com' },
+  'PAEEM.PA': { domain: 'amundi.com' },
+  'PE500.PA': { domain: 'amundi.com' },
   'WPEA.PA': { domain: 'ishares.com' },
-  'GPEA.PA': { domain: 'amundietf.com' },
-  'PUST.PA': { domain: 'amundietf.com' },
-  'PAEEM.PA': { domain: 'amundietf.com' },
-  'PE500.PA': { domain: 'amundietf.com' },
+  'WPEA': { domain: 'ishares.com' },
   'CSPX.L': { domain: 'ishares.com' },
   'SXR8.DE': { domain: 'ishares.com' },
   'IWDA.AS': { domain: 'ishares.com' },
@@ -90,7 +106,7 @@ const TICKER_DOMAIN_MAP: Record<string, { domain?: string; directUrl?: string; e
 const INSTITUTION_DOMAIN_MAP: Record<string, { domain?: string; directUrl?: string; emoji?: string }> = {
   'BoursoBank': { domain: 'boursobank.com' },
   'Boursorama': { domain: 'boursobank.com' },
-  'Natixis': { domain: 'natixis.com' },
+  'Natixis': { domain: 'interepargne.natixis.com' },
   'Natixis Interépargne': { domain: 'interepargne.natixis.com' },
   'Amundi': { domain: 'amundi.com' },
   'Amundi ESR': { domain: 'amundi-ee.com' },
@@ -101,11 +117,17 @@ const INSTITUTION_DOMAIN_MAP: Record<string, { domain?: string; directUrl?: stri
   'Spirica': { domain: 'spirica.fr' },
   'Suravenir': { domain: 'suravenir.fr' },
   'Fortuneo': { domain: 'fortuneo.fr' },
-  'BforBank': { domain: 'bforbank.com' },
   'Trade Republic': { domain: 'traderepublic.com' },
   'DEGIRO': { domain: 'degiro.fr' },
   'Interactive Brokers': { domain: 'interactivebrokers.com' },
 };
+
+/**
+ * Construit l'URL favicon haute résolution 128px de Google
+ */
+function buildFaviconUrl(domain: string): string {
+  return `https://www.google.com/s2/favicons?domain=${domain}&sz=128`;
+}
 
 /**
  * Calcule une couleur déterministe à partir d'une chaîne
@@ -155,7 +177,7 @@ export function resolveAssetLogo(
     }
     if (entry.domain) {
       return {
-        url: `https://unavatar.io/${entry.domain}?fallback=false`,
+        url: buildFaviconUrl(entry.domain),
         fallbackLetters,
         fallbackColor,
         fallbackEmoji: entry.emoji,
@@ -163,7 +185,7 @@ export function resolveAssetLogo(
     }
   }
 
-  // 2. Recherche par Ticker sans extension (.PA, .L, etc.)
+  // 2. Recherche par Ticker sans extension (.PA, .L, .F, etc.)
   const cleanTicker = normTicker.split('.')[0];
   if (cleanTicker && TICKER_DOMAIN_MAP[cleanTicker]) {
     const entry = TICKER_DOMAIN_MAP[cleanTicker];
@@ -172,7 +194,7 @@ export function resolveAssetLogo(
     }
     if (entry.domain) {
       return {
-        url: `https://unavatar.io/${entry.domain}?fallback=false`,
+        url: buildFaviconUrl(entry.domain),
         fallbackLetters,
         fallbackColor,
         fallbackEmoji: entry.emoji,
@@ -180,7 +202,52 @@ export function resolveAssetLogo(
     }
   }
 
-  // 3. Recherche par Organisme Bancaire (pour Livrets / PEE / Épargne)
+  // 3. Recherche par nom d'actif (mots-clés prioritaires)
+  const lowerName = normName.toLowerCase();
+  if (lowerName.includes('coherent')) {
+    return { url: buildFaviconUrl('coherent.com'), fallbackLetters: 'CO', fallbackColor };
+  }
+  if (lowerName.includes('constellation')) {
+    return { url: buildFaviconUrl('constellationenergy.com'), fallbackLetters: 'CE', fallbackColor };
+  }
+  if (lowerName.includes('symbotic')) {
+    return { url: buildFaviconUrl('symbotic.com'), fallbackLetters: 'SY', fallbackColor };
+  }
+  if (lowerName.includes('independance') || lowerName.includes('indépendance') || normTicker.includes('0P0001DKPM')) {
+    return { url: buildFaviconUrl('independance-am.com'), fallbackLetters: 'IA', fallbackColor };
+  }
+  if (lowerName.includes('riber') || normTicker.includes('ALRIB')) {
+    return { url: buildFaviconUrl('riber.com'), fallbackLetters: 'RI', fallbackColor };
+  }
+  if (lowerName.includes('memscap') || normTicker.includes('MEMS')) {
+    return { url: buildFaviconUrl('memscap.com'), fallbackLetters: 'ME', fallbackColor };
+  }
+  if (lowerName.includes('alan allman') || normTicker.includes('ALALM')) {
+    return { url: buildFaviconUrl('alan-allman.com'), fallbackLetters: 'AA', fallbackColor };
+  }
+  if (lowerName.includes('eurobio') || normTicker.includes('ALERS')) {
+    return { url: buildFaviconUrl('eurobio-scientific.com'), fallbackLetters: 'EB', fallbackColor };
+  }
+  if (lowerName.includes('amundi') || lowerName.includes('cw8') || lowerName.includes('pust') || lowerName.includes('dcam') || lowerName.includes('gpea')) {
+    return { url: buildFaviconUrl('amundi.com'), fallbackLetters: 'AM', fallbackColor };
+  }
+  if (lowerName.includes('ishares') || lowerName.includes('blackrock') || lowerName.includes('wpea')) {
+    return { url: buildFaviconUrl('ishares.com'), fallbackLetters: 'iS', fallbackColor };
+  }
+  if (lowerName.includes('vanguard')) {
+    return { url: buildFaviconUrl('vanguard.com'), fallbackLetters: 'VG', fallbackColor };
+  }
+  if (lowerName.includes('bnp') || lowerName.includes('easy')) {
+    return { url: buildFaviconUrl('bnpparibas.com'), fallbackLetters: 'BN', fallbackColor };
+  }
+  if (lowerName.includes('nvidia')) {
+    return { url: buildFaviconUrl('nvidia.com'), fallbackLetters: 'NV', fallbackColor };
+  }
+  if (lowerName.includes('palantir')) {
+    return { url: buildFaviconUrl('palantir.com'), fallbackLetters: 'PL', fallbackColor };
+  }
+
+  // 4. Recherche par Organisme Bancaire (pour Livrets / PEE / Épargne)
   if (normInst && INSTITUTION_DOMAIN_MAP[normInst]) {
     const entry = INSTITUTION_DOMAIN_MAP[normInst];
     if (entry.directUrl) {
@@ -188,7 +255,7 @@ export function resolveAssetLogo(
     }
     if (entry.domain) {
       return {
-        url: `https://unavatar.io/${entry.domain}?fallback=false`,
+        url: buildFaviconUrl(entry.domain),
         fallbackLetters,
         fallbackColor,
         fallbackEmoji: entry.emoji,
@@ -196,34 +263,22 @@ export function resolveAssetLogo(
     }
   }
 
-  // 4. Recherche par mots-clés dans le nom
-  const lowerName = normName.toLowerCase();
-  if (lowerName.includes('amundi') || lowerName.includes('cw8') || lowerName.includes('wpea')) {
-    return { url: 'https://unavatar.io/amundietf.com?fallback=false', fallbackLetters, fallbackColor };
+  const lowerInst = normInst.toLowerCase();
+  if (lowerInst.includes('bourso')) {
+    return { url: buildFaviconUrl('boursobank.com'), fallbackLetters: 'BO', fallbackColor };
   }
-  if (lowerName.includes('ishares') || lowerName.includes('blackrock')) {
-    return { url: 'https://unavatar.io/ishares.com?fallback=false', fallbackLetters, fallbackColor };
+  if (lowerInst.includes('natixis')) {
+    return { url: buildFaviconUrl('interepargne.natixis.com'), fallbackLetters: 'NX', fallbackColor };
   }
-  if (lowerName.includes('vanguard')) {
-    return { url: 'https://unavatar.io/vanguard.com?fallback=false', fallbackLetters, fallbackColor };
-  }
-  if (lowerName.includes('bnp') || lowerName.includes('easy')) {
-    return { url: 'https://unavatar.io/bnpparibas.com?fallback=false', fallbackLetters, fallbackColor };
-  }
-  if (lowerName.includes('bourso') || lowerName.includes('boursorama')) {
-    return { url: 'https://unavatar.io/boursobank.com?fallback=false', fallbackLetters, fallbackColor };
-  }
-  if (lowerName.includes('natixis') || lowerName.includes('interepargne')) {
-    return { url: 'https://unavatar.io/natixis.com?fallback=false', fallbackLetters, fallbackColor };
-  }
-  if (lowerName.includes('livret a') || lowerName.includes('ldds') || lowerName.includes('lep')) {
+
+  // 5. Livrets réglementés
+  if (lowerName.includes('livret a') || lowerName.includes('ldds') || lowerName.includes('lep') || envelope === 'LIVRET') {
     return { fallbackLetters: '🛡️', fallbackColor: 'linear-gradient(135deg, #10b981 0%, #047857 100%)', fallbackEmoji: '🛡️' };
   }
 
-  // 5. Fallback par enveloppe fiscale
+  // 6. Fallback par enveloppe fiscale
   let fallbackEmoji: string | undefined;
-  if (envelope === 'LIVRET') fallbackEmoji = '🛡️';
-  else if (envelope === 'PEE') fallbackEmoji = '🏢';
+  if (envelope === 'PEE') fallbackEmoji = '🏢';
   else if (envelope === 'ASSURANCE_VIE' || envelope === 'PER') fallbackEmoji = '📜';
   else if (envelope === 'IMMOBILIER') fallbackEmoji = '🏠';
   else if (envelope === 'SPECULATIVE') fallbackEmoji = '🚀';

@@ -1231,6 +1231,7 @@ button.card:hover {
   justify-content: center;
   z-index: 100;
   animation: fadeIn 0.2s ease;
+  overflow-x: hidden !important;
 }
 
 .modal-content {
@@ -1242,6 +1243,8 @@ button.card:hover {
   width: 95%;
   max-height: 90vh;
   overflow-y: auto;
+  overflow-x: hidden !important;
+  box-sizing: border-box;
   animation: fadeInUp 0.3s ease;
 }
 

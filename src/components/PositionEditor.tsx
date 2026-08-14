@@ -667,8 +667,8 @@ function autoGenerateThemes(
   const totalValue = form.quantity * (form.currentPrice || form.avgPrice);
 
   return (
-    <div className="modal-overlay" onClick={onClose} style={{ padding: '10px' }}>
-      <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 700, margin: '0 auto' }}>
+    <div className="modal-overlay" onClick={onClose} style={{ padding: '10px', overflowX: 'hidden' }}>
+      <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 700, margin: '0 auto', overflowX: 'hidden', boxSizing: 'border-box' }}>
         <div className="modal-header" style={{ flexWrap: 'wrap', gap: 8 }}>
           <h2 style={{ fontSize: 'clamp(1rem, 4vw, 1.25rem)' }}>{isNew ? '➕ Ajouter une Position' : `✏️ Modifier ${form.name}`}</h2>
           <button className="modal-close-btn" onClick={onClose} type="button" aria-label="Fermer">✕</button>

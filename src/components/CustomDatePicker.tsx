@@ -40,12 +40,19 @@ export default function CustomDatePicker({ value, onChange, showDaySelector = tr
     }
   }, [currentYear, parts[2]]);
 
-  // Smart placement on open
+  // Smart placement on open relative to modal or viewport
   useEffect(() => {
     if (isOpen && containerRef.current) {
-      const rect = containerRef.current.getBoundingClientRect();
-      // If opening to the right (left: 0) would overflow window, align right: 0
-      if (rect.left + 290 > window.innerWidth - 10) {
+      const el = containerRef.current;
+      const modalEl = el.closest('.modal-content') || el.closest('.card') || document.body;
+      const parentRect = modalEl.getBoundingClientRect();
+      const rect = el.getBoundingClientRect();
+
+      const spaceRightInParent = parentRect.right - rect.left;
+      const spaceRightInWindow = window.innerWidth - rect.left;
+      const minSpaceNeeded = 285;
+
+      if (spaceRightInParent < minSpaceNeeded || spaceRightInWindow < minSpaceNeeded) {
         setPopupAlign('right');
       } else {
         setPopupAlign('left');
@@ -123,8 +130,9 @@ export default function CustomDatePicker({ value, onChange, showDaySelector = tr
             left: popupAlign === 'left' ? 0 : 'auto',
             right: popupAlign === 'right' ? 0 : 'auto',
             zIndex: 9999,
-            width: 280,
-            maxWidth: 'calc(100vw - 24px)',
+            width: 275,
+            maxWidth: 'calc(100vw - 32px)',
+            boxSizing: 'border-box',
             padding: 14,
             background: '#0f172a',
             border: '1px solid rgba(255, 255, 255, 0.18)',

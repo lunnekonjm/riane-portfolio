@@ -34,20 +34,25 @@ export default function WelcomeBanner({
   const currentHour = new Date().getHours();
   const greeting = currentHour < 12 ? 'Bonjour' : currentHour < 18 ? 'Bon après-midi' : 'Bonsoir';
   const displayName = userName ? userName.split(' ')[0] : 'Investisseur';
-  const filledPositions = positions.filter((p) => p.quantity > 0 && p.avgPrice > 0);
 
   const overallGain = totalValue - totalCost;
   const overallGainPercent = totalCost > 0 ? (overallGain / totalCost) * 100 : 0;
-  const activeAlerts = notifications.filter((n) => !n.read && (n.category === 'outlier' || n.category === 'risk'));
 
-  // Determine dynamic status message
+  // Filtrer les alertes actives
+  const activeAlerts = notifications.filter((n) => !n.read && (n.category === 'outlier' || n.category === 'risk' || n.category === 'fiscal'));
+  const criticalAlerts = activeAlerts.filter((n) => n.priority === 'high');
+  const topAlert = activeAlerts.length > 0 ? (criticalAlerts[0] || activeAlerts[0]) : null;
+  const isHighUrgency = topAlert?.priority === 'high';
+
+  // Determine dynamic status message & styling
   let statusMessage = '';
   let statusBadge = { label: '🟢 Portefeuille Équilibré', color: 'var(--accent-emerald)', bg: 'rgba(16, 185, 129, 0.15)' };
 
-  const topAlert = activeAlerts.length > 0 ? activeAlerts[0] : null;
-
-  if (topAlert) {
-    statusBadge = { label: `🚨 ${activeAlerts.length} Alerte(s) Active(s)`, color: 'var(--accent-rose)', bg: 'rgba(244, 63, 94, 0.18)' };
+  if (topAlert && isHighUrgency) {
+    statusBadge = { label: `🚨 ${criticalAlerts.length} Alerte(s) Active(s)`, color: 'var(--accent-rose)', bg: 'rgba(244, 63, 94, 0.18)' };
+    statusMessage = topAlert.message;
+  } else if (topAlert) {
+    statusBadge = { label: `💡 Conseil d'Allocation DCA`, color: 'var(--accent-cyan)', bg: 'rgba(6, 182, 212, 0.15)' };
     statusMessage = topAlert.message;
   } else if (overallGain >= 0) {
     statusMessage = `Votre portefeuille enregistre une plus-value globale de +${overallGainPercent.toFixed(1)}% (+${Math.round(overallGain).toLocaleString('fr-FR')} €). Vos plafonds sectoriels sont respectés.`;
@@ -55,12 +60,24 @@ export default function WelcomeBanner({
     statusMessage = `Marché sous pression : Votre portefeuille affiche une moins-value latente de ${overallGainPercent.toFixed(1)}%. C'est l'opportunité idéale pour votre DCA mensuel.`;
   }
 
+  const bannerBg = isHighUrgency
+    ? 'linear-gradient(135deg, rgba(244, 63, 94, 0.14) 0%, rgba(17, 24, 39, 0.9) 100%)'
+    : topAlert
+    ? 'linear-gradient(135deg, rgba(6, 182, 212, 0.14) 0%, rgba(17, 24, 39, 0.9) 100%)'
+    : 'linear-gradient(135deg, rgba(16, 185, 129, 0.10) 0%, rgba(17, 24, 39, 0.85) 100%)';
+
+  const bannerBorder = isHighUrgency
+    ? '4px solid var(--accent-rose)'
+    : topAlert
+    ? '4px solid var(--accent-cyan)'
+    : '4px solid var(--accent-emerald)';
+
   return (
     <div
       className="card"
       style={{
-        background: topAlert ? 'linear-gradient(135deg, rgba(244, 63, 94, 0.14) 0%, rgba(17, 24, 39, 0.9) 100%)' : 'linear-gradient(135deg, rgba(6, 182, 212, 0.12) 0%, rgba(17, 24, 39, 0.85) 100%)',
-        borderLeft: topAlert ? '4px solid var(--accent-rose)' : '4px solid var(--accent-cyan)',
+        background: bannerBg,
+        borderLeft: bannerBorder,
         padding: '16px 20px',
         marginBottom: 16,
         position: 'relative',
@@ -83,7 +100,18 @@ export default function WelcomeBanner({
               {statusMessage}
             </p>
             {topAlert?.actionHint && (
-              <div style={{ fontSize: 13, color: 'var(--text-primary)', background: 'rgba(255, 255, 255, 0.06)', padding: '8px 12px', borderRadius: 8, marginTop: 10, borderLeft: '3px solid var(--accent-rose)', lineHeight: 1.45 }}>
+              <div
+                style={{
+                  fontSize: 13,
+                  color: 'var(--text-primary)',
+                  background: 'rgba(255, 255, 255, 0.06)',
+                  padding: '8px 12px',
+                  borderRadius: 8,
+                  marginTop: 10,
+                  borderLeft: isHighUrgency ? '3px solid var(--accent-rose)' : '3px solid var(--accent-cyan)',
+                  lineHeight: 1.45,
+                }}
+              >
                 <strong>👉 Que faire :</strong> {topAlert.actionHint}
               </div>
             )}
@@ -96,40 +124,46 @@ export default function WelcomeBanner({
             <button
               type="button"
               className="btn btn-primary btn-sm"
-              style={{ fontSize: 13, background: 'var(--accent-rose)', color: 'white', padding: '7px 14px', fontWeight: 700 }}
+              style={{
+                fontSize: 13,
+                background: isHighUrgency ? 'var(--accent-rose)' : 'var(--accent-cyan)',
+                color: isHighUrgency ? 'white' : '#001a30',
+                padding: '7px 14px',
+                fontWeight: 700,
+              }}
               onClick={() => {
                 if (topAlert.actionType === 'open-envelopes') onNavigateView('envelopes');
-                else if (topAlert.actionType === 'open-analysis') onOpenAnalysis();
                 else onOpenRebalance();
               }}
             >
-              {topAlert.actionCtaLabel || '🎯 Corriger via DCA'}
+              {topAlert.actionCtaLabel || '🎯 Ajuster les Flux DCA'}
             </button>
           ) : (
-            filledPositions.length > 0 && monthlyDCA > 0 ? (
-              <button
-                type="button"
-                className="btn btn-secondary btn-sm"
-                style={{ fontSize: 13, color: 'var(--accent-emerald)', borderColor: 'rgba(16, 185, 129, 0.4)', background: 'rgba(16, 185, 129, 0.12)', padding: '7px 14px', fontWeight: 700 }}
-                onClick={onOpenRebalance}
-              >
-                🎯 Versement DCA ({Math.round(monthlyDCA)}€)
-              </button>
-            ) : null
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm"
+              style={{ fontSize: 13, padding: '7px 14px', fontWeight: 600 }}
+              onClick={onOpenRebalance}
+            >
+              🎯 Rééquilibrer
+            </button>
           )}
+
           <button
             type="button"
-            className="btn btn-primary btn-sm"
-            style={{ fontSize: 13, padding: '7px 14px', fontWeight: 700 }}
+            className="btn btn-secondary btn-sm"
+            style={{ fontSize: 13, padding: '7px 14px', fontWeight: 600 }}
             onClick={onOpenAnalysis}
           >
             🔬 Lancer une Analyse IA
           </button>
+
           <button
             type="button"
+            className="btn-ghost"
+            style={{ fontSize: 16, padding: '4px 8px', color: 'var(--text-muted)' }}
             onClick={() => setDismissed(true)}
-            style={{ background: 'transparent', border: 'none', color: 'var(--text-tertiary)', fontSize: 18, cursor: 'pointer', padding: '4px' }}
-            title="Fermer le message d'accueil"
+            title="Masquer le message"
           >
             ✕
           </button>

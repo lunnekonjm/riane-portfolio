@@ -1697,7 +1697,7 @@ export default function HomePage() {
                         <th><span data-tooltip="Plus ou Moins-value latente totale (% et montant €/$)">P&L</span></th>
                         <th><span data-tooltip="Budget mensuel ou annuel d'accumulation DCA">DCA</span></th>
                         <th><span data-tooltip="Poids actuel dans le portefeuille comparé au Taux d'Allocation Max Recommandé (Plafond de sécurité)">Part / Cap Max</span></th>
-                        <th><span data-tooltip="Actions rapides : Édition, Historique des arbitrages, Suppression">Actions</span></th>
+                        <th style={{ width: 80, textAlign: 'center' }}><span data-tooltip="Actions rapides : Édition, Historique des arbitrages, Suppression">Actions</span></th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1748,17 +1748,17 @@ export default function HomePage() {
                             }}
                             onClick={() => setEditingPosition(pos)}
                           >
-                            <td style={{ fontWeight: 600 }}>
+                            <td style={{ fontWeight: 600, maxWidth: 140 }}>
                               <AssetBadge ticker={pos.ticker} name={pos.name} showTicker={false} />
                               {!hasFilled && (
-                                <span style={{ display: 'block', fontSize: 'var(--text-xs)', color: 'var(--accent-amber)', fontWeight: 400 }}>
-                                  ✍️ Cliquez pour renseigner
+                                <span style={{ display: 'block', fontSize: 10, color: 'var(--accent-amber)', fontWeight: 400 }}>
+                                  ✍️ Renseigner
                                 </span>
                               )}
                             </td>
-                            <td className="mono" style={{ whiteSpace: 'nowrap' }}>{pos.ticker}</td>
+                            <td className="mono" style={{ whiteSpace: 'nowrap', fontSize: 12 }}>{pos.ticker}</td>
                             <td>
-                              <span className={`envelope-tag ${pos.envelope.toLowerCase()}`}>
+                              <span className={`envelope-tag ${pos.envelope.toLowerCase()}`} style={{ fontSize: 11, padding: '2px 7px' }}>
                                 {pos.envelope}
                               </span>
                             </td>
@@ -1780,18 +1780,18 @@ export default function HomePage() {
                                     display: 'inline-flex',
                                     flexDirection: 'column',
                                     alignItems: 'flex-start',
-                                    padding: '4px 10px',
-                                    borderRadius: 8,
+                                    padding: '3px 8px',
+                                    borderRadius: 6,
                                     whiteSpace: 'nowrap',
-                                    lineHeight: 1.25,
+                                    lineHeight: 1.2,
                                   }}
                                   title={`Plus/Moins-value : ${pl >= 0 ? '+' : ''}${pl.toLocaleString('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })} ${pos.currency === 'EUR' ? '€' : '$'}`}
                                 >
-                                  <div style={{ fontWeight: 700, fontSize: 13, display: 'flex', alignItems: 'center', gap: 3 }}>
+                                  <div style={{ fontWeight: 700, fontSize: 12, display: 'flex', alignItems: 'center', gap: 2 }}>
                                     <span>{pl >= 0 ? '↑' : '↓'}</span>
                                     <span>{pl >= 0 ? '+' : ''}{plPct.toFixed(1)}%</span>
                                   </div>
-                                  <div style={{ fontSize: 'var(--text-xs)', opacity: 0.95, fontWeight: 600, marginTop: 2 }}>
+                                  <div style={{ fontSize: 10, opacity: 0.95, fontWeight: 600, marginTop: 1 }}>
                                     ({pl >= 0 ? '+' : ''}{Math.round(pl).toLocaleString('fr-FR')} {pos.currency === 'EUR' ? '€' : '$'})
                                   </div>
                                 </div>
@@ -1800,17 +1800,17 @@ export default function HomePage() {
                             <td className="mono" style={{ fontSize: 12, whiteSpace: 'nowrap' }}>
                               {Boolean((pos.monthlyDCA && pos.monthlyDCA > 0) || (pos.annualBudget && pos.annualBudget > 0)) ? (
                                 <div>
-                                  <span style={{ color: 'var(--accent-amber)', fontWeight: 700, fontSize: 14, display: 'block' }}>
+                                  <span style={{ color: 'var(--accent-amber)', fontWeight: 700, fontSize: 13, display: 'block' }}>
                                     +{pos.dcaFrequency === 'annual' || (!pos.monthlyDCA && pos.annualBudget)
                                       ? `${(pos.annualBudget || (pos.monthlyDCA ? pos.monthlyDCA * 12 : 0)).toLocaleString('fr-FR')} €/an`
                                       : pos.dcaFrequency === 'quarterly'
                                       ? `${(pos.monthlyDCA ? pos.monthlyDCA * 3 : 0).toLocaleString('fr-FR')} €/trim`
                                       : pos.dcaFrequency === 'semestrial'
                                       ? `${(pos.monthlyDCA ? pos.monthlyDCA * 6 : 0).toLocaleString('fr-FR')} €/sem`
-                                      : `${(pos.monthlyDCA || 0).toLocaleString('fr-FR')} €/mois`}
+                                      : `${(pos.monthlyDCA || 0).toLocaleString('fr-FR')} €/m`}
                                   </span>
                                   {(pos.dcaStartDate || dcaGlobalStartDate) && (
-                                    <span style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 2, display: 'block', fontFamily: 'var(--font-sans)', whiteSpace: 'nowrap' }}>
+                                    <span style={{ fontSize: 10, color: 'var(--text-secondary)', marginTop: 1, display: 'block', fontFamily: 'var(--font-sans)', whiteSpace: 'nowrap' }}>
                                       depuis {pos.dcaStartDate || dcaGlobalStartDate}
                                     </span>
                                   )}
@@ -1819,15 +1819,14 @@ export default function HomePage() {
                                 <span style={{ color: 'var(--text-muted)' }}>—</span>
                               )}
                             </td>
-                            {/* 📊 Colonne : Part Actuelle / Cap Max Recommandé (%) */}
                             <td style={{ whiteSpace: 'nowrap' }} onClick={(e) => e.stopPropagation()}>
-                              <div style={{ display: 'flex', flexDirection: 'column', gap: 3, minWidth: 125 }}>
-                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 12, fontFamily: 'var(--font-mono)' }}>
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 105, maxWidth: 115 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 11, fontFamily: 'var(--font-mono)' }}>
                                   <strong style={{ color: currentWeightPct > maxCapPct ? 'var(--accent-rose)' : 'var(--text-primary)' }}>
                                     {currentWeightPct.toFixed(1)}%
                                   </strong>
-                                  <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-tertiary)' }}>
-                                    / {maxCapPct.toFixed(1)}% max
+                                  <span style={{ fontSize: 10, color: 'var(--text-tertiary)' }}>
+                                    / {maxCapPct.toFixed(0)}% max
                                   </span>
                                 </div>
 
@@ -1850,23 +1849,23 @@ export default function HomePage() {
                                   {currentWeightPct > maxCapPct ? (
                                     <span
                                       className="badge badge-rose"
-                                      style={{ fontSize: 'var(--text-xs)', padding: '2px 7px', fontWeight: 700 }}
+                                      style={{ fontSize: 10, padding: '1px 5px', fontWeight: 700 }}
                                       title={`Alerte sur-concentration : +${(currentWeightPct - maxCapPct).toFixed(1)}% au-dessus du plafond recommandé (${maxCapPct.toFixed(1)}% max)`}
                                     >
-                                      ⚠️ +{(currentWeightPct - maxCapPct).toFixed(1)}% (Surchargé)
+                                      ⚠️ +{(currentWeightPct - maxCapPct).toFixed(0)}% (Cap)
                                     </span>
                                   ) : currentWeightPct >= maxCapPct * 0.85 ? (
                                     <span
                                       className="badge badge-amber"
-                                      style={{ fontSize: 'var(--text-xs)', padding: '2px 7px', fontWeight: 700 }}
+                                      style={{ fontSize: 10, padding: '1px 5px', fontWeight: 700 }}
                                       title={`Proche du plafond max : ${capUsagePct.toFixed(0)}% du cap d'allocation consommé`}
                                     >
-                                      ⚡ {capUsagePct.toFixed(0)}% du cap
+                                      ⚡ {capUsagePct.toFixed(0)}%
                                     </span>
                                   ) : (
                                     <span
                                       className="badge badge-emerald"
-                                      style={{ fontSize: 'var(--text-xs)', padding: '2px 7px', fontWeight: 700 }}
+                                      style={{ fontSize: 10, padding: '1px 5px', fontWeight: 700 }}
                                       title={`Niveau optimal : ${capUsagePct.toFixed(0)}% du plafond max d'allocation`}
                                     >
                                       ✓ OK ({capUsagePct.toFixed(0)}%)
@@ -1875,8 +1874,8 @@ export default function HomePage() {
                                 </div>
                               </div>
                             </td>
-                            <td onClick={(e) => e.stopPropagation()}>
-                              <div className="row-actions">
+                            <td onClick={(e) => e.stopPropagation()} style={{ width: 80, textAlign: 'center' }}>
+                              <div className="row-actions" style={{ justifyContent: 'center' }}>
                                 <button
                                   className="row-action-btn"
                                   onClick={() => {

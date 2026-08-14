@@ -230,14 +230,18 @@ export default function PositionEditor({ position, initialEnvelope, onSave, onCl
   });
   const [depositSearchQuery, setDepositSearchQuery] = useState<string>('');
 
-  const handleAddDeposit = (category: SavingsDeposit['category'] = 'PRIME') => {
+  const handleAddDeposit = (
+    category: SavingsDeposit['category'] = 'LIBRE',
+    defaultAmount: number = 1000,
+    defaultLabel?: string
+  ) => {
     const todayStr = new Date().toISOString().split('T')[0];
-    const defaultLabel = category === 'PRIME' ? 'Prime Intéressement' : category === 'ABONDEMENT' ? 'Abondement Employeur' : 'Versement Libre';
+    const defaultLbl = defaultLabel || (category === 'PRIME' ? 'Prime annuelle / Intéressement' : category === 'ABONDEMENT' ? 'Abondement Employeur' : 'Apport personnel ponctuel');
     const newDep: SavingsDeposit = {
       id: `dep-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
       date: todayStr,
-      amount: 1000,
-      label: defaultLabel,
+      amount: defaultAmount,
+      label: defaultLbl,
       category,
     };
     setDepositsHistory((prev) => [...prev, newDep]);
@@ -252,7 +256,7 @@ export default function PositionEditor({ position, initialEnvelope, onSave, onCl
   };
 
   const handleClearAllDeposits = () => {
-    if (window.confirm('Êtes-vous sûr de vouloir supprimer tous les versements libres et primes enregistrés ?')) {
+    if (window.confirm('Êtes-vous sûr de vouloir supprimer tous les versements libres et apports enregistrés ?')) {
       setDepositsHistory([]);
     }
   };
@@ -270,7 +274,7 @@ export default function PositionEditor({ position, initialEnvelope, onSave, onCl
           amount: position.monthlyDCA,
           frequency: position.dcaFrequency || 'monthly',
           depositDay: position.dcaDepositDay || 5,
-          label: 'Palier initial',
+          label: 'Palier 1',
         },
       ];
     }
@@ -293,6 +297,46 @@ export default function PositionEditor({ position, initialEnvelope, onSave, onCl
       label: `Palier #${dcaHistory.length + 1}`,
     };
     setDcaHistory((prev) => [...prev, newTranche]);
+  };
+
+  const handleCreateSuccessorTranche = () => {
+    setIsMultiTierDCA(true);
+    const todayStr = new Date().toISOString().split('T')[0];
+    
+    let currentTiers = [...dcaHistory];
+    if (currentTiers.length === 0) {
+      currentTiers = [
+        {
+          id: `tranche-${Date.now()}-0`,
+          startDate: dcaStartDate || '2023-01-01',
+          endDate: todayStr,
+          amount: form.monthlyDCA || 200,
+          frequency: form.dcaFrequency || 'monthly',
+          depositDay: form.dcaDepositDay || 5,
+          label: 'Palier 1 (Précédent)',
+        }
+      ];
+    } else {
+      const lastIdx = currentTiers.length - 1;
+      if (!currentTiers[lastIdx].endDate) {
+        currentTiers[lastIdx] = {
+          ...currentTiers[lastIdx],
+          endDate: todayStr,
+        };
+      }
+    }
+
+    const lastAmount = currentTiers.length > 0 ? currentTiers[currentTiers.length - 1].amount : (form.monthlyDCA || 200);
+    const newTranche: DCATranche = {
+      id: `tranche-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      startDate: todayStr,
+      amount: lastAmount > 0 ? Math.round(lastAmount * 1.5 / 50) * 50 : 400,
+      frequency: form.dcaFrequency || 'monthly',
+      depositDay: form.dcaDepositDay || 5,
+      label: `Palier #${currentTiers.length + 1} (Nouveau budget)`,
+    };
+
+    setDcaHistory([...currentTiers, newTranche]);
   };
 
   const handleUpdateTranche = (id: string, updates: Partial<DCATranche>) => {
@@ -611,7 +655,8 @@ function autoGenerateThemes(
         form.dcaFrequency || 'monthly',
         form.dcaDepositMonth || 1,
         depositDay,
-        isMultiTierDCA && dcaHistory.length > 0 ? dcaHistory : undefined
+        isMultiTierDCA && dcaHistory.length > 0 ? dcaHistory : undefined,
+        depositsHistory.length > 0 ? depositsHistory : undefined
       );
       setDcaResult(result);
       // DO NOT automatically overwrite form.quantity or form.avgPrice!
@@ -631,6 +676,7 @@ function autoGenerateThemes(
       avgPrice: dcaResult.avgPrice,
       dcaStartDate,
       dcaHistory: isMultiTierDCA && dcaHistory.length > 0 ? dcaHistory : undefined,
+      depositsHistory: depositsHistory.length > 0 ? depositsHistory : undefined,
       updatedAt: Date.now(),
     };
     setForm(updated);
@@ -769,7 +815,7 @@ function autoGenerateThemes(
       dcaStartDate: hasActiveDCA ? finalDcaStartDate : undefined,
       dcaHistory: isMultiTierDCA && dcaHistory.length > 0 ? dcaHistory : undefined,
       initialDepositDate: isSavingsEnvelope ? initialDepositDate : undefined,
-      depositsHistory: isSavingsEnvelope ? depositsHistory : undefined,
+      depositsHistory: depositsHistory.length > 0 ? depositsHistory : undefined,
       updatedAt: Date.now(),
     });
   };
@@ -1185,77 +1231,89 @@ function autoGenerateThemes(
                 </p>
                 
                 {!isMultiTierDCA ? (
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 12 }}>
-                    <div className="form-group" style={{ minWidth: 115 }}>
-                      <label className="form-label" style={{ fontSize: 'var(--text-xs)', textTransform: 'uppercase', letterSpacing: '0.4px', fontWeight: 600 }}>Fréquence</label>
-                      <CustomSelect
-                        value={form.dcaFrequency || 'monthly'}
-                        options={[
-                          { label: 'Mensuel', value: 'monthly' },
-                          { label: 'Trimestriel', value: 'quarterly' },
-                          { label: 'Semestriel', value: 'semestrial' },
-                          { label: 'Annuel', value: 'annual' },
-                        ]}
-                        onChange={(val) => handleChange('dcaFrequency', val as string)}
-                      />
-                    </div>
-                    
-                    <div className="form-group" style={{ minWidth: 75 }}>
-                      <label className="form-label" style={{ fontSize: 'var(--text-xs)', textTransform: 'uppercase', letterSpacing: '0.4px', fontWeight: 600 }}>Jour (cible)</label>
-                      <CustomSelect
-                        value={(form.dcaDepositDay || 5).toString()}
-                        options={Array.from({ length: 31 }, (_, i) => ({ label: (i + 1).toString(), value: (i + 1).toString() }))}
-                        onChange={(val) => handleChange('dcaDepositDay', parseInt(val as string))}
-                      />
-                    </div>
-
-                    {(form.dcaFrequency === 'annual' || form.dcaFrequency === 'quarterly' || form.dcaFrequency === 'semestrial') && (
-                      <div className="form-group" style={{ minWidth: 110 }}>
-                        <label className="form-label" style={{ fontSize: 'var(--text-xs)', textTransform: 'uppercase', letterSpacing: '0.4px', fontWeight: 600 }}>Mois (cible)</label>
+                  <>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 12, marginBottom: 12 }}>
+                      <div className="form-group" style={{ minWidth: 115 }}>
+                        <label className="form-label" style={{ fontSize: 'var(--text-xs)', textTransform: 'uppercase', letterSpacing: '0.4px', fontWeight: 600 }}>Fréquence</label>
                         <CustomSelect
-                          value={(form.dcaDepositMonth || 1).toString()}
+                          value={form.dcaFrequency || 'monthly'}
                           options={[
-                            { label: 'Janvier', value: '1' },
-                            { label: 'Février', value: '2' },
-                            { label: 'Mars', value: '3' },
-                            { label: 'Avril', value: '4' },
-                            { label: 'Mai', value: '5' },
-                            { label: 'Juin', value: '6' },
-                            { label: 'Juillet', value: '7' },
-                            { label: 'Août', value: '8' },
-                            { label: 'Septembre', value: '9' },
-                            { label: 'Octobre', value: '10' },
-                            { label: 'Novembre', value: '11' },
-                            { label: 'Décembre', value: '12' },
+                            { label: 'Mensuel', value: 'monthly' },
+                            { label: 'Trimestriel', value: 'quarterly' },
+                            { label: 'Semestriel', value: 'semestrial' },
+                            { label: 'Annuel', value: 'annual' },
                           ]}
-                          onChange={(val) => handleChange('dcaDepositMonth', parseInt(val as string))}
+                          onChange={(val) => handleChange('dcaFrequency', val as string)}
                         />
                       </div>
-                    )}
-                    
-                    <div className="form-group" style={{ minWidth: 95 }}>
-                      <label className="form-label" style={{ fontSize: 'var(--text-xs)', textTransform: 'uppercase', letterSpacing: '0.4px', fontWeight: 600 }}>Montant ({form.currency === 'USD' ? '$' : form.currency === 'GBP' ? '£' : '€'})</label>
-                      <input
-                        className="input mono"
-                        type="number"
-                        step="10"
-                        min="0"
-                        style={{ fontSize: 13, padding: '8px 10px' }}
-                        value={form.monthlyDCA ?? ''}
-                        onChange={(e) => handleOptionalNumber('monthlyDCA', e.target.value)}
-                        placeholder="0 (laisser vide si pas de DCA)"
-                        id="input-savings-monthly-dca"
-                      />
-                    </div>
+                      
+                      <div className="form-group" style={{ minWidth: 75 }}>
+                        <label className="form-label" style={{ fontSize: 'var(--text-xs)', textTransform: 'uppercase', letterSpacing: '0.4px', fontWeight: 600 }}>Jour (cible)</label>
+                        <CustomSelect
+                          value={(form.dcaDepositDay || 5).toString()}
+                          options={Array.from({ length: 31 }, (_, i) => ({ label: (i + 1).toString(), value: (i + 1).toString() }))}
+                          onChange={(val) => handleChange('dcaDepositDay', parseInt(val as string))}
+                        />
+                      </div>
 
-                    <div className="form-group" style={{ minWidth: 155, flex: 1.2 }}>
-                      <label className="form-label" style={{ fontSize: 'var(--text-xs)', textTransform: 'uppercase', letterSpacing: '0.4px', fontWeight: 600 }}>Début du versement (DCA)</label>
-                      <CustomDatePicker
-                        value={dcaStartDate}
-                        onChange={setDcaStartDate}
-                      />
+                      {(form.dcaFrequency === 'annual' || form.dcaFrequency === 'quarterly' || form.dcaFrequency === 'semestrial') && (
+                        <div className="form-group" style={{ minWidth: 110 }}>
+                          <label className="form-label" style={{ fontSize: 'var(--text-xs)', textTransform: 'uppercase', letterSpacing: '0.4px', fontWeight: 600 }}>Mois (cible)</label>
+                          <CustomSelect
+                            value={(form.dcaDepositMonth || 1).toString()}
+                            options={[
+                              { label: 'Janvier', value: '1' },
+                              { label: 'Février', value: '2' },
+                              { label: 'Mars', value: '3' },
+                              { label: 'Avril', value: '4' },
+                              { label: 'Mai', value: '5' },
+                              { label: 'Juin', value: '6' },
+                              { label: 'Juillet', value: '7' },
+                              { label: 'Août', value: '8' },
+                              { label: 'Septembre', value: '9' },
+                              { label: 'Octobre', value: '10' },
+                              { label: 'Novembre', value: '11' },
+                              { label: 'Décembre', value: '12' },
+                            ]}
+                            onChange={(val) => handleChange('dcaDepositMonth', parseInt(val as string))}
+                          />
+                        </div>
+                      )}
+                      
+                      <div className="form-group" style={{ minWidth: 95 }}>
+                        <label className="form-label" style={{ fontSize: 'var(--text-xs)', textTransform: 'uppercase', letterSpacing: '0.4px', fontWeight: 600 }}>Montant ({form.currency === 'USD' ? '$' : form.currency === 'GBP' ? '£' : '€'})</label>
+                        <input
+                          className="input mono"
+                          type="number"
+                          step="10"
+                          min="0"
+                          style={{ fontSize: 13, padding: '8px 10px' }}
+                          value={form.monthlyDCA ?? ''}
+                          onChange={(e) => handleOptionalNumber('monthlyDCA', e.target.value)}
+                          placeholder="0 (laisser vide si pas de DCA)"
+                          id="input-savings-monthly-dca"
+                        />
+                      </div>
+
+                      <div className="form-group" style={{ minWidth: 155, flex: 1.2 }}>
+                        <label className="form-label" style={{ fontSize: 'var(--text-xs)', textTransform: 'uppercase', letterSpacing: '0.4px', fontWeight: 600 }}>Début du versement (DCA)</label>
+                        <CustomDatePicker
+                          value={dcaStartDate}
+                          onChange={setDcaStartDate}
+                        />
+                      </div>
                     </div>
-                  </div>
+                    <div>
+                      <button
+                        type="button"
+                        className="btn btn-secondary btn-sm"
+                        style={{ fontSize: 11, padding: '5px 12px', borderRadius: 6, color: 'var(--accent-cyan)', borderColor: 'var(--border-accent)', fontWeight: 600 }}
+                        onClick={handleCreateSuccessorTranche}
+                      >
+                        📈 Historiser une évolution de DCA (créer un palier avec date d'effet)
+                      </button>
+                    </div>
+                  </>
                 ) : (
                   <div>
                     {/* Multi-Tier Tranches List */}
@@ -1347,14 +1405,24 @@ function autoGenerateThemes(
                       ))}
                     </div>
 
-                    <button
-                      type="button"
-                      className="btn btn-secondary btn-sm"
-                      style={{ fontSize: 11, padding: '4px 10px', borderRadius: 6 }}
-                      onClick={handleAddTranche}
-                    >
-                      ➕ Ajouter un nouveau palier / changement de montant
-                    </button>
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                      <button
+                        type="button"
+                        className="btn btn-secondary btn-sm"
+                        style={{ fontSize: 11, padding: '4px 10px', borderRadius: 6 }}
+                        onClick={handleAddTranche}
+                      >
+                        ➕ Ajouter un palier libre
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-secondary btn-sm"
+                        style={{ fontSize: 11, padding: '4px 10px', borderRadius: 6, color: 'var(--accent-cyan)', borderColor: 'var(--border-accent)' }}
+                        onClick={handleCreateSuccessorTranche}
+                      >
+                        📈 Clôturer le palier précédent et ouvrir un nouveau palier
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>
@@ -1562,77 +1630,89 @@ function autoGenerateThemes(
             </p>
 
             {!isMultiTierDCA ? (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 12, marginBottom: 14 }}>
-                <div className="form-group" style={{ minWidth: 115 }}>
-                  <label className="form-label" style={{ fontSize: 'var(--text-xs)', textTransform: 'uppercase', letterSpacing: '0.4px', fontWeight: 600 }}>Fréquence</label>
-                  <CustomSelect
-                    value={form.dcaFrequency || 'monthly'}
-                    options={[
-                      { label: 'Mensuel', value: 'monthly' },
-                      { label: 'Trimestriel', value: 'quarterly' },
-                      { label: 'Semestriel', value: 'semestrial' },
-                      { label: 'Annuel', value: 'annual' },
-                    ]}
-                    onChange={(val) => handleChange('dcaFrequency', val as string)}
-                  />
-                </div>
-
-                <div className="form-group" style={{ minWidth: 75 }}>
-                  <label className="form-label" style={{ fontSize: 'var(--text-xs)', textTransform: 'uppercase', letterSpacing: '0.4px', fontWeight: 600 }}>Jour (cible)</label>
-                  <CustomSelect
-                    value={(form.dcaDepositDay || 5).toString()}
-                    options={Array.from({ length: 31 }, (_, i) => ({ label: (i + 1).toString(), value: (i + 1).toString() }))}
-                    onChange={(val) => handleChange('dcaDepositDay', parseInt(val as string))}
-                  />
-                </div>
-
-                {(form.dcaFrequency === 'annual' || form.dcaFrequency === 'quarterly' || form.dcaFrequency === 'semestrial') && (
-                  <div className="form-group" style={{ minWidth: 110 }}>
-                    <label className="form-label" style={{ fontSize: 'var(--text-xs)', textTransform: 'uppercase', letterSpacing: '0.4px', fontWeight: 600 }}>Mois (cible)</label>
+              <>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 12, marginBottom: 14 }}>
+                  <div className="form-group" style={{ minWidth: 115 }}>
+                    <label className="form-label" style={{ fontSize: 'var(--text-xs)', textTransform: 'uppercase', letterSpacing: '0.4px', fontWeight: 600 }}>Fréquence</label>
                     <CustomSelect
-                      value={(form.dcaDepositMonth || 1).toString()}
+                      value={form.dcaFrequency || 'monthly'}
                       options={[
-                        { label: 'Janvier', value: '1' },
-                        { label: 'Février', value: '2' },
-                        { label: 'Mars', value: '3' },
-                        { label: 'Avril', value: '4' },
-                        { label: 'Mai', value: '5' },
-                        { label: 'Juin', value: '6' },
-                        { label: 'Juillet', value: '7' },
-                        { label: 'Août', value: '8' },
-                        { label: 'Septembre', value: '9' },
-                        { label: 'Octobre', value: '10' },
-                        { label: 'Novembre', value: '11' },
-                        { label: 'Décembre', value: '12' },
+                        { label: 'Mensuel', value: 'monthly' },
+                        { label: 'Trimestriel', value: 'quarterly' },
+                        { label: 'Semestriel', value: 'semestrial' },
+                        { label: 'Annuel', value: 'annual' },
                       ]}
-                      onChange={(val) => handleChange('dcaDepositMonth', parseInt(val as string))}
+                      onChange={(val) => handleChange('dcaFrequency', val as string)}
                     />
                   </div>
-                )}
 
-                <div className="form-group" style={{ minWidth: 95 }}>
-                  <label className="form-label" style={{ fontSize: 'var(--text-xs)', textTransform: 'uppercase', letterSpacing: '0.4px', fontWeight: 600 }}>Budget ({form.currency === 'USD' ? '$' : form.currency === 'GBP' ? '£' : '€'})</label>
-                  <input
-                    className="input mono"
-                    type="number"
-                    step="10"
-                    min="0"
-                    style={{ fontSize: 13, padding: '8px 10px' }}
-                    value={form.monthlyDCA ?? ''}
-                    onChange={(e) => handleOptionalNumber('monthlyDCA', e.target.value)}
-                    placeholder="0"
-                    id="input-market-monthly-dca"
-                  />
-                </div>
+                  <div className="form-group" style={{ minWidth: 75 }}>
+                    <label className="form-label" style={{ fontSize: 'var(--text-xs)', textTransform: 'uppercase', letterSpacing: '0.4px', fontWeight: 600 }}>Jour (cible)</label>
+                    <CustomSelect
+                      value={(form.dcaDepositDay || 5).toString()}
+                      options={Array.from({ length: 31 }, (_, i) => ({ label: (i + 1).toString(), value: (i + 1).toString() }))}
+                      onChange={(val) => handleChange('dcaDepositDay', parseInt(val as string))}
+                    />
+                  </div>
 
-                <div className="form-group" style={{ minWidth: 155, flex: 1.2 }}>
-                  <label className="form-label" style={{ fontSize: 'var(--text-xs)', textTransform: 'uppercase', letterSpacing: '0.4px', fontWeight: 600 }}>Date d'entrée DCA</label>
-                  <CustomDatePicker
-                    value={dcaStartDate}
-                    onChange={setDcaStartDate}
-                  />
+                  {(form.dcaFrequency === 'annual' || form.dcaFrequency === 'quarterly' || form.dcaFrequency === 'semestrial') && (
+                    <div className="form-group" style={{ minWidth: 110 }}>
+                      <label className="form-label" style={{ fontSize: 'var(--text-xs)', textTransform: 'uppercase', letterSpacing: '0.4px', fontWeight: 600 }}>Mois (cible)</label>
+                      <CustomSelect
+                        value={(form.dcaDepositMonth || 1).toString()}
+                        options={[
+                          { label: 'Janvier', value: '1' },
+                          { label: 'Février', value: '2' },
+                          { label: 'Mars', value: '3' },
+                          { label: 'Avril', value: '4' },
+                          { label: 'Mai', value: '5' },
+                          { label: 'Juin', value: '6' },
+                          { label: 'Juillet', value: '7' },
+                          { label: 'Août', value: '8' },
+                          { label: 'Septembre', value: '9' },
+                          { label: 'Octobre', value: '10' },
+                          { label: 'Novembre', value: '11' },
+                          { label: 'Décembre', value: '12' },
+                        ]}
+                        onChange={(val) => handleChange('dcaDepositMonth', parseInt(val as string))}
+                      />
+                    </div>
+                  )}
+
+                  <div className="form-group" style={{ minWidth: 95 }}>
+                    <label className="form-label" style={{ fontSize: 'var(--text-xs)', textTransform: 'uppercase', letterSpacing: '0.4px', fontWeight: 600 }}>Budget ({form.currency === 'USD' ? '$' : form.currency === 'GBP' ? '£' : '€'})</label>
+                    <input
+                      className="input mono"
+                      type="number"
+                      step="10"
+                      min="0"
+                      style={{ fontSize: 13, padding: '8px 10px' }}
+                      value={form.monthlyDCA ?? ''}
+                      onChange={(e) => handleOptionalNumber('monthlyDCA', e.target.value)}
+                      placeholder="0"
+                      id="input-market-monthly-dca"
+                    />
+                  </div>
+
+                  <div className="form-group" style={{ minWidth: 155, flex: 1.2 }}>
+                    <label className="form-label" style={{ fontSize: 'var(--text-xs)', textTransform: 'uppercase', letterSpacing: '0.4px', fontWeight: 600 }}>Date d'entrée DCA</label>
+                    <CustomDatePicker
+                      value={dcaStartDate}
+                      onChange={setDcaStartDate}
+                    />
+                  </div>
                 </div>
-              </div>
+                <div style={{ marginBottom: 14 }}>
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    style={{ fontSize: 11, padding: '5px 12px', borderRadius: 6, color: 'var(--accent-cyan)', borderColor: 'var(--border-accent)', fontWeight: 600 }}
+                    onClick={handleCreateSuccessorTranche}
+                  >
+                    📈 Historiser une évolution de DCA (créer un palier avec date d'effet)
+                  </button>
+                </div>
+              </>
             ) : (
               <div style={{ marginBottom: 14 }}>
                 {/* Multi-Tier Tranches List */}
@@ -1724,14 +1804,24 @@ function autoGenerateThemes(
                   ))}
                 </div>
 
-                <button
-                  type="button"
-                  className="btn btn-secondary btn-sm"
-                  style={{ fontSize: 11, padding: '4px 10px', borderRadius: 6 }}
-                  onClick={handleAddTranche}
-                >
-                  ➕ Ajouter un palier / changement de budget
-                </button>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    style={{ fontSize: 11, padding: '4px 10px', borderRadius: 6 }}
+                    onClick={handleAddTranche}
+                  >
+                    ➕ Ajouter un palier libre
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    style={{ fontSize: 11, padding: '4px 10px', borderRadius: 6, color: 'var(--accent-cyan)', borderColor: 'var(--border-accent)' }}
+                    onClick={handleCreateSuccessorTranche}
+                  >
+                    📈 Clôturer le palier précédent et ouvrir un nouveau palier
+                  </button>
+                </div>
               </div>
             )}
 
@@ -1884,7 +1974,7 @@ function autoGenerateThemes(
           </div>
 
 
-          {/* Row 4: DCA Strategy */}
+          {/* Section: Apports Personnels & Versements Ponctuels Exceptionnels */}
           <div style={{
             background: 'var(--bg-tertiary)',
             border: '1px solid var(--border-accent)',
@@ -1892,75 +1982,148 @@ function autoGenerateThemes(
             padding: 16,
             marginBottom: 20
           }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-              <span style={{ fontWeight: 600, fontSize: 14, color: 'var(--accent-emerald)' }}>
-                🔄 Stratégie de versement régulier
-              </span>
-            </div>
-            
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 12 }}>
-              <div className="form-group" style={{ minWidth: 115 }}>
-                <label className="form-label" style={{ fontSize: 'var(--text-xs)', textTransform: 'uppercase', letterSpacing: '0.4px', fontWeight: 600 }}>Fréquence</label>
-                <CustomSelect
-                  value={form.dcaFrequency || 'monthly'}
-                  options={[
-                    { label: 'Mensuel', value: 'monthly' },
-                    { label: 'Trimestriel', value: 'quarterly' },
-                    { label: 'Semestriel', value: 'semestrial' },
-                    { label: 'Annuel', value: 'annual' },
-                  ]}
-                  onChange={(val) => handleChange('dcaFrequency', val as string)}
-                />
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginBottom: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span style={{ fontWeight: 600, fontSize: 14, color: 'var(--accent-cyan)' }}>
+                  💎 Apports Personnels &amp; Versements Ponctuels ({depositsHistory.length})
+                </span>
               </div>
-              
-              <div className="form-group" style={{ minWidth: 75 }}>
-                <label className="form-label" style={{ fontSize: 'var(--text-xs)', textTransform: 'uppercase', letterSpacing: '0.4px', fontWeight: 600 }}>Jour (cible)</label>
-                <CustomSelect
-                  value={(form.dcaDepositDay || 5).toString()}
-                  options={Array.from({ length: 31 }, (_, i) => ({ label: (i + 1).toString(), value: (i + 1).toString() }))}
-                  onChange={(val) => handleChange('dcaDepositDay', parseInt(val as string))}
-                />
-              </div>
-
-              {(form.dcaFrequency === 'annual' || form.dcaFrequency === 'quarterly' || form.dcaFrequency === 'semestrial') && (
-                <div className="form-group" style={{ minWidth: 110 }}>
-                  <label className="form-label" style={{ fontSize: 'var(--text-xs)', textTransform: 'uppercase', letterSpacing: '0.4px', fontWeight: 600 }}>Mois (cible)</label>
-                  <CustomSelect
-                    value={(form.dcaDepositMonth || 1).toString()}
-                    options={[
-                      { label: 'Janvier', value: '1' },
-                      { label: 'Février', value: '2' },
-                      { label: 'Mars', value: '3' },
-                      { label: 'Avril', value: '4' },
-                      { label: 'Mai', value: '5' },
-                      { label: 'Juin', value: '6' },
-                      { label: 'Juillet', value: '7' },
-                      { label: 'Août', value: '8' },
-                      { label: 'Septembre', value: '9' },
-                      { label: 'Octobre', value: '10' },
-                      { label: 'Novembre', value: '11' },
-                      { label: 'Décembre', value: '12' },
-                    ]}
-                    onChange={(val) => handleChange('dcaDepositMonth', parseInt(val as string))}
-                  />
+              {depositsHistory.length > 0 && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span className="badge badge-primary" style={{ fontSize: 11 }}>
+                    Total Apports : {depositsHistory.reduce((acc, d) => acc + (d.amount || 0), 0).toLocaleString('fr-FR')} {form.currency === 'USD' ? '$' : '€'}
+                  </span>
+                  <button
+                    type="button"
+                    className="btn btn-ghost"
+                    style={{ fontSize: 11, padding: '2px 6px', color: 'var(--accent-rose)' }}
+                    onClick={handleClearAllDeposits}
+                    title="Effacer tous les apports"
+                  >
+                    Effacer tout
+                  </button>
                 </div>
               )}
-              
-              <div className="form-group" style={{ minWidth: 95 }}>
-                <label className="form-label" style={{ fontSize: 'var(--text-xs)', textTransform: 'uppercase', letterSpacing: '0.4px', fontWeight: 600 }}>Montant ({form.currency === 'USD' ? '$' : form.currency === 'GBP' ? '£' : '€'})</label>
-                <input
-                  className="input mono"
-                  type="number"
-                  step="10"
-                  min="0"
-                  style={{ fontSize: 13, padding: '8px 10px' }}
-                  value={form.monthlyDCA ?? ''}
-                  onChange={(e) => handleOptionalNumber('monthlyDCA', e.target.value)}
-                  placeholder="ex: 150"
-                  id="input-monthly-dca"
-                />
-              </div>
             </div>
+
+            <p style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 12 }}>
+              Ajoutez des injections de capital ponctuelles (prime, bonus, apport personnel exceptionnel). Ces montants s'ajoutent à la trésorerie DCA pour l'achat de titres lors du mois correspondant.
+            </p>
+
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12 }}>
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                style={{ fontSize: 11, padding: '4px 10px', borderRadius: 8 }}
+                onClick={() => handleAddDeposit('LIBRE', 1000, 'Apport personnel exceptionnel')}
+              >
+                ➕ Apport Personnel (+1 000 {form.currency === 'USD' ? '$' : '€'})
+              </button>
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                style={{ fontSize: 11, padding: '4px 10px', borderRadius: 8 }}
+                onClick={() => handleAddDeposit('PRIME', 1500, 'Prime / Bonus annuel')}
+              >
+                ➕ Prime / Bonus (+1 500 {form.currency === 'USD' ? '$' : '€'})
+              </button>
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                style={{ fontSize: 11, padding: '4px 10px', borderRadius: 8 }}
+                onClick={() => handleAddDeposit('LIBRE', 500, 'Virement ponctuel')}
+              >
+                ➕ Virement Libre (+500 {form.currency === 'USD' ? '$' : '€'})
+              </button>
+            </div>
+
+            {depositsHistory.length === 0 ? (
+              <div style={{
+                padding: '12px 14px',
+                borderRadius: 8,
+                background: 'rgba(255, 255, 255, 0.02)',
+                border: '1px dashed var(--border-subtle)',
+                fontSize: 12,
+                color: 'var(--text-tertiary)',
+                textAlign: 'center',
+              }}>
+                Aucun apport ponctuel enregistré sur cet actif. Utilisez les boutons ci-dessus pour ajouter des apports personnels ou primes.
+              </div>
+            ) : (
+              <div style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 8,
+                maxHeight: 220,
+                overflowY: 'auto',
+                paddingRight: 4,
+                scrollbarWidth: 'thin',
+              }}>
+                {depositsHistory.map((dep, idx) => (
+                  <div
+                    key={dep.id}
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'minmax(130px, 1.2fr) minmax(120px, 1.5fr) minmax(90px, 1fr) 32px',
+                      gap: 8,
+                      alignItems: 'center',
+                      padding: '6px 8px',
+                      background: 'var(--bg-secondary)',
+                      border: '1px solid var(--border-subtle)',
+                      borderRadius: 8,
+                    }}
+                  >
+                    <div>
+                      <label style={{ display: 'block', fontSize: 9, color: 'var(--text-tertiary)', marginBottom: 2 }}>
+                        Date #{idx + 1}
+                      </label>
+                      <CustomDatePicker
+                        value={dep.date}
+                        onChange={(newDate) => handleUpdateDeposit(dep.id, { date: newDate })}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: 9, color: 'var(--text-tertiary)', marginBottom: 2 }}>
+                        Libellé / Nature
+                      </label>
+                      <input
+                        className="input"
+                        style={{ fontSize: 12, padding: '5px 8px' }}
+                        value={dep.label || ''}
+                        onChange={(e) => handleUpdateDeposit(dep.id, { label: e.target.value })}
+                        placeholder="ex: Apport personnel..."
+                      />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: 9, color: 'var(--text-tertiary)', marginBottom: 2 }}>
+                        Montant ({form.currency === 'USD' ? '$' : '€'})
+                      </label>
+                      <input
+                        className="input mono"
+                        type="number"
+                        step="50"
+                        min="0"
+                        style={{ fontSize: 12, padding: '5px 8px', fontWeight: 600 }}
+                        value={dep.amount || ''}
+                        onChange={(e) => handleUpdateDeposit(dep.id, { amount: parseFloat(e.target.value) || 0 })}
+                        placeholder="0"
+                      />
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'center', paddingTop: 12 }}>
+                      <button
+                        type="button"
+                        className="btn btn-ghost"
+                        style={{ padding: '4px', color: 'var(--accent-rose)', minWidth: 'auto', fontSize: 13 }}
+                        onClick={() => handleDeleteDeposit(dep.id)}
+                        title="Supprimer cet apport"
+                      >
+                        🗑️
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Row 5: Weights with Preset Buttons */}

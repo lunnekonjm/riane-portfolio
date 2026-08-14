@@ -112,4 +112,42 @@ describe('dcaSimulation Engine', () => {
     expect(result.logs[2].monthlyBudget).toBe(300); // Mar
     expect(result.logs[3].monthlyBudget).toBe(300); // Apr
   });
+
+  it('supports ad-hoc personal contributions (depositsHistory) combined with DCA', () => {
+    const result = calculateDCAFromPriceMap(
+      months, // ['2023-01', '2023-02', '2023-03', '2023-04']
+      priceMap, // Jan: 5.0, Feb: 5.2, Mar: 4.8, Apr: 5.0
+      200, // 200€ / month regular DCA
+      5.0,
+      true,
+      'monthly',
+      1,
+      null,
+      undefined,
+      [
+        { id: 'dep1', date: '2023-02-15', amount: 1000, label: 'Prime annuelle' },
+        { id: 'dep2', date: '2023-04-10', amount: 500, label: 'Apport exceptionnel' },
+      ]
+    );
+
+    // Jan: 200€ regular DCA => 40 shares @ 5.0€
+    expect(result.logs[0].monthlyBudget).toBe(200);
+    expect(result.logs[0].sharesBought).toBe(40);
+
+    // Feb: 200€ DCA + 1000€ prime = 1200€ cash => floor(1200 / 5.2) = 230 shares (1196€ spent, 4€ rollover)
+    expect(result.logs[1].monthlyBudget).toBe(1200);
+    expect(result.logs[1].sharesBought).toBe(230);
+    expect(result.logs[1].spent).toBe(1196);
+    expect(result.logs[1].rolloverCash).toBeCloseTo(4.0, 1);
+
+    // Mar: 200€ regular DCA + 4€ rollover = 204€ => floor(204 / 4.8) = 42 shares (201.6€ spent, 2.4€ rollover)
+    expect(result.logs[2].monthlyBudget).toBe(200);
+    expect(result.logs[2].cashAvailable).toBeCloseTo(204.0, 1);
+    expect(result.logs[2].sharesBought).toBe(42);
+
+    // Apr: 200€ DCA + 500€ apport + 2.4€ rollover = 702.4€ => floor(702.4 / 5.0) = 140 shares (700€ spent)
+    expect(result.logs[3].monthlyBudget).toBe(700);
+    expect(result.logs[3].sharesBought).toBe(140);
+    expect(result.logs[3].spent).toBe(700);
+  });
 });

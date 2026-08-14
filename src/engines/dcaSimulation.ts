@@ -10,7 +10,7 @@
  * puis investie à partir du premier cours réel d'introduction.
  */
 
-import type { Position, DCATranche } from '@/types/portfolio';
+import type { Position, DCATranche, SavingsDeposit } from '@/types/portfolio';
 import { getHistoricalData } from '@/services/market-data/provider';
 
 export interface DCASimulationMonthLog {
@@ -49,11 +49,13 @@ function getMonthlyDates(startDateStr: string): string[] {
   if (start > end) return [end.toISOString().slice(0, 7)];
 
   const months: string[] = [];
-  const current = new Date(start.getFullYear(), start.getMonth(), 1);
+  const curr = new Date(start.getFullYear(), start.getMonth(), 1);
 
-  while (current <= end) {
-    months.push(current.toISOString().slice(0, 7));
-    current.setMonth(current.getMonth() + 1);
+  while (curr <= end) {
+    const year = curr.getFullYear();
+    const month = String(curr.getMonth() + 1).padStart(2, '0');
+    months.push(`${year}-${month}`);
+    curr.setMonth(curr.getMonth() + 1);
   }
 
   return months;
@@ -72,7 +74,8 @@ export function calculateDCAFromPriceMap(
   frequency: 'monthly' | 'quarterly' | 'semestrial' | 'annual' = 'monthly',
   depositMonth: number = 1,
   earliestDate: string | null = null,
-  dcaHistory?: DCATranche[]
+  dcaHistory?: DCATranche[],
+  depositsHistory?: SavingsDeposit[]
 ): DCASimulationResult {
   let cumulativeShares = 0;
   let cumulativeCost = 0;
@@ -106,7 +109,15 @@ export function calculateDCAFromPriceMap(
       }
     }
 
-    // Calculate if cash deposit occurs in this calendar month
+    // Calculate one-off ad-hoc deposits for this month (primes, apports libres)
+    let adhocDepositForMonth = 0;
+    if (depositsHistory && depositsHistory.length > 0) {
+      adhocDepositForMonth = depositsHistory
+        .filter((d) => d && d.date && d.date.slice(0, 7) === monthKey)
+        .reduce((sum, d) => sum + (d.amount || 0), 0);
+    }
+
+    // Calculate if recurring cash deposit occurs in this calendar month
     const monthNum = parseInt(monthKey.slice(5, 7), 10);
     let isDepositMonth = true;
 
@@ -118,7 +129,8 @@ export function calculateDCAFromPriceMap(
       isDepositMonth = ((monthNum - activeDepMonth) % 3 + 3) % 3 === 0;
     }
 
-    const budgetForMonth = isDepositMonth ? activeBudget : 0;
+    const recurringBudget = isDepositMonth ? activeBudget : 0;
+    const budgetForMonth = recurringBudget + adhocDepositForMonth;
 
     // Check if asset existed on this date
     const existsYet = price !== undefined && price > 0;
@@ -211,13 +223,21 @@ export async function simulatePositionDCA(
   frequency: 'monthly' | 'quarterly' | 'semestrial' | 'annual' = 'monthly',
   depositMonth: number = 1,
   depositDay: number = 5,
-  dcaHistory?: DCATranche[]
+  dcaHistory?: DCATranche[],
+  depositsHistory?: SavingsDeposit[]
 ): Promise<DCASimulationResult> {
   let effectiveStartDate = startDateStr;
   if (dcaHistory && dcaHistory.length > 0) {
     const sortedStarts = [...dcaHistory].map((t) => t.startDate).sort();
     if (sortedStarts[0] && sortedStarts[0] < effectiveStartDate) {
       effectiveStartDate = sortedStarts[0];
+    }
+  }
+
+  if (depositsHistory && depositsHistory.length > 0) {
+    const sortedDepositDates = [...depositsHistory].map((d) => d.date).sort();
+    if (sortedDepositDates[0] && sortedDepositDates[0] < effectiveStartDate) {
+      effectiveStartDate = sortedDepositDates[0];
     }
   }
 
@@ -254,6 +274,7 @@ export async function simulatePositionDCA(
     frequency,
     depositMonth,
     earliestDate,
-    dcaHistory
+    dcaHistory,
+    depositsHistory
   );
 }

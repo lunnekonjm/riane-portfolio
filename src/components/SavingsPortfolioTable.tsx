@@ -167,7 +167,11 @@ export default function SavingsPortfolioTable({
             ) : (
               filteredCalculations.map(({ position, interest }) => {
               const envClass = position.envelope.toLowerCase();
-              const hasActiveDCA = Boolean((position.monthlyDCA && position.monthlyDCA > 0) || (position.annualBudget && position.annualBudget > 0));
+              const activeTranche = position.dcaHistory && position.dcaHistory.length > 0
+                ? (position.dcaHistory.find(t => !t.endDate || t.endDate >= new Date().toISOString().split('T')[0]) || position.dcaHistory[position.dcaHistory.length - 1])
+                : null;
+              const effectiveMonthlyDCA = activeTranche ? activeTranche.amount : (position.monthlyDCA || (position.annualBudget ? Math.round(position.annualBudget / 12) : 0));
+              const hasActiveDCA = Boolean((effectiveMonthlyDCA && effectiveMonthlyDCA > 0) || (position.dcaHistory && position.dcaHistory.length > 0));
               const depositsCount = position.depositsHistory?.length || 0;
               const totalAdhocDeposits = position.depositsHistory?.reduce((sum, d) => sum + (d.amount || 0), 0) || 0;
 
@@ -250,19 +254,44 @@ export default function SavingsPortfolioTable({
                   <td className="mono" style={{ fontSize: 12, whiteSpace: 'nowrap' }}>
                     {hasActiveDCA ? (
                       <div>
-                        <span style={{ color: 'var(--accent-amber)', fontWeight: 700, fontSize: 13, display: 'block' }}>
-                          +{position.monthlyDCA || (position.annualBudget ? Math.round(position.annualBudget / 12) : 0)} €/m
-                        </span>
-                        {position.dcaStartDate && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                          <span style={{ color: 'var(--accent-amber)', fontWeight: 700, fontSize: 13 }}>
+                            +{effectiveMonthlyDCA.toLocaleString('fr-FR')} €/m
+                          </span>
+                          {position.dcaHistory && position.dcaHistory.length > 1 && (
+                            <span style={{
+                              fontSize: 9,
+                              padding: '1px 4px',
+                              borderRadius: 4,
+                              background: 'rgba(6, 182, 212, 0.15)',
+                              color: 'var(--accent-cyan)',
+                              border: '1px solid rgba(6, 182, 212, 0.3)',
+                              fontWeight: 700,
+                            }}>
+                              {position.dcaHistory.length} pal.
+                            </span>
+                          )}
+                        </div>
+                        {(activeTranche?.startDate || position.dcaStartDate) && (
                           <span style={{ fontSize: 10, color: 'var(--text-secondary)', marginTop: 1, display: 'block', fontFamily: 'var(--font-sans)', whiteSpace: 'nowrap' }}>
-                            depuis {position.dcaStartDate}
+                            depuis {activeTranche?.startDate || position.dcaStartDate}
+                          </span>
+                        )}
+                        {totalAdhocDeposits > 0 && (
+                          <span style={{ fontSize: 10, color: 'var(--accent-cyan)', marginTop: 1, display: 'block', fontFamily: 'var(--font-sans)', whiteSpace: 'nowrap' }}>
+                            +{totalAdhocDeposits.toLocaleString('fr-FR')} € libre
                           </span>
                         )}
                       </div>
                     ) : depositsCount > 0 ? (
-                      <span style={{ color: 'var(--accent-cyan)', fontSize: 11, fontWeight: 600, display: 'block' }}>
-                        Libres ({totalAdhocDeposits.toLocaleString('fr-FR')} €)
-                      </span>
+                      <div>
+                        <span style={{ color: 'var(--accent-cyan)', fontSize: 12, fontWeight: 700, display: 'block' }}>
+                          Libres ({totalAdhocDeposits.toLocaleString('fr-FR')} €)
+                        </span>
+                        <span style={{ fontSize: 10, color: 'var(--text-tertiary)', display: 'block', fontFamily: 'var(--font-sans)' }}>
+                          {depositsCount} apport{depositsCount > 1 ? 's' : ''}
+                        </span>
+                      </div>
                     ) : (
                       <span style={{ color: 'var(--text-muted)' }}>—</span>
                     )}

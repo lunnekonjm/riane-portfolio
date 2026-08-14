@@ -2544,241 +2544,112 @@ export default function HomePage() {
               <button className="modal-close-btn" onClick={() => setShowFlowRebalanceModal(false)} type="button" aria-label="Fermer">✕</button>
             </div>
 
-            {/* Mode Switcher Tabs */}
-            <div style={{ display: 'flex', gap: 6, margin: '12px 0', background: 'var(--bg-secondary)', padding: 4, borderRadius: 'var(--radius-sm)' }}>
-              <button
-                type="button"
-                className={`btn btn-sm ${rebalanceTab === 'dca' ? 'btn-primary' : 'btn-ghost'}`}
-                onClick={() => setRebalanceTab('dca')}
-                style={{ flex: 1, fontSize: 12, fontWeight: 700 }}
-              >
-                🎯 DCA Mensuel (Achats Seuls — Recommandé)
-              </button>
-              <button
-                type="button"
-                className={`btn btn-sm ${rebalanceTab === 'active' ? 'btn-primary' : 'btn-ghost'}`}
-                onClick={() => setRebalanceTab('active')}
-                style={{ flex: 1, fontSize: 12, fontWeight: 700, background: rebalanceTab === 'active' ? 'linear-gradient(135deg, #f43f5e 0%, #e11d48 100%)' : undefined }}
-              >
-                ⚖️ Arbitrage Actif (Ventes &amp; Achats)
-              </button>
+            <div style={{ padding: '10px 14px', background: 'rgba(6, 182, 212, 0.1)', borderRadius: 8, border: '1px solid rgba(6, 182, 212, 0.25)', margin: '14px 0 12px 0', fontSize: 13, color: 'var(--text-primary)', lineHeight: 1.45 }}>
+              💡 <strong>Principe DCA Mensuel :</strong> Ces ordres affectent votre versement mensuel ({flowRebalanceResult.totalDCA} €) pour combler vos sous-pondérations <strong>sans vendre aucun actif</strong> (zéro frottement fiscal ni impôt).
             </div>
 
-            {rebalanceTab === 'dca' ? (
-              <>
-                <div style={{ padding: '10px 14px', background: 'rgba(6, 182, 212, 0.1)', borderRadius: 8, border: '1px solid rgba(6, 182, 212, 0.25)', marginBottom: 12, fontSize: 13, color: 'var(--text-primary)', lineHeight: 1.45 }}>
-                  💡 <strong>Principe DCA :</strong> Ces ordres affectent votre versement mensuel ({flowRebalanceResult.totalDCA} €) pour combler vos sous-pondérations <strong>sans vendre aucun actif</strong> (zéro frottement fiscal ni impôt).
-                </div>
-
-                <div style={{ maxHeight: '42vh', overflowY: 'auto', paddingRight: 6, display: 'flex', flexDirection: 'column', gap: 10, margin: '10px 0 14px 0' }}>
-                  {flowRebalanceResult.instructions.map((inst) => (
-                    <div key={inst.positionId} style={{ padding: 12, background: 'var(--bg-tertiary)', borderRadius: 10, border: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                        <AssetLogo ticker={inst.ticker} name={inst.name} size={28} />
-                        <div>
-                          <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-primary)' }}>
-                            {inst.name} ({inst.ticker})
-                          </div>
-                          <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-                            Enveloppe : <strong style={{ color: 'var(--accent-cyan)' }}>{inst.envelope}</strong> • Poids : {inst.currentWeight}% → Cible : {inst.targetWeight}%
-                          </div>
-                        </div>
+            <div style={{ maxHeight: '46vh', overflowY: 'auto', paddingRight: 6, display: 'flex', flexDirection: 'column', gap: 10, margin: '10px 0 14px 0' }}>
+              {flowRebalanceResult.instructions.map((inst) => (
+                <div key={inst.positionId} style={{ padding: 12, background: 'var(--bg-tertiary)', borderRadius: 10, border: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <AssetLogo ticker={inst.ticker} name={inst.name} size={28} />
+                    <div>
+                      <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-primary)' }}>
+                        {inst.name} ({inst.ticker})
                       </div>
-
-                      <div style={{ textAlign: 'right' }}>
-                        {inst.recommendedShares > 0 ? (
-                          <>
-                            <span className="badge badge-emerald" style={{ fontSize: 13, padding: '4px 10px', fontWeight: 700 }}>
-                              🟢 Acheter +{inst.recommendedShares} part{inst.recommendedShares > 1 ? 's' : ''} ({inst.recommendedCost.toLocaleString('fr-FR')} €)
-                            </span>
-                            <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', marginTop: 4, fontWeight: 500 }}>
-                              Nouveau poids projeté : {inst.newWeightAfter}%
-                            </div>
-                          </>
-                        ) : (
-                          <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Conserver (conforme)</span>
-                        )}
+                      <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                        Enveloppe : <strong style={{ color: 'var(--accent-cyan)' }}>{inst.envelope}</strong> • Poids : {inst.currentWeight}% → Cible : {inst.targetWeight}%
                       </div>
                     </div>
-                  ))}
-                </div>
-
-                <div style={{ padding: 12, background: 'var(--bg-secondary)', borderRadius: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-                  <div>
-                    <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Budget alloué : </span>
-                    <strong className="mono" style={{ color: 'var(--accent-emerald)' }}>{flowRebalanceResult.totalSpent.toLocaleString('fr-FR')} €</strong>
                   </div>
-                  <div>
-                    <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Reliquat trésorerie : </span>
-                    <strong className="mono" style={{ color: 'var(--accent-amber)' }}>{flowRebalanceResult.uninvestedCash.toLocaleString('fr-FR')} €</strong>
-                  </div>
-                </div>
 
-                <div style={{ display: 'flex', gap: 10, justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap' }}>
-                  <button
-                    type="button"
-                    className="btn btn-secondary"
-                    onClick={() => {
-                      const orders = flowRebalanceResult.instructions
-                        .filter((i) => i.recommendedShares > 0)
-                        .map((i, idx) => `${idx + 1}. [${i.envelope}] Acheter ${i.recommendedShares} part(s) de ${i.ticker} (${i.name}) ~${i.recommendedCost} €`)
-                        .join('\n');
-                      const text = `📋 FEUILLE D'ORDRES DCA RIANE PORTFOLIO (${new Date().toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })})\nBudget : ${flowRebalanceResult.totalSpent} € (Reliquat : ${flowRebalanceResult.uninvestedCash} €)\n\n${orders}`;
-                      navigator.clipboard.writeText(text);
-                      showToast('📋 Feuille d\'ordres copiée dans le presse-papier !');
-                    }}
-                  >
-                    📋 Copier la Feuille d&apos;Ordres
-                  </button>
-
-                  <div style={{ display: 'flex', gap: 8 }}>
-                    <button className="btn btn-ghost" onClick={() => setShowFlowRebalanceModal(false)}>Fermer</button>
-                    <button
-                      type="button"
-                      className="btn btn-primary"
-                      style={{ padding: '10px 18px', fontSize: 13, background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', boxShadow: '0 4px 14px rgba(16, 185, 129, 0.4)', fontWeight: 700 }}
-                      onClick={async () => {
-                        const confirmed = window.confirm(
-                          `Avez-vous RÉELLEMENT passé ces ordres d'achat sur vos comptes de courtage (BoursoBank / CTO) ?\n\nCette action va enregistrer l'exécution des ordres dans votre portefeuille.`
-                        );
-                        if (!confirmed) return;
-
-                        let appliedCount = 0;
-                        for (const inst of flowRebalanceResult.instructions) {
-                          if (inst.recommendedShares > 0) {
-                            const pos = positions.find((p) => p.id === inst.positionId);
-                            if (pos) {
-                              const newQty = pos.quantity + inst.recommendedShares;
-                              const unitPrice = inst.recommendedShares > 0 ? inst.recommendedCost / inst.recommendedShares : 0;
-                              const effectivePrice = unitPrice || pos.currentPrice || pos.avgPrice || 10;
-                              const newAvgPrice = pos.avgPrice > 0 ? pos.avgPrice : effectivePrice;
-                              await updatePosition({
-                                ...pos,
-                                quantity: newQty,
-                                avgPrice: newAvgPrice,
-                                updatedAt: Date.now(),
-                              });
-                              appliedCount++;
-                            }
-                          }
-                        }
-                        clearAnalysisCache();
-                        setReadNotificationIds(notifications.map((n) => n.id));
-                        showToast(`✅ Exécution réelle enregistrée (+${appliedCount} positions mises à jour)`);
-                        setShowFlowRebalanceModal(false);
-                      }}
-                    >
-                      ✅ Enregistrer comme Exécuté
-                    </button>
-                  </div>
-                </div>
-              </>
-            ) : (
-              <>
-                <div style={{ padding: '10px 14px', background: 'rgba(244, 63, 94, 0.1)', borderRadius: 8, border: '1px solid rgba(244, 63, 94, 0.25)', marginBottom: 12, fontSize: 13, color: 'var(--text-primary)', lineHeight: 1.45 }}>
-                  ⚠️ <strong>Arbitrage Actif (Autofinancement Strict) :</strong> Les achats sont strictement financés par les ventes d&apos;allègement dégagées. (Déconseillé sur CTO en raison de la Flat Tax de 30%).
-                </div>
-
-                <div style={{ maxHeight: '42vh', overflowY: 'auto', paddingRight: 6, display: 'flex', flexDirection: 'column', gap: 10, margin: '10px 0 14px 0' }}>
-                  {activeRebalanceResult && activeRebalanceResult.totalCashFreedEUR === 0 ? (
-                    <div style={{ padding: 24, textAlign: 'center', color: 'var(--text-secondary)', background: 'var(--bg-tertiary)', borderRadius: 10 }}>
-                      <span style={{ fontSize: 28 }}>🟢</span>
-                      <h4 style={{ margin: '8px 0 4px 0', color: 'var(--text-primary)' }}>Aucune vente nécessaire</h4>
-                      <p style={{ margin: 0, fontSize: 13, color: 'var(--text-muted)' }}>
-                        Aucune ligne n&apos;est en sur-concentration critique. Privilégiez l&apos;onglet <strong>DCA Mensuel</strong> pour rééquilibrer sereinement par les flux sans impôt.
-                      </p>
-                    </div>
-                  ) : (
-                    activeRebalanceResult?.instructions.map((inst) => (
-                      <div key={inst.positionId} style={{ padding: 12, background: 'var(--bg-tertiary)', borderRadius: 10, border: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                          <AssetLogo ticker={inst.ticker} name={inst.name} size={28} />
-                          <div>
-                            <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-primary)' }}>
-                              {inst.name} ({inst.ticker})
-                            </div>
-                            <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-                              Enveloppe : <strong style={{ color: 'var(--accent-cyan)' }}>{inst.envelope}</strong> • Poids : {inst.currentWeight}% → Cible : {inst.targetWeight}%
-                            </div>
-                          </div>
+                  <div style={{ textAlign: 'right' }}>
+                    {inst.recommendedShares > 0 ? (
+                      <>
+                        <span className="badge badge-emerald" style={{ fontSize: 13, padding: '4px 10px', fontWeight: 700 }}>
+                          🟢 Acheter +{inst.recommendedShares} part{inst.recommendedShares > 1 ? 's' : ''} ({inst.recommendedCost.toLocaleString('fr-FR')} €)
+                        </span>
+                        <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', marginTop: 4, fontWeight: 500 }}>
+                          Nouveau poids projeté : {inst.newWeightAfter}%
                         </div>
-
-                        <div style={{ textAlign: 'right' }}>
-                          {inst.action === 'SELL' ? (
-                            <>
-                              <span className="badge badge-rose" style={{ fontSize: 13, padding: '4px 10px', fontWeight: 700, background: 'rgba(244, 63, 94, 0.2)', color: 'var(--accent-rose)' }}>
-                                🔻 Vendre {Math.abs(inst.deltaShares)} part{Math.abs(inst.deltaShares) > 1 ? 's' : ''} ({inst.deltaCostEUR.toLocaleString('fr-FR')} €)
-                              </span>
-                              <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', marginTop: 4, fontWeight: 500 }}>
-                                Nouveau poids : {inst.newWeightAfter}%
-                              </div>
-                            </>
-                          ) : inst.action === 'BUY' ? (
-                            <>
-                              <span className="badge badge-emerald" style={{ fontSize: 13, padding: '4px 10px', fontWeight: 700 }}>
-                                🟢 Acheter +{inst.deltaShares} part{inst.deltaShares > 1 ? 's' : ''} ({inst.deltaCostEUR.toLocaleString('fr-FR')} €)
-                              </span>
-                              <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', marginTop: 4, fontWeight: 500 }}>
-                                Nouveau poids : {inst.newWeightAfter}%
-                              </div>
-                            </>
-                          ) : (
-                            <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Conserver (conforme)</span>
-                          )}
-                        </div>
-                      </div>
-                    ))
-                  )}
+                      </>
+                    ) : (
+                      <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Conserver (conforme)</span>
+                    )}
+                  </div>
                 </div>
+              ))}
+            </div>
 
-                <div style={{ padding: 12, background: 'var(--bg-secondary)', borderRadius: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-                  <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Cash débloqué par les ventes :</span>
-                  <strong className="mono" style={{ color: 'var(--accent-emerald)' }}>+{activeRebalanceResult?.totalCashFreedEUR.toLocaleString('fr-FR')} €</strong>
-                </div>
+            <div style={{ padding: 12, background: 'var(--bg-secondary)', borderRadius: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <div>
+                <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Budget alloué : </span>
+                <strong className="mono" style={{ color: 'var(--accent-emerald)' }}>{flowRebalanceResult.totalSpent.toLocaleString('fr-FR')} €</strong>
+              </div>
+              <div>
+                <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Reliquat trésorerie : </span>
+                <strong className="mono" style={{ color: 'var(--accent-amber)' }}>{flowRebalanceResult.uninvestedCash.toLocaleString('fr-FR')} €</strong>
+              </div>
+            </div>
 
-                <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end', alignItems: 'center' }}>
-                  <button className="btn btn-secondary" onClick={() => setShowFlowRebalanceModal(false)}>Fermer</button>
-                  {activeRebalanceResult && activeRebalanceResult.totalCashFreedEUR > 0 && (
-                    <button
-                      type="button"
-                      className="btn btn-primary"
-                      style={{ padding: '10px 18px', fontSize: 13, background: 'linear-gradient(135deg, #f43f5e 0%, #e11d48 100%)', boxShadow: '0 4px 14px rgba(244, 63, 94, 0.4)', fontWeight: 700 }}
-                      onClick={async () => {
-                        const confirmed = window.confirm(
-                          `Avez-vous RÉELLEMENT exécuté ces ventes et achats d'arbitrage sur vos comptes de courtage ?`
-                        );
-                        if (!confirmed) return;
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => {
+                  const orders = flowRebalanceResult.instructions
+                    .filter((i) => i.recommendedShares > 0)
+                    .map((i, idx) => `${idx + 1}. [${i.envelope}] Acheter ${i.recommendedShares} part(s) de ${i.ticker} (${i.name}) ~${i.recommendedCost} €`)
+                    .join('\n');
+                  const text = `📋 FEUILLE D'ORDRES DCA RIANE PORTFOLIO (${new Date().toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })})\nBudget : ${flowRebalanceResult.totalSpent} € (Reliquat : ${flowRebalanceResult.uninvestedCash} €)\n\n${orders}`;
+                  navigator.clipboard.writeText(text);
+                  showToast('📋 Feuille d\'ordres copiée dans le presse-papier !');
+                }}
+              >
+                📋 Copier la Feuille d&apos;Ordres
+              </button>
 
-                        let appliedCount = 0;
-                        for (const inst of activeRebalanceResult.instructions) {
-                          if (inst.deltaShares !== 0) {
-                            const pos = positions.find((p) => p.id === inst.positionId);
-                            if (pos) {
-                              const newQty = Math.max(0, pos.quantity + inst.deltaShares);
-                              const effectivePrice = inst.deltaCostEUR ? Math.abs(inst.deltaCostEUR / (inst.deltaShares || 1)) : (pos.currentPrice || pos.avgPrice || 10);
-                              const newAvgPrice = pos.avgPrice > 0 ? pos.avgPrice : effectivePrice;
-                              await updatePosition({
-                                ...pos,
-                                quantity: newQty,
-                                avgPrice: newAvgPrice,
-                                updatedAt: Date.now(),
-                              });
-                              appliedCount++;
-                            }
-                          }
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button className="btn btn-ghost" onClick={() => setShowFlowRebalanceModal(false)}>Fermer</button>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  style={{ padding: '10px 18px', fontSize: 13, background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', boxShadow: '0 4px 14px rgba(16, 185, 129, 0.4)', fontWeight: 700 }}
+                  onClick={async () => {
+                    const confirmed = window.confirm(
+                      `Avez-vous RÉELLEMENT passé ces ordres d'achat sur vos comptes de courtage (BoursoBank / CTO) ?\n\nCette action va enregistrer l'exécution des ordres dans votre portefeuille.`
+                    );
+                    if (!confirmed) return;
+
+                    let appliedCount = 0;
+                    for (const inst of flowRebalanceResult.instructions) {
+                      if (inst.recommendedShares > 0) {
+                        const pos = positions.find((p) => p.id === inst.positionId);
+                        if (pos) {
+                          const newQty = pos.quantity + inst.recommendedShares;
+                          const unitPrice = inst.recommendedShares > 0 ? inst.recommendedCost / inst.recommendedShares : 0;
+                          const effectivePrice = unitPrice || pos.currentPrice || pos.avgPrice || 10;
+                          const newAvgPrice = pos.avgPrice > 0 ? pos.avgPrice : effectivePrice;
+                          await updatePosition({
+                            ...pos,
+                            quantity: newQty,
+                            avgPrice: newAvgPrice,
+                            updatedAt: Date.now(),
+                          });
+                          appliedCount++;
                         }
-                        clearAnalysisCache();
-                        setReadNotificationIds(notifications.map((n) => n.id));
-                        showToast(`✅ Arbitrage actif enregistré (+${appliedCount} positions ajustées)`);
-                        setShowFlowRebalanceModal(false);
-                      }}
-                    >
-                      ✅ Enregistrer l&apos;Arbitrage Réel
-                    </button>
-                  )}
-                </div>
-              </>
-            )}
+                      }
+                    }
+                    clearAnalysisCache();
+                    setReadNotificationIds(notifications.map((n) => n.id));
+                    showToast(`✅ Exécution réelle enregistrée (+${appliedCount} positions mises à jour)`);
+                    setShowFlowRebalanceModal(false);
+                  }}
+                >
+                  ✅ Enregistrer comme Exécuté
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

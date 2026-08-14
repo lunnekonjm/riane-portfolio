@@ -1,130 +1,67 @@
 /**
- * Scénarios de stress prédéfinis — CDC Sections "Stress tests" et "Stress tests RIANE"
+ * Scénarios de stress macroéconomiques rationalisés
+ * Focus exclusif sur les chocs réalistes et actionnables pour un portefeuille 40/40/20.
  */
 
 import type { StressScenario } from '@/types/simulation';
 
-/** Stress tests historiques */
 export const HISTORICAL_SCENARIOS: StressScenario[] = [
   {
-    name: 'Crise financière mondiale (2008)',
+    name: 'Choc de Taux & Compression Tech (Type 2022)',
     type: 'historical',
     shocks: {
-      global_equities: -0.50,
-      technology: -0.45,
-      small_caps: -0.55,
-      speculative: -0.70,
-    },
-    durationMonths: 18,
-    description: 'Crise systémique bancaire mondiale',
-  },
-  {
-    name: 'Choc pandémique (2020)',
-    type: 'historical',
-    shocks: {
-      global_equities: -0.34,
-      technology: -0.25,
-      small_caps: -0.40,
-      energy: -0.45,
-    },
-    durationMonths: 3,
-    description: 'Pandémie COVID-19 avec rebond rapide',
-  },
-  {
-    name: 'Choc inflationniste (2022)',
-    type: 'historical',
-    shocks: {
-      global_equities: -0.20,
+      global_equities: -0.18,
       technology: -0.30,
-      small_caps: -0.25,
-      eur_usd: -0.15,
-    },
-    durationMonths: 12,
-    description: 'Inflation forte et remontée brutale des taux',
-  },
-  {
-    name: 'Bulle technologique (2000)',
-    type: 'historical',
-    shocks: {
-      global_equities: -0.25,
-      technology: -0.75,
-      small_caps: -0.30,
-      speculative: -0.80,
-    },
-    durationMonths: 30,
-    description: 'Éclatement de la bulle internet',
-  },
-  {
-    name: 'Crise souveraine européenne (2011)',
-    type: 'historical',
-    shocks: {
-      global_equities: -0.15,
-      europe_small: -0.30,
+      nasdaq_100: -0.28,
+      small_caps: -0.22,
       eur_usd: -0.10,
     },
     durationMonths: 12,
-    description: 'Crise de dette souveraine dans la zone euro',
+    description: 'Remontée des taux directeurs des banques centrales, compression des ratios de valorisation sur les valeurs de croissance.',
   },
   {
-    name: 'Crise de change EUR/USD',
+    name: 'Récession Européenne & Choc de Liquidité Small Caps',
     type: 'historical',
     shocks: {
-      eur_usd: 0.25,
-      global_equities: -0.05,
+      global_equities: -0.15,
+      europe_small: -0.35,
+      small_caps: -0.30,
+      speculative: -0.40,
     },
-    durationMonths: 6,
-    description: 'Appréciation forte de l\'euro contre le dollar',
+    durationMonths: 10,
+    description: 'Ralentissement conjoncturel continental, baisse des marges industrielles et décote temporaire sur les Small/Mid caps PEA-PME.',
   },
   {
-    name: 'Crise de liquidité small caps',
+    name: 'Correction Majeure de Marché (-30%)',
     type: 'historical',
     shocks: {
-      small_caps: -0.45,
-      europe_small: -0.50,
-      speculative: -0.60,
+      global_equities: -0.30,
+      technology: -0.35,
+      small_caps: -0.35,
+      speculative: -0.50,
     },
-    durationMonths: 12,
-    description: 'Assèchement de la liquidité sur les petites capitalisations',
+    durationMonths: 8,
+    description: 'Correction boursière globale sévère, créant des points d\'entrée historiques pour les versements DCA mensuels.',
   },
 ];
 
-/** Stress tests personnalisés RIANE */
 export const CUSTOM_RIANE_SCENARIOS: StressScenario[] = [
   {
-    name: 'AI capex reversal',
+    name: 'Ralentissement des Investissements IA & Capex',
     type: 'custom',
     shocks: {
-      nasdaq_100: -0.30,
-      coherent: -0.45,
-      symbotic: -0.45,
-      small_cap_technology: -0.50,
+      nasdaq_100: -0.22,
+      coherent: -0.30,
+      symbotic: -0.35,
+      small_cap_technology: -0.25,
+      constellation_energy: -0.15,
     },
-    correlations: 'crisis-adjusted',
-    description: 'Retournement des investissements IA et data centers — coupe budgétaire massive des hyperscalers',
-  },
-  {
-    name: 'European small cap liquidity crisis',
-    type: 'custom',
-    shocks: {
-      europe_small: -0.35,
-      riber: -0.55,
-      memscap: -0.55,
-      speculative_bucket: -0.70,
-    },
-    correlations: 'crisis-adjusted',
-    description: 'Crise de liquidité ciblée sur les micro-caps européennes technologiques',
-  },
-  {
-    name: 'Combined technology and currency shock',
-    type: 'custom',
-    shocks: {
-      global_equities: -0.20,
-      technology: -0.35,
-      eur_appreciation: 0.20,
-    },
-    correlations: 'crisis-adjusted',
-    description: 'Choc technologique combiné à une appréciation forte de l\'euro — double peine sur le CTO',
+    durationMonths: 6,
+    description: 'Normalisation des budgets d\'infrastructure dans les Data Centers et temporisation des commandes technologiques.',
   },
 ];
 
-export const ALL_SCENARIOS = [...HISTORICAL_SCENARIOS, ...CUSTOM_RIANE_SCENARIOS];
+export const ALL_SCENARIOS: StressScenario[] = [
+  ...HISTORICAL_SCENARIOS,
+  ...CUSTOM_RIANE_SCENARIOS,
+];

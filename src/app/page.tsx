@@ -1719,21 +1719,39 @@ export default function HomePage() {
                     ) : (
                       <div style={{ overflowX: 'auto', width: '100%', WebkitOverflowScrolling: 'touch', borderRadius: 'var(--radius-md)' }}>
                         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12, padding: '0 4px' }}>
-                          {[
-                            { id: 'ALL', label: '🌐 Tous les Actifs (Bourse & Crypto)' },
-                          { id: 'BOURSE', label: '📈 PEA & CTO' },
-                            { id: 'AUTRE', label: '🚀 Spéculatif & Crypto' },
-                          ].map((tab) => (
-                            <button
-                              key={tab.id}
-                              type="button"
-                              className={`btn ${selectedEnvelopeFilter === tab.id ? 'btn-primary' : 'btn-ghost'}`}
-                              style={{ fontSize: 'var(--text-xs)', padding: '4px 10px', borderRadius: 20 }}
-                              onClick={() => setSelectedEnvelopeFilter(tab.id)}
-                            >
-                              {tab.label}
-                            </button>
-                          ))}
+                          {(() => {
+                            const marketFilterTabs = [
+                              { id: 'ALL', label: `🌐 Tout (${marketPositionsAll.length})` }
+                            ];
+                            if (marketPositionsAll.some(p => p.envelope === 'PEA')) {
+                              const count = marketPositionsAll.filter(p => p.envelope === 'PEA').length;
+                              marketFilterTabs.push({ id: 'PEA', label: `🇫🇷 PEA (${count})` });
+                            }
+                            if (marketPositionsAll.some(p => p.envelope === 'PEA-PME')) {
+                              const count = marketPositionsAll.filter(p => p.envelope === 'PEA-PME').length;
+                              marketFilterTabs.push({ id: 'PEA-PME', label: `🌱 PEA-PME (${count})` });
+                            }
+                            if (marketPositionsAll.some(p => p.envelope === 'CTO')) {
+                              const count = marketPositionsAll.filter(p => p.envelope === 'CTO').length;
+                              marketFilterTabs.push({ id: 'CTO', label: `🌍 CTO (${count})` });
+                            }
+                            if (marketPositionsAll.some(p => p.envelope === 'SPECULATIVE' || p.envelope === 'OPPORTUNISTIC')) {
+                              const count = marketPositionsAll.filter(p => p.envelope === 'SPECULATIVE' || p.envelope === 'OPPORTUNISTIC').length;
+                              marketFilterTabs.push({ id: 'SPECULATIVE', label: `🚀 Spéculatif (${count})` });
+                            }
+
+                            return marketFilterTabs.map((tab) => (
+                              <button
+                                key={tab.id}
+                                type="button"
+                                className={`btn ${selectedEnvelopeFilter === tab.id ? 'btn-primary' : 'btn-ghost'}`}
+                                style={{ fontSize: 'var(--text-xs)', padding: '4px 10px', borderRadius: 20 }}
+                                onClick={() => setSelectedEnvelopeFilter(tab.id)}
+                              >
+                                {tab.label}
+                              </button>
+                            ));
+                          })()}
                         </div>
                         <table className="portfolio-table">
                           <thead>
@@ -1755,10 +1773,23 @@ export default function HomePage() {
                                 if (!isMarket) return false;
                                 
                                 if (selectedEnvelopeFilter === 'ALL') return true;
+                                if (selectedEnvelopeFilter === 'PEA') return p.envelope === 'PEA';
+                                if (selectedEnvelopeFilter === 'PEA-PME') return p.envelope === 'PEA-PME';
+                                if (selectedEnvelopeFilter === 'CTO') return p.envelope === 'CTO';
+                                if (selectedEnvelopeFilter === 'SPECULATIVE') return p.envelope === 'SPECULATIVE' || p.envelope === 'OPPORTUNISTIC';
                                 if (selectedEnvelopeFilter === 'BOURSE') return p.envelope === 'PEA' || p.envelope === 'PEA-PME' || p.envelope === 'CTO';
-                                if (selectedEnvelopeFilter === 'AUTRE') return p.envelope === 'SPECULATIVE' || p.envelope === 'OPPORTUNISTIC';
-                                return true;
+                                return p.envelope === selectedEnvelopeFilter;
                               });
+
+                              if (filteredPositions.length === 0) {
+                                return (
+                                  <tr>
+                                    <td colSpan={8} style={{ textAlign: 'center', padding: '24px 12px', color: 'var(--text-secondary)' }}>
+                                      🔍 Aucun actif boursier ne correspond au filtre sélectionné.
+                                    </td>
+                                  </tr>
+                                );
+                              }
 
                               return filteredPositions.map((pos) => {
                                 const hasFilled = pos.quantity > 0 && pos.avgPrice > 0;

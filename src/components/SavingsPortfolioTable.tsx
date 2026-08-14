@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useMemo } from 'react';
 import type { Position } from '@/types/portfolio';
 import { computeSavingsPositionInterest } from '@/engines/savingsInterestEngine';
 
@@ -16,14 +17,53 @@ export default function SavingsPortfolioTable({
   onDeletePosition,
   onAddSavingsPosition,
 }: SavingsPortfolioTableProps) {
-  const savingsPositions = positions.filter(
-    (p) => p.envelope === 'LIVRET' || p.envelope === 'ASSURANCE_VIE' || p.envelope === 'PER' || p.envelope === 'PEE' || p.envelope === 'IMMOBILIER'
-  );
+  const [selectedSavingsEnvelope, setSelectedSavingsEnvelope] = useState<string>('ALL');
 
-  const calculations = savingsPositions.map((p) => ({
-    position: p,
-    interest: computeSavingsPositionInterest(p),
-  }));
+  const savingsPositions = useMemo(() => {
+    return positions.filter(
+      (p) => p.envelope === 'LIVRET' || p.envelope === 'ASSURANCE_VIE' || p.envelope === 'PER' || p.envelope === 'PEE' || p.envelope === 'IMMOBILIER'
+    );
+  }, [positions]);
+
+  const calculations = useMemo(() => {
+    return savingsPositions.map((p) => ({
+      position: p,
+      interest: computeSavingsPositionInterest(p),
+    }));
+  }, [savingsPositions]);
+
+  // Filter tabs dynamically generated with exact counts
+  const savingsFilterTabs = useMemo(() => {
+    const tabs = [
+      { id: 'ALL', label: `🌐 Tout (${savingsPositions.length})` }
+    ];
+    if (savingsPositions.some(p => p.envelope === 'LIVRET')) {
+      const count = savingsPositions.filter(p => p.envelope === 'LIVRET').length;
+      tabs.push({ id: 'LIVRET', label: `🛡️ Livrets (${count})` });
+    }
+    if (savingsPositions.some(p => p.envelope === 'PEE')) {
+      const count = savingsPositions.filter(p => p.envelope === 'PEE').length;
+      tabs.push({ id: 'PEE', label: `🏢 PEE & Salariale (${count})` });
+    }
+    if (savingsPositions.some(p => p.envelope === 'ASSURANCE_VIE')) {
+      const count = savingsPositions.filter(p => p.envelope === 'ASSURANCE_VIE').length;
+      tabs.push({ id: 'ASSURANCE_VIE', label: `📜 Assurance-Vie (${count})` });
+    }
+    if (savingsPositions.some(p => p.envelope === 'PER')) {
+      const count = savingsPositions.filter(p => p.envelope === 'PER').length;
+      tabs.push({ id: 'PER', label: `🎯 PER (${count})` });
+    }
+    if (savingsPositions.some(p => p.envelope === 'IMMOBILIER')) {
+      const count = savingsPositions.filter(p => p.envelope === 'IMMOBILIER').length;
+      tabs.push({ id: 'IMMOBILIER', label: `🏠 Immobilier (${count})` });
+    }
+    return tabs;
+  }, [savingsPositions]);
+
+  const filteredCalculations = useMemo(() => {
+    if (selectedSavingsEnvelope === 'ALL') return calculations;
+    return calculations.filter(({ position }) => position.envelope === selectedSavingsEnvelope);
+  }, [calculations, selectedSavingsEnvelope]);
 
   const totalValue = calculations.reduce((acc, c) => acc + c.interest.currentBalance, 0);
   const totalAnnualInterest = calculations.reduce((acc, c) => acc + c.interest.projectedAnnualInterest, 0);
@@ -86,6 +126,21 @@ export default function SavingsPortfolioTable({
         </div>
       </div>
 
+      {/* Filter Tabs Bar (Strictement identique au tableau Bourse) */}
+      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12, padding: '0 4px' }}>
+        {savingsFilterTabs.map((tab) => (
+          <button
+            key={tab.id}
+            type="button"
+            className={`btn ${selectedSavingsEnvelope === tab.id ? 'btn-primary' : 'btn-ghost'}`}
+            style={{ fontSize: 'var(--text-xs)', padding: '4px 10px', borderRadius: 20 }}
+            onClick={() => setSelectedSavingsEnvelope(tab.id)}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
       {/* Table with Touch Responsive Scrolling and Shared portfolio-table Design */}
       <div className="table-responsive" style={{ overflowX: 'auto', width: '100%', WebkitOverflowScrolling: 'touch', borderRadius: 'var(--radius-md)' }}>
         <table className="portfolio-table">
@@ -102,7 +157,14 @@ export default function SavingsPortfolioTable({
             </tr>
           </thead>
           <tbody>
-            {calculations.map(({ position, interest }) => {
+            {filteredCalculations.length === 0 ? (
+              <tr>
+                <td colSpan={8} style={{ textAlign: 'center', padding: '24px 12px', color: 'var(--text-secondary)' }}>
+                  🔍 Aucun compte épargne ne correspond au filtre sélectionné.
+                </td>
+              </tr>
+            ) : (
+              filteredCalculations.map(({ position, interest }) => {
               const envClass = position.envelope.toLowerCase();
               const hasActiveDCA = Boolean((position.monthlyDCA && position.monthlyDCA > 0) || (position.annualBudget && position.annualBudget > 0));
               const depositsCount = position.depositsHistory?.length || 0;
@@ -281,7 +343,7 @@ export default function SavingsPortfolioTable({
                   </td>
                 </tr>
               );
-            })}
+            }))}
           </tbody>
         </table>
       </div>

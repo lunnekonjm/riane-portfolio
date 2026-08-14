@@ -2,10 +2,12 @@
  * Moteur de Rebalancement Intelligent par les Flux (Smart Flow Rebalancer)
  * Calcule l'allocation optimale du nouveau versement DCA mensuel
  * pour réduire la dérive d'allocation sans vendre aucun actif (zéro frottement fiscal).
- * Respecte la règle des actions entières (PEA / PEA-PME / CTO).
+ * Isole STRICTEMENT les actifs boursiers cotés (PEA / PEA-PME / CTO).
  */
 
 import type { Position } from '@/types/portfolio';
+
+const MARKET_ENVELOPES = ['PEA', 'PEA-PME', 'CTO', 'SPECULATIVE', 'OPPORTUNISTIC'];
 
 export interface FlowRebalanceInstruction {
   positionId: string;
@@ -33,7 +35,12 @@ export function calculateSmartFlowRebalance(
   monthlyBudget: number,
   fxRates: Record<string, number> = { EUR: 1.0, USD: 0.92 }
 ): FlowRebalanceResult {
-  const filledPositions = positions.filter((p) => p.quantity > 0 || (p.targetWeight && p.targetWeight > 0));
+  // Filtrer STRICTEMENT les positions boursières (exclut livrets & PEE)
+  const filledPositions = positions.filter((p) => {
+    const isMarket = MARKET_ENVELOPES.includes((p.envelope || '').toUpperCase());
+    const hasValueOrTarget = (p.quantity || 0) > 0 || (p.targetWeight && p.targetWeight > 0);
+    return isMarket && hasValueOrTarget;
+  });
 
   if (filledPositions.length === 0 || monthlyBudget <= 0) {
     return {
@@ -44,7 +51,7 @@ export function calculateSmartFlowRebalance(
     };
   }
 
-  // Calculate current total value in EUR
+  // Calculate current total market value in EUR
   const totalValueEUR = filledPositions.reduce((sum, p) => {
     const price = p.currentPrice || p.avgPrice || 1;
     const rate = fxRates[p.currency] || 1.0;
@@ -61,7 +68,7 @@ export function calculateSmartFlowRebalance(
     const currentValEUR = p.quantity * priceEUR;
     const currentWeight = totalValueEUR > 0 ? currentValEUR / totalValueEUR : 0;
     const targetWeight = p.targetWeight || (1 / filledPositions.length);
-    const weightGap = targetWeight - currentWeight; // higher = more underweight
+    const weightGap = targetWeight - currentWeight;
 
     return {
       position: p,
@@ -91,7 +98,6 @@ export function calculateSmartFlowRebalance(
   while (remainingCashEUR > 0 && iterations < 500) {
     iterations++;
 
-    // Re-evaluate current weight gaps dynamically based on cash spent so far
     const currentSpentEUR = monthlyBudget - remainingCashEUR;
     const currentSimulatedTotalEUR = totalValueEUR + currentSpentEUR;
 
@@ -101,16 +107,12 @@ export function calculateSmartFlowRebalance(
       item.weightGap = item.targetWeight - currentWeight;
     });
 
-    // Sort by most underweight first
     items.sort((a, b) => b.weightGap - a.weightGap);
 
     let allocatedInRound = false;
 
     for (const item of items) {
-      // Only allocate if position is underweight (weightGap > 0)
-      if (item.weightGap <= 0 && items.some(i => i.weightGap > 0)) continue;
-
-      const isIntegerOnly = item.position.envelope === 'PEA' || item.position.envelope === 'PEA-PME' || item.position.envelope === 'CTO';
+      if (item.weightGap <= 0 && items.some((i) => i.weightGap > 0)) continue;
 
       if (remainingCashEUR >= item.priceEUR) {
         let targetEnvelope: string = item.position.envelope;
@@ -190,15 +192,19 @@ export interface ActiveRebalanceResult {
 }
 
 /**
- * Moteur de Rééquilibrage Actif (Avec Ventes & Achats de Réalignement)
- * Calcule exactement combien de parts VENDRE (sur-concentrées) et ACHETER (sous-pondérées)
- * pour réaligner à 100% le portefeuille sur ses cibles d'allocation.
+ * Moteur de Rééquilibrage Actif (Arbitrage Strict Ventes -> Achats)
+ * Règle d'or : On ne peut acheter QUE avec le cash dégagé par les ventes (Autofinancement strict).
  */
 export function calculateActiveRebalance(
   positions: Position[],
   fxRates: Record<string, number> = { EUR: 1.0, USD: 0.92 }
 ): ActiveRebalanceResult {
-  const filledPositions = positions.filter((p) => p.quantity > 0 || (p.targetWeight && p.targetWeight > 0));
+  // Filtrer STRICTEMENT les positions boursières cotées
+  const filledPositions = positions.filter((p) => {
+    const isMarket = MARKET_ENVELOPES.includes((p.envelope || '').toUpperCase());
+    const hasValueOrTarget = (p.quantity || 0) > 0 || (p.targetWeight && p.targetWeight > 0);
+    return isMarket && hasValueOrTarget;
+  });
 
   const totalValueEUR = filledPositions.reduce((sum, p) => {
     const price = p.currentPrice || p.avgPrice || 1;
@@ -215,10 +221,9 @@ export function calculateActiveRebalance(
     };
   }
 
+  // Étape 1 : Identifier les positions sur-pondérées à VENDRE pour dégager du cash
   let totalCashFreedEUR = 0;
-  let totalCashReinvestedEUR = 0;
-
-  const instructions: ActiveRebalanceInstruction[] = filledPositions.map((p) => {
+  const items = filledPositions.map((p) => {
     const priceNative = p.currentPrice || p.avgPrice || 1;
     const rate = fxRates[p.currency] || 1.0;
     const priceEUR = priceNative * rate;
@@ -226,43 +231,81 @@ export function calculateActiveRebalance(
     const currentWeight = currentValEUR / totalValueEUR;
     const targetWeight = p.targetWeight || (1 / filledPositions.length);
     const targetValEUR = totalValueEUR * targetWeight;
-    const diffEUR = targetValEUR - currentValEUR; // negative = over-weighted (SELL), positive = under-weighted (BUY)
+    const diffEUR = targetValEUR - currentValEUR;
 
     let action: 'SELL' | 'BUY' | 'HOLD' = 'HOLD';
     let deltaShares = 0;
     let deltaCostEUR = 0;
 
-    if (diffEUR < -priceEUR) {
+    if (diffEUR < -priceEUR && p.quantity > 0) {
       // Overweighted: SELL shares to reach target weight
       action = 'SELL';
-      deltaShares = Math.floor(Math.abs(diffEUR) / priceEUR);
+      deltaShares = Math.min(p.quantity, Math.floor(Math.abs(diffEUR) / priceEUR));
       deltaCostEUR = deltaShares * priceEUR;
       totalCashFreedEUR += deltaCostEUR;
-    } else if (diffEUR > priceEUR) {
-      // Underweighted: BUY shares to reach target weight
-      action = 'BUY';
-      deltaShares = Math.floor(diffEUR / priceEUR);
-      deltaCostEUR = deltaShares * priceEUR;
-      totalCashReinvestedEUR += deltaCostEUR;
     }
 
-    const newQty = action === 'SELL' ? p.quantity - deltaShares : action === 'BUY' ? p.quantity + deltaShares : p.quantity;
-    const newValEUR = newQty * priceEUR;
-    const newWeightAfter = (newValEUR / totalValueEUR) * 100;
+    return {
+      position: p,
+      priceNative,
+      priceEUR,
+      currentWeight,
+      targetWeight,
+      diffEUR,
+      action: action as 'SELL' | 'BUY' | 'HOLD',
+      deltaShares,
+      deltaCostEUR,
+      boughtShares: 0,
+      boughtCostEUR: 0,
+    };
+  });
+
+  // Étape 2 : Réinvestir le cash dégagé dans les positions sous-pondérées (Autofinancement strict)
+  let remainingFreedCashEUR = totalCashFreedEUR;
+  let totalCashReinvestedEUR = 0;
+
+  if (totalCashFreedEUR > 0) {
+    const underweightItems = items.filter((item) => item.diffEUR > item.priceEUR && item.action === 'HOLD');
+    underweightItems.sort((a, b) => b.diffEUR - a.diffEUR);
+
+    for (const item of underweightItems) {
+      if (remainingFreedCashEUR >= item.priceEUR) {
+        const canBuy = Math.min(
+          Math.floor(item.diffEUR / item.priceEUR),
+          Math.floor(remainingFreedCashEUR / item.priceEUR)
+        );
+        if (canBuy > 0) {
+          item.action = 'BUY';
+          item.boughtShares = canBuy;
+          item.boughtCostEUR = canBuy * item.priceEUR;
+          remainingFreedCashEUR -= item.boughtCostEUR;
+          totalCashReinvestedEUR += item.boughtCostEUR;
+        }
+      }
+    }
+  }
+
+  const instructions: ActiveRebalanceInstruction[] = items.map((item) => {
+    const p = item.position;
+    const finalDeltaShares = item.action === 'SELL' ? -item.deltaShares : item.action === 'BUY' ? item.boughtShares : 0;
+    const finalCostEUR = item.action === 'SELL' ? item.deltaCostEUR : item.action === 'BUY' ? item.boughtCostEUR : 0;
+    const newQty = p.quantity + finalDeltaShares;
+    const newValEUR = newQty * item.priceEUR;
+    const newWeightAfter = totalValueEUR > 0 ? (newValEUR / totalValueEUR) * 100 : 0;
 
     return {
       positionId: p.id,
       ticker: p.ticker,
       name: p.name,
       envelope: p.envelope,
-      currentWeight: parseFloat((currentWeight * 100).toFixed(1)),
-      targetWeight: parseFloat((targetWeight * 100).toFixed(1)),
-      weightGap: parseFloat(((targetWeight - currentWeight) * 100).toFixed(1)),
-      sharePrice: parseFloat(priceNative.toFixed(2)),
+      currentWeight: parseFloat((item.currentWeight * 100).toFixed(1)),
+      targetWeight: parseFloat((item.targetWeight * 100).toFixed(1)),
+      weightGap: parseFloat(((item.targetWeight - item.currentWeight) * 100).toFixed(1)),
+      sharePrice: parseFloat(item.priceNative.toFixed(2)),
       currency: p.currency,
-      action,
-      deltaShares: action === 'SELL' ? -deltaShares : deltaShares,
-      deltaCostEUR: parseFloat(deltaCostEUR.toFixed(2)),
+      action: item.action,
+      deltaShares: finalDeltaShares,
+      deltaCostEUR: parseFloat(finalCostEUR.toFixed(2)),
       newWeightAfter: parseFloat(newWeightAfter.toFixed(1)),
     };
   });
@@ -276,16 +319,7 @@ export function calculateActiveRebalance(
 }
 
 // ──────────────────────────────────────────────────────────────────────────
-// Fréquence d'achat réelle par instrument (ajouté le 12/08/2026)
-//
-// Toutes les positions ne sont pas achetées tous les mois : les frais de
-// courtage (~0,5 % chez BoursoBank/Interactive Brokers) pèsent proportion-
-// nellement plus lourd sur des petits montants. Seul le PEA classique (PUST,
-// Trade Republic, frais quasi nuls) reçoit un vrai virement mensuel. Les
-// autres lignes accumulent leur quote-part jusqu'à un mois "dû" (voir
-// Position.dcaFrequency dans src/data/portfolio.ts) où elles reçoivent d'un
-// coup le cumul des mois précédents, plutôt que d'être fractionnées chaque
-// mois.
+// Fréquence d'achat réelle par instrument
 // ──────────────────────────────────────────────────────────────────────────
 
 export type DcaFrequency = 'monthly' | 'quarterly' | 'semestrial' | 'annual';
@@ -301,68 +335,82 @@ export function monthsBetweenPurchases(frequency: DcaFrequency | undefined): num
   }
 }
 
-/**
- * Un mois est "dû" pour une fréquence donnée si le mois calendaire (1-12) tombe
- * sur un multiple du cycle, calé pour finir en décembre (ex: semestrial -> juin
- * et décembre ; quarterly -> mars, juin, sept, déc ; annual -> décembre).
- */
-export function isDueThisMonth(frequency: DcaFrequency | undefined, calendarMonth: number): boolean {
-  const cycle = monthsBetweenPurchases(frequency);
-  if (cycle <= 1) return true;
-  return calendarMonth % cycle === 0;
+/** Indique si un actif à fréquence donnée doit être acheté ce mois-ci (1 = Janvier, 12 = Décembre) */
+export function isDueThisMonth(frequency: DcaFrequency | undefined, currentMonth: number): boolean {
+  switch (frequency) {
+    case 'quarterly':
+      return currentMonth % 3 === 0;
+    case 'semestrial':
+      return currentMonth === 6 || currentMonth === 12;
+    case 'annual':
+      return currentMonth === 12;
+    case 'monthly':
+    default:
+      return true;
+  }
 }
 
-export interface MonthlyInvestmentPlan {
-  calendarMonth: number;
-  /** Montant réellement recommandé à virer/investir ce mois-ci (positions dues uniquement) */
+export interface MonthlyPlanResult {
+  currentMonth: number;
   dueThisMonth: FlowRebalanceResult;
-  /** Détail de ce qui s'accumule sans être investi ce mois-ci, par position */
-  accumulating: { positionId: string; ticker: string; name: string; monthlyShare: number; nextDueMonth: number }[];
-  totalAccumulatingEUR: number;
+  accumulating: Array<{
+    positionId: string;
+    ticker: string;
+    name: string;
+    frequency: DcaFrequency;
+    monthlyShare: number;
+    accumulatedCash: number;
+    nextDueMonth: number;
+  }>;
 }
 
-/**
- * Variante mensuelle de calculateSmartFlowRebalance qui respecte Position.dcaFrequency :
- * seules les positions "dues" ce mois-ci reçoivent une part du budget (multipliée par le
- * nombre de mois écoulés depuis leur dernier achat, pour que le total annuel investi reste
- * conforme aux pondérations cibles). Les autres positions voient leur quote-part mensuelle
- * simplement reportée à leur prochain mois dû — jamais redistribuée ailleurs.
- */
 export function calculateMonthlyInvestmentPlan(
   positions: Position[],
   monthlyBudget: number,
-  calendarMonth: number,
+  currentMonth: number = new Date().getMonth() + 1,
   fxRates: Record<string, number> = { EUR: 1.0, USD: 0.92 }
-): MonthlyInvestmentPlan {
-  const filledPositions = positions.filter((p) => p.quantity > 0 || (p.targetWeight && p.targetWeight > 0));
-  const totalTargetWeight = filledPositions.reduce((s, p) => s + (p.targetWeight || 0), 0) || 1;
+): MonthlyPlanResult {
+  const filled = positions.filter((p) => {
+    const isMarket = MARKET_ENVELOPES.includes((p.envelope || '').toUpperCase());
+    return isMarket && ((p.quantity || 0) > 0 || (p.targetWeight && p.targetWeight > 0));
+  });
 
   const duePositions: Position[] = [];
-  const accumulating: MonthlyInvestmentPlan['accumulating'] = [];
-  let dueBudget = 0;
+  const accumulating: MonthlyPlanResult['accumulating'] = [];
 
-  for (const p of filledPositions) {
-    const freq = p.dcaFrequency as DcaFrequency | undefined;
-    const nominalMonthlyShare = monthlyBudget * ((p.targetWeight || 0) / totalTargetWeight);
-    const cycle = monthsBetweenPurchases(freq);
+  let allocatedDueBudget = 0;
 
-    if (isDueThisMonth(freq, calendarMonth)) {
+  filled.forEach((p) => {
+    const freq = p.dcaFrequency || 'monthly';
+    const isDue = isDueThisMonth(freq, currentMonth);
+    const targetW = p.targetWeight || (1 / (filled.length || 1));
+    const theoreticalMonthlyEUR = monthlyBudget * targetW;
+
+    if (isDue) {
       duePositions.push(p);
-      dueBudget += nominalMonthlyShare * cycle; // rattrape les mois précédents non investis
+      allocatedDueBudget += theoreticalMonthlyEUR * monthsBetweenPurchases(freq);
     } else {
-      const nextDueMonth = (Math.floor((calendarMonth - 1) / cycle) + 1) * cycle;
       accumulating.push({
         positionId: p.id,
         ticker: p.ticker,
         name: p.name,
-        monthlyShare: parseFloat(nominalMonthlyShare.toFixed(2)),
-        nextDueMonth: nextDueMonth > 12 ? cycle : nextDueMonth,
+        frequency: freq,
+        monthlyShare: theoreticalMonthlyEUR,
+        accumulatedCash: theoreticalMonthlyEUR * (currentMonth % monthsBetweenPurchases(freq)),
+        nextDueMonth: currentMonth + (monthsBetweenPurchases(freq) - (currentMonth % monthsBetweenPurchases(freq))),
       });
     }
-  }
+  });
 
-  const dueThisMonth = calculateSmartFlowRebalance(duePositions, dueBudget, fxRates);
-  const totalAccumulatingEUR = accumulating.reduce((s, a) => s + a.monthlyShare, 0);
+  const dueResult = calculateSmartFlowRebalance(
+    duePositions.length > 0 ? duePositions : filled,
+    allocatedDueBudget > 0 ? allocatedDueBudget : monthlyBudget,
+    fxRates
+  );
 
-  return { calendarMonth, dueThisMonth, accumulating, totalAccumulatingEUR };
+  return {
+    currentMonth,
+    dueThisMonth: dueResult,
+    accumulating,
+  };
 }

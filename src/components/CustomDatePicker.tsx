@@ -84,11 +84,11 @@ export default function CustomDatePicker({ value, onChange, showDaySelector = tr
   };
 
   const formattedLabel = parts[2] 
-    ? `${selectedDay} ${MONTH_NAMES_FR[currentMonth] || 'janvier'} ${currentYear}`
-    : `${MONTH_NAMES_FR[currentMonth] || 'janvier'} ${currentYear}`;
+    ? `${selectedDay} ${MONTH_SHORT_FR[currentMonth] || 'Janv.'} ${currentYear}`
+    : `${MONTH_SHORT_FR[currentMonth] || 'Janv.'} ${currentYear}`;
 
   return (
-    <div ref={containerRef} style={{ position: 'relative', width: '100%' }}>
+    <div ref={containerRef} style={{ position: 'relative', width: '100%', minWidth: 135 }}>
       {/* Trigger Button */}
       <button
         type="button"
@@ -98,25 +98,25 @@ export default function CustomDatePicker({ value, onChange, showDaySelector = tr
           alignItems: 'center',
           justifyContent: 'space-between',
           width: '100%',
-          gap: 8,
+          gap: 6,
           background: isOpen ? 'var(--accent-cyan-glow)' : 'var(--bg-tertiary)',
           border: `1px solid ${isOpen ? 'var(--accent-cyan)' : 'var(--border-subtle)'}`,
           borderRadius: 10,
-          padding: '7px 12px',
+          padding: '7px 10px',
           color: 'var(--accent-cyan)',
           fontFamily: 'var(--font-mono)',
-          fontSize: 13,
+          fontSize: 12.5,
           fontWeight: 700,
           cursor: 'pointer',
           transition: 'all 0.2s ease',
           boxShadow: isOpen ? '0 0 12px rgba(6, 182, 212, 0.3)' : 'none',
         }}
       >
-        <span style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, overflow: 'hidden' }}>
-          <span style={{ fontSize: 14, flexShrink: 0 }}>📅</span>
-          <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{formattedLabel}</span>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 5, minWidth: 0, whiteSpace: 'nowrap' }}>
+          <span style={{ fontSize: 13, flexShrink: 0 }}>📅</span>
+          <span style={{ whiteSpace: 'nowrap' }}>{formattedLabel}</span>
         </span>
-        <span style={{ fontSize: 'var(--text-xs)', opacity: 0.8, transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s ease', marginLeft: 4 }}>
+        <span style={{ fontSize: 'var(--text-xs)', opacity: 0.8, transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s ease', marginLeft: 2, flexShrink: 0 }}>
           ▼
         </span>
       </button>

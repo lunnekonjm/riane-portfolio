@@ -794,7 +794,7 @@ function autoGenerateThemes(
                 </div>
                 
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 12 }}>
-                  <div className="form-group">
+                  <div className="form-group" style={{ minWidth: 115 }}>
                     <label className="form-label" style={{ fontSize: 'var(--text-xs)', textTransform: 'uppercase', letterSpacing: '0.4px', fontWeight: 600 }}>Fréquence</label>
                     <CustomSelect
                       value={form.dcaFrequency || 'monthly'}
@@ -808,7 +808,7 @@ function autoGenerateThemes(
                     />
                   </div>
                   
-                  <div className="form-group">
+                  <div className="form-group" style={{ minWidth: 75 }}>
                     <label className="form-label" style={{ fontSize: 'var(--text-xs)', textTransform: 'uppercase', letterSpacing: '0.4px', fontWeight: 600 }}>Jour (cible)</label>
                     <CustomSelect
                       value={(form.dcaDepositDay || 5).toString()}
@@ -818,7 +818,7 @@ function autoGenerateThemes(
                   </div>
 
                   {(form.dcaFrequency === 'annual' || form.dcaFrequency === 'quarterly' || form.dcaFrequency === 'semestrial') && (
-                    <div className="form-group">
+                    <div className="form-group" style={{ minWidth: 110 }}>
                       <label className="form-label" style={{ fontSize: 'var(--text-xs)', textTransform: 'uppercase', letterSpacing: '0.4px', fontWeight: 600 }}>Mois (cible)</label>
                       <CustomSelect
                         value={(form.dcaDepositMonth || 1).toString()}
@@ -841,7 +841,7 @@ function autoGenerateThemes(
                     </div>
                   )}
                   
-                  <div className="form-group">
+                  <div className="form-group" style={{ minWidth: 95 }}>
                     <label className="form-label" style={{ fontSize: 'var(--text-xs)', textTransform: 'uppercase', letterSpacing: '0.4px', fontWeight: 600 }}>Montant ({form.currency === 'USD' ? '$' : form.currency === 'GBP' ? '£' : '€'})</label>
                     <input
                       className="input mono"
@@ -856,7 +856,7 @@ function autoGenerateThemes(
                     />
                   </div>
 
-                  <div className="form-group">
+                  <div className="form-group" style={{ minWidth: 155, flex: 1.2 }}>
                     <label className="form-label" style={{ fontSize: 'var(--text-xs)', textTransform: 'uppercase', letterSpacing: '0.4px', fontWeight: 600 }}>Début du versement (DCA)</label>
                     <CustomDatePicker
                       value={dcaStartDate}
@@ -1191,7 +1191,7 @@ function autoGenerateThemes(
             </div>
             
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 12 }}>
-              <div className="form-group">
+              <div className="form-group" style={{ minWidth: 115 }}>
                 <label className="form-label" style={{ fontSize: 'var(--text-xs)', textTransform: 'uppercase', letterSpacing: '0.4px', fontWeight: 600 }}>Fréquence</label>
                 <CustomSelect
                   value={form.dcaFrequency || 'monthly'}
@@ -1205,7 +1205,7 @@ function autoGenerateThemes(
                 />
               </div>
               
-              <div className="form-group">
+              <div className="form-group" style={{ minWidth: 75 }}>
                 <label className="form-label" style={{ fontSize: 'var(--text-xs)', textTransform: 'uppercase', letterSpacing: '0.4px', fontWeight: 600 }}>Jour (cible)</label>
                 <CustomSelect
                   value={(form.dcaDepositDay || 5).toString()}
@@ -1215,7 +1215,7 @@ function autoGenerateThemes(
               </div>
 
               {(form.dcaFrequency === 'annual' || form.dcaFrequency === 'quarterly' || form.dcaFrequency === 'semestrial') && (
-                <div className="form-group">
+                <div className="form-group" style={{ minWidth: 110 }}>
                   <label className="form-label" style={{ fontSize: 'var(--text-xs)', textTransform: 'uppercase', letterSpacing: '0.4px', fontWeight: 600 }}>Mois (cible)</label>
                   <CustomSelect
                     value={(form.dcaDepositMonth || 1).toString()}
@@ -1238,7 +1238,7 @@ function autoGenerateThemes(
                 </div>
               )}
               
-              <div className="form-group">
+              <div className="form-group" style={{ minWidth: 95 }}>
                 <label className="form-label" style={{ fontSize: 'var(--text-xs)', textTransform: 'uppercase', letterSpacing: '0.4px', fontWeight: 600 }}>Montant ({form.currency === 'USD' ? '$' : form.currency === 'GBP' ? '£' : '€'})</label>
                 <input
                   className="input mono"

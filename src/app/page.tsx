@@ -1499,6 +1499,7 @@ export default function HomePage() {
               <SavingsPortfolioTable
                 positions={positions}
                 onEditPosition={(pos) => setEditingPosition(pos)}
+                onDeletePosition={(id) => handleDeletePosition(id)}
                 onAddSavingsPosition={() => setEditingPosition('new_savings')}
               />
 
@@ -1694,8 +1695,8 @@ export default function HomePage() {
                         <th><span data-tooltip="Cours du marché en direct (Yahoo Finance)">Prix</span></th>
                         <th><span data-tooltip="Valeur totale actuelle en portefeuille (Quantité × Prix)">Valeur</span></th>
                         <th><span data-tooltip="Plus ou Moins-value latente totale (% et montant €/$)">P&L</span></th>
-                        <th><span data-tooltip="Poids actuel dans le portefeuille comparé au Taux d'Allocation Max Recommandé (Plafond de sécurité)">Part / Cap Max</span></th>
                         <th><span data-tooltip="Budget mensuel ou annuel d'accumulation DCA">DCA</span></th>
+                        <th><span data-tooltip="Poids actuel dans le portefeuille comparé au Taux d'Allocation Max Recommandé (Plafond de sécurité)">Part / Cap Max</span></th>
                         <th><span data-tooltip="Actions rapides : Édition, Historique des arbitrages, Suppression">Actions</span></th>
                       </tr>
                     </thead>
@@ -1796,6 +1797,28 @@ export default function HomePage() {
                                 </div>
                               ) : <span style={{ color: 'var(--text-muted)' }}>—</span>}
                             </td>
+                            <td className="mono" style={{ fontSize: 12, whiteSpace: 'nowrap' }}>
+                              {Boolean((pos.monthlyDCA && pos.monthlyDCA > 0) || (pos.annualBudget && pos.annualBudget > 0)) ? (
+                                <div>
+                                  <span style={{ color: 'var(--accent-amber)', fontWeight: 700, fontSize: 14, display: 'block' }}>
+                                    +{pos.dcaFrequency === 'annual' || (!pos.monthlyDCA && pos.annualBudget)
+                                      ? `${(pos.annualBudget || (pos.monthlyDCA ? pos.monthlyDCA * 12 : 0)).toLocaleString('fr-FR')} €/an`
+                                      : pos.dcaFrequency === 'quarterly'
+                                      ? `${(pos.monthlyDCA ? pos.monthlyDCA * 3 : 0).toLocaleString('fr-FR')} €/trim`
+                                      : pos.dcaFrequency === 'semestrial'
+                                      ? `${(pos.monthlyDCA ? pos.monthlyDCA * 6 : 0).toLocaleString('fr-FR')} €/sem`
+                                      : `${(pos.monthlyDCA || 0).toLocaleString('fr-FR')} €/mois`}
+                                  </span>
+                                  {(pos.dcaStartDate || dcaGlobalStartDate) && (
+                                    <span style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 2, display: 'block', fontFamily: 'var(--font-sans)', whiteSpace: 'nowrap' }}>
+                                      depuis {pos.dcaStartDate || dcaGlobalStartDate}
+                                    </span>
+                                  )}
+                                </div>
+                              ) : (
+                                <span style={{ color: 'var(--text-muted)' }}>—</span>
+                              )}
+                            </td>
                             {/* 📊 Colonne : Part Actuelle / Cap Max Recommandé (%) */}
                             <td style={{ whiteSpace: 'nowrap' }} onClick={(e) => e.stopPropagation()}>
                               <div style={{ display: 'flex', flexDirection: 'column', gap: 3, minWidth: 125 }}>
@@ -1851,28 +1874,6 @@ export default function HomePage() {
                                   )}
                                 </div>
                               </div>
-                            </td>
-                            <td className="mono" style={{ fontSize: 12, whiteSpace: 'nowrap' }}>
-                              {Boolean((pos.monthlyDCA && pos.monthlyDCA > 0) || (pos.annualBudget && pos.annualBudget > 0)) ? (
-                                <div>
-                                  <span style={{ color: 'var(--accent-amber)', fontWeight: 700, fontSize: 14, display: 'block' }}>
-                                    +{pos.dcaFrequency === 'annual' || (!pos.monthlyDCA && pos.annualBudget)
-                                      ? `${(pos.annualBudget || (pos.monthlyDCA ? pos.monthlyDCA * 12 : 0)).toLocaleString('fr-FR')} €/an`
-                                      : pos.dcaFrequency === 'quarterly'
-                                      ? `${(pos.monthlyDCA ? pos.monthlyDCA * 3 : 0).toLocaleString('fr-FR')} €/trim`
-                                      : pos.dcaFrequency === 'semestrial'
-                                      ? `${(pos.monthlyDCA ? pos.monthlyDCA * 6 : 0).toLocaleString('fr-FR')} €/sem`
-                                      : `${(pos.monthlyDCA || 0).toLocaleString('fr-FR')} €/mois`}
-                                  </span>
-                                  {(pos.dcaStartDate || dcaGlobalStartDate) && (
-                                    <span style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 2, display: 'block', fontFamily: 'var(--font-sans)', whiteSpace: 'nowrap' }}>
-                                      depuis {pos.dcaStartDate || dcaGlobalStartDate}
-                                    </span>
-                                  )}
-                                </div>
-                              ) : (
-                                <span style={{ color: 'var(--text-muted)' }}>—</span>
-                              )}
                             </td>
                             <td onClick={(e) => e.stopPropagation()}>
                               <div className="row-actions">

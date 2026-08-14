@@ -6,12 +6,14 @@ import { computeSavingsPositionInterest } from '@/engines/savingsInterestEngine'
 interface SavingsPortfolioTableProps {
   positions: Position[];
   onEditPosition: (position: Position) => void;
+  onDeletePosition?: (id: string) => void;
   onAddSavingsPosition: () => void;
 }
 
 export default function SavingsPortfolioTable({
   positions,
   onEditPosition,
+  onDeletePosition,
   onAddSavingsPosition,
 }: SavingsPortfolioTableProps) {
   const savingsPositions = positions.filter(
@@ -49,7 +51,7 @@ export default function SavingsPortfolioTable({
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
             <span style={{ fontSize: 24 }}>🛡️</span>
             <h3 style={{ fontSize: 18, margin: 0, fontWeight: 800, color: 'var(--text-primary)' }}>
-              Épargne &amp; Patrimoine Hors-Bourse
+              Épargne &amp; Patrimoine Hors-Bourse ({savingsPositions.length})
             </h3>
             <span className="badge badge-emerald" style={{ fontSize: 12, padding: '4px 10px', fontWeight: 600 }}>Règle des Quinzaines &amp; Plus-Value Latente</span>
           </div>
@@ -84,20 +86,20 @@ export default function SavingsPortfolioTable({
         </div>
       </div>
 
-      {/* Table with Touch Responsive Scrolling */}
-      <div className="table-responsive">
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14, textAlign: 'left', minWidth: 700 }}>
+      {/* Table with Touch Responsive Scrolling and Shared portfolio-table Design */}
+      <div className="table-responsive" style={{ overflowX: 'auto', width: '100%', WebkitOverflowScrolling: 'touch', borderRadius: 'var(--radius-md)' }}>
+        <table className="portfolio-table">
           <thead>
-            <tr style={{ color: 'var(--text-secondary)', borderBottom: '1px solid var(--border-medium)', textTransform: 'uppercase', fontSize: 12, fontWeight: 700, letterSpacing: '0.5px' }}>
-              <th style={{ padding: '10px 12px' }}>Compte / Actif</th>
-              <th style={{ padding: '10px 12px' }}>Organisme</th>
-              <th style={{ padding: '10px 12px' }}>Enveloppe</th>
-              <th style={{ padding: '10px 12px', textAlign: 'right' }}>Rendement</th>
-              <th style={{ padding: '10px 12px', textAlign: 'right' }}>Solde Actuel</th>
-              <th style={{ padding: '10px 12px', textAlign: 'right' }}>Intérêts Générés</th>
-              <th style={{ padding: '10px 12px', textAlign: 'right' }}>DCA</th>
-              <th style={{ padding: '10px 12px', textAlign: 'center' }}>Plafond Légal</th>
-              <th style={{ padding: '10px 12px', textAlign: 'center' }}>Action</th>
+            <tr>
+              <th><span data-tooltip="Nom complet du compte ou support d'épargne">Actif</span></th>
+              <th><span data-tooltip="Banque ou établissement financier teneur de compte">Organisme</span></th>
+              <th><span data-tooltip="Enveloppe fiscale (Livret, PEE, Assurance-Vie, PER, SCPI...)">Enveloppe</span></th>
+              <th><span data-tooltip="Taux de rendement net ou projeté annuel">Rendement</span></th>
+              <th><span data-tooltip="Solde total actuel valorisé">Solde Actuel</span></th>
+              <th><span data-tooltip="Intérêts acquis depuis l'ouverture (calcul par quinzaine ou journalier)">Intérêts Générés</span></th>
+              <th><span data-tooltip="Budget mensuel ou annuel programmé de versement">DCA</span></th>
+              <th><span data-tooltip="Utilisation du plafond légal de dépôt réglementé">Plafond Légal</span></th>
+              <th><span data-tooltip="Actions rapides : Édition et Suppression">Actions</span></th>
             </tr>
           </thead>
           <tbody>
@@ -108,8 +110,8 @@ export default function SavingsPortfolioTable({
               const totalAdhocDeposits = position.depositsHistory?.reduce((sum, d) => sum + (d.amount || 0), 0) || 0;
 
               return (
-                <tr key={position.id} style={{ borderBottom: '1px solid var(--border-subtle)', transition: 'background 0.15s' }}>
-                  <td style={{ padding: '12px' }}>
+                <tr key={position.id} style={{ cursor: 'pointer' }} onClick={() => onEditPosition(position)}>
+                  <td>
                     <strong style={{ color: 'var(--text-primary)', display: 'block', fontSize: 14 }}>{position.name}</strong>
                     {depositsCount > 0 && (
                       <div style={{ marginTop: 3 }}>
@@ -130,27 +132,46 @@ export default function SavingsPortfolioTable({
                       </div>
                     )}
                   </td>
-                  <td style={{ padding: '12px', color: 'var(--text-secondary)', fontSize: 13 }}>
+                  <td style={{ color: 'var(--text-secondary)', fontSize: 13 }}>
                     {position.institutionName || '—'}
                   </td>
-                  <td style={{ padding: '12px' }}>
+                  <td>
                     <span className={`envelope-tag ${envClass}`} style={{ fontSize: 12, padding: '3px 8px' }}>{position.envelope}</span>
                   </td>
-                  <td style={{ padding: '12px', textAlign: 'right', fontWeight: 700, color: 'var(--accent-emerald)', fontSize: 14 }}>
+                  <td style={{ fontWeight: 700, color: 'var(--accent-emerald)', fontSize: 14 }}>
                     {interest.effectiveRatePercent.toFixed(2)} %
                   </td>
-                  <td style={{ padding: '12px', textAlign: 'right', fontWeight: 800, fontSize: 15 }} className="mono">
+                  <td style={{ fontWeight: 800, fontSize: 15 }} className="mono">
                     {interest.currentBalance.toLocaleString('fr-FR', { style: 'currency', currency: position.currency })}
                   </td>
-                  <td style={{ padding: '12px', textAlign: 'right' }} className="mono">
-                    <span style={{ color: 'var(--accent-cyan)', fontWeight: 700, fontSize: 14 }}>
-                      +{interest.interestEarnedToDate.toFixed(2)} €
-                    </span>
-                    <span style={{ display: 'block', fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>
-                      {interest.isQuinzaineRule ? `(${interest.quinzainesCount} quinzaines)` : `(${interest.daysCount} jours)`}
-                    </span>
+                  {/* 📊 Intérêts Générés - Uniformisé avec le badge P&L Bourse */}
+                  <td style={{ whiteSpace: 'nowrap' }}>
+                    <div
+                      style={{
+                        background: 'rgba(6, 182, 212, 0.12)',
+                        color: 'var(--accent-cyan)',
+                        border: '1px solid rgba(6, 182, 212, 0.3)',
+                        display: 'inline-flex',
+                        flexDirection: 'column',
+                        alignItems: 'flex-start',
+                        padding: '4px 10px',
+                        borderRadius: 8,
+                        whiteSpace: 'nowrap',
+                        lineHeight: 1.25,
+                      }}
+                      title={`Intérêts acquis : +${interest.interestEarnedToDate.toFixed(2)} €`}
+                    >
+                      <div style={{ fontWeight: 700, fontSize: 13, display: 'flex', alignItems: 'center', gap: 3 }}>
+                        <span>↑</span>
+                        <span>+{interest.interestEarnedToDate.toFixed(2)} €</span>
+                      </div>
+                      <div style={{ fontSize: 'var(--text-xs)', opacity: 0.95, fontWeight: 600, marginTop: 2 }}>
+                        {interest.isQuinzaineRule ? `(${interest.quinzainesCount} quinzaines)` : `(${interest.daysCount} jours)`}
+                      </div>
+                    </div>
                   </td>
-                  <td style={{ padding: '12px', textAlign: 'right' }} className="mono">
+                  {/* 🔄 DCA Column - Strictement identique au tableau Bourse */}
+                  <td className="mono" style={{ fontSize: 12, whiteSpace: 'nowrap' }}>
                     {hasActiveDCA ? (
                       <div>
                         <span style={{ color: 'var(--accent-amber)', fontWeight: 700, fontSize: 14, display: 'block' }}>
@@ -170,33 +191,90 @@ export default function SavingsPortfolioTable({
                       <span style={{ color: 'var(--text-muted)' }}>—</span>
                     )}
                   </td>
-                  <td style={{ padding: '12px', textAlign: 'center' }}>
+                  {/* 🛡️ Plafond Légal - Uniformisé avec la Jauge Part / Cap Max */}
+                  <td style={{ whiteSpace: 'nowrap' }} onClick={(e) => e.stopPropagation()}>
                     {interest.legalCap ? (
-                      <div>
-                        <div style={{ fontSize: 12, fontWeight: 700, color: interest.isCapExceeded ? 'var(--accent-rose)' : 'var(--text-secondary)' }}>
-                          {interest.principalDeposited.toLocaleString('fr-FR')} / {interest.legalCap.toLocaleString('fr-FR')} €
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 3, minWidth: 125 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 12, fontFamily: 'var(--font-mono)' }}>
+                          <strong style={{ color: interest.isCapExceeded ? 'var(--accent-rose)' : 'var(--text-primary)' }}>
+                            {interest.principalDeposited.toLocaleString('fr-FR')} €
+                          </strong>
+                          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-tertiary)' }}>
+                            / {interest.legalCap.toLocaleString('fr-FR')} € max
+                          </span>
                         </div>
-                        <div style={{ background: 'var(--bg-tertiary)', borderRadius: 4, height: 5, width: 90, margin: '4px auto 0 auto', overflow: 'hidden' }}>
-                          <div style={{
-                            width: `${Math.min(100, interest.capUtilizationPercent || 0)}%`,
-                            height: '100%',
-                            background: interest.isCapExceeded ? 'var(--accent-rose)' : 'var(--accent-emerald)'
-                          }} />
+
+                        <div style={{ height: 4, width: '100%', background: 'var(--bg-tertiary)', borderRadius: 2, overflow: 'hidden', border: '1px solid var(--border-subtle)' }}>
+                          <div
+                            style={{
+                              height: '100%',
+                              width: `${Math.min(100, interest.capUtilizationPercent || 0)}%`,
+                              background: interest.isCapExceeded
+                                ? 'var(--accent-rose)'
+                                : (interest.capUtilizationPercent || 0) >= 85
+                                ? 'var(--accent-amber)'
+                                : 'var(--accent-emerald)',
+                              borderRadius: 2,
+                            }}
+                          />
+                        </div>
+
+                        <div>
+                          {interest.isCapExceeded ? (
+                            <span
+                              className="badge badge-rose"
+                              style={{ fontSize: 'var(--text-xs)', padding: '2px 7px', fontWeight: 700 }}
+                              title="Plafond légal de versement atteint ou dépassé"
+                            >
+                              ⚠️ Plafond atteint ({interest.capUtilizationPercent}%)
+                            </span>
+                          ) : (interest.capUtilizationPercent || 0) >= 85 ? (
+                            <span
+                              className="badge badge-amber"
+                              style={{ fontSize: 'var(--text-xs)', padding: '2px 7px', fontWeight: 700 }}
+                              title={`Proche du plafond max : ${interest.capUtilizationPercent}% consommé`}
+                            >
+                              ⚡ {interest.capUtilizationPercent}% du cap
+                            </span>
+                          ) : (
+                            <span
+                              className="badge badge-emerald"
+                              style={{ fontSize: 'var(--text-xs)', padding: '2px 7px', fontWeight: 700 }}
+                              title={`Niveau de versement normal : ${interest.capUtilizationPercent}% du plafond`}
+                            >
+                              ✓ OK ({interest.capUtilizationPercent}%)
+                            </span>
+                          )}
                         </div>
                       </div>
                     ) : (
-                      <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Sans plafond</span>
+                      <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Sans plafond</span>
                     )}
                   </td>
-                  <td style={{ padding: '12px', textAlign: 'center' }}>
-                    <button
-                      type="button"
-                      className="btn btn-secondary btn-sm"
-                      style={{ fontSize: 12, padding: '4px 10px', fontWeight: 600 }}
-                      onClick={() => onEditPosition(position)}
-                    >
-                      ✏️ Éditer
-                    </button>
+                  {/* Actions Column - Uniformisé avec row-actions du tableau Bourse */}
+                  <td onClick={(e) => e.stopPropagation()}>
+                    <div className="row-actions">
+                      <button
+                        className="row-action-btn"
+                        onClick={() => onEditPosition(position)}
+                        data-tooltip="Éditer le compte (Versements, DCA, Taux)"
+                      >
+                        ✏️
+                      </button>
+                      {onDeletePosition && (
+                        <button
+                          className="row-action-btn danger"
+                          onClick={() => {
+                            if (confirm(`Supprimer le compte ${position.name} ?`)) {
+                              onDeletePosition(position.id);
+                            }
+                          }}
+                          data-tooltip="Supprimer ce compte"
+                        >
+                          🗑
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               );
@@ -207,3 +285,4 @@ export default function SavingsPortfolioTable({
     </div>
   );
 }
+

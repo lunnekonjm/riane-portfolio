@@ -44,7 +44,7 @@ export default function SavingsPortfolioTable({
   }
 
   return (
-    <div className="card" style={{ marginBottom: 28, borderLeft: '4px solid var(--accent-emerald)', padding: 18 }}>
+    <div className="card" style={{ marginBottom: 28, padding: 18 }}>
       {/* Header Banner */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 14, marginBottom: 18, borderBottom: '1px solid var(--border-subtle)', paddingBottom: 14 }}>
         <div>
@@ -91,14 +91,13 @@ export default function SavingsPortfolioTable({
         <table className="portfolio-table">
           <thead>
             <tr>
-              <th><span data-tooltip="Nom complet du compte ou support d'épargne">Actif</span></th>
-              <th><span data-tooltip="Banque ou établissement financier teneur de compte">Organisme</span></th>
+              <th><span data-tooltip="Nom complet du compte et établissement teneur">Actif</span></th>
               <th><span data-tooltip="Enveloppe fiscale (Livret, PEE, Assurance-Vie, PER, SCPI...)">Enveloppe</span></th>
-              <th><span data-tooltip="Taux de rendement net ou projeté annuel">Rendement</span></th>
-              <th><span data-tooltip="Solde total actuel valorisé">Solde Actuel</span></th>
-              <th><span data-tooltip="Intérêts acquis depuis l'ouverture (calcul par quinzaine ou journalier)">Intérêts Générés</span></th>
+              <th><span data-tooltip="Taux de rendement net ou projeté annuel">Prix / Rendement</span></th>
+              <th><span data-tooltip="Solde total actuel valorisé">Valeur / Solde</span></th>
+              <th><span data-tooltip="Intérêts acquis depuis l'ouverture (calcul par quinzaine ou journalier)">Gains &amp; Performance</span></th>
               <th><span data-tooltip="Budget mensuel ou annuel programmé de versement">DCA</span></th>
-              <th><span data-tooltip="Utilisation du plafond légal de dépôt réglementé">Plafond Légal</span></th>
+              <th><span data-tooltip="Utilisation du plafond légal de dépôt réglementé">Plafond &amp; Risque</span></th>
               <th style={{ width: 64, textAlign: 'center' }}><span data-tooltip="Actions rapides : Édition et Suppression">Actions</span></th>
             </tr>
           </thead>
@@ -111,12 +110,17 @@ export default function SavingsPortfolioTable({
 
               return (
                 <tr key={position.id} style={{ cursor: 'pointer' }} onClick={() => onEditPosition(position)}>
-                  <td style={{ maxWidth: 160 }}>
+                  <td style={{ maxWidth: 180 }}>
                     <strong style={{ color: 'var(--text-primary)', display: 'block', fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={position.name}>
                       {position.name}
                     </strong>
-                    {depositsCount > 0 && (
-                      <div style={{ marginTop: 2 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2, flexWrap: 'wrap' }}>
+                      {position.institutionName && (
+                        <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
+                          🏦 {position.institutionName}
+                        </span>
+                      )}
+                      {depositsCount > 0 && (
                         <span style={{
                           fontSize: 10,
                           color: 'var(--accent-cyan)',
@@ -129,13 +133,10 @@ export default function SavingsPortfolioTable({
                           alignItems: 'center',
                           gap: 2,
                         }}>
-                          📥 {depositsCount} vers. libre{depositsCount > 1 ? 's' : ''}
+                          📥 {depositsCount} vers.
                         </span>
-                      </div>
-                    )}
-                  </td>
-                  <td style={{ color: 'var(--text-secondary)', fontSize: 12 }}>
-                    {position.institutionName || '—'}
+                      )}
+                    </div>
                   </td>
                   <td>
                     <span className={`envelope-tag ${envClass}`} style={{ fontSize: 11, padding: '2px 7px' }}>{position.envelope}</span>

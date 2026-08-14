@@ -1504,401 +1504,456 @@ export default function HomePage() {
               />
 
               {/* Stock Market Portfolio Card (Listed Assets) */}
-              <div className="card">
-                <div className="card-header">
-                  <span className="card-title">📈 Portefeuille Boursier &amp; Cryptos ({positions.filter(p => p.envelope === 'PEA' || p.envelope === 'PEA-PME' || p.envelope === 'CTO' || p.envelope === 'SPECULATIVE' || p.envelope === 'OPPORTUNISTIC').length})</span>
-                  <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
-                    <button
-                      className="btn btn-primary"
-                      style={{ padding: '6px 12px', fontSize: 12, fontWeight: 700 }}
-                      onClick={async () => {
-                        setRefreshingPrices(true);
-                        try {
-                          await refreshPrices();
-                          showToast('Cours mis à jour (Yahoo Finance)');
-                        } catch {
-                          showToast('Impossible de récupérer les cours', 'error');
-                        } finally {
-                          setRefreshingPrices(false);
-                        }
-                      }}
-                      disabled={refreshingPrices || positions.length === 0}
-                      data-tooltip="Actualiser les cours du marché en direct (Yahoo Finance)"
-                      id="refresh-prices-btn"
-                    >
-                      {refreshingPrices ? <span className="loading-spinner" /> : '📈'} Cours actuels
-                    </button>
-                    <button
-                      className="btn btn-secondary"
-                      onClick={async () => {
-                        const ok = await undoLastAction();
-                        if (ok) {
-                          showToast('↩️ Action annulée — État précédent du portefeuille rétabli !');
-                        }
-                      }}
-                      disabled={!canUndo || saving}
-                      data-tooltip="Annuler la dernière modification (Ctrl+Z)"
-                      style={{
-                        opacity: canUndo ? 1 : 0.4,
-                        borderColor: canUndo ? 'var(--accent-cyan)' : undefined,
-                        color: canUndo ? 'var(--accent-cyan)' : undefined,
-                        fontSize: 14,
-                        padding: '6px 10px',
-                        minWidth: 36,
-                        justifyContent: 'center',
-                      }}
-                      id="undo-action-btn"
-                    >
-                      ↩️
-                    </button>
-                    <button
-                      className="btn btn-secondary"
-                      onClick={async () => {
-                        const ok = await redoLastAction();
-                        if (ok) {
-                          showToast('↪️ Action rétablie avec succès !');
-                        }
-                      }}
-                      disabled={!canRedo || saving}
-                      data-tooltip="Rétablir l'action précédemment annulée (Ctrl+Y / Cmd+Shift+Z)"
-                      style={{
-                        opacity: canRedo ? 1 : 0.4,
-                        borderColor: canRedo ? 'var(--accent-emerald)' : undefined,
-                        color: canRedo ? 'var(--accent-emerald)' : undefined,
-                        fontSize: 14,
-                        padding: '6px 10px',
-                        minWidth: 36,
-                        justifyContent: 'center',
-                      }}
-                      id="redo-action-btn"
-                    >
-                      ↪️
-                    </button>
-                    <button
-                      className="btn btn-secondary"
-                      style={{ padding: '6px 10px', fontSize: 12 }}
-                      onClick={() => {
-                        setSelectedHistoryTicker(undefined);
-                        setShowTransactionModal(true);
-                      }}
-                      data-tooltip="Consulter le journal d'historique de tous vos arbitrages et ajustements"
-                      id="transaction-history-btn"
-                    >
-                      📜 Arbitrages ({transactions.length})
-                    </button>
-                    <button
-                      className="btn btn-secondary"
-                      style={{ padding: '6px 10px', fontSize: 12 }}
-                      onClick={async () => {
-                        if (confirm('Réinitialiser toutes les positions à zéro ?\nVous pourrez ensuite entrer vos données réelles.')) {
-                          await resetPortfolio();
-                          const todayStr = new Date().toISOString().split('T')[0];
-                          handleUpdateDcaStartDate(todayStr);
-                          showToast('Portefeuille réinitialisé — remis à la date d\'aujourd\'hui');
-                        }
-                      }}
-                      data-tooltip="Remettre à zéro les positions et la date DCA"
-                      id="reset-portfolio-btn"
-                    >
-                      🔄 Réinitialiser
-                    </button>
-                    <button
-                      className="btn btn-secondary"
-                      style={{ padding: '6px 10px', fontSize: 12 }}
-                      onClick={openRebalanceModal}
-                      disabled={positions.length === 0}
-                      data-tooltip="Calculer la répartition optimale du versement mensuel"
-                      id="smart-rebalance-btn"
-                    >
-                      🎯 Flux DCA
-                    </button>
-                    <button
-                      className="btn btn-secondary"
-                      style={{ padding: '6px 10px', fontSize: 12 }}
-                      onClick={() => exportPortfolioToCSV(positions, fxRates)}
-                      disabled={positions.length === 0}
-                      data-tooltip="Exporter le portefeuille complet au format CSV"
-                      id="export-csv-btn"
-                    >
-                      📥 CSV
-                    </button>
-                    <button
-                      className="btn btn-primary"
-                      style={{ padding: '6px 12px', fontSize: 12, fontWeight: 700 }}
-                      onClick={() => setEditingPosition('new')}
-                      data-tooltip="Ajouter une nouvelle ligne d'actif au portefeuille"
-                      id="add-position-btn"
-                    >
-                      ➕ Ajouter
-                    </button>
-                  </div>
-                </div>
-                {positions.length === 0 ? (
-                  <div className="empty-state" style={{ padding: '40px 24px' }}>
-                    <div className="empty-state-icon">📂</div>
-                    <div className="empty-state-text" style={{ marginBottom: 20 }}>
-                      Aucune position dans votre portefeuille.
-                    </div>
-                    <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', justifyContent: 'center' }}>
-                      <button className="btn btn-primary" onClick={() => setEditingPosition('new')}>
-                        ➕ Ajouter une position
-                      </button>
-                      <button
-                        className="btn btn-secondary"
-                        style={{
-                          background: 'linear-gradient(135deg, rgba(6, 182, 212, 0.12) 0%, rgba(139, 92, 246, 0.12) 100%)',
-                          borderColor: 'var(--accent-cyan)',
-                        }}
-                        onClick={async () => {
-                          const { DEFAULT_POSITIONS } = await import('@/data/portfolio');
-                          for (const pos of DEFAULT_POSITIONS) {
-                            await addPosition({ ...pos, updatedAt: Date.now() });
-                          }
-                          showToast(`📋 ${DEFAULT_POSITIONS.length} positions prédéfinies chargées — complétez vos quantités et PRU`);
-                        }}
-                      >
-                        📋 Charger mon portefeuille prédéfini
-                      </button>
-                    </div>
-                    <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-tertiary)', marginTop: 12, maxWidth: 420 }}>
-                      Le portefeuille prédéfini charge vos actifs habituels (ETF ACWI, Nasdaq, PEA-PME, CTO) avec quantités à zéro.
-                      Vous n&apos;aurez plus qu&apos;à renseigner vos données réelles.
-                    </div>
-                  </div>
-                ) : (
-                  <div style={{ overflowX: 'auto', width: '100%', WebkitOverflowScrolling: 'touch', borderRadius: 'var(--radius-md)' }}>
-                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12, padding: '0 4px' }}>
-                      {[
-                        { id: 'ALL', label: '🌐 Tous les Actifs (Bourse & Crypto)' },
-                        { id: 'BOURSE', label: '📈 PEA & CTO' },
-                        { id: 'AUTRE', label: '🚀 Spéculatif & Crypto' },
-                      ].map((tab) => (
+              {(() => {
+                const marketPositionsAll = positions.filter(p => ['PEA', 'PEA-PME', 'CTO', 'SPECULATIVE', 'OPPORTUNISTIC'].includes(p.envelope));
+                const totalMarketValEUR = marketPositionsAll.reduce((sum, p) => {
+                  const pr = p.currentPrice || p.avgPrice;
+                  const rate = (fxRates as any)[p.currency] || 1.0;
+                  return sum + p.quantity * pr * rate;
+                }, 0);
+                const totalMarketCostEUR = marketPositionsAll.reduce((sum, p) => {
+                  const rate = (fxRates as any)[p.currency] || 1.0;
+                  return sum + p.quantity * p.avgPrice * rate;
+                }, 0);
+                const totalMarketPLEUR = totalMarketValEUR - totalMarketCostEUR;
+                const totalMarketPLPct = totalMarketCostEUR > 0 ? (totalMarketPLEUR / totalMarketCostEUR) * 100 : 0;
+                const totalMarketMonthlyDCA = marketPositionsAll.reduce((sum, p) => sum + (p.monthlyDCA || (p.annualBudget ? Math.round(p.annualBudget / 12) : 0)), 0);
+
+                return (
+                  <div className="card" style={{ marginBottom: 28, padding: 18 }}>
+                    {/* Header Banner */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 14, marginBottom: 18, borderBottom: '1px solid var(--border-subtle)', paddingBottom: 14 }}>
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                          <span style={{ fontSize: 24 }}>📈</span>
+                          <h3 style={{ fontSize: 18, margin: 0, fontWeight: 800, color: 'var(--text-primary)' }}>
+                            Portefeuille Boursier &amp; Cryptos ({marketPositionsAll.length})
+                          </h3>
+                          <span className="badge badge-cyan" style={{ fontSize: 12, padding: '4px 10px', fontWeight: 600 }}>Marchés Financiers &amp; Cours en direct</span>
+                        </div>
+                        <p style={{ fontSize: 13, color: 'var(--text-secondary)', margin: '6px 0 0 0' }}>
+                          Suivi des comptes PEA, PEA-PME, CTO, devises USD/EUR et allocations d&apos;actifs cotés.
+                        </p>
+                      </div>
+                      <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
                         <button
-                          key={tab.id}
-                          type="button"
-                          className={`btn ${selectedEnvelopeFilter === tab.id ? 'btn-primary' : 'btn-ghost'}`}
-                          style={{ fontSize: 'var(--text-xs)', padding: '4px 10px', borderRadius: 20 }}
-                          onClick={() => setSelectedEnvelopeFilter(tab.id)}
+                          className="btn btn-primary"
+                          style={{ padding: '6px 12px', fontSize: 12, fontWeight: 700 }}
+                          onClick={async () => {
+                            setRefreshingPrices(true);
+                            try {
+                              await refreshPrices();
+                              showToast('Cours mis à jour (Yahoo Finance)');
+                            } catch {
+                              showToast('Impossible de récupérer les cours', 'error');
+                            } finally {
+                              setRefreshingPrices(false);
+                            }
+                          }}
+                          disabled={refreshingPrices || positions.length === 0}
+                          data-tooltip="Actualiser les cours du marché en direct (Yahoo Finance)"
+                          id="refresh-prices-btn"
                         >
-                          {tab.label}
+                          {refreshingPrices ? <span className="loading-spinner" /> : '📈'} Cours actuels
                         </button>
-                      ))}
+                        <button
+                          className="btn btn-secondary"
+                          onClick={async () => {
+                            const ok = await undoLastAction();
+                            if (ok) {
+                              showToast('↩️ Action annulée — État précédent du portefeuille rétabli !');
+                            }
+                          }}
+                          disabled={!canUndo || saving}
+                          data-tooltip="Annuler la dernière modification (Ctrl+Z)"
+                          style={{
+                            opacity: canUndo ? 1 : 0.4,
+                            borderColor: canUndo ? 'var(--accent-cyan)' : undefined,
+                            color: canUndo ? 'var(--accent-cyan)' : undefined,
+                            fontSize: 14,
+                            padding: '6px 10px',
+                            minWidth: 36,
+                            justifyContent: 'center',
+                          }}
+                          id="undo-action-btn"
+                        >
+                          ↩️
+                        </button>
+                        <button
+                          className="btn btn-secondary"
+                          onClick={async () => {
+                            const ok = await redoLastAction();
+                            if (ok) {
+                              showToast('↪️ Action rétablie avec succès !');
+                            }
+                          }}
+                          disabled={!canRedo || saving}
+                          data-tooltip="Rétablir l'action précédemment annulée (Ctrl+Y / Cmd+Shift+Z)"
+                          style={{
+                            opacity: canRedo ? 1 : 0.4,
+                            borderColor: canRedo ? 'var(--accent-emerald)' : undefined,
+                            color: canRedo ? 'var(--accent-emerald)' : undefined,
+                            fontSize: 14,
+                            padding: '6px 10px',
+                            minWidth: 36,
+                            justifyContent: 'center',
+                          }}
+                          id="redo-action-btn"
+                        >
+                          ↪️
+                        </button>
+                        <button
+                          className="btn btn-secondary"
+                          style={{ padding: '6px 10px', fontSize: 12 }}
+                          onClick={() => {
+                            setSelectedHistoryTicker(undefined);
+                            setShowTransactionModal(true);
+                          }}
+                          data-tooltip="Consulter le journal d'historique de tous vos arbitrages et ajustements"
+                          id="transaction-history-btn"
+                        >
+                          📜 Arbitrages ({transactions.length})
+                        </button>
+                        <button
+                          className="btn btn-secondary"
+                          style={{ padding: '6px 10px', fontSize: 12 }}
+                          onClick={async () => {
+                            if (confirm('Réinitialiser toutes les positions à zéro ?\nVous pourrez ensuite entrer vos données réelles.')) {
+                              await resetPortfolio();
+                              const todayStr = new Date().toISOString().split('T')[0];
+                              handleUpdateDcaStartDate(todayStr);
+                              showToast('Portefeuille réinitialisé — remis à la date d\'aujourd\'hui');
+                            }
+                          }}
+                          data-tooltip="Remettre à zéro les positions et la date DCA"
+                          id="reset-portfolio-btn"
+                        >
+                          🔄 Réinitialiser
+                        </button>
+                        <button
+                          className="btn btn-secondary"
+                          style={{ padding: '6px 10px', fontSize: 12 }}
+                          onClick={openRebalanceModal}
+                          disabled={positions.length === 0}
+                          data-tooltip="Calculer la répartition optimale du versement mensuel"
+                          id="smart-rebalance-btn"
+                        >
+                          🎯 Flux DCA
+                        </button>
+                        <button
+                          className="btn btn-secondary"
+                          style={{ padding: '6px 10px', fontSize: 12 }}
+                          onClick={() => exportPortfolioToCSV(positions, fxRates)}
+                          disabled={positions.length === 0}
+                          data-tooltip="Exporter le portefeuille complet au format CSV"
+                          id="export-csv-btn"
+                        >
+                          📥 CSV
+                        </button>
+                        <button
+                          className="btn btn-primary"
+                          style={{ padding: '6px 12px', fontSize: 12, fontWeight: 700 }}
+                          onClick={() => setEditingPosition('new')}
+                          data-tooltip="Ajouter une nouvelle ligne d'actif au portefeuille"
+                          id="add-position-btn"
+                        >
+                          ➕ Ajouter
+                        </button>
+                      </div>
                     </div>
-                    <table className="portfolio-table">
-                    <thead>
-                      <tr>
-                        <th><span data-tooltip="Nom complet de l'actif ou de l'ETF">Actif</span></th>
-                        <th><span data-tooltip="Code de cotation boursière (ex: PUST.PA, COHR)">Ticker</span></th>
-                        <th><span data-tooltip="Enveloppe fiscale d'investissement (PEA, PEA-PME, CTO, Livret, Assurance-Vie...)">Enveloppe</span></th>
-                        <th><span data-tooltip="Nombre total de parts actuellement détenues">Qté</span></th>
-                        <th><span data-tooltip="Prix de Revient Unitaire moyen d'achat">PRU</span></th>
-                        <th><span data-tooltip="Cours du marché en direct (Yahoo Finance)">Prix</span></th>
-                        <th><span data-tooltip="Valeur totale actuelle en portefeuille (Quantité × Prix)">Valeur</span></th>
-                        <th><span data-tooltip="Plus ou Moins-value latente totale (% et montant €/$)">P&L</span></th>
-                        <th><span data-tooltip="Budget mensuel ou annuel d'accumulation DCA">DCA</span></th>
-                        <th><span data-tooltip="Poids actuel dans le portefeuille comparé au Taux d'Allocation Max Recommandé (Plafond de sécurité)">Part / Cap Max</span></th>
-                        <th style={{ width: 80, textAlign: 'center' }}><span data-tooltip="Actions rapides : Édition, Historique des arbitrages, Suppression">Actions</span></th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {(() => {
-                        const totalPortfolioValEUR = positions.reduce((sum, p) => {
-                          const isMarket = ['PEA', 'PEA-PME', 'CTO', 'SPECULATIVE', 'OPPORTUNISTIC'].includes(p.envelope);
-                          if (!isMarket) return sum;
-                          const pr = p.currentPrice || p.avgPrice;
-                          const rate = (fxRates as any)[p.currency] || 1.0;
-                          return sum + p.quantity * pr * rate;
-                        }, 0);
 
-                        const filteredPositions = positions.filter((p) => {
-                          const isMarket = ['PEA', 'PEA-PME', 'CTO', 'SPECULATIVE', 'OPPORTUNISTIC'].includes(p.envelope);
-                          if (!isMarket) return false;
-                          
-                          if (selectedEnvelopeFilter === 'ALL') return true;
-                          if (selectedEnvelopeFilter === 'BOURSE') return p.envelope === 'PEA' || p.envelope === 'PEA-PME' || p.envelope === 'CTO';
-                          if (selectedEnvelopeFilter === 'AUTRE') return p.envelope === 'SPECULATIVE' || p.envelope === 'OPPORTUNISTIC';
-                          return true;
-                        });
+                    {/* KPI Cards Bar */}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12, marginBottom: 18 }}>
+                      <div style={{ background: 'var(--bg-tertiary)', padding: 14, borderRadius: 10, border: '1px solid var(--border-subtle)' }}>
+                        <span style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', textTransform: 'uppercase', fontWeight: 600, letterSpacing: '0.4px' }}>Valeur Bourse Totale</span>
+                        <strong className="mono" style={{ fontSize: 20, color: 'var(--accent-cyan)', fontWeight: 800, marginTop: 4, display: 'block' }}>
+                          {totalMarketValEUR.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
+                        </strong>
+                      </div>
+                      <div style={{ background: 'var(--bg-tertiary)', padding: 14, borderRadius: 10, border: '1px solid var(--border-subtle)' }}>
+                        <span style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', textTransform: 'uppercase', fontWeight: 600, letterSpacing: '0.4px' }}>Plus-Value Latente Totale</span>
+                        <strong className="mono" style={{ fontSize: 20, color: totalMarketPLEUR >= 0 ? 'var(--accent-emerald)' : 'var(--accent-rose)', fontWeight: 800, marginTop: 4, display: 'block' }}>
+                          {totalMarketPLEUR >= 0 ? '+' : ''}{totalMarketPLEUR.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })} ({totalMarketPLEUR >= 0 ? '+' : ''}{totalMarketPLPct.toFixed(1)}%)
+                        </strong>
+                      </div>
+                      <div style={{ background: 'var(--bg-tertiary)', padding: 14, borderRadius: 10, border: '1px solid var(--border-subtle)' }}>
+                        <span style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', textTransform: 'uppercase', fontWeight: 600, letterSpacing: '0.4px' }}>Investissement Mensuel (DCA)</span>
+                        <strong className="mono" style={{ fontSize: 20, color: 'var(--accent-amber)', fontWeight: 800, marginTop: 4, display: 'block' }}>
+                          +{totalMarketMonthlyDCA.toLocaleString('fr-FR')} € /mois
+                        </strong>
+                      </div>
+                    </div>
 
-                        return filteredPositions.map((pos) => {
-                          const hasFilled = pos.quantity > 0 && pos.avgPrice > 0;
-                          const price = pos.currentPrice || pos.avgPrice;
-                          const value = pos.quantity * price;
-                          const cost = pos.quantity * pos.avgPrice;
-                          const pl = value - cost;
-                          const plPct = cost > 0 ? (pl / cost) * 100 : 0;
-
-                          // Calcul de la part actuelle (%) et du Cap Max Recommandé (%)
-                          const rateToEUR = (fxRates as any)[pos.currency] || 1.0;
-                          const posValueEUR = pos.quantity * price * rateToEUR;
-                          const currentWeightPct = totalPortfolioValEUR > 0 ? (posValueEUR / totalPortfolioValEUR) * 100 : 0;
-
-                        const isCore = pos.ticker.includes('GPEA') || pos.ticker.includes('CW8') || pos.ticker.includes('WPEA') || pos.name.toLowerCase().includes('acwi');
-                        const isSmallCap = pos.envelope === 'PEA-PME' || pos.ticker.includes('MEMS') || pos.ticker.includes('ALRIB');
-                        const defaultCap = isCore ? 60.0 : isSmallCap ? 15.0 : 10.0;
-                        const maxCapPct = pos.targetWeight ? pos.targetWeight * 100 : defaultCap;
-                        const capUsagePct = maxCapPct > 0 ? (currentWeightPct / maxCapPct) * 100 : 0;
-                        return (
-                          <tr
-                            key={pos.id}
+                    {positions.length === 0 ? (
+                      <div className="empty-state" style={{ padding: '40px 24px' }}>
+                        <div className="empty-state-icon">📂</div>
+                        <div className="empty-state-text" style={{ marginBottom: 20 }}>
+                          Aucune position dans votre portefeuille.
+                        </div>
+                        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', justifyContent: 'center' }}>
+                          <button className="btn btn-primary" onClick={() => setEditingPosition('new')}>
+                            ➕ Ajouter une position
+                          </button>
+                          <button
+                            className="btn btn-secondary"
                             style={{
-                              cursor: 'pointer',
-                              borderLeft: !hasFilled ? '3px solid var(--accent-amber)' : undefined,
-                              opacity: hasFilled ? 1 : 0.7,
+                              background: 'linear-gradient(135deg, rgba(6, 182, 212, 0.12) 0%, rgba(139, 92, 246, 0.12) 100%)',
+                              borderColor: 'var(--accent-cyan)',
                             }}
-                            onClick={() => setEditingPosition(pos)}
+                            onClick={async () => {
+                              const { DEFAULT_POSITIONS } = await import('@/data/portfolio');
+                              for (const pos of DEFAULT_POSITIONS) {
+                                await addPosition({ ...pos, updatedAt: Date.now() });
+                              }
+                              showToast(`📋 ${DEFAULT_POSITIONS.length} positions prédéfinies chargées — complétez vos quantités et PRU`);
+                            }}
                           >
-                            <td style={{ fontWeight: 600, maxWidth: 140 }}>
-                              <AssetBadge ticker={pos.ticker} name={pos.name} showTicker={false} />
-                              {!hasFilled && (
-                                <span style={{ display: 'block', fontSize: 10, color: 'var(--accent-amber)', fontWeight: 400 }}>
-                                  ✍️ Renseigner
-                                </span>
-                              )}
-                            </td>
-                            <td className="mono" style={{ whiteSpace: 'nowrap', fontSize: 12 }}>{pos.ticker}</td>
-                            <td>
-                              <span className={`envelope-tag ${pos.envelope.toLowerCase()}`} style={{ fontSize: 11, padding: '2px 7px' }}>
-                                {pos.envelope}
-                              </span>
-                            </td>
-                            <td className="mono">{pos.quantity > 0 ? pos.quantity : <span style={{ color: 'var(--text-muted)' }}>—</span>}</td>
-                            <td className="mono" style={{ whiteSpace: 'nowrap' }}>
-                              {pos.avgPrice > 0 ? `${pos.avgPrice.toFixed(2)} ${pos.currency === 'EUR' ? '€' : '$'}` : <span style={{ color: 'var(--text-muted)' }}>—</span>}
-                            </td>
-                            <td className="mono" style={{ whiteSpace: 'nowrap' }}>
-                              {pos.currentPrice ? `${pos.currentPrice.toFixed(2)} ${pos.currency === 'EUR' ? '€' : '$'}` : <span style={{ color: 'var(--text-muted)' }}>—</span>}
-                            </td>
-                            <td className="mono" style={{ fontWeight: 600, whiteSpace: 'nowrap' }}>
-                              {value > 0 ? `${Math.round(value).toLocaleString('fr-FR')} ${pos.currency === 'EUR' ? '€' : '$'}` : <span style={{ color: 'var(--text-muted)' }}>—</span>}
-                            </td>
-                            <td style={{ whiteSpace: 'nowrap' }}>
-                              {cost > 0 ? (
-                                <div
-                                  className={`stat-change ${pl >= 0 ? 'positive' : 'negative'}`}
-                                  style={{
-                                    display: 'inline-flex',
-                                    flexDirection: 'column',
-                                    alignItems: 'flex-start',
-                                    padding: '3px 8px',
-                                    borderRadius: 6,
-                                    whiteSpace: 'nowrap',
-                                    lineHeight: 1.2,
-                                  }}
-                                  title={`Plus/Moins-value : ${pl >= 0 ? '+' : ''}${pl.toLocaleString('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })} ${pos.currency === 'EUR' ? '€' : '$'}`}
-                                >
-                                  <div style={{ fontWeight: 700, fontSize: 12, display: 'flex', alignItems: 'center', gap: 2 }}>
-                                    <span>{pl >= 0 ? '↑' : '↓'}</span>
-                                    <span>{pl >= 0 ? '+' : ''}{plPct.toFixed(1)}%</span>
-                                  </div>
-                                  <div style={{ fontSize: 10, opacity: 0.95, fontWeight: 600, marginTop: 1 }}>
-                                    ({pl >= 0 ? '+' : ''}{Math.round(pl).toLocaleString('fr-FR')} {pos.currency === 'EUR' ? '€' : '$'})
-                                  </div>
-                                </div>
-                              ) : <span style={{ color: 'var(--text-muted)' }}>—</span>}
-                            </td>
-                            <td className="mono" style={{ fontSize: 12, whiteSpace: 'nowrap' }}>
-                              {Boolean((pos.monthlyDCA && pos.monthlyDCA > 0) || (pos.annualBudget && pos.annualBudget > 0)) ? (
-                                <div>
-                                  <span style={{ color: 'var(--accent-amber)', fontWeight: 700, fontSize: 13, display: 'block' }}>
-                                    +{pos.dcaFrequency === 'annual' || (!pos.monthlyDCA && pos.annualBudget)
-                                      ? `${(pos.annualBudget || (pos.monthlyDCA ? pos.monthlyDCA * 12 : 0)).toLocaleString('fr-FR')} €/an`
-                                      : pos.dcaFrequency === 'quarterly'
-                                      ? `${(pos.monthlyDCA ? pos.monthlyDCA * 3 : 0).toLocaleString('fr-FR')} €/trim`
-                                      : pos.dcaFrequency === 'semestrial'
-                                      ? `${(pos.monthlyDCA ? pos.monthlyDCA * 6 : 0).toLocaleString('fr-FR')} €/sem`
-                                      : `${(pos.monthlyDCA || 0).toLocaleString('fr-FR')} €/m`}
-                                  </span>
-                                  {(pos.dcaStartDate || dcaGlobalStartDate) && (
-                                    <span style={{ fontSize: 10, color: 'var(--text-secondary)', marginTop: 1, display: 'block', fontFamily: 'var(--font-sans)', whiteSpace: 'nowrap' }}>
-                                      depuis {pos.dcaStartDate || dcaGlobalStartDate}
-                                    </span>
-                                  )}
-                                </div>
-                              ) : (
-                                <span style={{ color: 'var(--text-muted)' }}>—</span>
-                              )}
-                            </td>
-                            <td style={{ whiteSpace: 'nowrap' }} onClick={(e) => e.stopPropagation()}>
-                              <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 105, maxWidth: 115 }}>
-                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 11, fontFamily: 'var(--font-mono)' }}>
-                                  <strong style={{ color: currentWeightPct > maxCapPct ? 'var(--accent-rose)' : 'var(--text-primary)' }}>
-                                    {currentWeightPct.toFixed(1)}%
-                                  </strong>
-                                  <span style={{ fontSize: 10, color: 'var(--text-tertiary)' }}>
-                                    / {maxCapPct.toFixed(0)}% max
-                                  </span>
-                                </div>
+                            📋 Charger mon portefeuille prédéfini
+                          </button>
+                        </div>
+                        <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-tertiary)', marginTop: 12, maxWidth: 420 }}>
+                          Le portefeuille prédéfini charge vos actifs habituels (ETF ACWI, Nasdaq, PEA-PME, CTO) avec quantités à zéro.
+                          Vous n&apos;aurez plus qu&apos;à renseigner vos données réelles.
+                        </div>
+                      </div>
+                    ) : (
+                      <div style={{ overflowX: 'auto', width: '100%', WebkitOverflowScrolling: 'touch', borderRadius: 'var(--radius-md)' }}>
+                        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12, padding: '0 4px' }}>
+                          {[
+                            { id: 'ALL', label: '🌐 Tous les Actifs (Bourse & Crypto)' },
+                          { id: 'BOURSE', label: '📈 PEA & CTO' },
+                            { id: 'AUTRE', label: '🚀 Spéculatif & Crypto' },
+                          ].map((tab) => (
+                            <button
+                              key={tab.id}
+                              type="button"
+                              className={`btn ${selectedEnvelopeFilter === tab.id ? 'btn-primary' : 'btn-ghost'}`}
+                              style={{ fontSize: 'var(--text-xs)', padding: '4px 10px', borderRadius: 20 }}
+                              onClick={() => setSelectedEnvelopeFilter(tab.id)}
+                            >
+                              {tab.label}
+                            </button>
+                          ))}
+                        </div>
+                        <table className="portfolio-table">
+                          <thead>
+                            <tr>
+                              <th><span data-tooltip="Nom complet de l'actif et ticker boursier">Actif</span></th>
+                              <th><span data-tooltip="Enveloppe fiscale (PEA, PEA-PME, CTO, Spéculatif...)">Enveloppe</span></th>
+                              <th><span data-tooltip="Cours actuel du marché et PRU d'achat">Prix / Rendement</span></th>
+                              <th><span data-tooltip="Valeur totale détenue et nombre de parts">Valeur / Solde</span></th>
+                              <th><span data-tooltip="Plus ou Moins-value latente totale (% et montant €/$)">Gains &amp; Performance</span></th>
+                              <th><span data-tooltip="Budget mensuel ou annuel d'accumulation DCA">DCA</span></th>
+                              <th><span data-tooltip="Poids actuel comparé au Plafond d'Allocation Max de sécurité">Plafond &amp; Risque</span></th>
+                              <th style={{ width: 80, textAlign: 'center' }}><span data-tooltip="Actions rapides : Historique, Édition, Suppression">Actions</span></th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {(() => {
+                              const filteredPositions = positions.filter((p) => {
+                                const isMarket = ['PEA', 'PEA-PME', 'CTO', 'SPECULATIVE', 'OPPORTUNISTIC'].includes(p.envelope);
+                                if (!isMarket) return false;
+                                
+                                if (selectedEnvelopeFilter === 'ALL') return true;
+                                if (selectedEnvelopeFilter === 'BOURSE') return p.envelope === 'PEA' || p.envelope === 'PEA-PME' || p.envelope === 'CTO';
+                                if (selectedEnvelopeFilter === 'AUTRE') return p.envelope === 'SPECULATIVE' || p.envelope === 'OPPORTUNISTIC';
+                                return true;
+                              });
 
-                                <div style={{ height: 4, width: '100%', background: 'var(--bg-tertiary)', borderRadius: 2, overflow: 'hidden', border: '1px solid var(--border-subtle)' }}>
-                                  <div
+                              return filteredPositions.map((pos) => {
+                                const hasFilled = pos.quantity > 0 && pos.avgPrice > 0;
+                                const price = pos.currentPrice || pos.avgPrice;
+                                const value = pos.quantity * price;
+                                const cost = pos.quantity * pos.avgPrice;
+                                const pl = value - cost;
+                                const plPct = cost > 0 ? (pl / cost) * 100 : 0;
+
+                                // Calcul de la part actuelle (%) et du Cap Max Recommandé (%)
+                                const rateToEUR = (fxRates as any)[pos.currency] || 1.0;
+                                const posValueEUR = pos.quantity * price * rateToEUR;
+                                const currentWeightPct = totalMarketValEUR > 0 ? (posValueEUR / totalMarketValEUR) * 100 : 0;
+
+                                const isCore = pos.ticker.includes('GPEA') || pos.ticker.includes('CW8') || pos.ticker.includes('WPEA') || pos.name.toLowerCase().includes('acwi');
+                                const isSmallCap = pos.envelope === 'PEA-PME' || pos.ticker.includes('MEMS') || pos.ticker.includes('ALRIB');
+                                const defaultCap = isCore ? 60.0 : isSmallCap ? 15.0 : 10.0;
+                                const maxCapPct = pos.targetWeight ? pos.targetWeight * 100 : defaultCap;
+                                const capUsagePct = maxCapPct > 0 ? (currentWeightPct / maxCapPct) * 100 : 0;
+
+                                return (
+                                  <tr
+                                    key={pos.id}
                                     style={{
-                                      height: '100%',
-                                      width: `${Math.min(capUsagePct, 100)}%`,
-                                      background: currentWeightPct > maxCapPct
-                                        ? 'var(--accent-rose)'
-                                        : currentWeightPct >= maxCapPct * 0.85
-                                        ? 'var(--accent-amber)'
-                                        : 'var(--accent-emerald)',
-                                      borderRadius: 2,
+                                      cursor: 'pointer',
+                                      borderLeft: !hasFilled ? '3px solid var(--accent-amber)' : undefined,
+                                      opacity: hasFilled ? 1 : 0.7,
                                     }}
-                                  />
-                                </div>
+                                    onClick={() => setEditingPosition(pos)}
+                                  >
+                                    <td style={{ maxWidth: 180 }}>
+                                      <strong style={{ color: 'var(--text-primary)', display: 'block', fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={pos.name}>
+                                        {pos.name}
+                                      </strong>
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2, flexWrap: 'wrap' }}>
+                                        <span className="mono" style={{ fontSize: 11, color: 'var(--accent-cyan)', fontWeight: 600 }}>
+                                          🏷️ {pos.ticker}
+                                        </span>
+                                        {!hasFilled && (
+                                          <span style={{ fontSize: 10, color: 'var(--accent-amber)' }}>
+                                            ✍️ Renseigner
+                                          </span>
+                                        )}
+                                      </div>
+                                    </td>
+                                    <td>
+                                      <span className={`envelope-tag ${pos.envelope.toLowerCase()}`} style={{ fontSize: 11, padding: '2px 7px' }}>
+                                        {pos.envelope}
+                                      </span>
+                                    </td>
+                                    <td className="mono" style={{ whiteSpace: 'nowrap' }}>
+                                      <strong style={{ color: 'var(--text-primary)', display: 'block', fontSize: 13 }}>
+                                        {pos.currentPrice ? `${pos.currentPrice.toFixed(2)} ${pos.currency === 'EUR' ? '€' : '$'}` : '—'}
+                                      </strong>
+                                      <span style={{ fontSize: 10, color: 'var(--text-secondary)' }}>
+                                        PRU {pos.avgPrice > 0 ? `${pos.avgPrice.toFixed(2)} ${pos.currency === 'EUR' ? '€' : '$'}` : '—'}
+                                      </span>
+                                    </td>
+                                    <td className="mono" style={{ whiteSpace: 'nowrap' }}>
+                                      <strong style={{ color: 'var(--text-primary)', display: 'block', fontSize: 14, fontWeight: 800 }}>
+                                        {value > 0 ? `${Math.round(value).toLocaleString('fr-FR')} ${pos.currency === 'EUR' ? '€' : '$'}` : '—'}
+                                      </strong>
+                                      <span style={{ fontSize: 10, color: 'var(--text-secondary)' }}>
+                                        {pos.quantity > 0 ? `${pos.quantity} part${pos.quantity > 1 ? 's' : ''}` : '0 part'}
+                                      </span>
+                                    </td>
+                                    <td style={{ whiteSpace: 'nowrap' }}>
+                                      {cost > 0 ? (
+                                        <div
+                                          className={`stat-change ${pl >= 0 ? 'positive' : 'negative'}`}
+                                          style={{
+                                            display: 'inline-flex',
+                                            flexDirection: 'column',
+                                            alignItems: 'flex-start',
+                                            padding: '3px 8px',
+                                            borderRadius: 6,
+                                            whiteSpace: 'nowrap',
+                                            lineHeight: 1.2,
+                                          }}
+                                          title={`Plus/Moins-value : ${pl >= 0 ? '+' : ''}${pl.toLocaleString('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })} ${pos.currency === 'EUR' ? '€' : '$'}`}
+                                        >
+                                          <div style={{ fontWeight: 700, fontSize: 12, display: 'flex', alignItems: 'center', gap: 2 }}>
+                                            <span>{pl >= 0 ? '↑' : '↓'}</span>
+                                            <span>{pl >= 0 ? '+' : ''}{plPct.toFixed(1)}%</span>
+                                          </div>
+                                          <div style={{ fontSize: 10, opacity: 0.95, fontWeight: 600, marginTop: 1 }}>
+                                            ({pl >= 0 ? '+' : ''}{Math.round(pl).toLocaleString('fr-FR')} {pos.currency === 'EUR' ? '€' : '$'})
+                                          </div>
+                                        </div>
+                                      ) : <span style={{ color: 'var(--text-muted)' }}>—</span>}
+                                    </td>
+                                    <td className="mono" style={{ fontSize: 12, whiteSpace: 'nowrap' }}>
+                                      {Boolean((pos.monthlyDCA && pos.monthlyDCA > 0) || (pos.annualBudget && pos.annualBudget > 0)) ? (
+                                        <div>
+                                          <span style={{ color: 'var(--accent-amber)', fontWeight: 700, fontSize: 13, display: 'block' }}>
+                                            +{pos.dcaFrequency === 'annual' || (!pos.monthlyDCA && pos.annualBudget)
+                                              ? `${(pos.annualBudget || (pos.monthlyDCA ? pos.monthlyDCA * 12 : 0)).toLocaleString('fr-FR')} €/an`
+                                              : pos.dcaFrequency === 'quarterly'
+                                              ? `${(pos.monthlyDCA ? pos.monthlyDCA * 3 : 0).toLocaleString('fr-FR')} €/trim`
+                                              : pos.dcaFrequency === 'semestrial'
+                                              ? `${(pos.monthlyDCA ? pos.monthlyDCA * 6 : 0).toLocaleString('fr-FR')} €/sem`
+                                              : `${(pos.monthlyDCA || 0).toLocaleString('fr-FR')} €/m`}
+                                          </span>
+                                          {(pos.dcaStartDate || dcaGlobalStartDate) && (
+                                            <span style={{ fontSize: 10, color: 'var(--text-secondary)', marginTop: 1, display: 'block', fontFamily: 'var(--font-sans)', whiteSpace: 'nowrap' }}>
+                                              depuis {pos.dcaStartDate || dcaGlobalStartDate}
+                                            </span>
+                                          )}
+                                        </div>
+                                      ) : (
+                                        <span style={{ color: 'var(--text-muted)' }}>—</span>
+                                      )}
+                                    </td>
+                                    <td style={{ whiteSpace: 'nowrap' }} onClick={(e) => e.stopPropagation()}>
+                                      <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 105, maxWidth: 115 }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 11, fontFamily: 'var(--font-mono)' }}>
+                                          <strong style={{ color: currentWeightPct > maxCapPct ? 'var(--accent-rose)' : 'var(--text-primary)' }}>
+                                            {currentWeightPct.toFixed(1)}%
+                                          </strong>
+                                          <span style={{ fontSize: 10, color: 'var(--text-tertiary)' }}>
+                                            / {maxCapPct.toFixed(0)}% max
+                                          </span>
+                                        </div>
 
-                                <div>
-                                  {currentWeightPct > maxCapPct ? (
-                                    <span
-                                      className="badge badge-rose"
-                                      style={{ fontSize: 10, padding: '1px 5px', fontWeight: 700 }}
-                                      title={`Alerte sur-concentration : +${(currentWeightPct - maxCapPct).toFixed(1)}% au-dessus du plafond recommandé (${maxCapPct.toFixed(1)}% max)`}
-                                    >
-                                      ⚠️ +{(currentWeightPct - maxCapPct).toFixed(0)}% (Cap)
-                                    </span>
-                                  ) : currentWeightPct >= maxCapPct * 0.85 ? (
-                                    <span
-                                      className="badge badge-amber"
-                                      style={{ fontSize: 10, padding: '1px 5px', fontWeight: 700 }}
-                                      title={`Proche du plafond max : ${capUsagePct.toFixed(0)}% du cap d'allocation consommé`}
-                                    >
-                                      ⚡ {capUsagePct.toFixed(0)}%
-                                    </span>
-                                  ) : (
-                                    <span
-                                      className="badge badge-emerald"
-                                      style={{ fontSize: 10, padding: '1px 5px', fontWeight: 700 }}
-                                      title={`Niveau optimal : ${capUsagePct.toFixed(0)}% du plafond max d'allocation`}
-                                    >
-                                      ✓ OK ({capUsagePct.toFixed(0)}%)
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
-                            </td>
-                            <td onClick={(e) => e.stopPropagation()} style={{ width: 80, textAlign: 'center' }}>
-                              <div className="row-actions" style={{ justifyContent: 'center' }}>
-                                <button
-                                  className="row-action-btn"
-                                  onClick={() => {
-                                    setSelectedHistoryTicker(pos.ticker);
-                                    setShowTransactionModal(true);
-                                  }}
-                                  data-tooltip={`Historique des arbitrages pour ${pos.name}`}
-                                >
-                                  📜
-                                </button>
-                                <button className="row-action-btn" onClick={() => setEditingPosition(pos)} data-tooltip="Éditer la position (Quantité, PRU, DCA)">✏️</button>
-                                <button className="row-action-btn danger" onClick={() => { if (confirm(`Supprimer ${pos.name} ?`)) handleDeletePosition(pos.id); }} data-tooltip="Supprimer cette ligne du portefeuille">🗑</button>
-                              </div>
-                            </td>
-                          </tr>
-                         );
-                       });
-                      })()}
-                    </tbody>
-                  </table>
+                                        <div style={{ height: 4, width: '100%', background: 'var(--bg-tertiary)', borderRadius: 2, overflow: 'hidden', border: '1px solid var(--border-subtle)' }}>
+                                          <div
+                                            style={{
+                                              height: '100%',
+                                              width: `${Math.min(capUsagePct, 100)}%`,
+                                              background: currentWeightPct > maxCapPct
+                                                ? 'var(--accent-rose)'
+                                                : currentWeightPct >= maxCapPct * 0.85
+                                                ? 'var(--accent-amber)'
+                                                : 'var(--accent-emerald)',
+                                              borderRadius: 2,
+                                            }}
+                                          />
+                                        </div>
+
+                                        <div>
+                                          {currentWeightPct > maxCapPct ? (
+                                            <span
+                                              className="badge badge-rose"
+                                              style={{ fontSize: 10, padding: '1px 5px', fontWeight: 700 }}
+                                              title={`Alerte sur-concentration : +${(currentWeightPct - maxCapPct).toFixed(1)}% au-dessus du plafond recommandé (${maxCapPct.toFixed(1)}% max)`}
+                                            >
+                                              ⚠️ +{(currentWeightPct - maxCapPct).toFixed(0)}% (Cap)
+                                            </span>
+                                          ) : currentWeightPct >= maxCapPct * 0.85 ? (
+                                            <span
+                                              className="badge badge-amber"
+                                              style={{ fontSize: 10, padding: '1px 5px', fontWeight: 700 }}
+                                              title={`Proche du plafond max : ${capUsagePct.toFixed(0)}% du cap d'allocation consommé`}
+                                            >
+                                              ⚡ {capUsagePct.toFixed(0)}%
+                                            </span>
+                                          ) : (
+                                            <span
+                                              className="badge badge-emerald"
+                                              style={{ fontSize: 10, padding: '1px 5px', fontWeight: 700 }}
+                                              title={`Niveau optimal : ${capUsagePct.toFixed(0)}% du plafond max d'allocation`}
+                                            >
+                                              ✓ OK ({capUsagePct.toFixed(0)}%)
+                                            </span>
+                                          )}
+                                        </div>
+                                      </div>
+                                    </td>
+                                    <td onClick={(e) => e.stopPropagation()} style={{ width: 80, textAlign: 'center' }}>
+                                      <div className="row-actions" style={{ justifyContent: 'center' }}>
+                                        <button
+                                          className="row-action-btn"
+                                          onClick={() => {
+                                            setSelectedHistoryTicker(pos.ticker);
+                                            setShowTransactionModal(true);
+                                          }}
+                                          data-tooltip={`Historique des arbitrages pour ${pos.name}`}
+                                        >
+                                          📜
+                                        </button>
+                                        <button className="row-action-btn" onClick={() => setEditingPosition(pos)} data-tooltip="Éditer la position (Quantité, PRU, DCA)">✏️</button>
+                                        <button className="row-action-btn danger" onClick={() => { if (confirm(`Supprimer ${pos.name} ?`)) handleDeletePosition(pos.id); }} data-tooltip="Supprimer cette ligne du portefeuille">🗑</button>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                );
+                              });
+                            })()}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
+                );
+              })()}
 
               {/* Thematic Exposure */}
               {positions.length > 0 && (() => {

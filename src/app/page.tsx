@@ -1852,22 +1852,26 @@ export default function HomePage() {
                                 </div>
                               </div>
                             </td>
-                            <td className="mono" style={{ fontSize: 12 }}>
-                              <div>
-                                {pos.dcaFrequency === 'annual' || (!pos.monthlyDCA && pos.annualBudget)
-                                  ? `${(pos.annualBudget || (pos.monthlyDCA ? pos.monthlyDCA * 12 : 0)).toLocaleString('fr-FR')}€/an`
-                                  : pos.dcaFrequency === 'quarterly'
-                                  ? `${(pos.monthlyDCA ? pos.monthlyDCA * 3 : 0).toLocaleString('fr-FR')}€/trim`
-                                  : pos.dcaFrequency === 'semestrial'
-                                  ? `${(pos.monthlyDCA ? pos.monthlyDCA * 6 : 0).toLocaleString('fr-FR')}€/sem`
-                                  : pos.monthlyDCA
-                                  ? `${pos.monthlyDCA.toLocaleString('fr-FR')}€/mois`
-                                  : '—'}
-                              </div>
-                              {Boolean((pos.monthlyDCA && pos.monthlyDCA > 0) || (pos.annualBudget && pos.annualBudget > 0)) && (pos.dcaStartDate || dcaGlobalStartDate) && (
-                                <span style={{ display: 'block', fontSize: 10, color: 'var(--text-secondary)', marginTop: 2, fontFamily: 'var(--font-sans)', whiteSpace: 'nowrap' }}>
-                                  depuis {pos.dcaStartDate || dcaGlobalStartDate}
-                                </span>
+                            <td className="mono" style={{ fontSize: 12, whiteSpace: 'nowrap' }}>
+                              {Boolean((pos.monthlyDCA && pos.monthlyDCA > 0) || (pos.annualBudget && pos.annualBudget > 0)) ? (
+                                <div>
+                                  <span style={{ color: 'var(--accent-amber)', fontWeight: 700, fontSize: 14, display: 'block' }}>
+                                    +{pos.dcaFrequency === 'annual' || (!pos.monthlyDCA && pos.annualBudget)
+                                      ? `${(pos.annualBudget || (pos.monthlyDCA ? pos.monthlyDCA * 12 : 0)).toLocaleString('fr-FR')} €/an`
+                                      : pos.dcaFrequency === 'quarterly'
+                                      ? `${(pos.monthlyDCA ? pos.monthlyDCA * 3 : 0).toLocaleString('fr-FR')} €/trim`
+                                      : pos.dcaFrequency === 'semestrial'
+                                      ? `${(pos.monthlyDCA ? pos.monthlyDCA * 6 : 0).toLocaleString('fr-FR')} €/sem`
+                                      : `${(pos.monthlyDCA || 0).toLocaleString('fr-FR')} €/mois`}
+                                  </span>
+                                  {(pos.dcaStartDate || dcaGlobalStartDate) && (
+                                    <span style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 2, display: 'block', fontFamily: 'var(--font-sans)', whiteSpace: 'nowrap' }}>
+                                      depuis {pos.dcaStartDate || dcaGlobalStartDate}
+                                    </span>
+                                  )}
+                                </div>
+                              ) : (
+                                <span style={{ color: 'var(--text-muted)' }}>—</span>
                               )}
                             </td>
                             <td onClick={(e) => e.stopPropagation()}>

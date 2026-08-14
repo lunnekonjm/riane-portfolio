@@ -95,7 +95,7 @@ export default function SavingsPortfolioTable({
               <th style={{ padding: '10px 12px', textAlign: 'right' }}>Rendement</th>
               <th style={{ padding: '10px 12px', textAlign: 'right' }}>Solde Actuel</th>
               <th style={{ padding: '10px 12px', textAlign: 'right' }}>Intérêts Générés</th>
-              <th style={{ padding: '10px 12px', textAlign: 'right' }}>Versements DCA</th>
+              <th style={{ padding: '10px 12px', textAlign: 'right' }}>DCA</th>
               <th style={{ padding: '10px 12px', textAlign: 'center' }}>Plafond Légal</th>
               <th style={{ padding: '10px 12px', textAlign: 'center' }}>Action</th>
             </tr>
@@ -111,13 +111,8 @@ export default function SavingsPortfolioTable({
                 <tr key={position.id} style={{ borderBottom: '1px solid var(--border-subtle)', transition: 'background 0.15s' }}>
                   <td style={{ padding: '12px' }}>
                     <strong style={{ color: 'var(--text-primary)', display: 'block', fontSize: 14 }}>{position.name}</strong>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 3 }}>
-                      {hasActiveDCA && position.dcaStartDate && (
-                        <span style={{ fontSize: 11, color: 'var(--text-secondary)', display: 'inline-flex', alignItems: 'center', gap: 3 }}>
-                          <span>🔄</span> DCA depuis le {position.dcaStartDate}
-                        </span>
-                      )}
-                      {depositsCount > 0 && (
+                    {depositsCount > 0 && (
+                      <div style={{ marginTop: 3 }}>
                         <span style={{
                           fontSize: 11,
                           color: 'var(--accent-cyan)',
@@ -132,8 +127,8 @@ export default function SavingsPortfolioTable({
                         }}>
                           📥 {depositsCount} versement{depositsCount > 1 ? 's' : ''} libre{depositsCount > 1 ? 's' : ''}
                         </span>
-                      )}
-                    </div>
+                      </div>
+                    )}
                   </td>
                   <td style={{ padding: '12px', color: 'var(--text-secondary)', fontSize: 13 }}>
                     {position.institutionName || '—'}
@@ -157,11 +152,18 @@ export default function SavingsPortfolioTable({
                   </td>
                   <td style={{ padding: '12px', textAlign: 'right' }} className="mono">
                     {hasActiveDCA ? (
-                      <span style={{ color: 'var(--accent-amber)', fontWeight: 700, fontSize: 14 }}>
-                        +{position.monthlyDCA || (position.annualBudget ? Math.round(position.annualBudget / 12) : 0)} €/mois
-                      </span>
+                      <div>
+                        <span style={{ color: 'var(--accent-amber)', fontWeight: 700, fontSize: 14, display: 'block' }}>
+                          +{position.monthlyDCA || (position.annualBudget ? Math.round(position.annualBudget / 12) : 0)} €/mois
+                        </span>
+                        {position.dcaStartDate && (
+                          <span style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 2, display: 'block', fontFamily: 'var(--font-sans)', whiteSpace: 'nowrap' }}>
+                            depuis {position.dcaStartDate}
+                          </span>
+                        )}
+                      </div>
                     ) : depositsCount > 0 ? (
-                      <span style={{ color: 'var(--accent-cyan)', fontSize: 12, fontWeight: 600 }}>
+                      <span style={{ color: 'var(--accent-cyan)', fontSize: 12, fontWeight: 600, display: 'block' }}>
                         Libres ({totalAdhocDeposits.toLocaleString('fr-FR')} €)
                       </span>
                     ) : (

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { resolveAssetLogo } from '@/utils/logoDirectory';
 
 interface AssetLogoProps {
@@ -28,6 +28,8 @@ export default function AssetLogo({
   const borderRadius = Math.round(size * 0.25);
   const fontSize = Math.max(10, Math.round(size * 0.42));
 
+  const shouldRenderImage = Boolean(logoInfo.url && !imageError);
+
   return (
     <div
       className={className}
@@ -41,9 +43,9 @@ export default function AssetLogo({
         alignItems: 'center',
         justifyContent: 'center',
         overflow: 'hidden',
-        background: logoInfo.brandBg || logoInfo.fallbackColor || 'linear-gradient(135deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.02) 100%)',
-        border: logoInfo.borderColor ? `1px solid ${logoInfo.borderColor}` : '1px solid rgba(255, 255, 255, 0.12)',
-        boxShadow: '0 2px 8px rgba(0, 0, 0, 0.35)',
+        background: shouldRenderImage ? '#ffffff' : logoInfo.fallbackColor,
+        border: '1px solid rgba(255, 255, 255, 0.15)',
+        boxShadow: '0 2px 5px rgba(0, 0, 0, 0.25)',
         position: 'relative',
         userSelect: 'none',
         flexShrink: 0,
@@ -51,21 +53,7 @@ export default function AssetLogo({
       }}
       title={name || ticker || ''}
     >
-      {/* 1. Rendu SVG Officiel Vectoriel Authentique */}
-      {logoInfo.svg ? (
-        <div
-          style={{
-            width: '100%',
-            height: '100%',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          {logoInfo.svg}
-        </div>
-      ) : logoInfo.url && !imageError ? (
-        /* 2. Image Web externe HD */
+      {shouldRenderImage ? (
         <img
           src={logoInfo.url}
           alt={name || ticker || 'Logo'}
@@ -75,22 +63,21 @@ export default function AssetLogo({
             width: '100%',
             height: '100%',
             objectFit: 'contain',
-            padding: 3,
+            padding: 2,
           }}
           loading="lazy"
           onError={() => setImageError(true)}
         />
       ) : (
-        /* 3. Badge Initiales Stylisé FinTech */
         <span
           style={{
             fontSize,
             fontWeight: 800,
             color: '#ffffff',
-            fontFamily: logoInfo.fallbackEmoji ? 'inherit' : 'var(--font-sans)',
-            letterSpacing: logoInfo.fallbackEmoji ? '0px' : '-0.5px',
+            fontFamily: logoInfo.fallbackEmoji ? 'inherit' : 'var(--font-mono)',
+            letterSpacing: '-0.5px',
             lineHeight: 1,
-            textShadow: '0 1px 3px rgba(0, 0, 0, 0.5)',
+            textShadow: '0 1px 2px rgba(0, 0, 0, 0.4)',
           }}
         >
           {logoInfo.fallbackEmoji || logoInfo.fallbackLetters}

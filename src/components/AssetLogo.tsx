@@ -25,7 +25,7 @@ export default function AssetLogo({
   const [imageError, setImageError] = useState(false);
   const logoInfo = resolveAssetLogo(ticker, name, envelope, institutionName);
 
-  const borderRadius = Math.round(size * 0.28);
+  const borderRadius = Math.round(size * 0.25);
   const fontSize = Math.max(10, Math.round(size * 0.42));
 
   return (
@@ -42,7 +42,7 @@ export default function AssetLogo({
         justifyContent: 'center',
         overflow: 'hidden',
         background: logoInfo.brandBg || logoInfo.fallbackColor || 'linear-gradient(135deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.02) 100%)',
-        border: '1px solid rgba(255, 255, 255, 0.12)',
+        border: logoInfo.borderColor ? `1px solid ${logoInfo.borderColor}` : '1px solid rgba(255, 255, 255, 0.12)',
         boxShadow: '0 2px 8px rgba(0, 0, 0, 0.35)',
         position: 'relative',
         userSelect: 'none',
@@ -51,7 +51,7 @@ export default function AssetLogo({
       }}
       title={name || ticker || ''}
     >
-      {/* 1. Rendu SVG Vectoriel Ultra-HD prioritaire */}
+      {/* 1. Rendu SVG Officiel Vectoriel Authentique */}
       {logoInfo.svg ? (
         <div
           style={{
@@ -60,7 +60,6 @@ export default function AssetLogo({
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            padding: 3,
           }}
         >
           {logoInfo.svg}

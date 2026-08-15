@@ -215,6 +215,25 @@ export async function deleteReserveAllocation(uid: string, allocationId: string)
   await deleteDoc(doc(db, 'users', uid, 'reserveAllocations', allocationId));
 }
 
+// ── Primes, Tontines & Extras de Trésorerie (Windfalls) ──
+
+export async function getExtraCashEntries(uid: string): Promise<import('@/types/revenue').ExtraCashEntry[]> {
+  const db = getDb();
+  const q = query(collection(db, 'users', uid, 'extraCash'), orderBy('date', 'desc'));
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() } as import('@/types/revenue').ExtraCashEntry));
+}
+
+export async function saveExtraCashEntry(uid: string, entry: import('@/types/revenue').ExtraCashEntry): Promise<void> {
+  const db = getDb();
+  await setDoc(doc(db, 'users', uid, 'extraCash', entry.id), { ...entry, updatedAt: Date.now() });
+}
+
+export async function deleteExtraCashEntry(uid: string, entryId: string): Promise<void> {
+  const db = getDb();
+  await deleteDoc(doc(db, 'users', uid, 'extraCash', entryId));
+}
+
 // ── Periodic Reports (historique partagé, y compris ceux générés par le cron) ──
 
 export interface SavedReportRecord {

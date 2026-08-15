@@ -230,10 +230,15 @@ export default function HomePage() {
     addPosition, updatePosition, removePosition, updateConfig, updateInvestorProfile, refreshPrices, resetPortfolio,
   } = usePortfolio();
   const {
-    records: salaryRecords, revenueConfig, allocations: reserveAllocations, saveRecord: saveSalaryRecord,
-    deleteRecord: deleteSalaryRecord, saveConfig: saveRevenueConfig,
+    records: salaryRecords, revenueConfig, allocations: reserveAllocations,
+    extraCashEntries, totalAvailableExtraCash,
+    saveRecord: saveSalaryRecord, deleteRecord: deleteSalaryRecord, saveConfig: saveRevenueConfig,
     saveAllocation: saveReserveAllocation, deleteAllocation: deleteReserveAllocation,
+    saveExtraCashEntry, deleteExtraCashEntry,
   } = useRevenue();
+
+  const [rebalanceBudgetMode, setRebalanceBudgetMode] = useState<'dca' | 'extra' | 'combo' | 'custom'>('dca');
+  const [customRebalanceAmount, setCustomRebalanceAmount] = useState<number>(1000);
 
   const [showEditProfile, setShowEditProfile] = useState(false);
   const [showBenchmark, setShowBenchmark] = useState(false);
@@ -554,16 +559,23 @@ export default function HomePage() {
     runAnalysis(user.uid, promptText, positions, config || defaultConfig, bypassCache);
   };
 
-  const openRebalanceModal = () => {
+  const openRebalanceModal = (targetBudget?: number | React.MouseEvent) => {
     if (filledPositions.length === 0) {
       showToast('Veuillez d\'abord renseigner vos positions réelles (Quantité & PRU) avant de calculer un rééquilibrage DCA', 'error');
       return;
     }
-    const monthlyBudget = config?.monthlyBudget || 1000;
-    const flowResult = calculateSmartFlowRebalance(positions, monthlyBudget, fxRates);
-    const activeResult = calculateActiveRebalance(positions, fxRates);
+    const baseBudget = config?.monthlyBudget || 1000;
+    const isExplicitNumber = typeof targetBudget === 'number';
+    const initialBudget = isExplicitNumber ? targetBudget : baseBudget;
+    if (isExplicitNumber) {
+      setRebalanceBudgetMode('custom');
+      setCustomRebalanceAmount(targetBudget);
+    } else {
+      setRebalanceBudgetMode('dca');
+      setCustomRebalanceAmount(baseBudget);
+    }
+    const flowResult = calculateSmartFlowRebalance(positions, initialBudget, fxRates);
     setFlowRebalanceResult(flowResult);
-    setActiveRebalanceResult(activeResult);
     setShowFlowRebalanceModal(true);
   };
 
@@ -2070,12 +2082,16 @@ export default function HomePage() {
               records={salaryRecords}
               revenueConfig={revenueConfig}
               allocations={reserveAllocations}
+              extraCashEntries={extraCashEntries}
               portfolioConfig={config}
               onSaveRecord={saveSalaryRecord}
               onDeleteRecord={deleteSalaryRecord}
               onSaveRevenueConfig={saveRevenueConfig}
               onSaveAllocation={saveReserveAllocation}
               onDeleteAllocation={deleteReserveAllocation}
+              onSaveExtraCashEntry={saveExtraCashEntry}
+              onDeleteExtraCashEntry={deleteExtraCashEntry}
+              onOpenRebalancerWithBudget={openRebalanceModal}
               onSyncMonthlyBudget={async (amount: number) => {
                 if (!config) return;
                 await updateConfig({ ...config, monthlyBudget: amount });
@@ -2544,11 +2560,93 @@ export default function HomePage() {
               <button className="modal-close-btn" onClick={() => setShowFlowRebalanceModal(false)} type="button" aria-label="Fermer">✕</button>
             </div>
 
-            <div style={{ padding: '10px 14px', background: 'rgba(6, 182, 212, 0.1)', borderRadius: 8, border: '1px solid rgba(6, 182, 212, 0.25)', margin: '14px 0 12px 0', fontSize: 13, color: 'var(--text-primary)', lineHeight: 1.45 }}>
-              💡 <strong>Principe DCA Mensuel :</strong> Ces ordres affectent votre versement mensuel ({flowRebalanceResult.totalDCA} €) pour combler vos sous-pondérations <strong>sans vendre aucun actif</strong> (zéro frottement fiscal ni impôt).
+            {/* Capital Source Selector (DCA / Extra Cash / Combo / Custom) */}
+            <div style={{ margin: '14px 0 10px 0', background: 'var(--bg-secondary)', padding: '10px 12px', borderRadius: 8, border: '1px solid var(--border-subtle)' }}>
+              <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: 8, letterSpacing: '0.05em' }}>
+                Source de Capital &amp; Budget à Répartir :
+              </div>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  className={`btn btn-sm ${rebalanceBudgetMode === 'dca' ? 'btn-primary' : 'btn-ghost'}`}
+                  style={{ flex: 1, minWidth: 120, fontSize: 12, fontWeight: 700 }}
+                  onClick={() => {
+                    setRebalanceBudgetMode('dca');
+                    const b = config?.monthlyBudget || 1000;
+                    setFlowRebalanceResult(calculateSmartFlowRebalance(positions, b, fxRates));
+                  }}
+                >
+                  🎯 DCA Seul ({(config?.monthlyBudget || 1000).toLocaleString('fr-FR')} €)
+                </button>
+
+                {totalAvailableExtraCash > 0 && (
+                  <>
+                    <button
+                      type="button"
+                      className={`btn btn-sm ${rebalanceBudgetMode === 'extra' ? 'btn-primary' : 'btn-ghost'}`}
+                      style={{ flex: 1, minWidth: 120, fontSize: 12, fontWeight: 700, background: rebalanceBudgetMode === 'extra' ? 'linear-gradient(135deg, #06b6d4 0%, #0891b2 100%)' : undefined }}
+                      onClick={() => {
+                        setRebalanceBudgetMode('extra');
+                        setFlowRebalanceResult(calculateSmartFlowRebalance(positions, totalAvailableExtraCash, fxRates));
+                      }}
+                    >
+                      💎 Primes/Extras (+{totalAvailableExtraCash.toLocaleString('fr-FR')} €)
+                    </button>
+
+                    <button
+                      type="button"
+                      className={`btn btn-sm ${rebalanceBudgetMode === 'combo' ? 'btn-primary' : 'btn-ghost'}`}
+                      style={{ flex: 1, minWidth: 130, fontSize: 12, fontWeight: 700, background: rebalanceBudgetMode === 'combo' ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)' : undefined }}
+                      onClick={() => {
+                        setRebalanceBudgetMode('combo');
+                        const b = (config?.monthlyBudget || 1000) + totalAvailableExtraCash;
+                        setFlowRebalanceResult(calculateSmartFlowRebalance(positions, b, fxRates));
+                      }}
+                    >
+                      🚀 Combo DCA + Primes ({((config?.monthlyBudget || 1000) + totalAvailableExtraCash).toLocaleString('fr-FR')} €)
+                    </button>
+                  </>
+                )}
+
+                <button
+                  type="button"
+                  className={`btn btn-sm ${rebalanceBudgetMode === 'custom' ? 'btn-primary' : 'btn-ghost'}`}
+                  style={{ flex: 1, minWidth: 100, fontSize: 12, fontWeight: 700 }}
+                  onClick={() => {
+                    setRebalanceBudgetMode('custom');
+                    setFlowRebalanceResult(calculateSmartFlowRebalance(positions, customRebalanceAmount, fxRates));
+                  }}
+                >
+                  ✍️ Sur-Mesure
+                </button>
+              </div>
+
+              {rebalanceBudgetMode === 'custom' && (
+                <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Montant personnalisé à injecter :</span>
+                  <input
+                    type="number"
+                    className="input"
+                    style={{ width: 140, padding: '4px 8px', fontSize: 13, fontWeight: 700 }}
+                    value={customRebalanceAmount || ''}
+                    min={50}
+                    step={50}
+                    onChange={(e) => {
+                      const val = parseFloat(e.target.value) || 0;
+                      setCustomRebalanceAmount(val);
+                      setFlowRebalanceResult(calculateSmartFlowRebalance(positions, val, fxRates));
+                    }}
+                  />
+                  <span style={{ fontSize: 13, fontWeight: 700 }}>€</span>
+                </div>
+              )}
             </div>
 
-            <div style={{ maxHeight: '46vh', overflowY: 'auto', paddingRight: 6, display: 'flex', flexDirection: 'column', gap: 10, margin: '10px 0 14px 0' }}>
+            <div style={{ padding: '8px 12px', background: 'rgba(6, 182, 212, 0.08)', borderRadius: 6, border: '1px solid rgba(6, 182, 212, 0.2)', marginBottom: 12, fontSize: 12, color: 'var(--text-primary)', lineHeight: 1.4 }}>
+              💡 <strong>Ordres Calculés :</strong> Répartit votre capital ({flowRebalanceResult.totalDCA.toLocaleString('fr-FR')} €) en priorité sur vos sous-pondérations <strong>sans vendre aucun actif</strong>.
+            </div>
+
+            <div style={{ maxHeight: '42vh', overflowY: 'auto', paddingRight: 6, display: 'flex', flexDirection: 'column', gap: 10, margin: '10px 0 14px 0' }}>
               {flowRebalanceResult.instructions.map((inst) => (
                 <div key={inst.positionId} style={{ padding: 12, background: 'var(--bg-tertiary)', borderRadius: 10, border: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -2601,7 +2699,8 @@ export default function HomePage() {
                     .filter((i) => i.recommendedShares > 0)
                     .map((i, idx) => `${idx + 1}. [${i.envelope}] Acheter ${i.recommendedShares} part(s) de ${i.ticker} (${i.name}) ~${i.recommendedCost} €`)
                     .join('\n');
-                  const text = `📋 FEUILLE D'ORDRES DCA RIANE PORTFOLIO (${new Date().toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })})\nBudget : ${flowRebalanceResult.totalSpent} € (Reliquat : ${flowRebalanceResult.uninvestedCash} €)\n\n${orders}`;
+                  const sourceLabel = rebalanceBudgetMode === 'dca' ? 'DCA Mensuel' : rebalanceBudgetMode === 'extra' ? 'Primes & Tontine' : rebalanceBudgetMode === 'combo' ? 'Combo DCA + Primes' : 'Montant Libre';
+                  const text = `📋 FEUILLE D'ORDRES RIANE PORTFOLIO (${new Date().toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })})\nSource : ${sourceLabel} | Budget : ${flowRebalanceResult.totalSpent} € (Reliquat : ${flowRebalanceResult.uninvestedCash} €)\n\n${orders}`;
                   navigator.clipboard.writeText(text);
                   showToast('📋 Feuille d\'ordres copiée dans le presse-papier !');
                 }}
@@ -2640,6 +2739,16 @@ export default function HomePage() {
                         }
                       }
                     }
+
+                    // Si on a utilisé le mode Extra ou Combo, marquer les extras comme consommés
+                    if ((rebalanceBudgetMode === 'extra' || rebalanceBudgetMode === 'combo') && extraCashEntries.length > 0) {
+                      for (const extra of extraCashEntries) {
+                        if (extra.isAvailable) {
+                          await saveExtraCashEntry({ ...extra, isAvailable: false });
+                        }
+                      }
+                    }
+
                     clearAnalysisCache();
                     setReadNotificationIds(notifications.map((n) => n.id));
                     showToast(`✅ Exécution réelle enregistrée (+${appliedCount} positions mises à jour)`);

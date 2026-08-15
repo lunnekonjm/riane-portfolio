@@ -99,6 +99,20 @@ export interface ReserveAllocation {
   createdAt: number;
 }
 
+export type ExtraCashCategory = 'PRIME' | 'TONTINE' | 'BONUS' | '13EME_MOIS' | 'VENTE' | 'AUTRE';
+
+export interface ExtraCashEntry {
+  id: string;
+  label: string; // ex: "Prime annuelle Vestas", "Tontine familiale", "13e mois", "Vente d'équipement"
+  amount: number; // ex: 2500
+  date: string; // YYYY-MM-DD
+  category: ExtraCashCategory;
+  isAvailable: boolean; // true if available, false if already consumed/invested
+  notes?: string;
+  createdAt: number;
+  updatedAt?: number;
+}
+
 export interface RevenueConfig {
   /** Active la synchronisation automatique PortfolioConfig.monthlyBudget <- moyenne des regularInvestableAmount */
   autoSyncMonthlyBudget: boolean;

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { onAuthChange } from '@/services/firebase/auth';
 import {
   getSalaryRecords,
@@ -11,8 +11,11 @@ import {
   getReserveAllocations,
   saveReserveAllocation as saveReserveAllocationToDb,
   deleteReserveAllocation as deleteReserveAllocationFromDb,
+  getExtraCashEntries,
+  saveExtraCashEntry as saveExtraCashEntryToDb,
+  deleteExtraCashEntry as deleteExtraCashEntryFromDb,
 } from '@/services/firebase/firestore';
-import type { SalaryRecord, RevenueConfig, ReserveAllocation } from '@/types/revenue';
+import type { SalaryRecord, RevenueConfig, ReserveAllocation, ExtraCashEntry } from '@/types/revenue';
 import { DEFAULT_REVENUE_CONFIG } from '@/types/revenue';
 import type { User } from 'firebase/auth';
 
@@ -20,6 +23,7 @@ export function useRevenue() {
   const [user, setUser] = useState<User | null>(null);
   const [records, setRecords] = useState<SalaryRecord[]>([]);
   const [allocations, setAllocations] = useState<ReserveAllocation[]>([]);
+  const [extraCashEntries, setExtraCashEntries] = useState<ExtraCashEntry[]>([]);
   const [revenueConfig, setRevenueConfig] = useState<RevenueConfig>(DEFAULT_REVENUE_CONFIG);
   const [loading, setLoading] = useState(true);
 
@@ -28,10 +32,11 @@ export function useRevenue() {
       setUser(u);
       if (u) {
         try {
-          const [salaryRecords, cfg, reserveAllocations] = await Promise.all([
+          const [salaryRecords, cfg, reserveAllocations, extras] = await Promise.all([
             getSalaryRecords(u.uid),
             getRevenueConfig(u.uid),
             getReserveAllocations(u.uid),
+            getExtraCashEntries(u.uid),
           ]);
           setRecords(salaryRecords || []);
           const mergedCfg: RevenueConfig = {
@@ -45,6 +50,7 @@ export function useRevenue() {
           };
           setRevenueConfig(mergedCfg);
           setAllocations(reserveAllocations || []);
+          setExtraCashEntries(extras || []);
         } catch (err) {
           console.error('Error loading revenue data:', err);
         }
@@ -52,6 +58,7 @@ export function useRevenue() {
         setRecords([]);
         setRevenueConfig(DEFAULT_REVENUE_CONFIG);
         setAllocations([]);
+        setExtraCashEntries([]);
       }
       setLoading(false);
     });
@@ -111,5 +118,51 @@ export function useRevenue() {
     [user]
   );
 
-  return { records, revenueConfig, allocations, loading, saveRecord, deleteRecord, saveConfig, saveAllocation, deleteAllocation };
+  const saveExtraCashEntry = useCallback(
+    async (entry: ExtraCashEntry) => {
+      if (!user) return;
+      await saveExtraCashEntryToDb(user.uid, entry);
+      setExtraCashEntries((prev) => {
+        const idx = prev.findIndex((e) => e.id === entry.id);
+        if (idx >= 0) {
+          const next = [...prev];
+          next[idx] = entry;
+          return next;
+        }
+        return [entry, ...prev];
+      });
+    },
+    [user]
+  );
+
+  const deleteExtraCashEntry = useCallback(
+    async (id: string) => {
+      if (!user) return;
+      await deleteExtraCashEntryFromDb(user.uid, id);
+      setExtraCashEntries((prev) => prev.filter((e) => e.id !== id));
+    },
+    [user]
+  );
+
+  const totalAvailableExtraCash = useMemo(() => {
+    return extraCashEntries
+      .filter((e) => e.isAvailable)
+      .reduce((sum, e) => sum + (e.amount || 0), 0);
+  }, [extraCashEntries]);
+
+  return {
+    records,
+    revenueConfig,
+    allocations,
+    extraCashEntries,
+    totalAvailableExtraCash,
+    loading,
+    saveRecord,
+    deleteRecord,
+    saveConfig,
+    saveAllocation,
+    deleteAllocation,
+    saveExtraCashEntry,
+    deleteExtraCashEntry,
+  };
 }

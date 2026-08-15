@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback, useRef, useMemo } from 'react';
-import type { SalaryRecord, RevenueConfig, ReserveAllocation } from '@/types/revenue';
+import type { SalaryRecord, RevenueConfig, ReserveAllocation, ExtraCashEntry, ExtraCashCategory } from '@/types/revenue';
 import { computeSalaryAnalytics, computeReserveBalance, DEFAULT_REVENUE_CONFIG, REFERENCE_NET_RATES } from '@/types/revenue';
 import type { PortfolioConfig } from '@/types/portfolio';
 
@@ -9,12 +9,16 @@ interface RevenueBudgetViewProps {
   records: SalaryRecord[];
   revenueConfig: RevenueConfig;
   allocations: ReserveAllocation[];
+  extraCashEntries?: ExtraCashEntry[];
   portfolioConfig: PortfolioConfig | null;
   onSaveRecord: (record: SalaryRecord) => Promise<void>;
   onDeleteRecord: (id: string) => Promise<void>;
   onSaveRevenueConfig: (config: RevenueConfig) => Promise<void>;
   onSaveAllocation: (allocation: ReserveAllocation) => Promise<void>;
   onDeleteAllocation: (id: string) => Promise<void>;
+  onSaveExtraCashEntry?: (entry: ExtraCashEntry) => Promise<void>;
+  onDeleteExtraCashEntry?: (id: string) => Promise<void>;
+  onOpenRebalancerWithBudget?: (budget: number) => void;
   onSyncMonthlyBudget: (amount: number) => Promise<void>;
   onShowToast: (msg: string, type?: 'success' | 'error') => void;
 }
@@ -49,22 +53,43 @@ function inferNet(gross: number | undefined, net: number | undefined, refRate: n
   return 0;
 }
 
+const CATEGORY_LABELS: Record<ExtraCashCategory, { label: string; icon: string; color: string }> = {
+  PRIME: { label: 'Prime annuelle / Objectifs', icon: '🎖️', color: 'var(--accent-cyan)' },
+  TONTINE: { label: 'Tontine familiale / Tour', icon: '🤝', color: 'var(--accent-emerald)' },
+  BONUS: { label: 'Bonus / Intéressement', icon: '💎', color: 'var(--accent-amber)' },
+  '13EME_MOIS': { label: '13ème mois', icon: '🎁', color: '#a855f7' },
+  VENTE: { label: 'Vente d\'équipement / Actif', icon: '🏷️', color: '#38bdf8' },
+  AUTRE: { label: 'Autre rentrée exceptionnelle', icon: '💰', color: 'var(--text-secondary)' },
+};
+
 export default function RevenueBudgetView({
   records,
   revenueConfig,
   allocations,
+  extraCashEntries = [],
   portfolioConfig,
   onSaveRecord,
   onDeleteRecord,
   onSaveRevenueConfig,
   onSaveAllocation,
   onDeleteAllocation,
+  onSaveExtraCashEntry,
+  onDeleteExtraCashEntry,
+  onOpenRebalancerWithBudget,
   onSyncMonthlyBudget,
   onShowToast,
 }: RevenueBudgetViewProps) {
   const [draft, setDraft] = useState<SalaryRecord>(emptyRecord());
   const [showForm, setShowForm] = useState(false);
   const [parsing, setParsing] = useState(false);
+
+  // Extra Cash (Windfall / Tontine / Primes) Form State
+  const [showExtraForm, setShowExtraForm] = useState(false);
+  const [extraLabel, setExtraLabel] = useState('');
+  const [extraAmount, setExtraAmount] = useState<number>(0);
+  const [extraCategory, setExtraCategory] = useState<ExtraCashCategory>('TONTINE');
+  const [extraDate, setExtraDate] = useState(new Date().toISOString().slice(0, 10));
+  const [extraNotes, setExtraNotes] = useState('');
 
   const safeConfigProp: RevenueConfig = useMemo(() => ({
     ...DEFAULT_REVENUE_CONFIG,
@@ -85,6 +110,14 @@ export default function RevenueBudgetView({
 
   const analytics = computeSalaryAnalytics(records || [], allocations || [], localConfig?.rollingAverageMonths || 3);
   const reserveBalance = useMemo(() => computeReserveBalance(records || [], allocations || []), [records, allocations]);
+
+  const availableExtraCashTotal = useMemo(() => {
+    return extraCashEntries
+      .filter((e) => e.isAvailable)
+      .reduce((sum, e) => sum + (e.amount || 0), 0);
+  }, [extraCashEntries]);
+
+  const grandTotalAvailableExtra = availableExtraCashTotal + (reserveBalance || 0);
 
   const handleFileUpload = useCallback(
     async (file: File) => {
@@ -118,86 +151,143 @@ export default function RevenueBudgetView({
           : 0;
 
         const baseSalaryNetEstimate = Math.max(0, netSalary - bonusNet - congesRachatNet);
-        const suggestedRegular = Math.round(
-          baseSalaryNetEstimate * (analytics.averageSavingsRate > 0 ? analytics.averageSavingsRate / 100 : 0.20)
-        );
-        const bonusReserveContribution = Math.round((bonusNet + congesRachatNet) * 100) / 100;
+        const regularInvestable = Math.round(baseSalaryNetEstimate * 0.35);
+        const bonusReserve = Math.round((bonusNet + congesRachatNet) * 100) / 100;
+        const savingsRate = baseSalaryNetEstimate > 0 ? (regularInvestable / baseSalaryNetEstimate) * 100 : 0;
 
-        setDraft({
+        const record: SalaryRecord = {
           id: `sal-${now}`,
-          period: parsed.period,
-          periodLabel: parsed.periodLabel,
+          period: parsed.period || draft.period,
+          periodLabel: parsed.periodLabel || draft.periodLabel,
           netSalary,
-          grossSalary: parsed.grossSalary ?? undefined,
-          netSocial: parsed.netSocial ?? undefined,
-          socialContributions: parsed.socialContributions ?? undefined,
-          incomeTaxAmount: parsed.incomeTaxAmount ?? undefined,
-          incomeTaxRatePercent: parsed.incomeTaxRatePercent ?? undefined,
-          companySavingsPEE: parsed.companySavingsPEE ?? undefined,
-          baseSalaryGross: parsed.baseSalaryGross ?? undefined,
-          baseSalaryNet: parsed.baseSalaryNet ?? baseSalaryNetEstimate,
-          hasExplicitBonus: parsed.hasExplicitBonus ?? false,
-          bonusDescription: parsed.bonusDescription ?? undefined,
-          bonusGross: parsed.bonusGross ?? undefined,
-          bonusNet: bonusNet || undefined,
-          hasCongesRachat: parsed.hasCongesRachat ?? false,
-          congesRachatJours: parsed.congesRachatJours ?? undefined,
-          congesRachatGross: parsed.congesRachatGross ?? undefined,
-          congesRachatNet: congesRachatNet || undefined,
-          regularInvestableAmount: suggestedRegular,
-          bonusReserveContribution,
-          savingsRate: baseSalaryNetEstimate > 0 ? (suggestedRegular / baseSalaryNetEstimate) * 100 : 0,
+          grossSalary: parsed.grossSalary,
+          netSocial: parsed.netSocial,
+          socialContributions: parsed.socialContributions,
+          incomeTaxAmount: parsed.incomeTaxAmount,
+          incomeTaxRatePercent: parsed.incomeTaxRatePercent,
+          companySavingsPEE: parsed.companySavingsPEE,
+          baseSalaryGross: parsed.baseSalaryGross,
+          baseSalaryNet: parsed.baseSalaryNet || baseSalaryNetEstimate,
+          bonusAmount: parsed.bonusAmount,
+          bonusGross: parsed.bonusGross,
+          bonusNet,
+          bonusDescription: parsed.bonusDescription,
+          hasExplicitBonus: parsed.hasExplicitBonus,
+          congesRachatGross: parsed.congesRachatGross,
+          congesRachatNet,
+          congesRachatJours: parsed.congesRachatJours,
+          hasCongesRachat: parsed.hasCongesRachat,
+          regularInvestableAmount: regularInvestable,
+          bonusReserveContribution: bonusReserve,
+          savingsRate: Math.round(savingsRate * 10) / 10,
           source: 'pdf-import',
           documentName: file.name,
-          notes: parsed.extractionNotes || undefined,
+          notes: parsed.notes,
           createdAt: now,
           updatedAt: now,
-        });
-        setShowForm(true);
+        };
 
-        const bonusMsg = bonusReserveContribution > 0
-          ? ` Prime/rachat détecté(e) : ${bonusReserveContribution.toLocaleString('fr-FR')} € net iront dans la réserve (pas de répartition automatique).`
-          : '';
-        onShowToast(
-          (parsed.confidence === 'low' ? 'Extraction incertaine — vérifiez chaque champ.' : 'Fiche de paie extraite — vérifiez avant de valider.') + bonusMsg,
-          parsed.confidence === 'low' ? 'error' : 'success'
-        );
-      } catch {
-        onShowToast('Erreur lors de la lecture du fichier', 'error');
+        setDraft(record);
+        setShowForm(true);
+        onShowToast(`Fiche ${parsed.periodLabel || parsed.period} analysée avec succès`, 'success');
+      } catch (err) {
+        console.error('Payslip parsing error:', err);
+        onShowToast('Erreur lors de l\'analyse du document', 'error');
       } finally {
         setParsing(false);
-        if (fileInputRef.current) fileInputRef.current.value = '';
       }
     },
-    [analytics.averageSavingsRate, onShowToast]
+    [draft.period, draft.periodLabel, onShowToast]
   );
 
   const handleSave = useCallback(async () => {
-    if (!draft.period || draft.netSalary <= 0) {
-      onShowToast('Période et salaire net sont requis', 'error');
+    if (!draft.netSalary || draft.netSalary <= 0) {
+      onShowToast('Veuillez renseigner au moins le salaire net', 'error');
       return;
     }
-    const baseNet = draft.baseSalaryNet ?? Math.max(0, draft.netSalary - (draft.bonusNet || 0) - (draft.congesRachatNet || 0));
-    const savingsRate = baseNet > 0 ? (draft.regularInvestableAmount / baseNet) * 100 : 0;
-    await onSaveRecord({ ...draft, savingsRate });
+    const bonusNet = draft.bonusNet || 0;
+    const congesNet = draft.congesRachatNet || 0;
+    const baseNet = Math.max(0, draft.netSalary - bonusNet - congesNet);
+    const regInv = draft.regularInvestableAmount || Math.round(baseNet * 0.35);
+    const bonusReserve = draft.bonusReserveContribution ?? (bonusNet + congesNet);
+    const rate = baseNet > 0 ? (regInv / baseNet) * 100 : 0;
+
+    const recordToSave: SalaryRecord = {
+      ...draft,
+      regularInvestableAmount: regInv,
+      bonusReserveContribution: bonusReserve,
+      savingsRate: Math.round(rate * 10) / 10,
+      updatedAt: Date.now(),
+    };
+
+    await onSaveRecord(recordToSave);
     setShowForm(false);
     setDraft(emptyRecord());
-    onShowToast('Fiche de paie enregistrée', 'success');
+    onShowToast(`Fiche ${recordToSave.periodLabel} enregistrée`, 'success');
   }, [draft, onSaveRecord, onShowToast]);
 
-  const handleSyncBudget = useCallback(async () => {
-    await onSyncMonthlyBudget(analytics.suggestedMonthlyBudget);
-    onShowToast(`Budget mensuel synchronisé : ${analytics.suggestedMonthlyBudget.toLocaleString('fr-FR')} €/mois`, 'success');
-  }, [analytics.suggestedMonthlyBudget, onSyncMonthlyBudget, onShowToast]);
+  const handleSaveExtraCash = useCallback(async () => {
+    if (!extraLabel.trim() || extraAmount <= 0) {
+      onShowToast('Veuillez saisir un libellé et un montant positif', 'error');
+      return;
+    }
+    if (!onSaveExtraCashEntry) return;
+
+    const now = Date.now();
+    const entry: ExtraCashEntry = {
+      id: `extra-${now}`,
+      label: extraLabel.trim(),
+      amount: extraAmount,
+      date: extraDate,
+      category: extraCategory,
+      isAvailable: true,
+      notes: extraNotes.trim() || undefined,
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    await onSaveExtraCashEntry(entry);
+    setShowExtraForm(false);
+    setExtraLabel('');
+    setExtraAmount(0);
+    setExtraNotes('');
+    onShowToast(`💰 ${entry.label} (+${entry.amount.toLocaleString('fr-FR')} €) enregistré !`, 'success');
+  }, [extraLabel, extraAmount, extraDate, extraCategory, extraNotes, onSaveExtraCashEntry, onShowToast]);
+
+  const handleToggleExtraAvailability = useCallback(async (entry: ExtraCashEntry) => {
+    if (!onSaveExtraCashEntry) return;
+    await onSaveExtraCashEntry({
+      ...entry,
+      isAvailable: !entry.isAvailable,
+      updatedAt: Date.now(),
+    });
+    onShowToast(`Statut mis à jour (${!entry.isAvailable ? 'Disponible' : 'Marqué comme investi'})`, 'success');
+  }, [onSaveExtraCashEntry, onShowToast]);
 
   const handleConfigChange = useCallback(
-    async (patch: Partial<RevenueConfig>) => {
-      const next = { ...localConfig, ...patch };
-      setLocalConfig(next);
-      await onSaveRevenueConfig(next);
+    async (partial: Partial<RevenueConfig>) => {
+      const updated: RevenueConfig = {
+        ...localConfig,
+        ...partial,
+        allocationSplit: {
+          ...localConfig.allocationSplit,
+          ...(partial.allocationSplit || {}),
+        },
+      };
+      setLocalConfig(updated);
+      await onSaveRevenueConfig(updated);
+      onShowToast('Paramètres mis à jour', 'success');
     },
-    [localConfig, onSaveRevenueConfig]
+    [localConfig, onSaveRevenueConfig, onShowToast]
   );
+
+  const handleSyncBudget = useCallback(async () => {
+    const suggested = analytics.suggestedMonthlyBudget;
+    if (suggested > 0) {
+      await onSyncMonthlyBudget(suggested);
+      onShowToast(`Budget mensuel mis à jour à ${suggested.toLocaleString('fr-FR')} €`, 'success');
+    }
+  }, [analytics.suggestedMonthlyBudget, onSyncMonthlyBudget, onShowToast]);
 
   const handleAllocate = useCallback(async () => {
     if (allocAmount <= 0 || allocAmount > reserveBalance) {
@@ -221,6 +311,7 @@ export default function RevenueBudgetView({
 
   return (
     <div>
+      {/* 📊 Metrics Bar */}
       <div className="grid-4" style={{ marginBottom: 24 }}>
         <div className="card">
           <div className="card-header"><span className="card-title">Net moyen ({localConfig?.rollingAverageMonths ?? 3} mois)</span></div>
@@ -234,163 +325,216 @@ export default function RevenueBudgetView({
           <div className="card-header"><span className="card-title">Taux d&apos;épargne régulier</span></div>
           <div className="card-value">{(analytics?.averageSavingsRate ?? 0).toFixed(1)} %</div>
         </div>
-        <div className="card" style={{ borderLeft: '3px solid var(--accent-amber)' }}>
-          <div className="card-header"><span className="card-title">💰 Réserve primes/rachats</span></div>
-          <div className="card-value">{(reserveBalance ?? 0).toLocaleString('fr-FR')} €</div>
+        <div className="card" style={{ borderLeft: '3px solid var(--accent-emerald)', background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.05) 0%, rgba(6, 182, 212, 0.05) 100%)' }}>
+          <div className="card-header"><span className="card-title">💎 Total Extras &amp; Primes Dispo</span></div>
+          <div className="card-value" style={{ color: 'var(--accent-emerald)' }}>+{grandTotalAvailableExtra.toLocaleString('fr-FR')} €</div>
         </div>
       </div>
 
-      {(reserveBalance ?? 0) > 0 && (
-        <div className="card" style={{ marginBottom: 24, borderLeft: '3px solid var(--accent-amber)' }}>
-          <div className="card-header"><span className="card-title">💰 Réserve primes &amp; rachats de congés — non allouée</span></div>
-          <p style={{ margin: '8px 0' }}>
-            <strong>{(reserveBalance ?? 0).toLocaleString('fr-FR')} €</strong> accumulés depuis les primes et rachats de jours détectés
-            sur vos bulletins, en attente de votre décision. Cette somme n&apos;est <strong>jamais</strong> répartie
-            automatiquement selon la cible PEA/PEA-PME/CTO — c&apos;est vous qui décidez quand et où l&apos;investir.
-          </p>
-          {!showAllocForm ? (
-            <button className="btn btn-primary" onClick={() => { setAllocAmount(reserveBalance); setShowAllocForm(true); }}>
-              Allouer maintenant
+      {/* 💎 NEW SECTION: Primes, Tontines & Extras de Trésorerie */}
+      <div className="card" style={{ marginBottom: 24, border: '1px solid rgba(16, 185, 129, 0.3)', background: 'var(--bg-secondary)' }}>
+        <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
+          <div>
+            <span className="card-title" style={{ fontSize: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span>💎</span> Primes, Tontines &amp; Rentrées Exceptionnelles (Windfalls)
+            </span>
+            <p style={{ margin: '4px 0 0 0', fontSize: 13, color: 'var(--text-secondary)' }}>
+              Ajoutez vos rentrées exceptionnelles (Prime d&apos;intéressement, Tontine, 13e mois, Ventes) pour décider de les injecter lors de vos rééquilibrages.
+            </p>
+          </div>
+
+          <div style={{ display: 'flex', gap: 10 }}>
+            {grandTotalAvailableExtra > 0 && onOpenRebalancerWithBudget && (
+              <button
+                type="button"
+                className="btn btn-primary"
+                style={{ background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', fontWeight: 700 }}
+                onClick={() => onOpenRebalancerWithBudget(grandTotalAvailableExtra)}
+              >
+                🎯 Rééquilibrer avec ces {grandTotalAvailableExtra.toLocaleString('fr-FR')} €
+              </button>
+            )}
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => setShowExtraForm(!showExtraForm)}
+            >
+              {showExtraForm ? 'Fermer' : '➕ Ajouter un Extra / Prime / Tontine'}
             </button>
+          </div>
+        </div>
+
+        {/* Extra Cash Form */}
+        {showExtraForm && (
+          <div style={{ padding: 16, background: 'var(--bg-tertiary)', borderRadius: 10, marginTop: 14, border: '1px solid var(--border-subtle)' }}>
+            <h4 style={{ margin: '0 0 12px 0', fontSize: 14 }}>💰 Déclarer un Extra de Trésorerie</h4>
+            <div className="form-row">
+              <div className="form-group" style={{ flex: 2 }}>
+                <label className="form-label">Libellé de la rentrée</label>
+                <input
+                  className="input"
+                  placeholder="ex: Tontine d'août, Prime annuelle Vestas, Vente d'ordinateur"
+                  value={extraLabel}
+                  onChange={(e) => setExtraLabel(e.target.value)}
+                />
+              </div>
+              <div className="form-group" style={{ flex: 1 }}>
+                <label className="form-label">Montant net (€)</label>
+                <input
+                  type="number"
+                  className="input"
+                  placeholder="2500"
+                  value={extraAmount || ''}
+                  onChange={(e) => setExtraAmount(parseFloat(e.target.value) || 0)}
+                />
+              </div>
+            </div>
+
+            <div className="form-row">
+              <div className="form-group" style={{ flex: 1 }}>
+                <label className="form-label">Catégorie</label>
+                <select
+                  className="input"
+                  value={extraCategory}
+                  onChange={(e) => setExtraCategory(e.target.value as ExtraCashCategory)}
+                >
+                  <option value="TONTINE">🤝 Tontine familiale / Tour</option>
+                  <option value="PRIME">🎖️ Prime annuelle / Objectifs</option>
+                  <option value="BONUS">💎 Bonus / Intéressement</option>
+                  <option value="13EME_MOIS">🎁 13ème mois</option>
+                  <option value="VENTE">🏷️ Vente d&apos;actif / Matériel</option>
+                  <option value="AUTRE">💰 Autre rentrée exceptionnelle</option>
+                </select>
+              </div>
+              <div className="form-group" style={{ flex: 1 }}>
+                <label className="form-label">Date de réception</label>
+                <input
+                  type="date"
+                  className="input"
+                  value={extraDate}
+                  onChange={(e) => setExtraDate(e.target.value)}
+                />
+              </div>
+              <div className="form-group" style={{ flex: 2 }}>
+                <label className="form-label">Notes (optionnel)</label>
+                <input
+                  className="input"
+                  placeholder="ex: Reçu sur BoursoBank, à investir en septembre"
+                  value={extraNotes}
+                  onChange={(e) => setExtraNotes(e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: 10, marginTop: 12, justifyContent: 'flex-end' }}>
+              <button className="btn btn-ghost" onClick={() => setShowExtraForm(false)}>Annuler</button>
+              <button className="btn btn-primary" onClick={handleSaveExtraCash}>💾 Enregistrer l&apos;Extra</button>
+            </div>
+          </div>
+        )}
+
+        {/* Extra Cash List */}
+        <div style={{ marginTop: 16 }}>
+          {extraCashEntries.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '16px 0', color: 'var(--text-muted)', fontSize: 13 }}>
+              Aucun extra ponctuel enregistré. Cliquez sur &quot;Ajouter un Extra&quot; pour consigner une prime ou une tontine.
+            </div>
           ) : (
-            <div>
-              <div className="form-row">
-                <div className="form-group">
-                  <label className="form-label">Montant à allouer (€)</label>
-                  <input type="number" className="input" value={allocAmount || ''} max={reserveBalance}
-                    onChange={(e) => setAllocAmount(parseFloat(e.target.value) || 0)} />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Enveloppe</label>
-                  <select className="input" value={allocEnvelope} onChange={(e) => setAllocEnvelope(e.target.value as 'PEA' | 'PEA-PME' | 'CTO')}>
-                    <option value="CTO">CTO</option>
-                    <option value="PEA">PEA classique</option>
-                    <option value="PEA-PME">PEA-PME</option>
-                  </select>
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Ticker (optionnel)</label>
-                  <input className="input" placeholder="ex: SYM" value={allocTicker} onChange={(e) => setAllocTicker(e.target.value)} />
-                </div>
-              </div>
-              <div style={{ display: 'flex', gap: 12, marginTop: 8 }}>
-                <button className="btn btn-primary" onClick={handleAllocate}>Confirmer l&apos;allocation</button>
-                <button className="btn btn-ghost" onClick={() => setShowAllocForm(false)}>Annuler</button>
-              </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {extraCashEntries.map((entry) => {
+                const cat = CATEGORY_LABELS[entry.category] || CATEGORY_LABELS.AUTRE;
+                return (
+                  <div
+                    key={entry.id}
+                    style={{
+                      padding: '10px 14px',
+                      background: entry.isAvailable ? 'var(--bg-tertiary)' : 'rgba(255,255,255,0.02)',
+                      opacity: entry.isAvailable ? 1 : 0.65,
+                      borderRadius: 8,
+                      border: '1px solid var(--border-subtle)',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      flexWrap: 'wrap',
+                      gap: 8,
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <span style={{ fontSize: 20 }}>{cat.icon}</span>
+                      <div>
+                        <div style={{ fontWeight: 600, fontSize: 14, color: 'var(--text-primary)' }}>
+                          {entry.label}
+                        </div>
+                        <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                          {cat.label} • {new Date(entry.date).toLocaleDateString('fr-FR')} {entry.notes ? `• ${entry.notes}` : ''}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                      <strong className="mono" style={{ fontSize: 15, color: entry.isAvailable ? 'var(--accent-emerald)' : 'var(--text-muted)' }}>
+                        +{entry.amount.toLocaleString('fr-FR')} €
+                      </strong>
+
+                      <button
+                        type="button"
+                        className={`badge ${entry.isAvailable ? 'badge-emerald' : 'badge-ghost'}`}
+                        style={{ cursor: 'pointer', border: 'none', padding: '4px 10px', fontSize: 12, fontWeight: 700 }}
+                        onClick={() => handleToggleExtraAvailability(entry)}
+                        title="Cliquer pour basculer entre Disponible et Déjà investi"
+                      >
+                        {entry.isAvailable ? '🟢 Disponible' : '⚪ Déjà investi'}
+                      </button>
+
+                      {onDeleteExtraCashEntry && (
+                        <button
+                          className="btn-ghost"
+                          style={{ padding: '4px 8px', fontSize: 13 }}
+                          onClick={() => onDeleteExtraCashEntry(entry.id)}
+                          title="Supprimer"
+                        >
+                          🗑️
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
-      )}
-
-      {(analytics?.suggestedMonthlyBudget ?? 0) > 0 && portfolioConfig && portfolioConfig.monthlyBudget != null && analytics.suggestedMonthlyBudget !== portfolioConfig.monthlyBudget && (
-        <div className="card" style={{ marginBottom: 24, borderLeft: '3px solid var(--accent-amber)' }}>
-          <div className="card-header"><span className="card-title">⚠️ Écart détecté</span></div>
-          <p style={{ margin: '8px 0' }}>
-            Le budget mensuel configuré ({(portfolioConfig.monthlyBudget ?? 0).toLocaleString('fr-FR')} €) diffère de la moyenne
-            régulière de vos {localConfig?.rollingAverageMonths ?? 3} dernières fiches de paie ({(analytics.suggestedMonthlyBudget ?? 0).toLocaleString('fr-FR')} €,
-            primes et rachats exclus). Ce montant alimente le DCA mensuel — la réserve primes/rachats n&apos;y est jamais mélangée.
-          </p>
-          <button className="btn btn-primary" onClick={handleSyncBudget}>
-            Synchroniser à {(analytics.suggestedMonthlyBudget ?? 0).toLocaleString('fr-FR')} €/mois
-          </button>
-        </div>
-      )}
-
-      <div className="card" style={{ marginBottom: 24 }}>
-        <div className="card-header"><span className="card-title">⚙️ Paramètres de synchronisation</span></div>
-        <div className="form-row">
-          <div className="form-group">
-            <label className="form-label">
-              <input
-                type="checkbox"
-                checked={localConfig?.autoSyncMonthlyBudget ?? true}
-                onChange={(e) => handleConfigChange({ autoSyncMonthlyBudget: e.target.checked })}
-              />{' '}
-              Synchronisation automatique du budget mensuel
-            </label>
-          </div>
-          <div className="form-group">
-            <label className="form-label">Moyenne glissante sur (mois)</label>
-            <input
-              type="number"
-              className="input"
-              min={1}
-              max={12}
-              value={localConfig?.rollingAverageMonths ?? 3}
-              onChange={(e) => handleConfigChange({ rollingAverageMonths: parseInt(e.target.value, 10) || 3 })}
-            />
-          </div>
-          <div className="form-group">
-            <label className="form-label">Enveloppe par défaut pour la réserve</label>
-            <select className="input" value={localConfig?.defaultReserveEnvelope ?? 'CTO'}
-              onChange={(e) => handleConfigChange({ defaultReserveEnvelope: e.target.value as 'PEA' | 'PEA-PME' | 'CTO' })}>
-              <option value="CTO">CTO</option>
-              <option value="PEA">PEA classique</option>
-              <option value="PEA-PME">PEA-PME</option>
-            </select>
-          </div>
-        </div>
-        <div className="form-row">
-          <div className="form-group">
-            <label className="form-label">Répartition PEA (capacité régulière uniquement)</label>
-            <input
-              type="number" className="input" min={0} max={100}
-              value={Math.round((localConfig?.allocationSplit?.PEA ?? 0.4) * 100)}
-              onChange={(e) => handleConfigChange({
-                allocationSplit: {
-                  PEA: (parseInt(e.target.value, 10) || 0) / 100,
-                  'PEA-PME': localConfig?.allocationSplit?.['PEA-PME'] ?? 0.4,
-                  CTO: localConfig?.allocationSplit?.CTO ?? 0.2,
-                }
-              })}
-            />
-          </div>
-          <div className="form-group">
-            <label className="form-label">Répartition PEA-PME</label>
-            <input
-              type="number" className="input" min={0} max={100}
-              value={Math.round((localConfig?.allocationSplit?.['PEA-PME'] ?? 0.4) * 100)}
-              onChange={(e) => handleConfigChange({
-                allocationSplit: {
-                  PEA: localConfig?.allocationSplit?.PEA ?? 0.4,
-                  'PEA-PME': (parseInt(e.target.value, 10) || 0) / 100,
-                  CTO: localConfig?.allocationSplit?.CTO ?? 0.2,
-                }
-              })}
-            />
-          </div>
-          <div className="form-group">
-            <label className="form-label">Répartition CTO</label>
-            <input
-              type="number" className="input" min={0} max={100}
-              value={Math.round((localConfig?.allocationSplit?.CTO ?? 0.2) * 100)}
-              onChange={(e) => handleConfigChange({
-                allocationSplit: {
-                  PEA: localConfig?.allocationSplit?.PEA ?? 0.4,
-                  'PEA-PME': localConfig?.allocationSplit?.['PEA-PME'] ?? 0.4,
-                  CTO: (parseInt(e.target.value, 10) || 0) / 100,
-                }
-              })}
-            />
-          </div>
-        </div>
-        <p style={{ fontSize: 12, color: 'var(--text-tertiary)', marginTop: 4 }}>
-          Rappel fréquence d&apos;achat réelle (section 08/09 du plan) : seul le PEA classique (PUST) est en virement
-          mensuel. PEA-PME et CTO accumulent jusqu&apos;à un seuil avant achat groupé, pour limiter le poids des frais
-          proportionnels sur les petits montants — voir la fiche de chaque position.
-        </p>
       </div>
 
+      {/* Payslip & OCR Upload Card */}
       <div className="card" style={{ marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
         <div>
-          <h3 style={{ fontSize: 16, margin: '0 0 4px 0', color: 'var(--text-primary)' }}>💼 Fiches de Paie &amp; Revenus Mensuels</h3>
+          <h3 style={{ fontSize: 16, margin: '0 0 4px 0', color: 'var(--text-primary)' }}>💼 Fiches de Paie &amp; Bulletins de Salaire</h3>
           <p style={{ margin: 0, fontSize: 13, color: 'var(--text-secondary)' }}>
-            Saisissez votre salaire net et primes en 5 secondes pour calculer automatiquement votre capacité d&apos;épargne.
+            Importez votre bulletin PDF pour extraction automatique Gemini ou saisissez votre salaire net en quelques secondes.
           </p>
         </div>
-        <button className="btn btn-primary" onClick={() => { setDraft(emptyRecord()); setShowForm(true); }}>
-          ➕ Saisir un salaire
-        </button>
+        <div style={{ display: 'flex', gap: 10 }}>
+          <input
+            type="file"
+            ref={fileInputRef}
+            style={{ display: 'none' }}
+            accept="application/pdf,image/*"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) handleFileUpload(f);
+            }}
+          />
+          <button
+            className="btn btn-secondary"
+            disabled={parsing}
+            onClick={() => fileInputRef.current?.click()}
+          >
+            {parsing ? '⏳ Analyse OCR en cours...' : '📄 Importer un Bulletin PDF'}
+          </button>
+          <button className="btn btn-primary" onClick={() => { setDraft(emptyRecord()); setShowForm(true); }}>
+            ➕ Saisir manuellement
+          </button>
+        </div>
       </div>
 
       {showForm && (
@@ -461,6 +605,7 @@ export default function RevenueBudgetView({
         </div>
       )}
 
+      {/* Historique des Fiches de Paie */}
       <div className="card" style={{ marginBottom: 24 }}>
         <div className="card-header"><span className="card-title">📊 Historique des fiches de paie</span></div>
         {records.length === 0 ? (

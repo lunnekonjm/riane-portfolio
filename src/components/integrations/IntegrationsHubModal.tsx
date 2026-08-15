@@ -20,6 +20,22 @@ export const IntegrationsHubModal: React.FC<IntegrationsHubModalProps> = ({
   const [truelayerData, setTruelayerData] = useState<TrueLayerSyncResult | null>(null);
   const [lastSyncTime, setLastSyncTime] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'overview' | 'ibkr' | 'boursobank' | 'traderepublic'>('overview');
+  const [connectingBourso, setConnectingBourso] = useState(false);
+
+  const handleConnectBourso = async () => {
+    setConnectingBourso(true);
+    try {
+      const res = await fetch('/api/integrations/truelayer/auth-url?format=json');
+      const data = await res.json();
+      if (data.authUrl) {
+        window.open(data.authUrl, '_blank', 'noopener,noreferrer');
+      }
+    } catch (err) {
+      console.error('Erreur TrueLayer Auth:', err);
+    } finally {
+      setConnectingBourso(false);
+    }
+  };
 
   const syncAll = async () => {
     setLoading(true);
@@ -630,10 +646,9 @@ export const IntegrationsHubModal: React.FC<IntegrationsHubModalProps> = ({
                   </div>
                 </div>
 
-                <a
-                  href="/api/integrations/truelayer/auth-url"
-                  target="_blank"
-                  rel="noopener noreferrer"
+                <button
+                  onClick={handleConnectBourso}
+                  disabled={connectingBourso}
                   className="btn btn-primary btn-sm"
                   style={{
                     display: 'flex',
@@ -641,13 +656,13 @@ export const IntegrationsHubModal: React.FC<IntegrationsHubModalProps> = ({
                     gap: 6,
                     padding: '8px 16px',
                     borderRadius: 10,
-                    textDecoration: 'none',
                     fontWeight: 600,
+                    cursor: connectingBourso ? 'wait' : 'pointer',
                   }}
                 >
-                  <span>Connecter BoursoBank DSP2</span>
+                  <span>{connectingBourso ? 'Ouverture...' : 'Connecter BoursoBank DSP2'}</span>
                   <span>↗</span>
-                </a>
+                </button>
               </div>
 
               {/* Accounts list or Connect Explainer */}

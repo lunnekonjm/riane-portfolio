@@ -29,6 +29,8 @@ export function getTrueLayerAuthUrl(redirectUri: string, state?: string, provide
     scope: "info accounts balance transactions offline_access",
     redirect_uri: redirectUri,
     providers: providerId,
+    provider_id: providerId,
+    country_code: "FR",
     ...(sandbox ? { enable_mock: "true" } : {}),
     ...(state ? { state } : {}),
   });

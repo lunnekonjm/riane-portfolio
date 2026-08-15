@@ -2142,7 +2142,10 @@ export default function HomePage() {
                 const monthlyBudget = config?.monthlyBudget || 1000;
                 const nominalLoss = marketCapital * simulatedMarketDrop;
                 const monthsToAbsorb = monthlyBudget > 0 ? (nominalLoss / monthlyBudget).toFixed(1) : '0.0';
-                const discountOnNewShares = (simulatedMarketDrop * 100).toFixed(0);
+                const partsBonusPercent = (100 / (1 - simulatedMarketDrop) - 100).toFixed(0);
+                const pruDiscountPercent = marketCapital > 0
+                  ? ((simulatedMarketDrop * monthlyBudget) / (marketCapital + monthlyBudget) * 100).toFixed(1)
+                  : (simulatedMarketDrop * 100).toFixed(1);
 
                 return (
                   <div className="card" style={{ borderLeft: '4px solid var(--accent-cyan)', background: 'linear-gradient(135deg, rgba(6, 182, 212, 0.04) 0%, rgba(16, 185, 129, 0.04) 100%)' }}>
@@ -2153,7 +2156,7 @@ export default function HomePage() {
                           <span className="badge badge-cyan" style={{ fontSize: 11, fontWeight: 700 }}>Horizon 15-20 ans</span>
                         </div>
                         <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>
-                          Simulez l&apos;impact d&apos;un krach sur vos actions cotées et visualisez comment vos versements mensuels absorbent la baisse.
+                          Simulez l&apos;impact d&apos;un krach sur vos actions cotées et visualisez comment vos versements mensuels absorbent la baisse et optimisent votre PRU.
                         </div>
                       </div>
                       <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
@@ -2201,25 +2204,39 @@ export default function HomePage() {
                       </div>
                     </div>
 
-                    {/* 4 Indicateurs Pratiques & Mathématiques */}
+                    {/* 4 Indicateurs Pratiques & Mathématiques avec Info-Bulles */}
                     <div className="grid-4" style={{ marginBottom: 14, gap: 16 }}>
                       {/* 1. Perte Nominale sur Capital Coté */}
-                      <div style={{ background: 'var(--bg-tertiary)', padding: 14, borderRadius: 10, border: '1px solid var(--border-subtle)' }}>
+                      <div style={{ background: 'var(--bg-tertiary)', padding: 14, borderRadius: 10, border: '1px solid var(--border-subtle)', position: 'relative' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                           <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', fontWeight: 600, textTransform: 'uppercase' }}>Baisse sur Capital Coté</span>
-                          <span style={{ fontSize: 14 }} title="Baisse calculée uniquement sur vos positions actions et ETF cotées">📉</span>
+                          <span
+                            style={{ cursor: 'help', fontSize: 13, color: 'var(--accent-cyan)', background: 'rgba(6, 182, 212, 0.12)', borderRadius: '50%', width: 18, height: 18, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}
+                            data-tooltip={`Cette baisse ne concerne que vos investissements boursiers (PEA, CTO). Il s'agit d'une perte latente (non réalisée) : tant que vous ne vendez pas, aucune perte n'est matérialisée.`}
+                            data-tooltip-multiline="true"
+                            data-tooltip-pos="down"
+                          >
+                            ℹ️
+                          </span>
                         </div>
                         <strong className="mono" style={{ fontSize: 22, color: 'var(--accent-rose)', display: 'block', margin: '4px 0' }}>-{Math.round(nominalLoss).toLocaleString('fr-FR')} €</strong>
                         <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
-                          Sur vos positions cotées ({Math.round(marketCapital).toLocaleString('fr-FR')} €). <em>(Perte latente non réalisée)</em>.
+                          Sur vos positions cotées ({Math.round(marketCapital).toLocaleString('fr-FR')} €). <em>(Perte latente)</em>.
                         </div>
                       </div>
 
                       {/* 2. Vitesse d'Absorption par le DCA */}
-                      <div style={{ background: 'var(--bg-tertiary)', padding: 14, borderRadius: 10, border: '1px solid var(--border-subtle)' }}>
+                      <div style={{ background: 'var(--bg-tertiary)', padding: 14, borderRadius: 10, border: '1px solid var(--border-subtle)', position: 'relative' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                           <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', fontWeight: 600, textTransform: 'uppercase' }}>Temps d&apos;Absorption DCA</span>
-                          <span style={{ fontSize: 14 }} title="Nombre de mois d'achats réguliers nécessaires pour réinjecter le montant de la baisse">⏱️</span>
+                          <span
+                            style={{ cursor: 'help', fontSize: 13, color: 'var(--accent-emerald)', background: 'rgba(16, 185, 129, 0.12)', borderRadius: '50%', width: 18, height: 18, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}
+                            data-tooltip={`Nombre précis de mois de versements réguliers (${monthlyBudget.toLocaleString('fr-FR')} € / mois) nécessaires pour injecter un capital neuf équivalent à 100% de la baisse subie.`}
+                            data-tooltip-multiline="true"
+                            data-tooltip-pos="down"
+                          >
+                            ℹ️
+                          </span>
                         </div>
                         <strong className="mono" style={{ fontSize: 22, color: 'var(--accent-emerald)', display: 'block', margin: '4px 0' }}>{monthsToAbsorb} mois</strong>
                         <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
@@ -2228,32 +2245,59 @@ export default function HomePage() {
                       </div>
 
                       {/* 3. Rabais Immédiat sur les Nouveaux Achats */}
-                      <div style={{ background: 'var(--bg-tertiary)', padding: 14, borderRadius: 10, border: '1px solid var(--border-subtle)' }}>
+                      <div style={{ background: 'var(--bg-tertiary)', padding: 14, borderRadius: 10, border: '1px solid var(--border-subtle)', position: 'relative' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', fontWeight: 600, textTransform: 'uppercase' }}>Rabais sur Nouveaux Achats</span>
-                          <span style={{ fontSize: 14 }} title="Décote appliquée sur vos prochains achats mensuels grâce à la baisse des cours">🏷️</span>
+                          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', fontWeight: 600, textTransform: 'uppercase' }}>Multiplicateur de Parts</span>
+                          <span
+                            style={{ cursor: 'help', fontSize: 13, color: 'var(--accent-cyan)', background: 'rgba(6, 182, 212, 0.12)', borderRadius: '50%', width: 18, height: 18, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}
+                            data-tooltip={`À budget d'épargne constant (${monthlyBudget.toLocaleString('fr-FR')} €), la baisse des cours vous permet d'acheter mathématiquement +${partsBonusPercent}% de parts d'ETF et d'actions supplémentaires par rapport au sommet.`}
+                            data-tooltip-multiline="true"
+                            data-tooltip-pos="down"
+                          >
+                            ℹ️
+                          </span>
                         </div>
-                        <strong className="mono" style={{ fontSize: 22, color: 'var(--accent-cyan)', display: 'block', margin: '4px 0' }}>-{discountOnNewShares}% sur les cours</strong>
+                        <strong className="mono" style={{ fontSize: 22, color: 'var(--accent-cyan)', display: 'block', margin: '4px 0' }}>+{partsBonusPercent}% de parts</strong>
                         <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
-                          Chaque euro investi achète <strong>+{(100 / (1 - simulatedMarketDrop) - 100).toFixed(0)}% de parts supplémentaires</strong> qu&apos;au sommet.
+                          Pour le même versement mensuel, vous accumulez nettement plus de titres.
                         </div>
                       </div>
 
-                      {/* 4. Matelas Sécurisé Intact (0% Perte) */}
-                      <div style={{ background: 'var(--bg-tertiary)', padding: 14, borderRadius: 10, border: '1px solid var(--border-subtle)' }}>
+                      {/* 4. Levier de Baisse du PRU Moyen */}
+                      <div style={{ background: 'var(--bg-tertiary)', padding: 14, borderRadius: 10, border: '1px solid var(--border-subtle)', position: 'relative' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', fontWeight: 600, textTransform: 'uppercase' }}>Matelas Livrets (Garanti)</span>
-                          <span style={{ fontSize: 14 }} title="Épargne garantie par l'État, totalement protégée de la baisse boursière">🛡️</span>
+                          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', fontWeight: 600, textTransform: 'uppercase' }}>Décote sur le PRU Global</span>
+                          <span
+                            style={{ cursor: 'help', fontSize: 13, color: 'var(--accent-amber)', background: 'rgba(245, 158, 11, 0.12)', borderRadius: '50%', width: 18, height: 18, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}
+                            data-tooltip={`Mesure la baisse immédiate de votre Prix de Revient Unitaire (PRU) moyen global dès l'injection de votre versement mensuel de ${monthlyBudget.toLocaleString('fr-FR')} € à cours soldés.`}
+                            data-tooltip-multiline="true"
+                            data-tooltip-pos="down"
+                          >
+                            ℹ️
+                          </span>
                         </div>
-                        <strong className="mono" style={{ fontSize: 22, color: 'var(--accent-emerald)', display: 'block', margin: '4px 0' }}>0,00 € de perte</strong>
+                        <strong className="mono" style={{ fontSize: 22, color: 'var(--accent-amber)', display: 'block', margin: '4px 0' }}>-{pruDiscountPercent}% sur le PRU</strong>
                         <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
-                          Vos {(savingsVal || 0).toLocaleString('fr-FR')} € de livrets restent 100% intacts pour assurer vos dépenses quotidiennes.
+                          Abaissment direct de votre prix moyen d&apos;achat grâce au versement mensuel.
                         </div>
                       </div>
                     </div>
 
-                    <div style={{ padding: '10px 14px', background: 'rgba(6, 182, 212, 0.08)', borderRadius: 8, border: '1px solid rgba(6, 182, 212, 0.2)', fontSize: 13, color: 'var(--text-primary)', lineHeight: 1.45 }}>
-                      💡 <strong>Démonstration Mathématique du DCA :</strong> À horizon 15-20 ans, un repli de marché n&apos;est pas une perte définitive. C&apos;est un <strong>accélérateur d&apos;accumulation</strong> qui vous permet d&apos;abaisser mécaniquement votre PRU et de démultiplier la valeur du portefeuille lors du rebond.
+                    {/* Bandeau de Matelas Garanti & Sécurité */}
+                    <div style={{ padding: '10px 14px', background: 'rgba(6, 182, 212, 0.08)', borderRadius: 8, border: '1px solid rgba(6, 182, 212, 0.2)', fontSize: 13, color: 'var(--text-primary)', lineHeight: 1.45, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span style={{ fontSize: 18 }}>🛡️</span>
+                        <div>
+                          <strong>Matelas de Sécurité Sanctuarisé :</strong> Vos <strong>{(savingsVal || 0).toLocaleString('fr-FR')} € de Livrets</strong> restent 100% intacts (0% de perte boursière) pour couvrir vos dépenses courantes sans jamais être contraint de vendre à perte.
+                        </div>
+                      </div>
+                      <span
+                        style={{ cursor: 'help', fontSize: 12, color: 'var(--accent-cyan)', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                        data-tooltip="Le Livret A sert d'armure psychologique : il vous garantit de ne jamais liquider vos actions à bas prix en cas de coup dur."
+                        data-tooltip-multiline="true"
+                      >
+                        Rôle du matelas ℹ️
+                      </span>
                     </div>
                   </div>
                 );
@@ -2304,22 +2348,52 @@ export default function HomePage() {
                   </div>
 
                   <div className="grid-3" style={{ marginBottom: 20 }}>
-                    <div style={{ background: 'var(--bg-tertiary)', padding: 14, borderRadius: 10, border: '1px solid var(--border-subtle)' }}>
-                      <span style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600 }}>Perte Estimée sur le Portefeuille</span>
+                    <div style={{ background: 'var(--bg-tertiary)', padding: 14, borderRadius: 10, border: '1px solid var(--border-subtle)', position: 'relative' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600 }}>Perte Estimée sur le Portefeuille</span>
+                        <span
+                          style={{ cursor: 'help', fontSize: 13, color: 'var(--accent-rose)', background: 'rgba(244, 63, 94, 0.12)', borderRadius: '50%', width: 18, height: 18, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}
+                          data-tooltip="Montant nominal cumulé de la dépréciation sur l'ensemble de vos positions cotées (PEA, CTO) pour ce scénario."
+                          data-tooltip-multiline="true"
+                          data-tooltip-pos="down"
+                        >
+                          ℹ️
+                        </span>
+                      </div>
                       <div style={{ fontSize: 24, fontWeight: 700, color: 'var(--accent-rose)', fontFamily: 'var(--font-mono)', margin: '4px 0' }}>
                         {selectedStressResult.portfolioLoss.toLocaleString('fr-FR')} €
                       </div>
                       <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)' }}>Sur l&apos;ensemble des positions cotées</div>
                     </div>
-                    <div style={{ background: 'var(--bg-tertiary)', padding: 14, borderRadius: 10, border: '1px solid var(--border-subtle)' }}>
-                      <span style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600 }}>Absorption DCA Estimée</span>
+                    <div style={{ background: 'var(--bg-tertiary)', padding: 14, borderRadius: 10, border: '1px solid var(--border-subtle)', position: 'relative' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600 }}>Absorption DCA Estimée</span>
+                        <span
+                          style={{ cursor: 'help', fontSize: 13, color: 'var(--accent-emerald)', background: 'rgba(16, 185, 129, 0.12)', borderRadius: '50%', width: 18, height: 18, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}
+                          data-tooltip="Nombre de mois de versements réguliers nécessaires pour réinjecter 100% de la baisse subie."
+                          data-tooltip-multiline="true"
+                          data-tooltip-pos="down"
+                        >
+                          ℹ️
+                        </span>
+                      </div>
                       <div style={{ fontSize: 20, fontWeight: 700, fontFamily: 'var(--font-mono)', margin: '4px 0', color: 'var(--accent-emerald)' }}>
                         {config?.monthlyBudget ? (Math.abs(selectedStressResult.portfolioLoss) / config.monthlyBudget).toFixed(1) : '1.5'} mois de DCA
                       </div>
                       <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)' }}>Pour réinjecter l&apos;équivalent de la baisse</div>
                     </div>
-                    <div style={{ background: 'var(--bg-tertiary)', padding: 14, borderRadius: 10, border: '1px solid var(--border-subtle)' }}>
-                      <span style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600 }}>Diagnostic de Viabilité</span>
+                    <div style={{ background: 'var(--bg-tertiary)', padding: 14, borderRadius: 10, border: '1px solid var(--border-subtle)', position: 'relative' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600 }}>Diagnostic de Viabilité</span>
+                        <span
+                          style={{ cursor: 'help', fontSize: 13, color: 'var(--accent-cyan)', background: 'rgba(6, 182, 212, 0.12)', borderRadius: '50%', width: 18, height: 18, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}
+                          data-tooltip="Évaluation de la solidité de la structure d'allocation face aux tensions macroéconomiques de cette crise."
+                          data-tooltip-multiline="true"
+                          data-tooltip-pos="down"
+                        >
+                          ℹ️
+                        </span>
+                      </div>
                       <div style={{ fontSize: 13, color: 'var(--accent-cyan)', fontWeight: 600, marginTop: 6 }}>
                         {selectedStressResult.objectiveImpact}
                       </div>

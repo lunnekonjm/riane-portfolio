@@ -99,6 +99,17 @@
   font-family: var(--font-sans);
 }
 
+/* Multiline Tooltip Support */
+[data-tooltip][data-tooltip-multiline]::after,
+[data-tooltip].tooltip-multiline::after {
+  white-space: normal;
+  width: max-content;
+  max-width: 260px;
+  text-align: left;
+  line-height: 1.45;
+  font-size: 11px;
+}
+
 /* Tooltip Arrow Triangle */
 [data-tooltip]::before {
   content: '';
@@ -110,9 +121,29 @@
   border-color: rgba(6, 182, 212, 0.5) transparent transparent transparent;
 }
 
+/* Downward positioning */
+[data-tooltip][data-tooltip-pos="down"]::after {
+  bottom: auto;
+  top: 130%;
+  transform: translateX(-50%) translateY(-4px);
+}
+
+[data-tooltip][data-tooltip-pos="down"]::before {
+  bottom: auto;
+  top: 110%;
+  border-color: transparent transparent rgba(6, 182, 212, 0.5) transparent;
+  transform: translateX(-50%) translateY(-4px);
+}
+
 /* Hover Animation */
 [data-tooltip]:hover::before,
 [data-tooltip]:hover::after {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+[data-tooltip][data-tooltip-pos="down"]:hover::before,
+[data-tooltip][data-tooltip-pos="down"]:hover::after {
   opacity: 1;
   transform: translateX(-50%) translateY(0);
 }

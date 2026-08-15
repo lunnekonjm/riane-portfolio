@@ -49,10 +49,63 @@ const CLASSIFICATION_RULES: Array<{
     baseConfidence: 0.95,
   },
   {
+    category: 'RENT_HOUSING',
+    patterns: [
+      /loyer/i,
+      /foncia/i,
+      /nexity/i,
+      /bailleur/i,
+      /proprietaire/i,
+      /quittance/i,
+      /location\s+logement/i,
+    ],
+    baseConfidence: 0.95,
+  },
+  {
+    category: 'SUBSCRIPTIONS',
+    patterns: [
+      /bouygues/i,
+      /orange/i,
+      /free\s*(mobile|telecom|box)?/i,
+      /sfr/i,
+      /spotify/i,
+      /netflix/i,
+      /apple(\.com)?/i,
+      /amazon\s*(prime)?/i,
+      /chatgpt|openai/i,
+      /google\s*(storage|one|services)?/i,
+      /edf/i,
+      /engie/i,
+      /totalenergies/i,
+      /assurance\s*(habitation|auto)?/i,
+    ],
+    baseConfidence: 0.92,
+  },
+  {
+    category: 'SUPPORT_WAVE',
+    patterns: [
+      /wave/i,
+      /transfert.*wave/i,
+      /envoi.*wave/i,
+      /soutien/i,
+    ],
+    baseConfidence: 0.95,
+  },
+  {
+    category: 'REVOLUT_TRANSFER',
+    patterns: [
+      /revolut/i,
+      /rev\s*topup/i,
+      /vir(ement)?\s+.*revolut/i,
+    ],
+    baseConfidence: 0.95,
+  },
+  {
     category: 'INVEST_PEA',
     patterns: [
       /versement\s+pea/i,
       /vir(ement)?\s+.*pea/i,
+      /pea\s+bourso/i,
       /pea\s+monde/i,
       /pea\s+nasdaq/i,
       /amundi\s+pea/i,
@@ -139,12 +192,17 @@ export function classifyTransaction(tx: RawBankTransaction): {
     return { category: 'OTHER_TRANSFER', confidence: 0.5 };
   }
 
+  // Dépense courante débitrice (CB, achat magasin...)
+  if (amt < 0) {
+    return { category: 'DAILY_EXPENSE', confidence: 0.7 };
+  }
+
   return { category: 'IGNORED', confidence: 0.1 };
 }
 
 /**
  * Analyse l'ensemble des transactions pour une période (YYYY-MM)
- * et produit une proposition de réconciliation.
+ * et produit une proposition de réconciliation sans filtre restrictif.
  */
 export function buildReconciliationDraft(
   period: string, // YYYY-MM
@@ -175,11 +233,16 @@ export function buildReconciliationDraft(
 
   // Calculs agrégés basés sur les matches inclus
   let actualNetSalaryReceived = 0;
+  let actualRent = 0;
+  let actualSubscriptions = 0;
   let actualInvestedPEA = 0;
   let actualInvestedTontine = 0;
+  let actualSupportWave = 0;
+  let actualRevolut = 0;
   let actualInvestedTampon = 0;
   let actualInvestedLivretA = 0;
   let actualInvestedCTO = 0;
+  let actualDailyExpenses = 0;
 
   for (const m of matches) {
     if (!m.included) continue;
@@ -187,11 +250,23 @@ export function buildReconciliationDraft(
       case 'SALARY_INCOME':
         actualNetSalaryReceived += m.amount;
         break;
+      case 'RENT_HOUSING':
+        actualRent += m.amount;
+        break;
+      case 'SUBSCRIPTIONS':
+        actualSubscriptions += m.amount;
+        break;
       case 'INVEST_PEA':
         actualInvestedPEA += m.amount;
         break;
       case 'INVEST_TONTINE':
         actualInvestedTontine += m.amount;
+        break;
+      case 'SUPPORT_WAVE':
+        actualSupportWave += m.amount;
+        break;
+      case 'REVOLUT_TRANSFER':
+        actualRevolut += m.amount;
         break;
       case 'INVEST_TAMPON':
         actualInvestedTampon += m.amount;
@@ -201,6 +276,10 @@ export function buildReconciliationDraft(
         break;
       case 'INVEST_CTO':
         actualInvestedCTO += m.amount;
+        break;
+      case 'DAILY_EXPENSE':
+      case 'OTHER_TRANSFER':
+        actualDailyExpenses += m.amount;
         break;
       default:
         break;
@@ -215,6 +294,9 @@ export function buildReconciliationDraft(
 
   const totalActualInvested =
     Math.round((actualInvestedPEA + actualInvestedTontine + actualInvestedTampon + actualInvestedLivretA + actualInvestedCTO) * 100) / 100;
+
+  const totalActualFixedExpenses = Math.round((actualRent + actualSubscriptions) * 100) / 100;
+  const totalActualLivingTransfers = Math.round((actualSupportWave + actualRevolut) * 100) / 100;
 
   const actualSavingsRate =
     actualNetSalaryReceived > 0
@@ -243,12 +325,19 @@ export function buildReconciliationDraft(
     reconciled: false,
     period,
     actualNetSalaryReceived,
+    actualRent: Math.round(actualRent * 100) / 100,
+    actualSubscriptions: Math.round(actualSubscriptions * 100) / 100,
     actualInvestedPEA,
     actualInvestedTontine,
+    actualSupportWave: Math.round(actualSupportWave * 100) / 100,
+    actualRevolut: Math.round(actualRevolut * 100) / 100,
     actualInvestedTampon,
     actualInvestedLivretA,
     actualInvestedCTO,
+    actualDailyExpenses: Math.round(actualDailyExpenses * 100) / 100,
     totalActualInvested,
+    totalActualFixedExpenses,
+    totalActualLivingTransfers,
     actualSavingsRate,
     deltaVsPlan,
     executionRatePercent,
@@ -386,3 +475,78 @@ export function getThreeMonthSampleData(): {
 
   return { records, transactions };
 }
+
+export const TRUELAYER_TX_CACHE_KEY = 'truelayer_cached_transactions_v2';
+export const TRUELAYER_TX_CACHE_TIMESTAMP_KEY = 'truelayer_cached_transactions_ts_v2';
+
+export interface CachedTransactionsData {
+  transactions: RawBankTransaction[];
+  timestamp: number;
+  months: string[];
+}
+
+/**
+ * Récupère les transactions mises en cache dans localStorage
+ */
+export function getCachedTrueLayerTransactions(): CachedTransactionsData | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem(TRUELAYER_TX_CACHE_KEY);
+    const rawTs = localStorage.getItem(TRUELAYER_TX_CACHE_TIMESTAMP_KEY);
+    if (!raw) return null;
+    const transactions: RawBankTransaction[] = JSON.parse(raw);
+    const timestamp = rawTs ? Number(rawTs) : Date.now();
+    const monthSet = new Set<string>();
+    transactions.forEach((t) => {
+      if (t.date && t.date.length >= 7) {
+        monthSet.add(t.date.slice(0, 7));
+      }
+    });
+    const months = Array.from(monthSet).sort().reverse();
+    return { transactions, timestamp, months };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Interroge l'API TrueLayer pour les N derniers mois complets et met en cache
+ */
+export async function fetchAndCacheTrueLayerTransactions(
+  monthsCount: number = 3
+): Promise<{ transactions: RawBankTransaction[]; partialErrors: string[]; months: string[] }> {
+  const now = new Date();
+  const fromDate = new Date(now.getFullYear(), now.getMonth() - (monthsCount - 1), 1);
+  const from = fromDate.toISOString().slice(0, 10);
+  const to = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().slice(0, 10);
+
+  const res = await fetch(`/api/integrations/truelayer/transactions?from=${from}&to=${to}`);
+  if (!res.ok) {
+    const errText = await res.text().catch(() => 'Erreur réseau');
+    throw new Error(`Échec de récupération TrueLayer (${res.status}): ${errText}`);
+  }
+
+  const data = await res.json();
+  const txList: RawBankTransaction[] = data.transactions || [];
+  const partialErrors: string[] = data.partialErrors || [];
+
+  if (typeof window !== 'undefined' && txList.length > 0) {
+    try {
+      localStorage.setItem(TRUELAYER_TX_CACHE_KEY, JSON.stringify(txList));
+      localStorage.setItem(TRUELAYER_TX_CACHE_TIMESTAMP_KEY, String(Date.now()));
+    } catch (e) {
+      console.warn('Could not cache transactions in localStorage:', e);
+    }
+  }
+
+  const monthSet = new Set<string>();
+  txList.forEach((t) => {
+    if (t.date && t.date.length >= 7) {
+      monthSet.add(t.date.slice(0, 7));
+    }
+  });
+  const months = Array.from(monthSet).sort().reverse();
+
+  return { transactions: txList, partialErrors, months };
+}
+

@@ -45,6 +45,73 @@ describe('Bank Reconciliation Engine', () => {
     expect(res.category).toBe('INVEST_TONTINE');
   });
 
+  it('correctly classifies Wave family support transfers', () => {
+    const tx: RawBankTransaction = {
+      id: 'tx-wave',
+      date: '2026-08-06',
+      description: 'Transfert Wave Soutien Famille',
+      amount: -250,
+      accountType: 'Courant',
+    };
+    const res = classifyTransaction(tx);
+    expect(res.category).toBe('SUPPORT_WAVE');
+  });
+
+  it('correctly classifies Revolut topups and transfers', () => {
+    const tx: RawBankTransaction = {
+      id: 'tx-revolut',
+      date: '2026-08-07',
+      description: 'Vir Revolut alimentation',
+      amount: -150,
+      accountType: 'Courant',
+    };
+    const res = classifyTransaction(tx);
+    expect(res.category).toBe('REVOLUT_TRANSFER');
+  });
+
+  it('correctly classifies Rent & Housing expenses', () => {
+    const tx: RawBankTransaction = {
+      id: 'tx-rent',
+      date: '2026-08-05',
+      description: 'Prélèvement Loyer Foncia Logement',
+      amount: -820,
+      accountType: 'Courant',
+    };
+    const res = classifyTransaction(tx);
+    expect(res.category).toBe('RENT_HOUSING');
+  });
+
+  it('correctly classifies Subscriptions (Telecom, Streaming, Energy)', () => {
+    const tx1: RawBankTransaction = {
+      id: 'tx-bouygues',
+      date: '2026-08-08',
+      description: 'Bouygues Telecom Facture Bbox',
+      amount: -32.99,
+      accountType: 'Courant',
+    };
+    const tx2: RawBankTransaction = {
+      id: 'tx-spotify',
+      date: '2026-08-09',
+      description: 'Spotify ABONNEMENT MENSUEL',
+      amount: -10.99,
+      accountType: 'Courant',
+    };
+    expect(classifyTransaction(tx1).category).toBe('SUBSCRIPTIONS');
+    expect(classifyTransaction(tx2).category).toBe('SUBSCRIPTIONS');
+  });
+
+  it('correctly classifies daily card purchases', () => {
+    const tx: RawBankTransaction = {
+      id: 'tx-daily',
+      date: '2026-08-10',
+      description: 'CARTE 09/08 MONOPRIX PARIS',
+      amount: -45.2,
+      accountType: 'Courant',
+    };
+    const res = classifyTransaction(tx);
+    expect(res.category).toBe('DAILY_EXPENSE');
+  });
+
   it('correctly aggregates a month of bank transactions and calculates delta vs plan', () => {
     const { records, transactions } = getThreeMonthSampleData();
     const augRecord = records[0]; // Août 2026

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useRef, useMemo } from 'react';
+import { useState, useCallback, useRef, useMemo, useEffect } from 'react';
 import type {
   SalaryRecord,
   RevenueConfig,
@@ -19,7 +19,8 @@ import {
 } from '@/types/revenue';
 import {
   buildReconciliationDraft,
-  getThreeMonthSampleData,
+  getCachedTrueLayerTransactions,
+  fetchAndCacheTrueLayerTransactions,
   type RawBankTransaction,
 } from '@/services/bankReconciliationEngine';
 import type { PortfolioConfig } from '@/types/portfolio';
@@ -48,6 +49,14 @@ function currentPeriod(): { period: string; label: string } {
   const period = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
   const label = now.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
   return { period, label: label.charAt(0).toUpperCase() + label.slice(1) };
+}
+
+function getPeriodLabel(periodStr: string): string {
+  const [year, month] = periodStr.split('-');
+  if (!year || !month) return periodStr;
+  const d = new Date(parseInt(year, 10), parseInt(month, 10) - 1, 1);
+  const label = d.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
+  return label.charAt(0).toUpperCase() + label.slice(1);
 }
 
 function emptyRecord(): SalaryRecord {
@@ -83,14 +92,19 @@ const CATEGORY_LABELS: Record<ExtraCashCategory, { label: string; icon: string; 
 };
 
 const BANK_CATEGORY_LABELS: Record<BankReconciliationCategory, { label: string; icon: string; color: string }> = {
-  SALARY_INCOME: { label: 'Salaire Reçu (Employeur)', icon: '💼', color: 'var(--accent-cyan)' },
+  SALARY_INCOME: { label: 'Salaire & Revenus (Employeur)', icon: '💼', color: 'var(--accent-cyan)' },
+  RENT_HOUSING: { label: 'Loyer & Logement', icon: '🏠', color: '#f97316' },
+  SUBSCRIPTIONS: { label: 'Abonnements (Bouygues, Spotify, EDF...)', icon: '📱', color: '#eab308' },
   INVEST_PEA: { label: 'Virement PEA (Investissement)', icon: '📈', color: 'var(--accent-emerald)' },
   INVEST_TONTINE: { label: 'Virement Tontine (Épargne)', icon: '🤝', color: '#818cf8' },
-  INVEST_TAMPON: { label: 'Compte Tampon (Surplus / Sas)', icon: '⚡', color: '#f59e0b' },
-  INVEST_LIVRET_A: { label: 'Livret A (Précaution)', icon: '🛡️', color: '#38bdf8' },
-  INVEST_CTO: { label: 'Compte Titres (CTO)', icon: '🌐', color: '#a855f7' },
+  SUPPORT_WAVE: { label: 'Soutien familial (Wave)', icon: '🌍', color: '#38bdf8' },
+  REVOLUT_TRANSFER: { label: 'Virement Revolut', icon: '💳', color: '#a855f7' },
+  INVEST_LIVRET_A: { label: 'Livret A (Précaution)', icon: '🛡️', color: '#06b6d4' },
+  INVEST_TAMPON: { label: 'Compte Tampon (Sas de réserve)', icon: '⚡', color: '#f59e0b' },
+  INVEST_CTO: { label: 'Compte Titres (CTO)', icon: '🌐', color: '#6366f1' },
+  DAILY_EXPENSE: { label: 'Dépense courante (CB / Quotidien)', icon: '🛒', color: 'var(--text-secondary)' },
   OTHER_TRANSFER: { label: 'Autre virement bancaire', icon: '🔄', color: 'var(--text-secondary)' },
-  IGNORED: { label: 'Ignorer (Dépense courante)', icon: '❌', color: 'var(--text-muted)' },
+  IGNORED: { label: 'Ignorer (Non comptabilisé)', icon: '❌', color: 'var(--text-muted)' },
 };
 
 export default function RevenueBudgetView({
@@ -122,11 +136,21 @@ export default function RevenueBudgetView({
   const [extraDate, setExtraDate] = useState(new Date().toISOString().slice(0, 10));
   const [extraNotes, setExtraNotes] = useState('');
 
-  // Rapprochement Bancaire (Théorie vs Réalité) State
-  const [showReconcileModal, setShowReconcileModal] = useState(false);
-  const [reconcilePeriod, setReconcilePeriod] = useState<string>(() => currentPeriod().period);
-  const [reconcileDraft, setReconcileDraft] = useState<BankReconciliationRecord | null>(null);
-  const [isReconciling, setIsReconciling] = useState(false);
+  // TrueLayer Transactions & Multi-Month State
+  const [allBankTransactions, setAllBankTransactions] = useState<RawBankTransaction[]>([]);
+  const [isSyncingTrueLayer, setIsSyncingTrueLayer] = useState(false);
+  const [lastSyncTs, setLastSyncTs] = useState<number | null>(null);
+
+  // Selected Month for Bank Analysis
+  const [selectedMonth, setSelectedMonth] = useState<string>(() => {
+    // Par défaut, le mois en cours ou le dernier mois disponible
+    return currentPeriod().period;
+  });
+
+  // Reconciliation draft for the selected month
+  const [monthDraft, setMonthDraft] = useState<BankReconciliationRecord | null>(null);
+  const [filterCategory, setFilterCategory] = useState<string>('ALL');
+  const [searchTerm, setSearchTerm] = useState('');
 
   // Allocations de réserve
   const [showAllocForm, setShowAllocForm] = useState(false);
@@ -159,6 +183,70 @@ export default function RevenueBudgetView({
   }, [extraCashEntries]);
 
   const grandTotalAvailableExtra = availableExtraCashTotal + (reserveBalance || 0);
+
+  // 1. Initial Load: Read cached TrueLayer transactions on mount
+  useEffect(() => {
+    const cached = getCachedTrueLayerTransactions();
+    if (cached && cached.transactions.length > 0) {
+      setAllBankTransactions(cached.transactions);
+      setLastSyncTs(cached.timestamp);
+      if (cached.months.length > 0 && !cached.months.includes(selectedMonth)) {
+        setSelectedMonth(cached.months[0]);
+      }
+    }
+  }, []); // Run once on mount
+
+  // Compute available months list dynamically
+  const availableMonths = useMemo(() => {
+    const set = new Set<string>();
+    // Mois des transactions
+    allBankTransactions.forEach((t) => {
+      if (t.date && t.date.length >= 7) set.add(t.date.slice(0, 7));
+    });
+    // Mois des fiches enregistrées
+    records.forEach((r) => {
+      if (r.period) set.add(r.period);
+    });
+    // Mois en cours
+    set.add(currentPeriod().period);
+
+    return Array.from(set).sort().reverse();
+  }, [allBankTransactions, records]);
+
+  // Recalculate draft whenever selectedMonth or allBankTransactions changes
+  useEffect(() => {
+    const theoretical = records.find((r) => r.period === selectedMonth) || null;
+    const draftRecon = buildReconciliationDraft(selectedMonth, theoretical, allBankTransactions);
+    setMonthDraft(draftRecon);
+  }, [selectedMonth, allBankTransactions, records]);
+
+  // 🔄 Synchronize 3 Months of TrueLayer Data
+  const handleSyncBoursoBank = useCallback(async () => {
+    setIsSyncingTrueLayer(true);
+    try {
+      const { transactions, partialErrors, months } = await fetchAndCacheTrueLayerTransactions(3);
+      setAllBankTransactions(transactions);
+      setLastSyncTs(Date.now());
+
+      if (transactions.length > 0) {
+        onShowToast(`✅ ${transactions.length} transactions BoursoBank synchronisées sur 3 mois !`, 'success');
+        if (months.length > 0 && !months.includes(selectedMonth)) {
+          setSelectedMonth(months[0]);
+        }
+      } else {
+        if (partialErrors.length > 0) {
+          onShowToast(`Info : ${partialErrors[0]}`, 'error');
+        } else {
+          onShowToast('Aucune transaction trouvée sur la période.', 'error');
+        }
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Erreur réseau';
+      onShowToast(`Erreur synchro TrueLayer : ${msg}`, 'error');
+    } finally {
+      setIsSyncingTrueLayer(false);
+    }
+  }, [selectedMonth, onShowToast]);
 
   // 📄 Upload & Parse Payslip via Gemini
   const handleFileUpload = useCallback(
@@ -242,7 +330,7 @@ export default function RevenueBudgetView({
     [draft.period, draft.periodLabel, onShowToast]
   );
 
-  // 💾 Direct, deterministic save for Salary Record
+  // 💾 Direct save for Salary Record
   const handleSaveSalaryRecord = useCallback(async (recordToSaveInput?: SalaryRecord) => {
     const record = recordToSaveInput || draft;
     if (!record.netSalary || record.netSalary <= 0) {
@@ -281,90 +369,50 @@ export default function RevenueBudgetView({
     }
   }, [draft, onSaveRecord, onShowToast]);
 
-  // ⚡ Test: Load 3 Sample Months
-  const handleLoadSample3Months = useCallback(async () => {
-    try {
-      const { records: samples } = getThreeMonthSampleData();
-      for (const sample of samples) {
-        await onSaveRecord(sample);
-      }
-      onShowToast('⚡ 3 mois d\'historique chargés (Juin, Juillet, Août 2026) !', 'success');
-    } catch (e) {
-      console.error('Sample loading error:', e);
-      onShowToast('Erreur lors du chargement des exemples', 'error');
-    }
-  }, [onSaveRecord, onShowToast]);
+  // ✅ Confirm & Save Bank Reconciliation for the Selected Month
+  const handleConfirmMonthReconciliation = useCallback(async () => {
+    if (!monthDraft) return;
 
-  // 🔍 Start Bank Reconciliation for a Month
-  const handleStartReconciliation = useCallback(async (targetPeriod?: string) => {
-    const period = targetPeriod || reconcilePeriod;
-    setReconcilePeriod(period);
-    setIsReconciling(true);
-
-    const theoretical = records.find((r) => r.period === period) || null;
-
-    try {
-      // 1. Fetch live transactions if connected
-      let txList: RawBankTransaction[] = [];
-      try {
-        const res = await fetch(`/api/integrations/truelayer/transactions?from=${period}-01&to=${period}-31`);
-        if (res.ok) {
-          const data = await res.json();
-          if (data.transactions && Array.isArray(data.transactions) && data.transactions.length > 0) {
-            txList = data.transactions;
-          }
-        }
-      } catch (e) {
-        console.warn('Live TrueLayer transactions fetch failed, using fallback:', e);
-      }
-
-      // If no live transactions returned, fallback to sample transactions matching the period
-      if (txList.length === 0) {
-        const { transactions: sampleTx } = getThreeMonthSampleData();
-        txList = sampleTx;
-      }
-
-      // 2. Build draft reconciliation with classification engine
-      const draftRecon = buildReconciliationDraft(period, theoretical, txList);
-      setReconcileDraft(draftRecon);
-      setShowReconcileModal(true);
-    } catch (err) {
-      console.error('Reconciliation error:', err);
-      onShowToast('Erreur lors de l\'analyse des flux bancaires', 'error');
-    } finally {
-      setIsReconciling(false);
-    }
-  }, [reconcilePeriod, records, onShowToast]);
-
-  // ✅ Confirm & Save Bank Reconciliation
-  const handleConfirmReconciliation = useCallback(async () => {
-    if (!reconcileDraft) return;
-
-    const matches = reconcileDraft.detectedTransactions || [];
+    const matches = monthDraft.detectedTransactions || [];
     let actualNetSalaryReceived = 0;
+    let actualRent = 0;
+    let actualSubscriptions = 0;
     let actualInvestedPEA = 0;
     let actualInvestedTontine = 0;
+    let actualSupportWave = 0;
+    let actualRevolut = 0;
     let actualInvestedTampon = 0;
     let actualInvestedLivretA = 0;
     let actualInvestedCTO = 0;
+    let actualDailyExpenses = 0;
 
     for (const m of matches) {
       if (!m.included) continue;
       const amt = Number(m.amount) || 0;
       switch (m.category) {
         case 'SALARY_INCOME': actualNetSalaryReceived += amt; break;
+        case 'RENT_HOUSING': actualRent += amt; break;
+        case 'SUBSCRIPTIONS': actualSubscriptions += amt; break;
         case 'INVEST_PEA': actualInvestedPEA += amt; break;
         case 'INVEST_TONTINE': actualInvestedTontine += amt; break;
+        case 'SUPPORT_WAVE': actualSupportWave += amt; break;
+        case 'REVOLUT_TRANSFER': actualRevolut += amt; break;
         case 'INVEST_TAMPON': actualInvestedTampon += amt; break;
         case 'INVEST_LIVRET_A': actualInvestedLivretA += amt; break;
         case 'INVEST_CTO': actualInvestedCTO += amt; break;
+        case 'DAILY_EXPENSE':
+        case 'OTHER_TRANSFER':
+          actualDailyExpenses += amt;
+          break;
       }
     }
 
     const totalActualInvested = Math.round((actualInvestedPEA + actualInvestedTontine + actualInvestedTampon + actualInvestedLivretA + actualInvestedCTO) * 100) / 100;
+    const totalActualFixedExpenses = Math.round((actualRent + actualSubscriptions) * 100) / 100;
+    const totalActualLivingTransfers = Math.round((actualSupportWave + actualRevolut) * 100) / 100;
     const actualSavingsRate = actualNetSalaryReceived > 0 ? Math.round(((totalActualInvested / actualNetSalaryReceived) * 100) * 10) / 10 : 0;
 
-    const existingRecord = records.find((r) => r.period === reconcileDraft.period);
+    const existingRecord = records.find((r) => r.period === monthDraft.period);
     const targetBudget = existingRecord?.regularInvestableAmount || 0;
     const deltaVsPlan = Math.round((totalActualInvested - targetBudget) * 100) / 100;
     const executionRatePercent = targetBudget > 0 ? Math.round(((totalActualInvested / targetBudget) * 100) * 10) / 10 : 100;
@@ -377,16 +425,23 @@ export default function RevenueBudgetView({
     }
 
     const finalReconciliation: BankReconciliationRecord = {
-      ...reconcileDraft,
+      ...monthDraft,
       reconciled: true,
       reconciledAt: Date.now(),
       actualNetSalaryReceived,
+      actualRent: Math.round(actualRent * 100) / 100,
+      actualSubscriptions: Math.round(actualSubscriptions * 100) / 100,
       actualInvestedPEA,
       actualInvestedTontine,
+      actualSupportWave: Math.round(actualSupportWave * 100) / 100,
+      actualRevolut: Math.round(actualRevolut * 100) / 100,
       actualInvestedTampon,
       actualInvestedLivretA,
       actualInvestedCTO,
+      actualDailyExpenses: Math.round(actualDailyExpenses * 100) / 100,
       totalActualInvested,
+      totalActualFixedExpenses,
+      totalActualLivingTransfers,
       actualSavingsRate,
       deltaVsPlan,
       executionRatePercent,
@@ -404,8 +459,8 @@ export default function RevenueBudgetView({
     } else {
       const newRec: SalaryRecord = {
         id: `sal-${Date.now()}`,
-        period: reconcileDraft.period,
-        periodLabel: reconcileDraft.period,
+        period: monthDraft.period,
+        periodLabel: getPeriodLabel(monthDraft.period),
         netSalary: actualNetSalaryReceived || 3250,
         regularInvestableAmount: totalActualInvested || 400,
         bonusReserveContribution: actualInvestedTampon || 0,
@@ -418,9 +473,8 @@ export default function RevenueBudgetView({
       await onSaveRecord(newRec);
     }
 
-    setShowReconcileModal(false);
-    onShowToast(`✅ Rapprochement bancaire validé pour ${reconcileDraft.period} !`, 'success');
-  }, [reconcileDraft, records, onSaveRecord, onShowToast]);
+    onShowToast(`✅ Réalité bancaire validée pour ${getPeriodLabel(monthDraft.period)} !`, 'success');
+  }, [monthDraft, records, onSaveRecord, onShowToast]);
 
   // Extra Cash Save
   const handleSaveExtraCash = useCallback(async () => {
@@ -461,58 +515,23 @@ export default function RevenueBudgetView({
     onShowToast(`Statut mis à jour (${!entry.isAvailable ? 'Disponible' : 'Marqué comme investi'})`, 'success');
   }, [onSaveExtraCashEntry, onShowToast]);
 
-  const handleConfigChange = useCallback(
-    async (partial: Partial<RevenueConfig>) => {
-      const updated: RevenueConfig = {
-        ...localConfig,
-        ...partial,
-        allocationSplit: {
-          ...localConfig.allocationSplit,
-          ...(partial.allocationSplit || {}),
-        },
-      };
-      setLocalConfig(updated);
-      await onSaveRevenueConfig(updated);
-      onShowToast('Paramètres mis à jour', 'success');
-    },
-    [localConfig, onSaveRevenueConfig, onShowToast]
-  );
-
-  const handleSyncBudget = useCallback(async () => {
-    const suggested = analytics.suggestedMonthlyBudget;
-    if (suggested > 0) {
-      await onSyncMonthlyBudget(suggested);
-      onShowToast(`Budget mensuel mis à jour à ${suggested.toLocaleString('fr-FR')} €`, 'success');
-    }
-  }, [analytics.suggestedMonthlyBudget, onSyncMonthlyBudget, onShowToast]);
-
-  const handleAllocate = useCallback(async () => {
-    if (allocAmount <= 0 || allocAmount > reserveBalance) {
-      onShowToast(`Montant invalide (réserve disponible : ${reserveBalance.toLocaleString('fr-FR')} €)`, 'error');
-      return;
-    }
-    const now = Date.now();
-    await onSaveAllocation({
-      id: `alloc-${now}`,
-      date: new Date().toISOString().slice(0, 10),
-      amount: allocAmount,
-      envelope: allocEnvelope,
-      ticker: allocTicker || undefined,
-      createdAt: now,
+  // Filtered transactions for the selected month table
+  const displayedTransactions = useMemo(() => {
+    if (!monthDraft || !monthDraft.detectedTransactions) return [];
+    return monthDraft.detectedTransactions.filter((tx) => {
+      const matchCat = filterCategory === 'ALL' || tx.category === filterCategory;
+      const matchSearch = !searchTerm || tx.rawDescription.toLowerCase().includes(searchTerm.toLowerCase());
+      return matchCat && matchSearch;
     });
-    setShowAllocForm(false);
-    setAllocAmount(0);
-    setAllocTicker('');
-    onShowToast(`${allocAmount.toLocaleString('fr-FR')} € alloués vers ${allocEnvelope}${allocTicker ? ` (${allocTicker})` : ''}`, 'success');
-  }, [allocAmount, allocEnvelope, allocTicker, reserveBalance, onSaveAllocation, onShowToast]);
+  }, [monthDraft, filterCategory, searchTerm]);
 
   return (
-    <div>
-      {/* 📊 Metrics Bar (Mixed with Real Bank Data) */}
-      <div className="grid-4" style={{ marginBottom: 24 }}>
-        <div className="card">
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+      {/* 📊 1. SYNTHÈSE DES MÉTRIQUES RÉELLES */}
+      <div className="grid-4">
+        <div className="card" style={{ borderTop: '3px solid var(--accent-cyan)' }}>
           <div className="card-header">
-            <span className="card-title">Net moyen ({localConfig?.rollingAverageMonths ?? 3} mois)</span>
+            <span className="card-title">Net Moyen Mensuel</span>
             {analytics.reconciledMonthsCount > 0 && (
               <span style={{ fontSize: 10, color: 'var(--accent-emerald)', fontWeight: 700 }}>🟢 Réel</span>
             )}
@@ -522,31 +541,31 @@ export default function RevenueBudgetView({
           </div>
           <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
             {analytics.reconciledMonthsCount > 0
-              ? `Sur ${analytics.reconciledMonthsCount} mois rapprochés en banque`
-              : 'D\'après fiches de paie'}
+              ? `Moyenne sur ${analytics.reconciledMonthsCount} mois constatés en banque`
+              : 'D\'après bulletins enregistrés'}
           </span>
         </div>
 
-        <div className="card">
+        <div className="card" style={{ borderTop: '3px solid var(--accent-emerald)' }}>
           <div className="card-header">
-            <span className="card-title">Investi mensuel moyen</span>
+            <span className="card-title">Investi Mensuel Réel</span>
             {analytics.reconciledMonthsCount > 0 && (
               <span style={{ fontSize: 10, color: 'var(--accent-emerald)', fontWeight: 700 }}>🟢 Réel</span>
             )}
           </div>
-          <div className="card-value" style={{ color: 'var(--accent-cyan)' }}>
+          <div className="card-value" style={{ color: 'var(--accent-emerald)' }}>
             {(analytics.reconciledMonthsCount > 0 ? analytics.averageActualInvested : analytics.averageRegularInvestable).toLocaleString('fr-FR', { maximumFractionDigits: 0 })} €
           </div>
           <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
-            {analytics.reconciledMonthsCount > 0 ? 'Virements réels (PEA+Tontine)' : 'Capacité régulière théorique'}
+            {analytics.reconciledMonthsCount > 0 ? 'Virements constatés (PEA + Tontine)' : 'Capacité régulière théorique'}
           </span>
         </div>
 
-        <div className="card">
+        <div className="card" style={{ borderTop: '3px solid #818cf8' }}>
           <div className="card-header">
-            <span className="card-title">Taux d&apos;épargne effectif</span>
+            <span className="card-title">Taux d&apos;Épargne Effectif</span>
           </div>
-          <div className="card-value" style={{ color: 'var(--accent-emerald)' }}>
+          <div className="card-value" style={{ color: '#818cf8' }}>
             {(analytics.reconciledMonthsCount > 0 ? analytics.averageActualSavingsRate : analytics.averageSavingsRate).toFixed(1)} %
           </div>
           <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
@@ -554,33 +573,36 @@ export default function RevenueBudgetView({
           </span>
         </div>
 
-        <div className="card" style={{ borderLeft: '3px solid var(--accent-emerald)', background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.05) 0%, rgba(6, 182, 212, 0.05) 100%)' }}>
-          <div className="card-header"><span className="card-title">💎 Total Extras &amp; Primes Dispo</span></div>
-          <div className="card-value" style={{ color: 'var(--accent-emerald)' }}>+{grandTotalAvailableExtra.toLocaleString('fr-FR')} €</div>
+        <div className="card" style={{ borderTop: '3px solid #f59e0b', background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.04) 0%, rgba(16, 185, 129, 0.04) 100%)' }}>
+          <div className="card-header">
+            <span className="card-title">💎 Total Réserve &amp; Extras</span>
+          </div>
+          <div className="card-value" style={{ color: '#f59e0b' }}>
+            +{grandTotalAvailableExtra.toLocaleString('fr-FR')} €
+          </div>
           <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
             Réserve (+{reserveBalance.toLocaleString('fr-FR')} €) + Windfalls (+{availableExtraCashTotal.toLocaleString('fr-FR')} €)
           </span>
         </div>
       </div>
 
-      {/* 🏦 LIVE BOURSOBANK REAL ACCOUNTS & TAMPON SAS */}
+      {/* 🏦 2. BANDEAU SOLDES BOURSOBANK LIVE */}
       <div
         className="card"
         style={{
-          marginBottom: 24,
           border: '1px solid rgba(6, 182, 212, 0.3)',
           background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.9) 0%, rgba(30, 41, 59, 0.7) 100%)',
           padding: 16,
           borderRadius: 12,
         }}
       >
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12, marginBottom: 14 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12, marginBottom: 12 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <span style={{ fontSize: 22 }}>🏦</span>
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <h4 style={{ fontSize: 15, margin: 0, fontWeight: 800, color: 'var(--text-primary)' }}>
-                  Comptes Bancaires Live (BoursoBank Open Banking)
+                  Comptes Bancaires en Direct (BoursoBank Open Banking)
                 </h4>
                 <span
                   style={{
@@ -593,11 +615,11 @@ export default function RevenueBudgetView({
                     border: `1px solid ${boursoLive.isConnected ? 'var(--accent-emerald)' : 'var(--accent-amber)'}`,
                   }}
                 >
-                  {boursoLive.isConnected ? '🟢 Live DSP2' : '🟡 À synchroniser'}
+                  {boursoLive.isConnected ? '🟢 Connecté DSP2' : '🟡 À synchroniser'}
                 </span>
               </div>
               <p style={{ margin: '2px 0 0 0', fontSize: 12, color: 'var(--text-secondary)' }}>
-                Soldes réels synchronisés — Utilisez votre Compte Tampon comme sas de dispatching
+                Soldes réels synchronisés &mdash; Utilisez le Compte Tampon comme sas de dispatching
               </p>
             </div>
           </div>
@@ -622,111 +644,545 @@ export default function RevenueBudgetView({
         </div>
 
         {/* Real Accounts 4-Grid */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: 10 }}>
-          <div style={{ padding: '10px 12px', borderRadius: 8, background: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 10 }}>
+          <div style={{ padding: '10px 14px', borderRadius: 8, background: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)' }}>
             <span style={{ fontSize: 11, color: 'var(--accent-cyan)', fontWeight: 700, textTransform: 'uppercase' }}>💳 Compte Courant</span>
-            <div style={{ fontSize: 16, fontWeight: 800, fontFamily: 'var(--font-mono)', marginTop: 4, color: boursoLive.checkingEUR < 0 ? 'var(--accent-amber)' : 'var(--text-primary)' }}>
+            <div style={{ fontSize: 17, fontWeight: 800, fontFamily: 'var(--font-mono)', marginTop: 4, color: boursoLive.checkingEUR < 0 ? 'var(--accent-amber)' : 'var(--text-primary)' }}>
               {boursoLive.checkingEUR.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
             </div>
           </div>
 
-          <div style={{ padding: '10px 12px', borderRadius: 8, background: 'rgba(16, 185, 129, 0.08)', border: '1px solid rgba(16, 185, 129, 0.3)' }}>
-            <span style={{ fontSize: 11, color: 'var(--accent-emerald)', fontWeight: 800, textTransform: 'uppercase' }}>⚡ Compte Tampon (Surplus)</span>
-            <div style={{ fontSize: 16, fontWeight: 800, fontFamily: 'var(--font-mono)', marginTop: 4, color: 'var(--accent-emerald)' }}>
+          <div style={{ padding: '10px 14px', borderRadius: 8, background: 'rgba(16, 185, 129, 0.08)', border: '1px solid rgba(16, 185, 129, 0.3)' }}>
+            <span style={{ fontSize: 11, color: 'var(--accent-emerald)', fontWeight: 800, textTransform: 'uppercase' }}>⚡ Compte Tampon (Sas)</span>
+            <div style={{ fontSize: 17, fontWeight: 800, fontFamily: 'var(--font-mono)', marginTop: 4, color: 'var(--accent-emerald)' }}>
               {boursoLive.tamponEUR.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
             </div>
           </div>
 
-          {boursoLive.tontineEUR > 0 && (
-            <div style={{ padding: '10px 12px', borderRadius: 8, background: 'rgba(129, 140, 248, 0.08)', border: '1px solid rgba(129, 140, 248, 0.3)' }}>
-              <span style={{ fontSize: 11, color: '#818cf8', fontWeight: 800, textTransform: 'uppercase' }}>🤝 Tontine (Indicatif)</span>
-              <div style={{ fontSize: 16, fontWeight: 800, fontFamily: 'var(--font-mono)', marginTop: 4, color: '#818cf8' }}>
-                {boursoLive.tontineEUR.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
-              </div>
-              <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>Échéance Septembre • Viré sur Tampon</span>
-            </div>
-          )}
-
-          <div style={{ padding: '10px 12px', borderRadius: 8, background: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)' }}>
+          <div style={{ padding: '10px 14px', borderRadius: 8, background: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)' }}>
             <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>🛡️ Livret A ({boursoLive.livretARate}%)</span>
-            <div style={{ fontSize: 16, fontWeight: 800, fontFamily: 'var(--font-mono)', marginTop: 4, color: 'var(--text-primary)' }}>
-              {boursoLive.livretAEUR > 0 ? boursoLive.livretAEUR.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' }) : 'Non renseigné'}
+            <div style={{ fontSize: 17, fontWeight: 800, fontFamily: 'var(--font-mono)', marginTop: 4, color: 'var(--text-primary)' }}>
+              {boursoLive.livretAEUR > 0 ? boursoLive.livretAEUR.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' }) : '0,00 €'}
             </div>
           </div>
+
+          {boursoLive.tontineEUR > 0 && (
+            <div style={{ padding: '10px 14px', borderRadius: 8, background: 'rgba(129, 140, 248, 0.08)', border: '1px solid rgba(129, 140, 248, 0.3)' }}>
+              <span style={{ fontSize: 11, color: '#818cf8', fontWeight: 800, textTransform: 'uppercase' }}>🤝 Tontine (Tour)</span>
+              <div style={{ fontSize: 17, fontWeight: 800, fontFamily: 'var(--font-mono)', marginTop: 4, color: '#818cf8' }}>
+                {boursoLive.tontineEUR.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
-      {/* 🔍 NOUVELLE SECTION : Rapprochement Théorie (Fiche) vs Réalité (Banque BoursoBank) */}
+      {/* 🔍 3. CENTRE D'ANALYSE BANCAIRE (TRUELAYER 3 MOIS SANS FILTRE) */}
       <div
         className="card"
         style={{
-          marginBottom: 24,
-          border: '1px solid rgba(129, 140, 248, 0.3)',
-          background: 'linear-gradient(135deg, rgba(30, 27, 75, 0.4) 0%, rgba(15, 23, 42, 0.7) 100%)',
+          border: '1px solid rgba(99, 102, 241, 0.4)',
+          background: 'linear-gradient(135deg, rgba(30, 27, 75, 0.35) 0%, rgba(15, 23, 42, 0.8) 100%)',
+          padding: 20,
+          borderRadius: 12,
         }}
       >
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
+        {/* Header & Synchronization Actions */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 14, marginBottom: 16 }}>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span style={{ fontSize: 20 }}>🔍</span>
-              <h3 style={{ fontSize: 16, margin: 0, fontWeight: 800, color: 'var(--text-primary)' }}>
-                Rapprochement Théorie (Fiches) vs Réalité Factuelle (Banque)
+              <span style={{ fontSize: 20 }}>📊</span>
+              <h3 style={{ fontSize: 17, margin: 0, fontWeight: 800, color: 'var(--text-primary)' }}>
+                Analyse &amp; Rapprochement Factuel BoursoBank (3 Derniers Mois)
               </h3>
             </div>
             <p style={{ margin: '4px 0 0 0', fontSize: 13, color: 'var(--text-secondary)' }}>
-              L&apos;IA analyse les virements réels de votre compte BoursoBank (Salaire, PEA, Tontine...) et vous soumet un comparatif pour validation humaine.
+              Reconnaissance exhaustive de tous vos flux réels (Salaire, Loyer, Abonnements, PEA, Livret A, Tontine, Soutien Wave, Revolut).
             </p>
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-            <select
-              className="input"
-              style={{ width: 'auto', padding: '6px 12px', fontSize: 13 }}
-              value={reconcilePeriod}
-              onChange={(e) => setReconcilePeriod(e.target.value)}
-            >
-              {records.map((r) => (
-                <option key={r.period} value={r.period}>
-                  {r.periodLabel || r.period} {r.bankReality?.reconciled ? '✅ (Rapproché)' : '⚠️ (Non rapproché)'}
-                </option>
-              ))}
-              {!records.some((r) => r.period === currentPeriod().period) && (
-                <option value={currentPeriod().period}>{currentPeriod().label} (Mois en cours)</option>
-              )}
-            </select>
-
+            {lastSyncTs && (
+              <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                Synchro : {new Date(lastSyncTs).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+              </span>
+            )}
             <button
               type="button"
               className="btn btn-primary"
               style={{ background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)', fontWeight: 700 }}
-              disabled={isReconciling}
-              onClick={() => handleStartReconciliation(reconcilePeriod)}
+              disabled={isSyncingTrueLayer}
+              onClick={handleSyncBoursoBank}
             >
-              {isReconciling ? '⏳ Analyse IA des flux...' : '🔍 Analyser les flux bancaires'}
-            </button>
-
-            <button
-              type="button"
-              className="btn btn-ghost"
-              style={{ fontSize: 12, border: '1px solid var(--border-subtle)' }}
-              onClick={handleLoadSample3Months}
-              title="Charge 3 mois complets (Juin, Juillet, Août) pour tester immédiatement"
-            >
-              ⚡ Charger 3 mois d&apos;exemples
+              {isSyncingTrueLayer ? '⏳ Synchronisation 3 mois...' : '🔄 Synchroniser BoursoBank (3 mois)'}
             </button>
           </div>
         </div>
+
+        {/* Month Selector Pills */}
+        <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 6, marginBottom: 16 }}>
+          {availableMonths.map((m) => {
+            const isSelected = m === selectedMonth;
+            const rec = records.find((r) => r.period === m);
+            const isReconciled = rec?.bankReality?.reconciled;
+            return (
+              <button
+                key={m}
+                type="button"
+                onClick={() => setSelectedMonth(m)}
+                style={{
+                  padding: '8px 16px',
+                  borderRadius: 8,
+                  fontSize: 13,
+                  fontWeight: isSelected ? 800 : 600,
+                  cursor: 'pointer',
+                  border: isSelected ? '1px solid var(--accent-cyan)' : '1px solid var(--border-subtle)',
+                  background: isSelected ? 'rgba(6, 182, 212, 0.15)' : 'var(--bg-secondary)',
+                  color: isSelected ? 'var(--accent-cyan)' : 'var(--text-secondary)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  whiteSpace: 'nowrap',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                <span>📅 {getPeriodLabel(m)}</span>
+                {isReconciled ? (
+                  <span style={{ fontSize: 10, color: 'var(--accent-emerald)', fontWeight: 700 }}>✅ Rapproché</span>
+                ) : (
+                  <span style={{ fontSize: 10, color: 'var(--accent-amber)', fontWeight: 700 }}>⏳ À valider</span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* 4 Key Pillars for Selected Month */}
+        {monthDraft && (
+          <div>
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))',
+                gap: 12,
+                marginBottom: 20,
+              }}
+            >
+              {/* 1. Salaire net encaissé */}
+              <div style={{ padding: '12px 14px', borderRadius: 10, background: 'rgba(6, 182, 212, 0.08)', border: '1px solid rgba(6, 182, 212, 0.3)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: 11, fontWeight: 800, color: 'var(--accent-cyan)', textTransform: 'uppercase' }}>
+                    💼 Salaire Reçu
+                  </span>
+                  <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>Crédit</span>
+                </div>
+                <div style={{ fontSize: 18, fontWeight: 800, fontFamily: 'var(--font-mono)', marginTop: 4, color: 'var(--accent-cyan)' }}>
+                  +{monthDraft.actualNetSalaryReceived.toLocaleString('fr-FR')} €
+                </div>
+                <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
+                  {records.find((r) => r.period === selectedMonth)?.netSalary
+                    ? `Fiche : ${records.find((r) => r.period === selectedMonth)?.netSalary?.toLocaleString('fr-FR')} €`
+                    : 'Aucun bulletin associé'}
+                </span>
+              </div>
+
+              {/* 2. Charges fixes (Loyer + Abonnements) */}
+              <div style={{ padding: '12px 14px', borderRadius: 10, background: 'rgba(249, 115, 22, 0.08)', border: '1px solid rgba(249, 115, 22, 0.3)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: 11, fontWeight: 800, color: '#f97316', textTransform: 'uppercase' }}>
+                    🏠 Charges Fixes
+                  </span>
+                  <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>Loyer &amp; Box</span>
+                </div>
+                <div style={{ fontSize: 18, fontWeight: 800, fontFamily: 'var(--font-mono)', marginTop: 4, color: '#f97316' }}>
+                  -{(monthDraft.totalActualFixedExpenses || 0).toLocaleString('fr-FR')} €
+                </div>
+                <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
+                  Loyer: {(monthDraft.actualRent || 0).toLocaleString('fr-FR')} € • Abos: {(monthDraft.actualSubscriptions || 0).toLocaleString('fr-FR')} €
+                </span>
+              </div>
+
+              {/* 3. Épargne & Investissements (PEA + Tontine + Tampon + Livret A) */}
+              <div style={{ padding: '12px 14px', borderRadius: 10, background: 'rgba(16, 185, 129, 0.08)', border: '1px solid rgba(16, 185, 129, 0.3)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: 11, fontWeight: 800, color: 'var(--accent-emerald)', textTransform: 'uppercase' }}>
+                    📈 Investi &amp; Épargné
+                  </span>
+                  <span style={{ fontSize: 10, color: 'var(--accent-emerald)', fontWeight: 700 }}>
+                    {monthDraft.actualSavingsRate.toFixed(1)} % épargne
+                  </span>
+                </div>
+                <div style={{ fontSize: 18, fontWeight: 800, fontFamily: 'var(--font-mono)', marginTop: 4, color: 'var(--accent-emerald)' }}>
+                  -{(monthDraft.totalActualInvested || 0).toLocaleString('fr-FR')} €
+                </div>
+                <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
+                  PEA: {monthDraft.actualInvestedPEA.toLocaleString('fr-FR')} € • Tontine: {monthDraft.actualInvestedTontine.toLocaleString('fr-FR')} € • Livret A: {monthDraft.actualInvestedLivretA.toLocaleString('fr-FR')} €
+                </span>
+              </div>
+
+              {/* 4. Transferts de Vie & Soutien (Revolut + Wave) */}
+              <div style={{ padding: '12px 14px', borderRadius: 10, background: 'rgba(56, 189, 248, 0.08)', border: '1px solid rgba(56, 189, 248, 0.3)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: 11, fontWeight: 800, color: '#38bdf8', textTransform: 'uppercase' }}>
+                    🌍 Soutien &amp; Revolut
+                  </span>
+                  <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>Vie</span>
+                </div>
+                <div style={{ fontSize: 18, fontWeight: 800, fontFamily: 'var(--font-mono)', marginTop: 4, color: '#38bdf8' }}>
+                  -{(monthDraft.totalActualLivingTransfers || 0).toLocaleString('fr-FR')} €
+                </div>
+                <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
+                  Wave (Soutien): {(monthDraft.actualSupportWave || 0).toLocaleString('fr-FR')} € • Revolut: {(monthDraft.actualRevolut || 0).toLocaleString('fr-FR')} €
+                </span>
+              </div>
+            </div>
+
+            {/* Transactions Management Sub-Bar */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10, marginBottom: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                <input
+                  type="text"
+                  className="input"
+                  placeholder="🔍 Rechercher dans le libellé..."
+                  style={{ width: 220, fontSize: 12, padding: '5px 10px' }}
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+
+                <select
+                  className="input"
+                  style={{ width: 'auto', fontSize: 12, padding: '5px 10px' }}
+                  value={filterCategory}
+                  onChange={(e) => setFilterCategory(e.target.value)}
+                >
+                  <option value="ALL">Toutes les catégories ({monthDraft.detectedTransactions?.length || 0})</option>
+                  {Object.entries(BANK_CATEGORY_LABELS).map(([catKey, info]) => (
+                    <option key={catKey} value={catKey}>
+                      {info.icon} {info.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-sm"
+                  style={{ fontSize: 12, border: '1px dashed var(--border-subtle)' }}
+                  onClick={() => {
+                    const newMatch: BankTransactionMatch = {
+                      id: `tx-manual-${Date.now()}`,
+                      date: `${selectedMonth}-05`,
+                      rawDescription: 'Virement / Opération manuelle',
+                      amount: 100,
+                      category: 'INVEST_PEA',
+                      suggestedCategory: 'INVEST_PEA',
+                      confidence: 1,
+                      included: true,
+                    };
+                    setMonthDraft({
+                      ...monthDraft,
+                      detectedTransactions: [...(monthDraft.detectedTransactions || []), newMatch],
+                    });
+                  }}
+                >
+                  ➕ Ajouter une ligne
+                </button>
+
+                <button
+                  type="button"
+                  className="btn btn-primary btn-sm"
+                  style={{ background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', fontWeight: 700 }}
+                  onClick={handleConfirmMonthReconciliation}
+                >
+                  ✅ Valider &amp; Enregistrer {getPeriodLabel(selectedMonth)}
+                </button>
+              </div>
+            </div>
+
+            {/* Transactions List Table */}
+            {displayedTransactions.length === 0 ? (
+              <div style={{ padding: 24, textAlign: 'center', background: 'var(--bg-secondary)', borderRadius: 8, color: 'var(--text-secondary)' }}>
+                Aucune transaction trouvée pour le mois de {getPeriodLabel(selectedMonth)}.
+                Cliquez sur <strong>« 🔄 Synchroniser BoursoBank »</strong> pour récupérer vos flux réels.
+              </div>
+            ) : (
+              <div style={{ maxHeight: 340, overflowY: 'auto', border: '1px solid var(--border-subtle)', borderRadius: 8, background: 'var(--bg-primary)' }}>
+                <table className="table" style={{ width: '100%', margin: 0 }}>
+                  <thead>
+                    <tr>
+                      <th style={{ width: 40 }}>Actif</th>
+                      <th style={{ width: 90 }}>Date</th>
+                      <th>Libellé Transaction</th>
+                      <th style={{ width: 110, textAlign: 'right' }}>Montant</th>
+                      <th style={{ width: 230 }}>Catégorie Assignée</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {displayedTransactions.map((tx) => {
+                      const idx = (monthDraft.detectedTransactions || []).findIndex((t) => t.id === tx.id);
+                      return (
+                        <tr key={tx.id} style={{ opacity: tx.included ? 1 : 0.4 }}>
+                          <td>
+                            <input
+                              type="checkbox"
+                              checked={tx.included}
+                              onChange={(e) => {
+                                const next = [...(monthDraft.detectedTransactions || [])];
+                                if (idx !== -1) {
+                                  next[idx] = { ...next[idx], included: e.target.checked };
+                                  setMonthDraft({ ...monthDraft, detectedTransactions: next });
+                                }
+                              }}
+                            />
+                          </td>
+                          <td style={{ fontSize: 12, fontFamily: 'var(--font-mono)' }}>{tx.date}</td>
+                          <td style={{ fontSize: 12 }}>
+                            <strong>{tx.rawDescription}</strong>
+                            {tx.accountName && <span style={{ fontSize: 10, color: 'var(--text-muted)', display: 'block' }}>{tx.accountName}</span>}
+                          </td>
+                          <td style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, textAlign: 'right', fontSize: 13, color: tx.category === 'SALARY_INCOME' ? 'var(--accent-cyan)' : 'var(--text-primary)' }}>
+                            {tx.category === 'SALARY_INCOME' ? '+' : '-'}{tx.amount.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €
+                          </td>
+                          <td>
+                            <select
+                              className="input"
+                              style={{ fontSize: 11, padding: '4px 6px', width: '100%' }}
+                              value={tx.category}
+                              onChange={(e) => {
+                                const next = [...(monthDraft.detectedTransactions || [])];
+                                if (idx !== -1) {
+                                  next[idx] = { ...next[idx], category: e.target.value as BankReconciliationCategory };
+                                  setMonthDraft({ ...monthDraft, detectedTransactions: next });
+                                }
+                              }}
+                            >
+                              {Object.entries(BANK_CATEGORY_LABELS).map(([catKey, info]) => (
+                                <option key={catKey} value={catKey}>
+                                  {info.icon} {info.label}
+                                </option>
+                              ))}
+                            </select>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
-      {/* 💎 SECTION: Primes, Tontines & Extras de Trésorerie */}
-      <div className="card" style={{ marginBottom: 24, border: '1px solid rgba(16, 185, 129, 0.3)', background: 'var(--bg-secondary)' }}>
+      {/* 📄 4. BULLETINS DE SALAIRE (THÉORIE & CAPACITÉ D'INVESTISSEMENT) */}
+      <div className="card">
+        <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
+          <div>
+            <span className="card-title">📄 Bulletins de Salaire (Capacité d&apos;Investissement Théorique)</span>
+            <p style={{ margin: '4px 0 0 0', fontSize: 13, color: 'var(--text-secondary)' }}>
+              Importez vos bulletins de paie PDF réels ou saisissez-les manuellement pour calibrer vos plans de versement.
+            </p>
+          </div>
+
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="application/pdf"
+              style={{ display: 'none' }}
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) handleFileUpload(file);
+              }}
+            />
+            <button
+              type="button"
+              className="btn btn-secondary"
+              disabled={parsing}
+              onClick={() => fileInputRef.current?.click()}
+            >
+              {parsing ? '⏳ Analyse IA...' : '📤 Importer un bulletin (PDF)'}
+            </button>
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={() => {
+                setDraft(emptyRecord());
+                setShowForm(true);
+              }}
+            >
+              ➕ Saisie manuelle
+            </button>
+          </div>
+        </div>
+
+        {/* Payslip manual/import edit form */}
+        {showForm && (
+          <div style={{ marginTop: 16, padding: 16, borderRadius: 8, background: 'var(--bg-primary)', border: '1px solid var(--accent-cyan)' }}>
+            <h4 style={{ margin: '0 0 12px 0', fontSize: 14, fontWeight: 700 }}>Vérifier / Compléter la fiche de paie</h4>
+            <div className="form-row">
+              <div className="form-group">
+                <label className="form-label">Période (YYYY-MM)</label>
+                <input className="input" value={draft.period} onChange={(e) => setDraft({ ...draft, period: e.target.value })} />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Libellé</label>
+                <input className="input" value={draft.periodLabel} onChange={(e) => setDraft({ ...draft, periodLabel: e.target.value })} />
+              </div>
+            </div>
+            <div className="form-row">
+              <div className="form-group">
+                <label className="form-label">Net à payer total (€) *</label>
+                <input
+                  type="number"
+                  className="input"
+                  value={draft.netSalary || ''}
+                  onChange={(e) => setDraft({ ...draft, netSalary: parseFloat(e.target.value) || 0 })}
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Montant régulier à investir ce mois (€)</label>
+                <input
+                  type="number"
+                  className="input"
+                  value={draft.regularInvestableAmount || ''}
+                  onChange={(e) => setDraft({ ...draft, regularInvestableAmount: parseFloat(e.target.value) || 0 })}
+                />
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: 10, marginTop: 12 }}>
+              <button className="btn btn-primary" onClick={() => handleSaveSalaryRecord(draft)}>💾 Enregistrer</button>
+              <button className="btn btn-ghost" onClick={() => setShowForm(false)}>Annuler</button>
+            </div>
+          </div>
+        )}
+
+        {/* Payslips Historical Comparison Table */}
+        <div style={{ marginTop: 16 }}>
+          {records.length === 0 ? (
+            <div style={{ padding: 24, textAlign: 'center', color: 'var(--text-secondary)' }}>
+              Aucun bulletin de paie enregistré pour le moment. Importez un PDF ou saisissez votre premier mois.
+            </div>
+          ) : (
+            <table className="table" style={{ width: '100%' }}>
+              <thead>
+                <tr>
+                  <th>Période</th>
+                  <th>Salaire Net (Fiche vs Banque)</th>
+                  <th>Investi (Plan vs Réel)</th>
+                  <th>Taux d&apos;Épargne</th>
+                  <th>Écart (Delta)</th>
+                  <th>Statut</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {records.map((r) => {
+                  const reality = r.bankReality;
+                  const isReconciled = reality && reality.reconciled;
+                  const delta = reality?.deltaVsPlan ?? 0;
+                  const execRate = reality?.executionRatePercent ?? 100;
+
+                  return (
+                    <tr key={r.id || `r-${r.period}`}>
+                      <td>
+                        <strong>{r.periodLabel || r.period}</strong>
+                        <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                          {r.source === 'pdf-import' ? '📄 PDF' : '✏️ Manuel'}
+                        </div>
+                      </td>
+
+                      <td>
+                        <div>{(r.netSalary ?? 0).toLocaleString('fr-FR')} € <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>(Fiche)</span></div>
+                        {isReconciled && (
+                          <div style={{ fontSize: 12, color: 'var(--accent-emerald)', fontWeight: 600 }}>
+                            🟢 {reality.actualNetSalaryReceived.toLocaleString('fr-FR')} € (Banque)
+                          </div>
+                        )}
+                      </td>
+
+                      <td>
+                        <div>{(r.regularInvestableAmount ?? 0).toLocaleString('fr-FR')} € <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>(Plan)</span></div>
+                        {isReconciled ? (
+                          <div style={{ fontSize: 12, color: 'var(--accent-cyan)', fontWeight: 700 }}>
+                            🟢 {reality.totalActualInvested.toLocaleString('fr-FR')} € (Réel)
+                            <span style={{ fontSize: 10, color: 'var(--text-muted)', display: 'block' }}>
+                              PEA: {reality.actualInvestedPEA.toLocaleString('fr-FR')} € • Tontine: {reality.actualInvestedTontine.toLocaleString('fr-FR')} €
+                            </span>
+                          </div>
+                        ) : (
+                          <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Non rapproché</span>
+                        )}
+                      </td>
+
+                      <td>
+                        <div>{(r.savingsRate ?? 0).toFixed(1)} % <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>(Théorie)</span></div>
+                        {isReconciled && (
+                          <div style={{ fontSize: 12, color: 'var(--accent-emerald)', fontWeight: 700 }}>
+                            🟢 {reality.actualSavingsRate.toFixed(1)} % (Réel)
+                          </div>
+                        )}
+                      </td>
+
+                      <td>
+                        {isReconciled ? (
+                          <span
+                            style={{
+                              fontSize: 11,
+                              fontWeight: 700,
+                              padding: '2px 6px',
+                              borderRadius: 4,
+                              background: delta >= 0 ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                              color: delta >= 0 ? 'var(--accent-emerald)' : '#ef4444',
+                            }}
+                          >
+                            {delta >= 0 ? `+${delta.toLocaleString('fr-FR')} €` : `${delta.toLocaleString('fr-FR')} €`} ({execRate}%)
+                          </span>
+                        ) : (
+                          <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>—</span>
+                        )}
+                      </td>
+
+                      <td>
+                        <button
+                          type="button"
+                          className="btn btn-ghost btn-sm"
+                          style={{ fontSize: 11, border: '1px solid var(--border-subtle)' }}
+                          onClick={() => setSelectedMonth(r.period)}
+                        >
+                          🔍 Analyser ce mois
+                        </button>
+                      </td>
+
+                      <td>
+                        <button
+                          className="btn-ghost"
+                          onClick={() => onDeleteRecord(r.id)}
+                          title="Supprimer cette fiche"
+                        >
+                          🗑️
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </div>
+
+      {/* 💎 5. PRIMES, TONTINES & EXTRAS DE TRÉSORERIE */}
+      <div className="card">
         <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
           <div>
             <span className="card-title" style={{ fontSize: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
               <span>💎</span> Primes, Tontines &amp; Rentrées Exceptionnelles (Windfalls)
             </span>
             <p style={{ margin: '4px 0 0 0', fontSize: 13, color: 'var(--text-secondary)' }}>
-              Ajoutez vos rentrées exceptionnelles (Prime d&apos;intéressement, Tontine, 13e mois, Ventes) pour décider de les injecter lors de vos rééquilibrages.
+              Ajoutez vos rentrées ponctuelles pour les mobiliser dans vos simulations et rééquilibrages de portefeuille.
             </p>
           </div>
 
@@ -761,7 +1217,7 @@ export default function RevenueBudgetView({
                 <input
                   type="text"
                   className="input"
-                  placeholder="ex: Prime de performance Vestas, Tontine familiale..."
+                  placeholder="ex: Prime de performance Vestas, Tontine..."
                   value={extraLabel}
                   onChange={(e) => setExtraLabel(e.target.value)}
                 />
@@ -798,19 +1254,6 @@ export default function RevenueBudgetView({
                   className="input"
                   value={extraDate}
                   onChange={(e) => setExtraDate(e.target.value)}
-                />
-              </div>
-            </div>
-
-            <div className="form-row">
-              <div className="form-group" style={{ flex: 1 }}>
-                <label className="form-label">Notes (optionnel)</label>
-                <input
-                  type="text"
-                  className="input"
-                  placeholder="ex: Tour de tontine prévu pour versement sur PEA / Tampon"
-                  value={extraNotes}
-                  onChange={(e) => setExtraNotes(e.target.value)}
                 />
               </div>
             </div>
@@ -890,474 +1333,6 @@ export default function RevenueBudgetView({
           </div>
         )}
       </div>
-
-      {/* 📄 Importation & Saisie de Fiche de Paie */}
-      <div className="card" style={{ marginBottom: 24 }}>
-        <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div>
-            <span className="card-title">📄 Bulletins de Salaire (Théorie &amp; Capacité d&apos;investissement)</span>
-            <p style={{ margin: '4px 0 0 0', fontSize: 13, color: 'var(--text-secondary)' }}>
-              Importez votre fiche de paie (PDF) ou saisissez-la manuellement pour déterminer votre capacité d&apos;épargne régulière.
-            </p>
-          </div>
-
-          <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="application/pdf"
-              style={{ display: 'none' }}
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file) handleFileUpload(file);
-              }}
-            />
-            <button
-              type="button"
-              className="btn btn-secondary"
-              disabled={parsing}
-              onClick={() => fileInputRef.current?.click()}
-            >
-              {parsing ? '⏳ Analyse IA...' : '📤 Importer un bulletin (PDF)'}
-            </button>
-            <button
-              type="button"
-              className="btn btn-primary"
-              onClick={() => {
-                setDraft(emptyRecord());
-                setShowForm(true);
-              }}
-            >
-              ➕ Saisir manuellement
-            </button>
-            <button
-              type="button"
-              className="btn btn-ghost"
-              style={{ border: '1px solid rgba(99, 102, 241, 0.4)', background: 'rgba(99, 102, 241, 0.1)', color: '#818cf8', fontWeight: 600 }}
-              onClick={handleLoadSample3Months}
-              title="Charge 3 fiches de paie et rapprochements réels (Juin, Juillet, Août) pour tester immédiatement"
-            >
-              ⚡ Charger 3 mois d&apos;exemples
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Formulaire Fiche de Paie (Vérifier / Compléter) */}
-      {showForm && (
-        <div className="card" style={{ marginBottom: 24, borderLeft: '3px solid var(--accent-cyan)' }}>
-          <div className="card-header"><span className="card-title">Vérifier / compléter la fiche</span></div>
-          <div className="form-row">
-            <div className="form-group">
-              <label className="form-label">Période (YYYY-MM)</label>
-              <input className="input" value={draft.period} onChange={(e) => setDraft({ ...draft, period: e.target.value })} />
-            </div>
-            <div className="form-group">
-              <label className="form-label">Libellé</label>
-              <input className="input" value={draft.periodLabel} onChange={(e) => setDraft({ ...draft, periodLabel: e.target.value })} />
-            </div>
-          </div>
-          <div className="form-row">
-            <div className="form-group">
-              <label className="form-label">Net à payer total (€) *</label>
-              <input
-                type="number"
-                className="input"
-                value={draft.netSalary || ''}
-                onChange={(e) => setDraft({ ...draft, netSalary: parseFloat(e.target.value) || 0 })}
-              />
-            </div>
-            <div className="form-group">
-              <label className="form-label">Épargne PEE ce mois (€, optionnel)</label>
-              <input
-                type="number"
-                className="input"
-                value={draft.companySavingsPEE ?? ''}
-                onChange={(e) => setDraft({ ...draft, companySavingsPEE: parseFloat(e.target.value) || undefined })}
-              />
-            </div>
-          </div>
-
-          <p style={{ fontSize: 13, fontWeight: 600, marginTop: 12, marginBottom: 4 }}>Ventilation par composante</p>
-          <div className="form-row">
-            <div className="form-group">
-              <label className="form-label">Net prime/bonus (€, si détecté)</label>
-              <input
-                type="number"
-                className="input"
-                value={draft.bonusNet ?? ''}
-                onChange={(e) => setDraft({ ...draft, bonusNet: parseFloat(e.target.value) || undefined, hasExplicitBonus: true })}
-              />
-            </div>
-            <div className="form-group">
-              <label className="form-label">Net rachat congés (€, si détecté)</label>
-              <input
-                type="number"
-                className="input"
-                value={draft.congesRachatNet ?? ''}
-                onChange={(e) => setDraft({ ...draft, congesRachatNet: parseFloat(e.target.value) || undefined, hasCongesRachat: true })}
-              />
-            </div>
-          </div>
-
-          <div className="form-row">
-            <div className="form-group">
-              <label className="form-label">Montant régulier à investir ce mois (€) — DCA Théorique</label>
-              <input
-                type="number"
-                className="input"
-                value={draft.regularInvestableAmount || ''}
-                onChange={(e) => setDraft({ ...draft, regularInvestableAmount: parseFloat(e.target.value) || 0 })}
-              />
-            </div>
-            <div className="form-group">
-              <label className="form-label">→ Ira dans la réserve primes (€, calculé)</label>
-              <input
-                type="number"
-                className="input"
-                disabled
-                value={Math.round(((draft.bonusNet || 0) + (draft.congesRachatNet || 0)) * 100) / 100}
-                onChange={() => {}}
-              />
-            </div>
-          </div>
-          {((draft.bonusNet || 0) + (draft.congesRachatNet || 0)) > 0 && (
-            <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
-              💰 Ce montant ira automatiquement dans la réserve à l&apos;enregistrement — vous déciderez plus tard de son allocation.
-            </p>
-          )}
-          {draft.notes && <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>ℹ️ {draft.notes}</p>}
-
-          <div style={{ display: 'flex', gap: 12, marginTop: 12 }}>
-            <button
-              className="btn btn-primary"
-              onClick={() => {
-                const bonusReserve = Math.round(((draft.bonusNet || 0) + (draft.congesRachatNet || 0)) * 100) / 100;
-                handleSaveSalaryRecord({ ...draft, bonusReserveContribution: bonusReserve });
-              }}
-            >
-              💾 Enregistrer
-            </button>
-            <button className="btn btn-ghost" onClick={() => setShowForm(false)}>Annuler</button>
-          </div>
-        </div>
-      )}
-
-      {/* 📊 Historique & Comparatif Théorie vs Réalité */}
-      <div className="card" style={{ marginBottom: 24 }}>
-        <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div>
-            <span className="card-title">📊 Historique des Mois : Théorie (Fiche) vs Réalité (Banque)</span>
-            <p style={{ margin: '4px 0 0 0', fontSize: 13, color: 'var(--text-secondary)' }}>
-              Comparaison entre ce que prévoyait votre fiche de paie et ce qui s&apos;est réellement passé sur vos comptes.
-            </p>
-          </div>
-        </div>
-
-        {records.length === 0 ? (
-          <div className="empty-state" style={{ padding: 32, textAlign: 'center' }}>
-            <div className="empty-state-icon" style={{ fontSize: 32 }}>📭</div>
-            <div className="empty-state-text" style={{ margin: '8px 0 16px 0', color: 'var(--text-secondary)' }}>
-              Aucune fiche de paie enregistrée pour l&apos;instant.
-            </div>
-            <button className="btn btn-primary btn-sm" onClick={handleLoadSample3Months}>
-              ⚡ Charger 3 mois d&apos;exemples pour tester
-            </button>
-          </div>
-        ) : (
-          <table className="table" style={{ width: '100%' }}>
-            <thead>
-              <tr>
-                <th>Période</th>
-                <th>Salaire Net (Fiche vs Banque)</th>
-                <th>Investi Régulier (Plan vs Réel)</th>
-                <th>Taux d&apos;Épargne</th>
-                <th>Écart (Delta) &amp; Statut</th>
-                <th>Rapprochement</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {records.map((r) => {
-                const reality = r.bankReality;
-                const isReconciled = reality && reality.reconciled;
-                const delta = reality?.deltaVsPlan ?? 0;
-                const execRate = reality?.executionRatePercent ?? 100;
-
-                return (
-                  <tr key={r.id || `r-${Math.random()}`}>
-                    <td>
-                      <strong>{r.periodLabel || r.period}</strong>
-                      <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-                        {r.source === 'pdf-import' ? '📄 PDF' : '✏️ Manuel'}
-                      </div>
-                    </td>
-
-                    <td>
-                      <div>{(r.netSalary ?? 0).toLocaleString('fr-FR')} € <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>(Fiche)</span></div>
-                      {isReconciled && (
-                        <div style={{ fontSize: 12, color: 'var(--accent-emerald)', fontWeight: 600 }}>
-                          🟢 {reality.actualNetSalaryReceived.toLocaleString('fr-FR')} € (Banque)
-                        </div>
-                      )}
-                    </td>
-
-                    <td>
-                      <div>{(r.regularInvestableAmount ?? 0).toLocaleString('fr-FR')} € <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>(Plan)</span></div>
-                      {isReconciled ? (
-                        <div style={{ fontSize: 12, color: 'var(--accent-cyan)', fontWeight: 700 }}>
-                          🟢 {reality.totalActualInvested.toLocaleString('fr-FR')} € (Réel)
-                          <span style={{ fontSize: 10, color: 'var(--text-muted)', display: 'block' }}>
-                            PEA: {reality.actualInvestedPEA.toLocaleString('fr-FR')} € • Tontine: {reality.actualInvestedTontine.toLocaleString('fr-FR')} €
-                          </span>
-                        </div>
-                      ) : (
-                        <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Non rapproché</span>
-                      )}
-                    </td>
-
-                    <td>
-                      <div>{(r.savingsRate ?? 0).toFixed(1)} % <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>(Théorie)</span></div>
-                      {isReconciled && (
-                        <div style={{ fontSize: 12, color: 'var(--accent-emerald)', fontWeight: 700 }}>
-                          🟢 {reality.actualSavingsRate.toFixed(1)} % (Réel)
-                        </div>
-                      )}
-                    </td>
-
-                    <td>
-                      {isReconciled ? (
-                        <div>
-                          <span
-                            style={{
-                              fontSize: 11,
-                              fontWeight: 700,
-                              padding: '2px 6px',
-                              borderRadius: 4,
-                              background: delta >= 0 ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
-                              color: delta >= 0 ? 'var(--accent-emerald)' : '#ef4444',
-                            }}
-                          >
-                            {delta >= 0 ? `+${delta.toLocaleString('fr-FR')} €` : `${delta.toLocaleString('fr-FR')} €`} ({execRate}%)
-                          </span>
-                        </div>
-                      ) : (
-                        <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>—</span>
-                      )}
-                    </td>
-
-                    <td>
-                      <button
-                        type="button"
-                        className={`btn btn-sm ${isReconciled ? 'btn-ghost' : 'btn-primary'}`}
-                        style={{ fontSize: 11, padding: '4px 8px' }}
-                        onClick={() => handleStartReconciliation(r.period)}
-                      >
-                        {isReconciled ? '✏️ Modifier Rapprochement' : '🔍 Rapprocher Banque'}
-                      </button>
-                    </td>
-
-                    <td>
-                      <button
-                        className="btn-ghost"
-                        onClick={() => onDeleteRecord(r.id)}
-                        title="Supprimer cette fiche"
-                      >
-                        🗑️
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        )}
-      </div>
-
-      {/* 🔍 MODALE DE CONFIRMATION / AJUSTEMENT DU RAPPROCHEMENT BANCAIRE */}
-      {showReconcileModal && reconcileDraft && (
-        <div
-          style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: 'rgba(0, 0, 0, 0.75)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 1000,
-            padding: 20,
-            backdropFilter: 'blur(4px)',
-          }}
-        >
-          <div
-            className="card"
-            style={{
-              maxWidth: 800,
-              width: '100%',
-              maxHeight: '90vh',
-              overflowY: 'auto',
-              border: '1px solid rgba(129, 140, 248, 0.4)',
-              background: 'var(--bg-primary)',
-              borderRadius: 12,
-              padding: 24,
-            }}
-          >
-            {/* Header */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-              <div>
-                <h3 style={{ fontSize: 18, margin: 0, fontWeight: 800, color: 'var(--text-primary)' }}>
-                  🔍 Rapprochement Bancaire &mdash; {reconcileDraft.period}
-                </h3>
-                <p style={{ margin: '4px 0 0 0', fontSize: 13, color: 'var(--text-secondary)' }}>
-                  Validation humaine obligatoire : vérifiez, ajustez ou désélectionnez les transactions avant d&apos;enregistrer.
-                </p>
-              </div>
-              <button className="btn-ghost" onClick={() => setShowReconcileModal(false)} style={{ fontSize: 18 }}>✕</button>
-            </div>
-
-            {/* AI Confirmation Notice */}
-            <div
-              style={{
-                padding: '10px 14px',
-                borderRadius: 8,
-                background: 'rgba(99, 102, 241, 0.1)',
-                border: '1px solid rgba(99, 102, 241, 0.3)',
-                fontSize: 13,
-                marginBottom: 16,
-                color: 'var(--text-primary)',
-              }}
-            >
-              🤖 <strong>Détection IA BoursoBank</strong> : Nous avons analysé vos transactions bancaires. Vous gardez le contrôle total : vous pouvez modifier la catégorie ou le montant de chaque ligne ci-dessous.
-            </div>
-
-            {/* Transactions List */}
-            <h4 style={{ fontSize: 14, fontWeight: 700, margin: '16px 0 8px 0' }}>Flux bancaires détectés pour ce mois :</h4>
-            <div style={{ maxHeight: 280, overflowY: 'auto', border: '1px solid var(--border-subtle)', borderRadius: 8, marginBottom: 16 }}>
-              <table className="table" style={{ width: '100%', margin: 0 }}>
-                <thead>
-                  <tr>
-                    <th style={{ width: 40 }}>Inclure</th>
-                    <th>Date</th>
-                    <th>Libellé Transaction</th>
-                    <th>Montant</th>
-                    <th>Catégorie Assignée</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {(reconcileDraft.detectedTransactions || []).map((tx, idx) => (
-                    <tr key={tx.id || idx} style={{ opacity: tx.included ? 1 : 0.4 }}>
-                      <td>
-                        <input
-                          type="checkbox"
-                          checked={tx.included}
-                          onChange={(e) => {
-                            const next = [...(reconcileDraft.detectedTransactions || [])];
-                            next[idx] = { ...next[idx], included: e.target.checked };
-                            setReconcileDraft({ ...reconcileDraft, detectedTransactions: next });
-                          }}
-                        />
-                      </td>
-                      <td style={{ fontSize: 12 }}>{tx.date}</td>
-                      <td style={{ fontSize: 12 }}>
-                        <strong>{tx.rawDescription}</strong>
-                        {tx.accountName && <span style={{ fontSize: 10, color: 'var(--text-muted)', display: 'block' }}>{tx.accountName}</span>}
-                      </td>
-                      <td style={{ fontFamily: 'var(--font-mono)', fontWeight: 700 }}>
-                        {tx.amount.toLocaleString('fr-FR')} €
-                      </td>
-                      <td>
-                        <select
-                          className="input"
-                          style={{ fontSize: 12, padding: '4px 8px' }}
-                          value={tx.category}
-                          onChange={(e) => {
-                            const next = [...(reconcileDraft.detectedTransactions || [])];
-                            next[idx] = { ...next[idx], category: e.target.value as BankReconciliationCategory };
-                            setReconcileDraft({ ...reconcileDraft, detectedTransactions: next });
-                          }}
-                        >
-                          {Object.entries(BANK_CATEGORY_LABELS).map(([catKey, info]) => (
-                            <option key={catKey} value={catKey}>
-                              {info.icon} {info.label}
-                            </option>
-                          ))}
-                        </select>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Quick Add Custom Transaction Button */}
-            <div style={{ marginBottom: 16 }}>
-              <button
-                type="button"
-                className="btn btn-ghost btn-sm"
-                style={{ fontSize: 12, border: '1px dashed var(--border-subtle)' }}
-                onClick={() => {
-                  const newMatch: BankTransactionMatch = {
-                    id: `tx-custom-${Date.now()}`,
-                    date: `${reconcileDraft.period}-05`,
-                    rawDescription: 'Virement bancaire manuel',
-                    amount: 100,
-                    category: 'INVEST_PEA',
-                    suggestedCategory: 'INVEST_PEA',
-                    confidence: 1,
-                    included: true,
-                  };
-                  setReconcileDraft({
-                    ...reconcileDraft,
-                    detectedTransactions: [...(reconcileDraft.detectedTransactions || []), newMatch],
-                  });
-                }}
-              >
-                ➕ Ajouter une ligne manuelle
-              </button>
-            </div>
-
-            {/* Action Buttons */}
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12, borderTop: '1px solid var(--border-subtle)', paddingTop: 16 }}>
-              <button className="btn btn-ghost" onClick={() => setShowReconcileModal(false)}>
-                Annuler
-              </button>
-              <button
-                className="btn btn-primary"
-                style={{ background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', fontWeight: 700 }}
-                onClick={handleConfirmReconciliation}
-              >
-                ✅ Confirmer &amp; Enregistrer la Réalité Bancaire
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Historique des Allocations de Réserve */}
-      {allocations.length > 0 && (
-        <div className="card">
-          <div className="card-header"><span className="card-title">📜 Historique des allocations de réserve</span></div>
-          <table className="table" style={{ width: '100%' }}>
-            <thead>
-              <tr><th>Date</th><th>Montant</th><th>Enveloppe</th><th>Ticker</th><th></th></tr>
-            </thead>
-            <tbody>
-              {allocations.map((a) => (
-                <tr key={a.id || `a-${Math.random()}`}>
-                  <td>{a.date ? new Date(a.date).toLocaleDateString('fr-FR') : '—'}</td>
-                  <td>{(a.amount ?? 0).toLocaleString('fr-FR')} €</td>
-                  <td>{a.envelope || '—'}</td>
-                  <td>{a.ticker || '—'}</td>
-                  <td><button className="btn-ghost" onClick={() => onDeleteAllocation(a.id)} title="Supprimer">🗑️</button></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
     </div>
   );
 }

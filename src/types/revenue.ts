@@ -13,20 +13,25 @@ export const REFERENCE_NET_RATES = {
 } as const;
 
 export type BankReconciliationCategory =
-  | 'SALARY_INCOME'
-  | 'INVEST_PEA'
-  | 'INVEST_TONTINE'
-  | 'INVEST_TAMPON'
-  | 'INVEST_LIVRET_A'
-  | 'INVEST_CTO'
-  | 'OTHER_TRANSFER'
-  | 'IGNORED';
+  | 'SALARY_INCOME'       // 💼 Salaire & Rémunération employeur
+  | 'RENT_HOUSING'        // 🏠 Loyer & Logement
+  | 'SUBSCRIPTIONS'       // 📱 Abonnements récurrents (Télécom, Streaming, Énergie...)
+  | 'INVEST_PEA'          // 📈 Virement PEA (Investissement)
+  | 'INVEST_TONTINE'      // 🤝 Virement Tontine
+  | 'SUPPORT_WAVE'        // 🌍 Soutien familial (Wave)
+  | 'REVOLUT_TRANSFER'    // 💳 Virement / Recharge Revolut
+  | 'INVEST_LIVRET_A'     // 🛡️ Livret A / Épargne sécurisée
+  | 'INVEST_TAMPON'       // ⚡ Compte Tampon (Sas de réserve)
+  | 'INVEST_CTO'          // 🌐 Compte Titres (CTO)
+  | 'DAILY_EXPENSE'       // 🛒 Dépense courante / Quotidien (CB, commerces...)
+  | 'OTHER_TRANSFER'      // 🔄 Autre virement
+  | 'IGNORED';            // ❌ Ignorer
 
 export interface BankTransactionMatch {
   id: string;
   date: string; // YYYY-MM-DD
   rawDescription: string;
-  amount: number; // Montant en € (positif pour rentrée, valeur absolue pour virements d'investissement)
+  amount: number; // Montant en € (positif pour rentrée ou débit, affiché clairement)
   category: BankReconciliationCategory;
   suggestedCategory: BankReconciliationCategory;
   confidence: number; // 0 à 1
@@ -39,12 +44,19 @@ export interface BankReconciliationRecord {
   reconciledAt?: number;
   period: string; // YYYY-MM
   actualNetSalaryReceived: number; // Salaire net réellement encaissé en banque (€)
+  actualRent?: number;             // Loyer réel payé (€)
+  actualSubscriptions?: number;    // Abonnements récurrents réels (€)
   actualInvestedPEA: number;        // Virement(s) réel(s) vers PEA (€)
   actualInvestedTontine: number;    // Virement(s) réel(s) vers Tontine (€)
+  actualSupportWave?: number;       // Virement(s) réel(s) soutien Wave (€)
+  actualRevolut?: number;           // Virement(s) réel(s) vers Revolut (€)
   actualInvestedTampon: number;     // Virement(s) réel(s) vers Compte Tampon (€)
   actualInvestedLivretA: number;    // Virement(s) réel(s) vers Livret A (€)
   actualInvestedCTO: number;        // Virement(s) réel(s) vers CTO (€)
+  actualDailyExpenses?: number;     // Autres dépenses courantes (€)
   totalActualInvested: number;      // Somme totale investie réellement (PEA + Tontine + CTO + Tampon + Livrets)
+  totalActualFixedExpenses?: number;// Somme charges fixes (Loyer + Abonnements)
+  totalActualLivingTransfers?: number; // Somme transferts de vie (Revolut + Wave)
   actualSavingsRate: number;        // Taux d'épargne effectif réel (%) = (totalActualInvested / actualNetSalaryReceived) * 100
   deltaVsPlan: number;              // totalActualInvested - regularInvestableAmount
   executionRatePercent: number;     // (totalActualInvested / regularInvestableAmount) * 100

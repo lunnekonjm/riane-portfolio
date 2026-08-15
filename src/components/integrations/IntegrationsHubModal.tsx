@@ -28,7 +28,7 @@ export const IntegrationsHubModal: React.FC<IntegrationsHubModalProps> = ({
   const [activeTab, setActiveTab] = useState<'overview' | 'ibkr' | 'boursobank' | 'traderepublic'>('overview');
   const [connectingBourso, setConnectingBourso] = useState(false);
 
-  // Manual Livret A & PEA-PME state
+  // Manual Livret A, PEA-PME & Tontine Indicative state
   const [livretABalanceInput, setLivretABalanceInput] = useState<string>(() => {
     if (typeof window === 'undefined') return '0';
     return localStorage.getItem('riane_livret_a_balance') || '0';
@@ -41,6 +41,10 @@ export const IntegrationsHubModal: React.FC<IntegrationsHubModalProps> = ({
     if (typeof window === 'undefined') return '0';
     return localStorage.getItem('riane_pea_pme_balance') || '0';
   });
+  const [tontineBalanceInput, setTontineBalanceInput] = useState<string>(() => {
+    if (typeof window === 'undefined') return '0';
+    return localStorage.getItem('riane_tontine_balance') || '0';
+  });
   const [manualSavedSuccess, setManualSavedSuccess] = useState(false);
 
   const handleSaveManualAssets = () => {
@@ -48,16 +52,18 @@ export const IntegrationsHubModal: React.FC<IntegrationsHubModalProps> = ({
       const livVal = parseFloat(livretABalanceInput.replace(',', '.')) || 0;
       const rateVal = parseFloat(livretARateInput.replace(',', '.')) || 1.7;
       const peaVal = parseFloat(peaPmeBalanceInput.replace(',', '.')) || 0;
+      const tontineVal = parseFloat(tontineBalanceInput.replace(',', '.')) || 0;
       localStorage.setItem('riane_livret_a_balance', livVal.toString());
       localStorage.setItem('riane_livret_a_rate', rateVal.toString());
       localStorage.setItem('riane_pea_pme_balance', peaVal.toString());
+      localStorage.setItem('riane_tontine_balance', tontineVal.toString());
       setManualSavedSuccess(true);
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new Event('riane_bourso_updated'));
       }
       setTimeout(() => setManualSavedSuccess(false), 3500);
     } catch (e) {
-      console.error('Erreur sauvegarde manuelle Livret/PEA:', e);
+      console.error('Erreur sauvegarde manuelle Livret/PEA/Tontine:', e);
     }
   };
 
@@ -1180,6 +1186,46 @@ export const IntegrationsHubModal: React.FC<IntegrationsHubModalProps> = ({
                       Enveloppe PME BoursoBank (Indépendance ES, Riber, Memscap)
                     </div>
                   </div>
+
+                  {/* Tontine Indicative Input */}
+                  <div
+                    style={{
+                      padding: '14px',
+                      borderRadius: 12,
+                      background: 'var(--bg-primary)',
+                      border: '1px solid var(--border-medium)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 8,
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <label style={{ fontSize: 11, fontWeight: 700, color: '#818cf8', textTransform: 'uppercase' }}>
+                        Compte Tontine Indicatif (€)
+                      </label>
+                      <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>Échéance : Septembre</span>
+                    </div>
+                    <input
+                      type="text"
+                      value={tontineBalanceInput}
+                      onChange={(e) => setTontineBalanceInput(e.target.value)}
+                      placeholder="0,00 (laisser 0 pour masquer)"
+                      style={{
+                        padding: '8px 12px',
+                        borderRadius: 8,
+                        background: 'var(--bg-secondary)',
+                        border: '1px solid var(--border-subtle)',
+                        color: 'var(--text-primary)',
+                        fontFamily: 'var(--font-mono)',
+                        fontSize: 16,
+                        fontWeight: 700,
+                        width: '100%',
+                      }}
+                    />
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4, lineHeight: 1.4 }}>
+                      Épargne collective rotative (1 rotation par an en Septembre). À titre indicatif : n&apos;est pas comptabilisée dans vos liquidités quotidiennes et sera virée sur le Compte Tampon lors de sa perception.
+                    </div>
+                  </div>
                 </div>
 
                 {/* Save button and success confirmation */}
@@ -1194,7 +1240,7 @@ export const IntegrationsHubModal: React.FC<IntegrationsHubModalProps> = ({
                       cursor: 'pointer',
                     }}
                   >
-                    💾 Enregistrer mes soldes Livret A &amp; PEA-PME
+                    💾 Enregistrer mes soldes manuels
                   </button>
 
                   {manualSavedSuccess && (

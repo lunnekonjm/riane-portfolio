@@ -408,12 +408,15 @@ export default function RevenueBudgetView({
             </div>
           </div>
 
-          <div style={{ padding: '10px 12px', borderRadius: 8, background: 'rgba(129, 140, 248, 0.08)', border: '1px solid rgba(129, 140, 248, 0.3)' }}>
-            <span style={{ fontSize: 11, color: '#818cf8', fontWeight: 800, textTransform: 'uppercase' }}>🤝 Compte Tontine</span>
-            <div style={{ fontSize: 16, fontWeight: 800, fontFamily: 'var(--font-mono)', marginTop: 4, color: '#818cf8' }}>
-              {boursoLive.tontineEUR.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
+          {boursoLive.tontineEUR > 0 && (
+            <div style={{ padding: '10px 12px', borderRadius: 8, background: 'rgba(129, 140, 248, 0.08)', border: '1px solid rgba(129, 140, 248, 0.3)' }}>
+              <span style={{ fontSize: 11, color: '#818cf8', fontWeight: 800, textTransform: 'uppercase' }}>🤝 Tontine (Indicatif)</span>
+              <div style={{ fontSize: 16, fontWeight: 800, fontFamily: 'var(--font-mono)', marginTop: 4, color: '#818cf8' }}>
+                {boursoLive.tontineEUR.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
+              </div>
+              <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>Échéance Septembre • Viré sur Tampon</span>
             </div>
-          </div>
+          )}
 
           <div style={{ padding: '10px 12px', borderRadius: 8, background: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)' }}>
             <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>🛡️ Livret A ({boursoLive.livretARate}%)</span>

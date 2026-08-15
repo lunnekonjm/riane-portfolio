@@ -208,62 +208,67 @@ export default function BoursoLiveBar({
           >
             {formatEUR(tamponEUR)}
           </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 2 }}>
-            <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>Disponible arbitrage</span>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 2, gap: 6 }}>
+            <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>Disponible arbitrages</span>
             {tamponEUR > 0 && onOpenRebalanceWithTampon && (
               <button
                 type="button"
                 onClick={() => onOpenRebalanceWithTampon(tamponEUR)}
                 style={{
-                  fontSize: 10,
+                  fontSize: 11,
                   fontWeight: 700,
-                  padding: '2px 6px',
+                  padding: '3px 8px',
                   borderRadius: 6,
-                  background: 'rgba(16, 185, 129, 0.2)',
+                  background: 'rgba(16, 185, 129, 0.18)',
                   color: 'var(--accent-emerald)',
                   border: '1px solid rgba(16, 185, 129, 0.4)',
                   cursor: 'pointer',
+                  whiteSpace: 'nowrap',
+                  transition: 'all 0.2s ease',
                 }}
+                title="Ventiler le surplus du compte tampon vers vos enveloppes d'investissement"
               >
-                Injecter en DCA →
+                Arbitrer le surplus →
               </button>
             )}
           </div>
         </div>
 
-        {/* 3. Compte Tontine */}
-        <div
-          style={{
-            padding: '12px 14px',
-            borderRadius: 12,
-            background: 'rgba(129, 140, 248, 0.06)',
-            border: '1px solid rgba(129, 140, 248, 0.3)',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 4,
-          }}
-        >
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: 11, fontWeight: 800, color: '#818cf8', textTransform: 'uppercase' }}>
-              🤝 Compte Tontine
-            </span>
-            <span style={{ fontSize: 10, color: '#818cf8', fontWeight: 600 }}>Épargne Rotative</span>
-          </div>
+        {/* 3. Compte Tontine (Affiché uniquement à titre indicatif si non nul) */}
+        {tontineEUR > 0 && (
           <div
             style={{
-              fontSize: 18,
-              fontWeight: 800,
-              fontFamily: 'var(--font-mono)',
-              color: '#818cf8',
-              marginTop: 2,
+              padding: '12px 14px',
+              borderRadius: 12,
+              background: 'rgba(129, 140, 248, 0.06)',
+              border: '1px solid rgba(129, 140, 248, 0.3)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 4,
             }}
           >
-            {formatEUR(tontineEUR)}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: 11, fontWeight: 800, color: '#818cf8', textTransform: 'uppercase' }}>
+                🤝 Tontine (Indicatif)
+              </span>
+              <span style={{ fontSize: 10, color: '#818cf8', fontWeight: 600 }}>Échéance Sept.</span>
+            </div>
+            <div
+              style={{
+                fontSize: 18,
+                fontWeight: 800,
+                fontFamily: 'var(--font-mono)',
+                color: '#818cf8',
+                marginTop: 2,
+              }}
+            >
+              {formatEUR(tontineEUR)}
+            </div>
+            <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+              Hors liquidités actives • Viré sur Tampon
+            </div>
           </div>
-          <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-            Réserve communautaire
-          </div>
-        </div>
+        )}
 
         {/* 4. Livret A */}
         <div

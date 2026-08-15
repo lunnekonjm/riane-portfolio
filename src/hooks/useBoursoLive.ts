@@ -36,6 +36,7 @@ export function useBoursoLive(): BoursoLiveData {
   const [livretABalance, setLivretABalance] = useState<number>(0);
   const [livretARate, setLivretARate] = useState<number>(1.7);
   const [peaPmeBalance, setPeaPmeBalance] = useState<number>(0);
+  const [tontineManualBalance, setTontineManualBalance] = useState<number>(0);
   const [lastSync, setLastSync] = useState<string | null>(null);
 
   const loadLocalData = useCallback(() => {
@@ -62,6 +63,10 @@ export function useBoursoLive(): BoursoLiveData {
 
       const rawPea = localStorage.getItem('riane_pea_pme_balance');
       if (rawPea) setPeaPmeBalance(parseFloat(rawPea) || 0);
+
+      // Tontine manual indicative balance
+      const rawTontine = localStorage.getItem('riane_tontine_balance');
+      if (rawTontine) setTontineManualBalance(parseFloat(rawTontine) || 0);
 
       const rawSync = localStorage.getItem('truelayer_last_sync');
       if (rawSync) setLastSync(rawSync);
@@ -156,18 +161,21 @@ export function useBoursoLive(): BoursoLiveData {
   }, [processedAccounts]);
 
   const tontineEUR = useMemo(() => {
-    return processedAccounts
+    const syncedTontine = processedAccounts
       .filter((a) => a.included && a.category === 'tontine')
       .reduce((sum, a) => sum + a.balanceEUR, 0);
-  }, [processedAccounts]);
+    return syncedTontine > 0 ? syncedTontine : tontineManualBalance;
+  }, [processedAccounts, tontineManualBalance]);
 
   const livretAYearlyInterest = useMemo(() => {
     return (livretABalance * livretARate) / 100;
   }, [livretABalance, livretARate]);
 
+  // Liquidités d'exploitation opérationnelles réelles (Courant + Tampon + Livret A).
+  // La Tontine est une épargne rotative annuelle indicative reversée sur le Tampon à l'échéance (septembre).
   const totalLiquiditiesEUR = useMemo(() => {
-    return checkingEUR + tamponEUR + tontineEUR + livretABalance;
-  }, [checkingEUR, tamponEUR, tontineEUR, livretABalance]);
+    return checkingEUR + tamponEUR + livretABalance;
+  }, [checkingEUR, tamponEUR, livretABalance]);
 
   const isConnected = processedAccounts.length > 0;
 

@@ -190,9 +190,17 @@ export default function HomePage() {
         setDcaGlobalStartDate(savedDate);
       }
 
-      // Handle direct deep links (e.g. ?view=reports from emails)
+      // Handle TrueLayer OAuth callbacks
       try {
         const params = new URLSearchParams(window.location.search);
+        const tlStatus = params.get('truelayer_status');
+        if (tlStatus === 'success' || tlStatus === 'code_received') {
+          setToast({ message: 'BoursoBank connecté avec succès via DSP2 !', type: 'success' });
+          setShowIntegrationsModal(true);
+        } else if (tlStatus === 'error' || tlStatus === 'token_error') {
+          const msg = params.get('msg') || 'Échec de connexion bancaire';
+          setToast({ message: `Erreur TrueLayer : ${msg}`, type: 'error' });
+        }
         const viewParam = params.get('view') as PageView | null;
         if (viewParam && ['dashboard', 'envelopes', 'revenue', 'analysis', 'risk', 'audit', 'reports'].includes(viewParam)) {
           setCurrentView(viewParam);

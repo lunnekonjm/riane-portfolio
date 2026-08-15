@@ -239,6 +239,7 @@ export default function HomePage() {
 
   const [rebalanceBudgetMode, setRebalanceBudgetMode] = useState<'dca' | 'extra' | 'combo' | 'custom'>('dca');
   const [customRebalanceAmount, setCustomRebalanceAmount] = useState<number>(1000);
+  const [simulatedMarketDrop, setSimulatedMarketDrop] = useState<number>(0.25);
 
   const [showEditProfile, setShowEditProfile] = useState(false);
   const [showBenchmark, setShowBenchmark] = useState(false);
@@ -2135,17 +2136,24 @@ export default function HomePage() {
           {/* ═══ RISK ═══ */}
           {currentView === 'risk' && (
             <>
-              {/* Moniteur de Résilience Stratégique & Horizon Long Terme */}
+              {/* ═══ SIMULATEUR PRATIQUE D'ABSORPTION DCA & RÉSILIENCE 15-20 ANS ═══ */}
               {(() => {
-                const metrics = calculatePortfolioRiskMetrics(positions, fxRates);
-                const monthlyDCA = config?.monthlyBudget || 1000;
+                const marketCapital = marketVal || 0;
+                const monthlyBudget = config?.monthlyBudget || 1000;
+                const nominalLoss = marketCapital * simulatedMarketDrop;
+                const monthsToAbsorb = monthlyBudget > 0 ? (nominalLoss / monthlyBudget).toFixed(1) : '0.0';
+                const discountOnNewShares = (simulatedMarketDrop * 100).toFixed(0);
+
                 return (
-                  <div className="card" style={{ borderLeft: '4px solid var(--accent-emerald)', background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.03) 0%, rgba(6, 182, 212, 0.03) 100%)' }}>
+                  <div className="card" style={{ borderLeft: '4px solid var(--accent-cyan)', background: 'linear-gradient(135deg, rgba(6, 182, 212, 0.04) 0%, rgba(16, 185, 129, 0.04) 100%)' }}>
                     <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
                       <div>
-                        <span className="card-title">🛡️ Moniteur de Résilience &amp; Croissance Long Terme (DCA 15-20 ans)</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <span className="card-title">🛡️ Simulateur d&apos;Absorption DCA &amp; Résilience de Marché</span>
+                          <span className="badge badge-cyan" style={{ fontSize: 11, fontWeight: 700 }}>Horizon 15-20 ans</span>
+                        </div>
                         <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>
-                          Aligné sur votre stratégie de constitution de patrimoine et la puissance de l&apos;effet d&apos;intérêt composé.
+                          Simulez l&apos;impact d&apos;un krach sur vos actions cotées et visualisez comment vos versements mensuels absorbent la baisse.
                         </div>
                       </div>
                       <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
@@ -2157,64 +2165,95 @@ export default function HomePage() {
                         >
                           🎲 Simulation Monte Carlo 15-20 ans
                         </button>
-                        <span className="badge badge-emerald" style={{ fontSize: 12, padding: '4px 10px', fontWeight: 700 }}>
-                          Score Résilience : {metrics.diversificationScore}/100
-                        </span>
                       </div>
                     </div>
 
-                    <div className="grid-4" style={{ marginBottom: 14, marginTop: 14, gap: 16 }}>
-                      {/* 1. Rendement CAGR Espéré */}
+                    {/* Sélecteur Interactif de Baisse de Marché */}
+                    <div style={{ margin: '14px 0 16px 0', background: 'var(--bg-secondary)', padding: '10px 14px', borderRadius: 10, border: '1px solid var(--border-subtle)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>Choc de Marché Testé :</span>
+                        <span style={{ fontSize: 13, fontWeight: 800, color: 'var(--accent-rose)' }}>-{(simulatedMarketDrop * 100).toFixed(0)}%</span>
+                      </div>
+                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                        {[
+                          { rate: 0.10, label: '🟡 Choc Léger (-10%)' },
+                          { rate: 0.20, label: '🟠 Correction (-20%)' },
+                          { rate: 0.30, label: '🔴 Krach Modéré (-30%)' },
+                          { rate: 0.40, label: '⚡ Krach Sévère (-40%)' },
+                          { rate: 0.50, label: '💥 Krach Historique (-50%)' },
+                        ].map(({ rate, label }) => (
+                          <button
+                            key={rate}
+                            type="button"
+                            className={`btn btn-sm ${simulatedMarketDrop === rate ? 'btn-primary' : 'btn-ghost'}`}
+                            style={{
+                              fontSize: 12,
+                              fontWeight: 700,
+                              padding: '4px 10px',
+                              background: simulatedMarketDrop === rate ? 'var(--accent-rose)' : undefined,
+                              color: simulatedMarketDrop === rate ? '#fff' : undefined,
+                            }}
+                            onClick={() => setSimulatedMarketDrop(rate)}
+                          >
+                            {label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* 4 Indicateurs Pratiques & Mathématiques */}
+                    <div className="grid-4" style={{ marginBottom: 14, gap: 16 }}>
+                      {/* 1. Perte Nominale sur Capital Coté */}
                       <div style={{ background: 'var(--bg-tertiary)', padding: 14, borderRadius: 10, border: '1px solid var(--border-subtle)' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', fontWeight: 600, textTransform: 'uppercase' }}>Rendement Espéré (CAGR)</span>
-                          <span style={{ fontSize: 14 }}>📈</span>
+                          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', fontWeight: 600, textTransform: 'uppercase' }}>Baisse sur Capital Coté</span>
+                          <span style={{ fontSize: 14 }} title="Baisse calculée uniquement sur vos positions actions et ETF cotées">📉</span>
                         </div>
-                        <strong className="mono" style={{ fontSize: 22, color: 'var(--accent-emerald)', display: 'block', margin: '4px 0' }}>+{metrics.expectedReturn || 8.5}% / an</strong>
+                        <strong className="mono" style={{ fontSize: 22, color: 'var(--accent-rose)', display: 'block', margin: '4px 0' }}>-{Math.round(nominalLoss).toLocaleString('fr-FR')} €</strong>
                         <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
-                          Scénario neutre fondé sur vos 3 piliers (Core PEA, Small Caps &amp; Tech US).
+                          Sur vos positions cotées ({Math.round(marketCapital).toLocaleString('fr-FR')} €). <em>(Perte latente non réalisée)</em>.
                         </div>
                       </div>
 
-                      {/* 2. Résilience & Effet Parapluie DCA */}
+                      {/* 2. Vitesse d'Absorption par le DCA */}
                       <div style={{ background: 'var(--bg-tertiary)', padding: 14, borderRadius: 10, border: '1px solid var(--border-subtle)' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', fontWeight: 600, textTransform: 'uppercase' }}>Effet Parapluie DCA</span>
-                          <span style={{ fontSize: 14 }}>☔</span>
+                          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', fontWeight: 600, textTransform: 'uppercase' }}>Temps d&apos;Absorption DCA</span>
+                          <span style={{ fontSize: 14 }} title="Nombre de mois d'achats réguliers nécessaires pour réinjecter le montant de la baisse">⏱️</span>
                         </div>
-                        <strong className="mono" style={{ fontSize: 22, color: 'var(--accent-cyan)', display: 'block', margin: '4px 0' }}>{monthlyDCA.toLocaleString('fr-FR')} € / mois</strong>
+                        <strong className="mono" style={{ fontSize: 22, color: 'var(--accent-emerald)', display: 'block', margin: '4px 0' }}>{monthsToAbsorb} mois</strong>
                         <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
-                          En cas de baisse, vos achats mensuels abaissent votre PRU moyen (accumulation au rabais).
+                          Avec vos <strong>{monthlyBudget.toLocaleString('fr-FR')} € / mois</strong>, vous réinjectez 100% de la baisse en {Math.ceil(parseFloat(monthsToAbsorb))} versement(s).
                         </div>
                       </div>
 
-                      {/* 3. Volatilité & Profil */}
+                      {/* 3. Rabais Immédiat sur les Nouveaux Achats */}
                       <div style={{ background: 'var(--bg-tertiary)', padding: 14, borderRadius: 10, border: '1px solid var(--border-subtle)' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', fontWeight: 600, textTransform: 'uppercase' }}>Volatilité Normale</span>
-                          <span style={{ fontSize: 14 }}>⚡</span>
+                          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', fontWeight: 600, textTransform: 'uppercase' }}>Rabais sur Nouveaux Achats</span>
+                          <span style={{ fontSize: 14 }} title="Décote appliquée sur vos prochains achats mensuels grâce à la baisse des cours">🏷️</span>
                         </div>
-                        <strong className="mono" style={{ fontSize: 22, color: 'var(--accent-amber)', display: 'block', margin: '4px 0' }}>{metrics.annualVolatility}%</strong>
+                        <strong className="mono" style={{ fontSize: 22, color: 'var(--accent-cyan)', display: 'block', margin: '4px 0' }}>-{discountOnNewShares}% sur les cours</strong>
                         <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
-                          Fluctuation prévisible pour un portefeuille de croissance dynamique (Small Caps + Tech).
+                          Chaque euro investi achète <strong>+{(100 / (1 - simulatedMarketDrop) - 100).toFixed(0)}% de parts supplémentaires</strong> qu&apos;au sommet.
                         </div>
                       </div>
 
-                      {/* 4. Trésorerie Garantie & Matelas de Sécurité */}
+                      {/* 4. Matelas Sécurisé Intact (0% Perte) */}
                       <div style={{ background: 'var(--bg-tertiary)', padding: 14, borderRadius: 10, border: '1px solid var(--border-subtle)' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', fontWeight: 600, textTransform: 'uppercase' }}>Matelas Sécurisé (Livrets)</span>
-                          <span style={{ fontSize: 14 }}>🛡️</span>
+                          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', fontWeight: 600, textTransform: 'uppercase' }}>Matelas Livrets (Garanti)</span>
+                          <span style={{ fontSize: 14 }} title="Épargne garantie par l'État, totalement protégée de la baisse boursière">🛡️</span>
                         </div>
-                        <strong className="mono" style={{ fontSize: 22, color: 'var(--accent-emerald)', display: 'block', margin: '4px 0' }}>{(savingsVal || 0).toLocaleString('fr-FR')} €</strong>
+                        <strong className="mono" style={{ fontSize: 22, color: 'var(--accent-emerald)', display: 'block', margin: '4px 0' }}>0,00 € de perte</strong>
                         <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
-                          Trésorerie 100% sans risque et disponible, totalement isolée de la volatilité boursière.
+                          Vos {(savingsVal || 0).toLocaleString('fr-FR')} € de livrets restent 100% intacts pour assurer vos dépenses quotidiennes.
                         </div>
                       </div>
                     </div>
 
-                    <div style={{ padding: '10px 14px', background: 'rgba(16, 185, 129, 0.08)', borderRadius: 8, border: '1px solid rgba(16, 185, 129, 0.2)', fontSize: 13, color: 'var(--text-primary)', lineHeight: 1.45 }}>
-                      💡 <strong>Principe Clé de l&apos;Investisseur Long Terme :</strong> À votre horizon (15-20 ans), les variations temporaires des cours ne sont pas des pertes réelles. Chaque repli de marché est une opportunité d&apos;acheter davantage de parts à bas coût avec vos versements DCA mensuels.
+                    <div style={{ padding: '10px 14px', background: 'rgba(6, 182, 212, 0.08)', borderRadius: 8, border: '1px solid rgba(6, 182, 212, 0.2)', fontSize: 13, color: 'var(--text-primary)', lineHeight: 1.45 }}>
+                      💡 <strong>Démonstration Mathématique du DCA :</strong> À horizon 15-20 ans, un repli de marché n&apos;est pas une perte définitive. C&apos;est un <strong>accélérateur d&apos;accumulation</strong> qui vous permet d&apos;abaisser mécaniquement votre PRU et de démultiplier la valeur du portefeuille lors du rebond.
                     </div>
                   </div>
                 );
@@ -2222,7 +2261,12 @@ export default function HomePage() {
 
               <div className="card">
                 <div className="card-header">
-                  <span className="card-title">Stress Tests &amp; Simulation de Crises Historiques</span>
+                  <div>
+                    <span className="card-title">Stress Tests &amp; Simulation de Crises Historiques</span>
+                    <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>
+                      Testez le comportement spécifique de vos lignes face aux grands chocs macroéconomiques passés.
+                    </div>
+                  </div>
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 12 }}>
                   {ALL_SCENARIOS.map((scenario, idx) => (
@@ -2265,18 +2309,18 @@ export default function HomePage() {
                       <div style={{ fontSize: 24, fontWeight: 700, color: 'var(--accent-rose)', fontFamily: 'var(--font-mono)', margin: '4px 0' }}>
                         {selectedStressResult.portfolioLoss.toLocaleString('fr-FR')} €
                       </div>
-                      <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)' }}>Montant nominal déprécié</div>
+                      <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)' }}>Sur l&apos;ensemble des positions cotées</div>
                     </div>
                     <div style={{ background: 'var(--bg-tertiary)', padding: 14, borderRadius: 10, border: '1px solid var(--border-subtle)' }}>
-                      <span style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600 }}>Coût Estimé de Rééquilibrage</span>
-                      <div style={{ fontSize: 20, fontWeight: 700, fontFamily: 'var(--font-mono)', margin: '4px 0' }}>
-                        {Math.round(selectedStressResult.rebalanceCostEstimate).toLocaleString('fr-FR')} €
+                      <span style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600 }}>Absorption DCA Estimée</span>
+                      <div style={{ fontSize: 20, fontWeight: 700, fontFamily: 'var(--font-mono)', margin: '4px 0', color: 'var(--accent-emerald)' }}>
+                        {config?.monthlyBudget ? (Math.abs(selectedStressResult.portfolioLoss) / config.monthlyBudget).toFixed(1) : '1.5'} mois de DCA
                       </div>
-                      <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)' }}>Frais et frottements d&apos;arbitrage</div>
+                      <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)' }}>Pour réinjecter l&apos;équivalent de la baisse</div>
                     </div>
                     <div style={{ background: 'var(--bg-tertiary)', padding: 14, borderRadius: 10, border: '1px solid var(--border-subtle)' }}>
-                      <span style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600 }}>Impact sur vos Objectifs</span>
-                      <div style={{ fontSize: 13, color: 'var(--accent-amber)', fontWeight: 600, marginTop: 6 }}>
+                      <span style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600 }}>Diagnostic de Viabilité</span>
+                      <div style={{ fontSize: 13, color: 'var(--accent-cyan)', fontWeight: 600, marginTop: 6 }}>
                         {selectedStressResult.objectiveImpact}
                       </div>
                     </div>
@@ -2294,7 +2338,7 @@ export default function HomePage() {
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10, marginBottom: 14 }}>
                           <div>
                             <h4 style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', textTransform: 'uppercase', margin: 0 }}>
-                              Impact Détail par Actif ({displayAssets.length} titres)
+                              Impact Détaillé par Actif ({displayAssets.length} titres)
                             </h4>
                             {proxyCount > 0 && (
                               <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', marginTop: 2 }}>
@@ -2316,11 +2360,25 @@ export default function HomePage() {
                         </div>
 
                         {displayAssets.map((asset, i) => (
-                          <div key={i} className="theme-bar-row" style={{ marginBottom: 12, padding: '8px 12px', background: 'var(--bg-tertiary)', borderRadius: 8, border: '1px solid var(--border-subtle)' }}>
-                            <div style={{ width: 220, display: 'flex', flexDirection: 'column' }}>
-                              <AssetBadge ticker={asset.ticker} name={asset.name} showTicker={false} />
+                          <div key={i} className="theme-bar-row" style={{ marginBottom: 12, padding: '10px 14px', background: 'var(--bg-tertiary)', borderRadius: 8, border: '1px solid var(--border-subtle)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
+                            <div style={{ minWidth: 220, display: 'flex', flexDirection: 'column' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <AssetBadge ticker={asset.ticker} name={asset.name} showTicker={false} />
+                                {asset.envelope && (
+                                  <span className="badge badge-primary" style={{ fontSize: 10, padding: '1px 6px' }}>{asset.envelope}</span>
+                                )}
+                              </div>
                               <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
                                 <span style={{ fontSize: 12, fontFamily: 'var(--font-mono)', color: 'var(--accent-cyan)', fontWeight: 600 }}>{asset.ticker}</span>
+                                {asset.isHeld ? (
+                                  <span className="badge badge-emerald" style={{ fontSize: 10, padding: '1px 6px' }}>
+                                    Détenu ({(asset.positionValue || 0).toLocaleString('fr-FR')} €)
+                                  </span>
+                                ) : (
+                                  <span className="badge badge-amber" style={{ fontSize: 10, padding: '1px 6px' }}>
+                                    Ligne cible non amorcée
+                                  </span>
+                                )}
                                 {asset.isProxySimulated && (
                                   <button
                                     type="button"
@@ -2329,30 +2387,36 @@ export default function HomePage() {
                                     onClick={() => setActiveProxyModalAsset(asset)}
                                     title="Cliquer pour voir l'explication de la simulation par proxy"
                                   >
-                                    🔒 Simulé via Proxy ({asset.inceptionYear}) 💡
+                                    🔒 Proxy ({asset.inceptionYear}) 💡
                                   </button>
                                 )}
                               </div>
                             </div>
-                            <div className="stress-bar" style={{ flex: 1 }}>
-                              <div
-                                className={`stress-bar-fill ${Math.abs(asset.contributionPercent) > 5 ? 'high' : Math.abs(asset.contributionPercent) > 2 ? 'medium' : 'low'}`}
-                                style={{
-                                  width: `${Math.min(Math.abs(asset.contributionPercent) * 3, 100)}%`,
-                                  opacity: asset.isProxySimulated ? 0.75 : 1.0,
-                                }}
-                              />
+
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                              {/* Baisse unitaire du cours */}
+                              <div style={{ textAlign: 'right' }}>
+                                <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>Baisse du cours</div>
+                                <div style={{ fontSize: 13, fontFamily: 'var(--font-mono)', fontWeight: 700, color: (asset.priceShockPercent || 0) < 0 ? 'var(--accent-rose)' : 'var(--text-primary)' }}>
+                                  {asset.priceShockPercent !== undefined ? `${asset.priceShockPercent.toFixed(1)}%` : '-'}
+                                </div>
+                              </div>
+
+                              {/* Perte nominale sur la position */}
+                              <div style={{ textAlign: 'right', minWidth: 100 }}>
+                                <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>Perte sur la ligne</div>
+                                <div style={{ fontSize: 14, fontFamily: 'var(--font-mono)', fontWeight: 700, color: asset.contribution < 0 ? 'var(--accent-rose)' : 'var(--text-secondary)' }}>
+                                  {asset.isHeld ? `${asset.contribution.toLocaleString('fr-FR')} €` : '0 €'}
+                                </div>
+                              </div>
                             </div>
-                            <span style={{ width: 70, textAlign: 'right', fontSize: 13, fontFamily: 'var(--font-mono)', fontWeight: 700, color: asset.contribution < 0 ? 'var(--accent-rose)' : 'var(--text-secondary)' }}>
-                              {asset.contributionPercent.toFixed(1)}%
-                            </span>
                           </div>
                         ))}
                       </div>
                     );
                   })()}
 
-                  {/* 🎯 NOUVELLE ARCHITECTURE DES RECOMMANDATIONS ET ACTIONS DE GOUVERNANCE CONCRÈTES 1-CLICK */}
+                  {/* 🛡️ RECOMMANDATIONS STRATÉGIQUES ANTI-CRISE & GUIDE DE CONDUITE DCA */}
                   {selectedStressResult.governanceActions.length > 0 && (
                     <div style={{ marginTop: 24, padding: 20, background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.1), rgba(6, 182, 212, 0.08))', border: '1px solid var(--accent-amber)', borderRadius: 'var(--radius-lg)', boxShadow: '0 8px 32px rgba(0,0,0,0.3)' }}>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, borderBottom: '1px solid var(--border-subtle)', paddingBottom: 12, flexWrap: 'wrap', gap: 10 }}>
@@ -2360,89 +2424,33 @@ export default function HomePage() {
                           <span style={{ fontSize: 24 }}>🛡️</span>
                           <div>
                             <h4 style={{ fontSize: 16, fontWeight: 700, color: 'var(--accent-amber)', margin: 0 }}>
-                              Plan d&apos;Action &amp; Décisions Stratégiques Anti-Crise
+                              Guide de Conduite Stratégique Anti-Crise (DCA 15-20 ans)
                             </h4>
                             <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)' }}>
-                              Recommandations d&apos;arbitrage concrètes dérivées du comportement de votre portefeuille
+                              Principes directeurs d&apos;allocation et de gestion des flux lors d&apos;une correction majeure
                             </div>
                           </div>
                         </div>
-                        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                          <span className="badge badge-amber" style={{ fontSize: 'var(--text-xs)', fontWeight: 600 }}>Moteur de Risque Paramétrique</span>
-                          <span className="badge badge-cyan" style={{ fontSize: 'var(--text-xs)', fontWeight: 600 }}>Gemini 3.5 Lite / 3.6 Flash</span>
-                        </div>
                       </div>
 
-                      {/* CARTES D'ACTIONS CONCRÈTES 1-CLICK */}
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                        {selectedStressResult.actionableGovernancePlans?.map((plan) => (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                        {selectedStressResult.governanceActions.map((action, idx) => (
                           <div
-                            key={plan.id}
+                            key={idx}
                             style={{
                               background: 'var(--bg-tertiary)',
                               borderRadius: 'var(--radius-md)',
                               border: '1px solid var(--border-subtle)',
-                              padding: 16,
+                              padding: 14,
                               display: 'flex',
-                              flexDirection: 'column',
+                              alignItems: 'flex-start',
                               gap: 10,
                             }}
                           >
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                              <strong style={{ fontSize: 14, color: 'var(--accent-cyan)' }}>🎯 {plan.title}</strong>
-                              <span className="badge badge-amber" style={{ fontSize: 'var(--text-xs)', fontWeight: 600 }}>Action Recommandée</span>
+                            <span style={{ fontSize: 18, marginTop: 2 }}>{idx === 0 ? '🎯' : idx === 1 ? '🛡️' : '🚀'}</span>
+                            <div style={{ fontSize: 13, color: 'var(--text-primary)', lineHeight: 1.5 }}>
+                              {action}
                             </div>
-
-                            <p style={{ fontSize: 13, color: 'var(--text-secondary)', margin: 0, lineHeight: 1.4 }}>
-                              <strong>Constat :</strong> {plan.diagnostic}
-                            </p>
-                            <p style={{ fontSize: 13, color: 'var(--text-primary)', margin: 0, lineHeight: 1.4 }}>
-                              <strong>Solution :</strong> {plan.concreteAction}
-                            </p>
-
-                            <button
-                              type="button"
-                              className="btn btn-primary"
-                              style={{
-                                alignSelf: 'flex-start',
-                                marginTop: 6,
-                                padding: '8px 16px',
-                                fontSize: 12,
-                                fontWeight: 700,
-                                background: 'linear-gradient(135deg, var(--accent-emerald), var(--accent-cyan))',
-                              }}
-                              onClick={async () => {
-                                if (plan.actionType === 'UPDATE_TARGET_WEIGHT' && plan.targetTicker && plan.targetValue) {
-                                  const targetPos = positions.find((p) => p.ticker.toUpperCase() === plan.targetTicker?.toUpperCase());
-                                  if (targetPos) {
-                                    await updatePosition({
-                                      ...targetPos,
-                                      targetWeight: plan.targetValue,
-                                      updatedAt: Date.now(),
-                                    });
-                                    showToast(`🎉 Poids cible de ${targetPos.name} ajusté à ${(plan.targetValue * 100).toFixed(1)}% avec succès !`);
-                                  }
-                                } else if (plan.actionType === 'INCREASE_DCA' && plan.targetTicker && plan.targetValue) {
-                                  const acwiPos = positions.find((p) => p.ticker.includes('GPEA') || p.ticker.includes('CW8') || p.name.toLowerCase().includes('acwi'));
-                                  if (acwiPos) {
-                                    await updatePosition({
-                                      ...acwiPos,
-                                      monthlyDCA: (acwiPos.monthlyDCA || 0) + plan.targetValue,
-                                      updatedAt: Date.now(),
-                                    });
-                                    showToast(`🎉 Versment DCA mensuel sur ${acwiPos.name} augmenté à ${(acwiPos.monthlyDCA || 0) + plan.targetValue} €/mois !`);
-                                  }
-                                } else if (plan.actionType === 'CAP_CTO_BUDGET' && plan.targetValue) {
-                                  await updateConfig({
-                                    ...(config || {}),
-                                    annualCTOBudget: plan.targetValue,
-                                  } as any);
-                                  showToast(`🎉 Budget annuel CTO plafonné à ${plan.targetValue} €/an dans la configuration RIANE !`);
-                                }
-                              }}
-                            >
-                              {plan.buttonLabel}
-                            </button>
                           </div>
                         ))}
                       </div>

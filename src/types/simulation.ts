@@ -118,6 +118,10 @@ export interface StressTestResult {
     name: string;
     contribution: number;
     contributionPercent: number;
+    priceShockPercent?: number;
+    positionValue?: number;
+    isHeld?: boolean;
+    envelope?: string;
     inceptionYear?: number;
     isProxySimulated?: boolean;
     proxyNote?: string;

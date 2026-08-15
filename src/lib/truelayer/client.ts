@@ -148,6 +148,56 @@ export async function fetchTrueLayerSummary(accessToken?: string): Promise<TrueL
         logoUri: rawAcc.provider?.logo_uri,
       });
     }
+
+    // Also fetch cards if available
+    try {
+      const cardsResponse = await fetch(`${apiBase}/cards`, {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+      if (cardsResponse.ok) {
+        const cardsData = await cardsResponse.json();
+        const rawCards: any[] = cardsData.results || [];
+        for (const rawCard of rawCards) {
+          const cardId = rawCard.account_id || rawCard.card_id;
+          if (accounts.some((a) => a.id === cardId)) continue;
+
+          let currentBal = 0;
+          let availableBal = 0;
+          try {
+            const cardBalResponse = await fetch(`${apiBase}/cards/${cardId}/balance`, {
+              headers: { Authorization: `Bearer ${accessToken}` },
+            });
+            if (cardBalResponse.ok) {
+              const cardBalData = await cardBalResponse.json();
+              const balResult = cardBalData.results?.[0];
+              if (balResult) {
+                currentBal = Number(balResult.current ?? 0);
+                availableBal = Number(balResult.available ?? currentBal);
+              }
+            }
+          } catch {}
+
+          const displayName = rawCard.display_name || `Carte BoursoBank ${rawCard.card_type || ''}`;
+          accounts.push({
+            id: cardId,
+            displayName,
+            accountType: "checking",
+            institutionName: rawCard.provider?.display_name || "BoursoBank",
+            currency: rawCard.currency || "EUR",
+            currentBalance: currentBal,
+            availableBalance: availableBal,
+            balanceEUR: currentBal,
+            ibanMasked: rawCard.partial_card_number ? `••••${rawCard.partial_card_number}` : undefined,
+            lastUpdated: new Date().toISOString(),
+            logoUri: rawCard.provider?.logo_uri,
+          });
+        }
+      }
+    } catch {
+      // ignore card errors if accounts succeeded
+    }
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
     partialErrors.push(`TrueLayer Sync: ${msg}`);

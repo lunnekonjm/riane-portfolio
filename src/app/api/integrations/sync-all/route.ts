@@ -8,7 +8,16 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const fxRate = parseFloat(searchParams.get("fxRate") || "1.08");
-    const truelayerToken = searchParams.get("truelayerToken") || undefined;
+
+    const cookieHeader = request.headers.get("cookie") || "";
+    const cookieMatch = cookieHeader.match(/truelayer_access_token=([^;]+)/);
+    const cookieToken = cookieMatch ? decodeURIComponent(cookieMatch[1].trim()) : undefined;
+
+    const truelayerToken =
+      searchParams.get("truelayerToken") ||
+      cookieToken ||
+      process.env.TRUELAYER_ACCESS_TOKEN ||
+      undefined;
 
     const [snaptradeRes, truelayerRes] = await Promise.allSettled([
       fetchSnapTradeSummary(isNaN(fxRate) ? 1.08 : fxRate),

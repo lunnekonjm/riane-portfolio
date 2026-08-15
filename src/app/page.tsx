@@ -194,6 +194,12 @@ export default function HomePage() {
       try {
         const params = new URLSearchParams(window.location.search);
         const tlStatus = params.get('truelayer_status');
+        const tlToken = params.get('token');
+        if (tlToken) {
+          try {
+            localStorage.setItem('truelayer_access_token', tlToken);
+          } catch {}
+        }
         if (tlStatus === 'success' || tlStatus === 'code_received') {
           setToast({ message: 'BoursoBank connecté avec succès via DSP2 !', type: 'success' });
           setShowIntegrationsModal(true);

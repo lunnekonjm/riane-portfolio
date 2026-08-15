@@ -10,6 +10,12 @@ interface IntegrationsHubModalProps {
   fxRateEURUSD?: number;
 }
 
+export interface BoursoAccountConfig {
+  alias?: string;
+  category: 'checking' | 'tampon' | 'tontine' | 'savings' | 'investment' | 'excluded';
+  included: boolean;
+}
+
 export const IntegrationsHubModal: React.FC<IntegrationsHubModalProps> = ({
   isOpen,
   onClose,
@@ -22,13 +28,89 @@ export const IntegrationsHubModal: React.FC<IntegrationsHubModalProps> = ({
   const [activeTab, setActiveTab] = useState<'overview' | 'ibkr' | 'boursobank' | 'traderepublic'>('overview');
   const [connectingBourso, setConnectingBourso] = useState(false);
 
+  // Manual Livret A & PEA-PME state
+  const [livretABalanceInput, setLivretABalanceInput] = useState<string>(() => {
+    if (typeof window === 'undefined') return '0';
+    return localStorage.getItem('riane_livret_a_balance') || '0';
+  });
+  const [livretARateInput, setLivretARateInput] = useState<string>(() => {
+    if (typeof window === 'undefined') return '1.7';
+    return localStorage.getItem('riane_livret_a_rate') || '1.7';
+  });
+  const [peaPmeBalanceInput, setPeaPmeBalanceInput] = useState<string>(() => {
+    if (typeof window === 'undefined') return '0';
+    return localStorage.getItem('riane_pea_pme_balance') || '0';
+  });
+  const [manualSavedSuccess, setManualSavedSuccess] = useState(false);
+
+  const handleSaveManualAssets = () => {
+    try {
+      const livVal = parseFloat(livretABalanceInput.replace(',', '.')) || 0;
+      const rateVal = parseFloat(livretARateInput.replace(',', '.')) || 1.7;
+      const peaVal = parseFloat(peaPmeBalanceInput.replace(',', '.')) || 0;
+      localStorage.setItem('riane_livret_a_balance', livVal.toString());
+      localStorage.setItem('riane_livret_a_rate', rateVal.toString());
+      localStorage.setItem('riane_pea_pme_balance', peaVal.toString());
+      setManualSavedSuccess(true);
+      setTimeout(() => setManualSavedSuccess(false), 3500);
+    } catch (e) {
+      console.error('Erreur sauvegarde manuelle Livret/PEA:', e);
+    }
+  };
+
+  const livretABalance = parseFloat(livretABalanceInput.replace(',', '.')) || 0;
+  const livretARate = parseFloat(livretARateInput.replace(',', '.')) || 1.7;
+  const peaPmeBalance = parseFloat(peaPmeBalanceInput.replace(',', '.')) || 0;
+  const livretAYearlyInterest = (livretABalance * livretARate) / 100;
+
+  const [boursoConfigs, setBoursoConfigs] = useState<Record<string, BoursoAccountConfig>>(() => {
+    if (typeof window === 'undefined') return {};
+    try {
+      const saved = localStorage.getItem('riane_bourso_accounts_config');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return {};
+  });
+
+  const saveBoursoConfig = (accId: string, newConfig: Partial<BoursoAccountConfig>) => {
+    setBoursoConfigs((prev) => {
+      const current = prev[accId] || { category: 'checking', included: true };
+      const updated = {
+        ...prev,
+        [accId]: {
+          ...current,
+          ...newConfig,
+        },
+      };
+      try {
+        localStorage.setItem('riane_bourso_accounts_config', JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
+  };
+
+  const getAccountConfig = (acc: { id: string; displayName: string; ibanMasked?: string; accountType: string }): BoursoAccountConfig => {
+    if (boursoConfigs[acc.id]) return boursoConfigs[acc.id];
+    // Smart auto-detection based on user's exact accounts
+    if (acc.ibanMasked?.includes('4455') || acc.displayName.toLowerCase().includes('autre')) {
+      return { alias: 'Compte Tampon (Surplus & Dispatch)', category: 'tampon', included: true };
+    }
+    if (acc.ibanMasked?.includes('4424') || acc.displayName.toLowerCase().includes('ou o') || acc.displayName.toLowerCase().includes('tontine')) {
+      return { alias: 'Compte Tontine (M ou Mme)', category: 'tontine', included: true };
+    }
+    if (acc.ibanMasked?.includes('0429') || acc.displayName.toLowerCase().includes('richard')) {
+      return { alias: 'Compte Courant Principal', category: 'checking', included: true };
+    }
+    return { alias: acc.displayName, category: 'checking', included: true };
+  };
+
   const handleConnectBourso = async () => {
     setConnectingBourso(true);
     try {
       const res = await fetch('/api/integrations/truelayer/auth-url?format=json');
       const data = await res.json();
       if (data.authUrl) {
-        window.open(data.authUrl, '_blank', 'noopener,noreferrer');
+        window.location.href = data.authUrl;
       }
     } catch (err) {
       console.error('Erreur TrueLayer Auth:', err);
@@ -40,7 +122,9 @@ export const IntegrationsHubModal: React.FC<IntegrationsHubModalProps> = ({
   const syncAll = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/integrations/sync-all?fxRate=${fxRateEURUSD}`);
+      const tlToken = typeof window !== 'undefined' ? localStorage.getItem('truelayer_access_token') : null;
+      const url = `/api/integrations/sync-all?fxRate=${fxRateEURUSD}${tlToken ? `&truelayerToken=${encodeURIComponent(tlToken)}` : ''}`;
+      const res = await fetch(url);
       if (res.ok) {
         const data = await res.json();
         setSnaptradeData(data.snaptrade);
@@ -67,11 +151,42 @@ export const IntegrationsHubModal: React.FC<IntegrationsHubModalProps> = ({
   const ibkrCashEUR = snaptradeData?.totalCashEUR || 0;
   const ibkrInvestedEUR = snaptradeData?.totalInvestedEUR || 0;
 
-  const boursoTotalEUR = truelayerData?.totalBoursoBankEUR || 0;
-  const boursoCheckingEUR = truelayerData?.totalCheckingEUR || 0;
-  const boursoSavingsEUR = truelayerData?.totalSavingsEUR || 0;
-  const boursoInvestedEUR = truelayerData?.totalInvestedEUR || 0;
+  // BoursoBank Account Configuration & Filtering
+  const rawBoursoAccounts = truelayerData?.accounts || [];
+  const processedBoursoAccounts = rawBoursoAccounts.map((acc) => {
+    const cfg = getAccountConfig(acc);
+    return {
+      ...acc,
+      customAlias: cfg.alias || acc.displayName,
+      effectiveCategory: cfg.category,
+      isIncluded: cfg.included && cfg.category !== 'excluded',
+    };
+  });
 
+  const includedBoursoAccounts = processedBoursoAccounts.filter((a) => a.isIncluded);
+  const excludedBoursoAccounts = processedBoursoAccounts.filter((a) => !a.isIncluded);
+
+  const boursoCheckingEUR = includedBoursoAccounts
+    .filter((a) => a.effectiveCategory === 'checking')
+    .reduce((sum, a) => sum + a.balanceEUR, 0);
+
+  const boursoTamponEUR = includedBoursoAccounts
+    .filter((a) => a.effectiveCategory === 'tampon')
+    .reduce((sum, a) => sum + a.balanceEUR, 0);
+
+  const boursoTontineEUR = includedBoursoAccounts
+    .filter((a) => a.effectiveCategory === 'tontine')
+    .reduce((sum, a) => sum + a.balanceEUR, 0);
+
+  const boursoSavingsEUR = includedBoursoAccounts
+    .filter((a) => a.effectiveCategory === 'savings')
+    .reduce((sum, a) => sum + a.balanceEUR, 0) + livretABalance;
+
+  const boursoInvestedEUR = includedBoursoAccounts
+    .filter((a) => a.effectiveCategory === 'investment')
+    .reduce((sum, a) => sum + a.balanceEUR, 0) + peaPmeBalance;
+
+  const boursoTotalEUR = includedBoursoAccounts.reduce((sum, a) => sum + a.balanceEUR, 0) + livretABalance + peaPmeBalance;
   const consolidatedTotalEUR = ibkrTotalEUR + boursoTotalEUR;
 
   const ibkrAuth = snaptradeData?.authorizations?.[0];
@@ -456,21 +571,33 @@ export const IntegrationsHubModal: React.FC<IntegrationsHubModalProps> = ({
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 12, marginTop: 12 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span style={{ color: 'var(--text-muted)' }}>Total bancaire :</span>
+                      <span style={{ color: 'var(--text-muted)' }}>Total retenu :</span>
                       <strong style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>{formatEUR(boursoTotalEUR)}</strong>
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                       <span style={{ color: 'var(--text-muted)' }}>Compte Courant :</span>
-                      <span style={{ color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)' }}>{formatEUR(boursoCheckingEUR)}</span>
+                      <span style={{ color: boursoCheckingEUR < 0 ? 'var(--accent-amber)' : 'var(--text-secondary)', fontFamily: 'var(--font-mono)' }}>{formatEUR(boursoCheckingEUR)}</span>
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span style={{ color: 'var(--text-muted)' }}>Livret A &amp; Épargne :</span>
-                      <span style={{ color: 'var(--accent-emerald)', fontFamily: 'var(--font-mono)' }}>{formatEUR(boursoSavingsEUR)}</span>
+                      <span style={{ color: 'var(--text-muted)' }}>Compte Tampon (Surplus) :</span>
+                      <span style={{ color: 'var(--accent-emerald)', fontFamily: 'var(--font-mono)', fontWeight: 600 }}>{formatEUR(boursoTamponEUR)}</span>
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span style={{ color: 'var(--text-muted)' }}>PEA-PME Titres :</span>
-                      <span style={{ color: 'var(--accent-cyan)', fontFamily: 'var(--font-mono)' }}>{formatEUR(boursoInvestedEUR)}</span>
+                      <span style={{ color: 'var(--text-muted)' }}>Compte Tontine :</span>
+                      <span style={{ color: '#818cf8', fontFamily: 'var(--font-mono)', fontWeight: 600 }}>{formatEUR(boursoTontineEUR)}</span>
                     </div>
+                    {livretABalance > 0 && (
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span style={{ color: 'var(--text-muted)' }}>Livret A ({livretARate}%) :</span>
+                        <span style={{ color: 'var(--accent-cyan)', fontFamily: 'var(--font-mono)' }}>{formatEUR(livretABalance)}</span>
+                      </div>
+                    )}
+                    {excludedBoursoAccounts.length > 0 && (
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span style={{ color: 'var(--text-muted)' }}>Comptes exclus :</span>
+                        <span style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>{excludedBoursoAccounts.length} ignoré(s)</span>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -638,10 +765,10 @@ export const IntegrationsHubModal: React.FC<IntegrationsHubModalProps> = ({
                   <span style={{ fontSize: 28 }}>🏦</span>
                   <div>
                     <h3 style={{ fontSize: 16, fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>
-                      BoursoBank (Banque &amp; Épargne DSP2)
+                      BoursoBank (Open Banking DSP2 &amp; Épargne)
                     </h3>
                     <p style={{ fontSize: 12, color: 'var(--text-secondary)', margin: '4px 0 0 0' }}>
-                      Synchronisation automatique de votre <strong>Livret A</strong>, <strong>Compte Courant</strong> et <strong>PEA-PME</strong>.
+                      Gestion multi-comptes : <strong>Compte Courant</strong>, <strong>Compte Tampon (Surplus)</strong>, <strong>Compte Tontine</strong> et suivi <strong>Livret A / PEA-PME</strong>.
                     </p>
                   </div>
                 </div>
@@ -660,43 +787,230 @@ export const IntegrationsHubModal: React.FC<IntegrationsHubModalProps> = ({
                     cursor: connectingBourso ? 'wait' : 'pointer',
                   }}
                 >
-                  <span>{connectingBourso ? 'Ouverture...' : 'Connecter BoursoBank DSP2'}</span>
+                  <span>{connectingBourso ? 'Ouverture...' : 'Re-synchroniser BoursoBank DSP2'}</span>
                   <span>↗</span>
                 </button>
               </div>
 
-              {/* Accounts list or Connect Explainer */}
-              {truelayerData?.accounts && truelayerData.accounts.length > 0 ? (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 12 }}>
-                  {truelayerData.accounts.map((acc) => (
-                    <div
-                      key={acc.id}
-                      style={{
-                        padding: '16px',
-                        borderRadius: 12,
-                        background: 'var(--bg-tertiary)',
-                        border: '1px solid var(--border-subtle)',
-                      }}
-                    >
-                      <div style={{ fontSize: 11, textTransform: 'uppercase', color: 'var(--accent-amber)', fontWeight: 700 }}>
-                        {acc.accountType}
-                      </div>
-                      <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', marginTop: 2 }}>
-                        {acc.displayName}
-                      </div>
-                      {acc.ibanMasked && (
-                        <div style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', marginTop: 2 }}>
-                          IBAN {acc.ibanMasked}
+              {/* Summary KPIs */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10 }}>
+                <div
+                  style={{
+                    padding: '12px 16px',
+                    borderRadius: 12,
+                    background: 'var(--bg-tertiary)',
+                    border: '1px solid var(--border-subtle)',
+                  }}
+                >
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>TOTAL RETENU APPLI</div>
+                  <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--accent-cyan)', fontFamily: 'var(--font-mono)', marginTop: 2 }}>
+                    {formatEUR(boursoTotalEUR)}
+                  </div>
+                </div>
+                <div
+                  style={{
+                    padding: '12px 16px',
+                    borderRadius: 12,
+                    background: 'var(--bg-tertiary)',
+                    border: '1px solid var(--border-subtle)',
+                  }}
+                >
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>COMPTE COURANT</div>
+                  <div style={{ fontSize: 18, fontWeight: 800, color: boursoCheckingEUR < 0 ? 'var(--accent-amber)' : 'var(--accent-emerald)', fontFamily: 'var(--font-mono)', marginTop: 2 }}>
+                    {formatEUR(boursoCheckingEUR)}
+                  </div>
+                </div>
+                <div
+                  style={{
+                    padding: '12px 16px',
+                    borderRadius: 12,
+                    background: 'var(--bg-tertiary)',
+                    border: '1px solid var(--border-subtle)',
+                  }}
+                >
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>COMPTE TAMPON (SURPLUS)</div>
+                  <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--accent-emerald)', fontFamily: 'var(--font-mono)', marginTop: 2 }}>
+                    {formatEUR(boursoTamponEUR)}
+                  </div>
+                </div>
+                <div
+                  style={{
+                    padding: '12px 16px',
+                    borderRadius: 12,
+                    background: 'var(--bg-tertiary)',
+                    border: '1px solid var(--border-subtle)',
+                  }}
+                >
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>COMPTE TONTINE</div>
+                  <div style={{ fontSize: 18, fontWeight: 800, color: '#818cf8', fontFamily: 'var(--font-mono)', marginTop: 2 }}>
+                    {formatEUR(boursoTontineEUR)}
+                  </div>
+                </div>
+              </div>
+
+              {/* Accounts List */}
+              {processedBoursoAccounts.length > 0 ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span>📋</span> Comptes Bancaires Détectés ({processedBoursoAccounts.length}) :
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 12 }}>
+                    {processedBoursoAccounts.map((acc) => {
+                      const isIncluded = acc.isIncluded;
+                      return (
+                        <div
+                          key={acc.id}
+                          style={{
+                            padding: '16px 18px',
+                            borderRadius: 14,
+                            background: isIncluded ? 'var(--bg-tertiary)' : 'rgba(255, 255, 255, 0.02)',
+                            border: `1px solid ${
+                              isIncluded
+                                ? acc.effectiveCategory === 'tontine'
+                                  ? 'rgba(129, 140, 248, 0.4)'
+                                  : acc.effectiveCategory === 'tampon'
+                                  ? 'rgba(16, 185, 129, 0.4)'
+                                  : 'var(--border-subtle)'
+                                : 'rgba(255, 255, 255, 0.08)'
+                            }`,
+                            opacity: isIncluded ? 1 : 0.65,
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: 12,
+                            transition: 'all 0.2s ease',
+                          }}
+                        >
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                            <div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <span
+                                  style={{
+                                    fontSize: 10,
+                                    fontWeight: 800,
+                                    textTransform: 'uppercase',
+                                    padding: '2px 8px',
+                                    borderRadius: 6,
+                                    background:
+                                      acc.effectiveCategory === 'tontine'
+                                        ? 'rgba(129, 140, 248, 0.15)'
+                                        : acc.effectiveCategory === 'tampon'
+                                        ? 'rgba(16, 185, 129, 0.15)'
+                                        : acc.effectiveCategory === 'checking'
+                                        ? 'rgba(6, 182, 212, 0.15)'
+                                        : 'rgba(156, 163, 175, 0.15)',
+                                    color:
+                                      acc.effectiveCategory === 'tontine'
+                                        ? '#818cf8'
+                                        : acc.effectiveCategory === 'tampon'
+                                        ? 'var(--accent-emerald)'
+                                        : acc.effectiveCategory === 'checking'
+                                        ? 'var(--accent-cyan)'
+                                        : 'var(--text-muted)',
+                                  }}
+                                >
+                                  {acc.effectiveCategory === 'tontine'
+                                    ? '🤝 Tontine'
+                                    : acc.effectiveCategory === 'tampon'
+                                    ? '⚡ Tampon / Surplus'
+                                    : acc.effectiveCategory === 'checking'
+                                    ? '💳 Courant'
+                                    : '🚫 Exclu'}
+                                </span>
+                                {acc.ibanMasked && (
+                                  <span style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
+                                    IBAN {acc.ibanMasked}
+                                  </span>
+                                )}
+                              </div>
+
+                              <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)', marginTop: 6 }}>
+                                {acc.customAlias}
+                              </div>
+                              <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                                Libellé banque : {acc.displayName}
+                              </div>
+                            </div>
+
+                            <div style={{ textAlign: 'right' }}>
+                              <div
+                                style={{
+                                  fontSize: 18,
+                                  fontWeight: 800,
+                                  fontFamily: 'var(--font-mono)',
+                                  color: acc.balanceEUR < 0 ? 'var(--accent-amber)' : 'var(--accent-emerald)',
+                                }}
+                              >
+                                {formatEUR(acc.balanceEUR)}
+                              </div>
+                              <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Solde direct</span>
+                            </div>
+                          </div>
+
+                          {/* Role selector and toggle */}
+                          <div
+                            style={{
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              alignItems: 'center',
+                              paddingTop: 10,
+                              borderTop: '1px solid var(--border-subtle)',
+                              gap: 8,
+                              flexWrap: 'wrap',
+                            }}
+                          >
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1, minWidth: 160 }}>
+                              <label style={{ fontSize: 11, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>Rôle :</label>
+                              <select
+                                value={acc.effectiveCategory}
+                                onChange={(e) => {
+                                  const newCat = e.target.value as any;
+                                  saveBoursoConfig(acc.id, {
+                                    category: newCat,
+                                    included: newCat !== 'excluded',
+                                  });
+                                }}
+                                style={{
+                                  padding: '4px 8px',
+                                  borderRadius: 8,
+                                  background: 'var(--bg-primary)',
+                                  color: 'var(--text-primary)',
+                                  border: '1px solid var(--border-medium)',
+                                  fontSize: 11,
+                                  cursor: 'pointer',
+                                  width: '100%',
+                                }}
+                              >
+                                <option value="checking">💳 Compte Courant Principal (Dépenses)</option>
+                                <option value="tampon">⚡ Compte Tampon (Surplus &amp; Dispatch)</option>
+                                <option value="tontine">🤝 Compte Tontine</option>
+                                <option value="savings">🛡️ Compte Épargne</option>
+                                <option value="excluded">🚫 Exclure du Portefeuille</option>
+                              </select>
+                            </div>
+
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                              <label style={{ fontSize: 11, color: isIncluded ? 'var(--accent-cyan)' : 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
+                                <input
+                                  type="checkbox"
+                                  checked={acc.isIncluded}
+                                  onChange={(e) => {
+                                    const checked = e.target.checked;
+                                    saveBoursoConfig(acc.id, {
+                                      included: checked,
+                                      category: checked ? (acc.effectiveCategory === 'excluded' ? 'checking' : acc.effectiveCategory) : 'excluded',
+                                    });
+                                  }}
+                                  style={{ marginRight: 6, cursor: 'pointer' }}
+                                />
+                                {acc.isIncluded ? 'Inclus' : 'Ignoré'}
+                              </label>
+                            </div>
+                          </div>
                         </div>
-                      )}
-                      <div style={{ marginTop: 12, paddingTop: 10, borderTop: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-                        <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Solde direct</span>
-                        <strong style={{ fontSize: 16, color: 'var(--accent-emerald)', fontFamily: 'var(--font-mono)' }}>
-                          {formatEUR(acc.availableBalance)}
-                        </strong>
-                      </div>
-                    </div>
-                  ))}
+                      );
+                    })}
+                  </div>
                 </div>
               ) : (
                 <div
@@ -716,48 +1030,164 @@ export const IntegrationsHubModal: React.FC<IntegrationsHubModalProps> = ({
                       Connexion Sécurisée Open Banking DSP2
                     </div>
                     <p style={{ fontSize: 12, color: 'var(--text-secondary)', maxWidth: 540, margin: 0, lineHeight: 1.5 }}>
-                      Pour afficher en temps réel vos soldes BoursoBank (Compte Courant, Livret A et PEA-PME) sans aucune saisie manuelle, cliquez sur le bouton <strong>Connecter BoursoBank DSP2</strong> ci-dessus.
+                      Pour afficher en temps réel vos soldes BoursoBank sans aucune saisie manuelle, cliquez sur le bouton <strong>Connecter BoursoBank DSP2</strong> ci-dessus.
                     </p>
                   </div>
+                </div>
+              )}
 
-                  {/* Configuration Help Box */}
+              {/* Interactive Livret A & PEA-PME Manager */}
+              <div
+                style={{
+                  padding: '20px',
+                  borderRadius: 16,
+                  background: 'var(--bg-tertiary)',
+                  border: '1px solid var(--border-subtle)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 14,
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontSize: 20 }}>🛡️</span>
+                    <strong style={{ fontSize: 14, color: 'var(--text-primary)' }}>
+                      Suivi Livret A &amp; PEA-PME BoursoBank
+                    </strong>
+                  </div>
+                  <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                    API DSP2 STET réservée aux comptes de paiement
+                  </span>
+                </div>
+
+                <p style={{ fontSize: 12, color: 'var(--text-secondary)', margin: 0, lineHeight: 1.5 }}>
+                  En raison de la réglementation bancaire européenne (DSP2), BoursoBank ne transmet pas automatiquement les livrets d&apos;épargne ni les enveloppes de bourse via son flux Open Banking. Renseignez simplement vos soldes réels ci-dessous pour les intégrer au centime près dans votre patrimoine consolidé :
+                </p>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
+                  {/* Livret A Input */}
                   <div
                     style={{
-                      padding: '14px 18px',
-                      borderRadius: 10,
-                      background: 'rgba(79, 70, 229, 0.08)',
-                      border: '1px solid rgba(79, 70, 229, 0.25)',
-                      fontSize: 12,
-                      color: 'var(--text-secondary)',
+                      padding: '14px',
+                      borderRadius: 12,
+                      background: 'var(--bg-primary)',
+                      border: '1px solid var(--border-medium)',
                       display: 'flex',
                       flexDirection: 'column',
                       gap: 8,
                     }}
                   >
-                    <div style={{ fontWeight: 700, color: '#818cf8', display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <span>⚙️</span> Configuration Console TrueLayer (Redirect URI) :
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--accent-emerald)', textTransform: 'uppercase' }}>
+                        Solde Livret A (€)
+                      </label>
+                      <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>Plafond : 22 950 €</span>
                     </div>
-                    <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-                      Dans votre console TrueLayer (<strong>Applications &gt; Riane Portfolio &gt; App Settings &gt; Redirect URIs</strong>), assurez-vous d&apos;avoir ajouté cette URL de redirection :
-                    </div>
-                    <div
+                    <input
+                      type="text"
+                      value={livretABalanceInput}
+                      onChange={(e) => setLivretABalanceInput(e.target.value)}
+                      placeholder="0,00"
                       style={{
-                        padding: '6px 10px',
-                        borderRadius: 6,
-                        background: 'var(--bg-primary)',
-                        border: '1px solid var(--border-medium)',
+                        padding: '8px 12px',
+                        borderRadius: 8,
+                        background: 'var(--bg-secondary)',
+                        border: '1px solid var(--border-subtle)',
+                        color: 'var(--text-primary)',
                         fontFamily: 'var(--font-mono)',
-                        fontSize: 11,
-                        color: 'var(--accent-cyan)',
-                        wordBreak: 'break-all',
-                        userSelect: 'all',
+                        fontSize: 16,
+                        fontWeight: 700,
+                        width: '100%',
                       }}
-                    >
-                      https://riane-portfolio-one.vercel.app/api/integrations/truelayer/callback
+                    />
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
+                      <label style={{ fontSize: 11, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>Taux net :</label>
+                      <input
+                        type="text"
+                        value={livretARateInput}
+                        onChange={(e) => setLivretARateInput(e.target.value)}
+                        placeholder="1.7"
+                        style={{
+                          padding: '4px 8px',
+                          borderRadius: 6,
+                          background: 'var(--bg-secondary)',
+                          border: '1px solid var(--border-subtle)',
+                          color: 'var(--text-primary)',
+                          fontFamily: 'var(--font-mono)',
+                          fontSize: 12,
+                          width: 60,
+                          textAlign: 'center',
+                        }}
+                      />
+                      <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>% / an</span>
+                    </div>
+                    {livretABalance > 0 && (
+                      <div style={{ fontSize: 11, color: 'var(--accent-emerald)', marginTop: 2, fontWeight: 600 }}>
+                        + {livretAYearlyInterest.toFixed(2)} € d&apos;intérêts annuels nets
+                      </div>
+                    )}
+                  </div>
+
+                  {/* PEA-PME Input */}
+                  <div
+                    style={{
+                      padding: '14px',
+                      borderRadius: 12,
+                      background: 'var(--bg-primary)',
+                      border: '1px solid var(--border-medium)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 8,
+                    }}
+                  >
+                    <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--accent-cyan)', textTransform: 'uppercase' }}>
+                      Valorisation PEA-PME (€)
+                    </label>
+                    <input
+                      type="text"
+                      value={peaPmeBalanceInput}
+                      onChange={(e) => setPeaPmeBalanceInput(e.target.value)}
+                      placeholder="0,00"
+                      style={{
+                        padding: '8px 12px',
+                        borderRadius: 8,
+                        background: 'var(--bg-secondary)',
+                        border: '1px solid var(--border-subtle)',
+                        color: 'var(--text-primary)',
+                        fontFamily: 'var(--font-mono)',
+                        fontSize: 16,
+                        fontWeight: 700,
+                        width: '100%',
+                      }}
+                    />
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>
+                      Enveloppe PME BoursoBank (Indépendance ES, Riber, Memscap)
                     </div>
                   </div>
                 </div>
-              )}
+
+                {/* Save button and success confirmation */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 4 }}>
+                  <button
+                    onClick={handleSaveManualAssets}
+                    className="btn btn-primary btn-sm"
+                    style={{
+                      padding: '8px 18px',
+                      borderRadius: 10,
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    💾 Enregistrer mes soldes Livret A &amp; PEA-PME
+                  </button>
+
+                  {manualSavedSuccess && (
+                    <span style={{ fontSize: 12, color: 'var(--accent-emerald)', fontWeight: 700, animation: 'fadeIn 0.2s ease' }}>
+                      ✓ Soldes enregistrés et actualisés avec succès !
+                    </span>
+                  )}
+                </div>
+              </div>
             </div>
           )}
 

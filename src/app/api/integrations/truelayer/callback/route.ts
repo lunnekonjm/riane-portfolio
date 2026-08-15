@@ -45,8 +45,20 @@ export async function GET(request: Request) {
     const tokenData = await tokenRes.json();
     const accessToken = tokenData.access_token;
 
-    // Success redirect with token in session or param
-    return NextResponse.redirect(`${origin}/?truelayer_status=success&token=${encodeURIComponent(accessToken)}`);
+    // Success redirect with token in param AND in cookie
+    const response = NextResponse.redirect(
+      `${origin}/?truelayer_status=success&token=${encodeURIComponent(accessToken)}`
+    );
+
+    response.cookies.set("truelayer_access_token", accessToken, {
+      httpOnly: false,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      maxAge: 60 * 60 * 24 * 30, // 30 days
+      path: "/",
+    });
+
+    return response;
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
     return NextResponse.redirect(`${origin}/?truelayer_status=exchange_failed&msg=${encodeURIComponent(msg)}`);

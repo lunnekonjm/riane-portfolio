@@ -17,7 +17,7 @@ export const getTrueLayerApiBaseUrl = () =>
 /**
  * Generate OAuth authorization URL for BoursoBank / Open Banking
  */
-export function getTrueLayerAuthUrl(redirectUri: string, state?: string): string | null {
+export function getTrueLayerAuthUrl(redirectUri: string, state?: string, providerId: string = "stet-boursorama"): string | null {
   const clientId = process.env.TRUELAYER_CLIENT_ID;
   if (!clientId) return null;
 
@@ -28,6 +28,7 @@ export function getTrueLayerAuthUrl(redirectUri: string, state?: string): string
     client_id: clientId,
     scope: "info accounts balance transactions offline_access",
     redirect_uri: redirectUri,
+    providers: providerId,
     ...(sandbox ? { enable_mock: "true" } : {}),
     ...(state ? { state } : {}),
   });

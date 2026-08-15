@@ -32,6 +32,7 @@ import { AnalysisChatView } from '@/components/AnalysisChatView';
 import { getCleanAssetName } from '@/utils/assetMetadata';
 import SavingsPortfolioTable from '@/components/SavingsPortfolioTable';
 import CoreSatelliteView from '@/components/CoreSatelliteView';
+import InfoTooltip from '@/components/InfoTooltip';
 import { computeSavingsPositionInterest, REGULATED_SAVINGS_METADATA } from '@/engines/savingsInterestEngine';
 
 function formatDCAElapsedTime(startDateStr: string): string {
@@ -2210,14 +2211,12 @@ export default function HomePage() {
                       <div style={{ background: 'var(--bg-tertiary)', padding: 14, borderRadius: 10, border: '1px solid var(--border-subtle)', position: 'relative' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                           <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', fontWeight: 600, textTransform: 'uppercase' }}>Baisse sur Capital Coté</span>
-                          <span
-                            style={{ cursor: 'help', fontSize: 13, color: 'var(--accent-cyan)', background: 'rgba(6, 182, 212, 0.12)', borderRadius: '50%', width: 18, height: 18, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}
-                            data-tooltip={`Cette baisse ne concerne que vos investissements boursiers (PEA, CTO). Il s'agit d'une perte latente (non réalisée) : tant que vous ne vendez pas, aucune perte n'est matérialisée.`}
-                            data-tooltip-multiline="true"
-                            data-tooltip-pos="down"
-                          >
-                            ℹ️
-                          </span>
+                          <InfoTooltip
+                            title="Baisse sur Capital Coté"
+                            text="Cette baisse ne concerne que vos investissements boursiers (PEA, CTO). Il s'agit d'une perte latente (non réalisée) : tant que vous ne vendez pas, aucune perte n'est matérialisée."
+                            color="cyan"
+                            align="right"
+                          />
                         </div>
                         <strong className="mono" style={{ fontSize: 22, color: 'var(--accent-rose)', display: 'block', margin: '4px 0' }}>-{Math.round(nominalLoss).toLocaleString('fr-FR')} €</strong>
                         <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
@@ -2229,14 +2228,12 @@ export default function HomePage() {
                       <div style={{ background: 'var(--bg-tertiary)', padding: 14, borderRadius: 10, border: '1px solid var(--border-subtle)', position: 'relative' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                           <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', fontWeight: 600, textTransform: 'uppercase' }}>Temps d&apos;Absorption DCA</span>
-                          <span
-                            style={{ cursor: 'help', fontSize: 13, color: 'var(--accent-emerald)', background: 'rgba(16, 185, 129, 0.12)', borderRadius: '50%', width: 18, height: 18, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}
-                            data-tooltip={`Nombre précis de mois de versements réguliers (${monthlyBudget.toLocaleString('fr-FR')} € / mois) nécessaires pour injecter un capital neuf équivalent à 100% de la baisse subie.`}
-                            data-tooltip-multiline="true"
-                            data-tooltip-pos="down"
-                          >
-                            ℹ️
-                          </span>
+                          <InfoTooltip
+                            title="Temps d'Absorption DCA"
+                            text={`Nombre précis de mois de versements réguliers (${monthlyBudget.toLocaleString('fr-FR')} € / mois) nécessaires pour injecter un capital neuf équivalent à 100% de la baisse subie.`}
+                            color="emerald"
+                            align="right"
+                          />
                         </div>
                         <strong className="mono" style={{ fontSize: 22, color: 'var(--accent-emerald)', display: 'block', margin: '4px 0' }}>{monthsToAbsorb} mois</strong>
                         <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
@@ -2248,14 +2245,12 @@ export default function HomePage() {
                       <div style={{ background: 'var(--bg-tertiary)', padding: 14, borderRadius: 10, border: '1px solid var(--border-subtle)', position: 'relative' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                           <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', fontWeight: 600, textTransform: 'uppercase' }}>Multiplicateur de Parts</span>
-                          <span
-                            style={{ cursor: 'help', fontSize: 13, color: 'var(--accent-cyan)', background: 'rgba(6, 182, 212, 0.12)', borderRadius: '50%', width: 18, height: 18, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}
-                            data-tooltip={`À budget d'épargne constant (${monthlyBudget.toLocaleString('fr-FR')} €), la baisse des cours vous permet d'acheter mathématiquement +${partsBonusPercent}% de parts d'ETF et d'actions supplémentaires par rapport au sommet.`}
-                            data-tooltip-multiline="true"
-                            data-tooltip-pos="down"
-                          >
-                            ℹ️
-                          </span>
+                          <InfoTooltip
+                            title="Multiplicateur de Parts"
+                            text={`À budget d'épargne constant (${monthlyBudget.toLocaleString('fr-FR')} €), la baisse des cours vous permet d'acheter mathématiquement +${partsBonusPercent}% de parts d'ETF et d'actions supplémentaires par rapport au sommet.`}
+                            color="cyan"
+                            align="right"
+                          />
                         </div>
                         <strong className="mono" style={{ fontSize: 22, color: 'var(--accent-cyan)', display: 'block', margin: '4px 0' }}>+{partsBonusPercent}% de parts</strong>
                         <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
@@ -2267,14 +2262,12 @@ export default function HomePage() {
                       <div style={{ background: 'var(--bg-tertiary)', padding: 14, borderRadius: 10, border: '1px solid var(--border-subtle)', position: 'relative' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                           <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', fontWeight: 600, textTransform: 'uppercase' }}>Décote sur le PRU Global</span>
-                          <span
-                            style={{ cursor: 'help', fontSize: 13, color: 'var(--accent-amber)', background: 'rgba(245, 158, 11, 0.12)', borderRadius: '50%', width: 18, height: 18, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}
-                            data-tooltip={`Mesure la baisse immédiate de votre Prix de Revient Unitaire (PRU) moyen global dès l'injection de votre versement mensuel de ${monthlyBudget.toLocaleString('fr-FR')} € à cours soldés.`}
-                            data-tooltip-multiline="true"
-                            data-tooltip-pos="down"
-                          >
-                            ℹ️
-                          </span>
+                          <InfoTooltip
+                            title="Décote sur le PRU"
+                            text={`Mesure la baisse immédiate de votre Prix de Revient Unitaire (PRU) moyen global dès l'injection de votre versement mensuel de ${monthlyBudget.toLocaleString('fr-FR')} € à cours soldés.`}
+                            color="amber"
+                            align="right"
+                          />
                         </div>
                         <strong className="mono" style={{ fontSize: 22, color: 'var(--accent-amber)', display: 'block', margin: '4px 0' }}>-{pruDiscountPercent}% sur le PRU</strong>
                         <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
@@ -2291,13 +2284,12 @@ export default function HomePage() {
                           <strong>Matelas de Sécurité Sanctuarisé :</strong> Vos <strong>{(savingsVal || 0).toLocaleString('fr-FR')} € de Livrets</strong> restent 100% intacts (0% de perte boursière) pour couvrir vos dépenses courantes sans jamais être contraint de vendre à perte.
                         </div>
                       </div>
-                      <span
-                        style={{ cursor: 'help', fontSize: 12, color: 'var(--accent-cyan)', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 4 }}
-                        data-tooltip="Le Livret A sert d'armure psychologique : il vous garantit de ne jamais liquider vos actions à bas prix en cas de coup dur."
-                        data-tooltip-multiline="true"
-                      >
-                        Rôle du matelas ℹ️
-                      </span>
+                      <InfoTooltip
+                        title="Rôle Stratégique du Matelas"
+                        text="Le Livret A sert d'armure psychologique et financière : il vous garantit de ne jamais liquider vos actions à bas prix en cas de coup dur."
+                        color="cyan"
+                        align="right"
+                      />
                     </div>
                   </div>
                 );
@@ -2351,14 +2343,12 @@ export default function HomePage() {
                     <div style={{ background: 'var(--bg-tertiary)', padding: 14, borderRadius: 10, border: '1px solid var(--border-subtle)', position: 'relative' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <span style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600 }}>Perte Estimée sur le Portefeuille</span>
-                        <span
-                          style={{ cursor: 'help', fontSize: 13, color: 'var(--accent-rose)', background: 'rgba(244, 63, 94, 0.12)', borderRadius: '50%', width: 18, height: 18, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}
-                          data-tooltip="Montant nominal cumulé de la dépréciation sur l'ensemble de vos positions cotées (PEA, CTO) pour ce scénario."
-                          data-tooltip-multiline="true"
-                          data-tooltip-pos="down"
-                        >
-                          ℹ️
-                        </span>
+                        <InfoTooltip
+                          title="Perte Estimée"
+                          text="Montant nominal cumulé de la dépréciation sur l'ensemble de vos positions cotées (PEA, CTO) pour ce scénario."
+                          color="rose"
+                          align="right"
+                        />
                       </div>
                       <div style={{ fontSize: 24, fontWeight: 700, color: 'var(--accent-rose)', fontFamily: 'var(--font-mono)', margin: '4px 0' }}>
                         {selectedStressResult.portfolioLoss.toLocaleString('fr-FR')} €
@@ -2368,14 +2358,12 @@ export default function HomePage() {
                     <div style={{ background: 'var(--bg-tertiary)', padding: 14, borderRadius: 10, border: '1px solid var(--border-subtle)', position: 'relative' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <span style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600 }}>Absorption DCA Estimée</span>
-                        <span
-                          style={{ cursor: 'help', fontSize: 13, color: 'var(--accent-emerald)', background: 'rgba(16, 185, 129, 0.12)', borderRadius: '50%', width: 18, height: 18, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}
-                          data-tooltip="Nombre de mois de versements réguliers nécessaires pour réinjecter 100% de la baisse subie."
-                          data-tooltip-multiline="true"
-                          data-tooltip-pos="down"
-                        >
-                          ℹ️
-                        </span>
+                        <InfoTooltip
+                          title="Absorption DCA"
+                          text="Nombre de mois de versements réguliers nécessaires pour réinjecter 100% de la baisse subie."
+                          color="emerald"
+                          align="right"
+                        />
                       </div>
                       <div style={{ fontSize: 20, fontWeight: 700, fontFamily: 'var(--font-mono)', margin: '4px 0', color: 'var(--accent-emerald)' }}>
                         {config?.monthlyBudget ? (Math.abs(selectedStressResult.portfolioLoss) / config.monthlyBudget).toFixed(1) : '1.5'} mois de DCA
@@ -2385,14 +2373,12 @@ export default function HomePage() {
                     <div style={{ background: 'var(--bg-tertiary)', padding: 14, borderRadius: 10, border: '1px solid var(--border-subtle)', position: 'relative' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <span style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600 }}>Diagnostic de Viabilité</span>
-                        <span
-                          style={{ cursor: 'help', fontSize: 13, color: 'var(--accent-cyan)', background: 'rgba(6, 182, 212, 0.12)', borderRadius: '50%', width: 18, height: 18, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}
-                          data-tooltip="Évaluation de la solidité de la structure d'allocation face aux tensions macroéconomiques de cette crise."
-                          data-tooltip-multiline="true"
-                          data-tooltip-pos="down"
-                        >
-                          ℹ️
-                        </span>
+                        <InfoTooltip
+                          title="Diagnostic"
+                          text="Évaluation de la solidité de la structure d'allocation face aux tensions macroéconomiques de cette crise."
+                          color="cyan"
+                          align="right"
+                        />
                       </div>
                       <div style={{ fontSize: 13, color: 'var(--accent-cyan)', fontWeight: 600, marginTop: 6 }}>
                         {selectedStressResult.objectiveImpact}

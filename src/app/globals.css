@@ -135,6 +135,74 @@
   transform: translateX(-50%) translateY(-4px);
 }
 
+/* Right-Anchored Tooltips (Prevents clipping on right screen edges) */
+[data-tooltip][data-tooltip-align="right"]::after,
+[data-tooltip].tooltip-align-right::after {
+  left: auto;
+  right: 0;
+  transform: translateY(4px);
+}
+
+[data-tooltip][data-tooltip-align="right"]::before,
+[data-tooltip].tooltip-align-right::before {
+  left: auto;
+  right: 6px;
+  transform: translateY(4px);
+}
+
+[data-tooltip][data-tooltip-pos="down"][data-tooltip-align="right"]::after,
+[data-tooltip][data-tooltip-pos="down"].tooltip-align-right::after {
+  bottom: auto;
+  top: 130%;
+  left: auto;
+  right: 0;
+  transform: translateY(-4px);
+}
+
+[data-tooltip][data-tooltip-pos="down"][data-tooltip-align="right"]::before,
+[data-tooltip][data-tooltip-pos="down"].tooltip-align-right::before {
+  bottom: auto;
+  top: 110%;
+  left: auto;
+  right: 6px;
+  border-color: transparent transparent rgba(6, 182, 212, 0.5) transparent;
+  transform: translateY(-4px);
+}
+
+/* Left-Anchored Tooltips (Prevents clipping on left screen edges) */
+[data-tooltip][data-tooltip-align="left"]::after,
+[data-tooltip].tooltip-align-left::after {
+  left: 0;
+  right: auto;
+  transform: translateY(4px);
+}
+
+[data-tooltip][data-tooltip-align="left"]::before,
+[data-tooltip].tooltip-align-left::before {
+  left: 6px;
+  right: auto;
+  transform: translateY(4px);
+}
+
+[data-tooltip][data-tooltip-pos="down"][data-tooltip-align="left"]::after,
+[data-tooltip][data-tooltip-pos="down"].tooltip-align-left::after {
+  bottom: auto;
+  top: 130%;
+  left: 0;
+  right: auto;
+  transform: translateY(-4px);
+}
+
+[data-tooltip][data-tooltip-pos="down"][data-tooltip-align="left"]::before,
+[data-tooltip][data-tooltip-pos="down"].tooltip-align-left::before {
+  bottom: auto;
+  top: 110%;
+  left: 6px;
+  right: auto;
+  border-color: transparent transparent rgba(6, 182, 212, 0.5) transparent;
+  transform: translateY(-4px);
+}
+
 /* Hover Animation */
 [data-tooltip]:hover::before,
 [data-tooltip]:hover::after {
@@ -146,6 +214,22 @@
 [data-tooltip][data-tooltip-pos="down"]:hover::after {
   opacity: 1;
   transform: translateX(-50%) translateY(0);
+}
+
+[data-tooltip][data-tooltip-align="right"]:hover::before,
+[data-tooltip][data-tooltip-align="right"]:hover::after,
+[data-tooltip].tooltip-align-right:hover::before,
+[data-tooltip].tooltip-align-right:hover::after {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+[data-tooltip][data-tooltip-align="left"]:hover::before,
+[data-tooltip][data-tooltip-align="left"]:hover::after,
+[data-tooltip].tooltip-align-left:hover::before,
+[data-tooltip].tooltip-align-left:hover::after {
+  opacity: 1;
+  transform: translateY(0);
 }
 
 /* Special positioning for Table Headers (pops down cleanly below header line) */
@@ -181,6 +265,55 @@ th [data-tooltip]:hover::before,
 th[data-tooltip]:hover::before {
   opacity: 1;
   transform: translateX(-50%) translateY(0);
+}
+
+/* Auto-align rightmost table columns to the left to prevent edge truncation */
+th:last-child [data-tooltip]::after,
+th:nth-last-child(2) [data-tooltip]::after,
+th:last-child[data-tooltip]::after,
+th:nth-last-child(2)[data-tooltip]::after,
+td:last-child [data-tooltip]::after,
+td:nth-last-child(2) [data-tooltip]::after,
+td:last-child[data-tooltip]::after,
+td:nth-last-child(2)[data-tooltip]::after {
+  left: auto;
+  right: 0;
+  transform: translateY(-4px);
+}
+
+th:last-child [data-tooltip]::before,
+th:nth-last-child(2) [data-tooltip]::before,
+th:last-child[data-tooltip]::before,
+th:nth-last-child(2)[data-tooltip]::before,
+td:last-child [data-tooltip]::before,
+td:nth-last-child(2) [data-tooltip]::before,
+td:last-child[data-tooltip]::before,
+td:nth-last-child(2)[data-tooltip]::before {
+  left: auto;
+  right: 8px;
+  transform: translateY(-4px);
+}
+
+th:last-child [data-tooltip]:hover::after,
+th:nth-last-child(2) [data-tooltip]:hover::after,
+th:last-child[data-tooltip]:hover::after,
+th:nth-last-child(2)[data-tooltip]:hover::after,
+td:last-child [data-tooltip]:hover::after,
+td:nth-last-child(2) [data-tooltip]:hover::after,
+td:last-child[data-tooltip]:hover::after,
+td:nth-last-child(2)[data-tooltip]:hover::after {
+  transform: translateY(0);
+}
+
+th:last-child [data-tooltip]:hover::before,
+th:nth-last-child(2) [data-tooltip]:hover::before,
+th:last-child[data-tooltip]:hover::before,
+th:nth-last-child(2)[data-tooltip]:hover::before,
+td:last-child [data-tooltip]:hover::before,
+td:nth-last-child(2) [data-tooltip]:hover::before,
+td:last-child[data-tooltip]:hover::before,
+td:nth-last-child(2)[data-tooltip]:hover::before {
+  transform: translateY(0);
 }
 
 :root {

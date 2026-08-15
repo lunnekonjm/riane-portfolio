@@ -3,20 +3,7 @@
  * Fusionné dans RIANE Portfolio le 09/08/2026.
  * Étendu le 12/08/2026 (retour terrain) : fiscalité différenciée par nature de
  * revenu, et séparation capacité régulière (DCA) / réserve primes-rachats (allocation manuelle).
- *
- * Un SalaryRecord = une fiche de paie importée (ou saisie manuellement).
- * Le budget mensuel investissable (PortfolioConfig.monthlyBudget) est dérivé
- * de la moyenne glissante des SalaryRecord.regularInvestableAmount (hors primes/rachats).
- *
- * Taux de référence calibrés sur cas réel (document de référence fourni le 12/08/2026,
- * cas Vestas) — utilisés comme valeurs par défaut si un bulletin ne détaille pas la
- * ventilation net/brut par composante :
- *   - Salaire de base : net ≈ 75,87 % du brut
- *   - Bonus / prime de performance : net ≈ 79,02 % du brut (avant PAS)
- *   - Rachat de jours de repos/congés : net ≈ 79,88 % du brut (avant PAS)
- *   - Prélèvement à la source (PAS) : appliqué ENSUITE sur le net avant impôt de
- *     chaque composante, au taux propre du foyer (7,1 % dans le cas de référence) —
- *     ne pas appliquer un taux moyen unique à l'ensemble du bulletin.
+ * Étendu le 15/08/2026 : Rapprochement Théorie (Fiche) vs Réalité Factuelle (Banque BoursoBank) & Historisation.
  */
 
 export const REFERENCE_NET_RATES = {
@@ -24,6 +11,47 @@ export const REFERENCE_NET_RATES = {
   bonus: 0.7902,
   congesRachat: 0.7988,
 } as const;
+
+export type BankReconciliationCategory =
+  | 'SALARY_INCOME'
+  | 'INVEST_PEA'
+  | 'INVEST_TONTINE'
+  | 'INVEST_TAMPON'
+  | 'INVEST_LIVRET_A'
+  | 'INVEST_CTO'
+  | 'OTHER_TRANSFER'
+  | 'IGNORED';
+
+export interface BankTransactionMatch {
+  id: string;
+  date: string; // YYYY-MM-DD
+  rawDescription: string;
+  amount: number; // Montant en € (positif pour rentrée, valeur absolue pour virements d'investissement)
+  category: BankReconciliationCategory;
+  suggestedCategory: BankReconciliationCategory;
+  confidence: number; // 0 à 1
+  accountName?: string;
+  included: boolean;
+}
+
+export interface BankReconciliationRecord {
+  reconciled: boolean;
+  reconciledAt?: number;
+  period: string; // YYYY-MM
+  actualNetSalaryReceived: number; // Salaire net réellement encaissé en banque (€)
+  actualInvestedPEA: number;        // Virement(s) réel(s) vers PEA (€)
+  actualInvestedTontine: number;    // Virement(s) réel(s) vers Tontine (€)
+  actualInvestedTampon: number;     // Virement(s) réel(s) vers Compte Tampon (€)
+  actualInvestedLivretA: number;    // Virement(s) réel(s) vers Livret A (€)
+  actualInvestedCTO: number;        // Virement(s) réel(s) vers CTO (€)
+  totalActualInvested: number;      // Somme totale investie réellement (PEA + Tontine + CTO + Tampon + Livrets)
+  actualSavingsRate: number;        // Taux d'épargne effectif réel (%) = (totalActualInvested / actualNetSalaryReceived) * 100
+  deltaVsPlan: number;              // totalActualInvested - regularInvestableAmount
+  executionRatePercent: number;     // (totalActualInvested / regularInvestableAmount) * 100
+  status: 'ON_TRACK' | 'UNDER_INVESTED' | 'OVER_INVESTED' | 'PENDING';
+  detectedTransactions?: BankTransactionMatch[];
+  notes?: string;
+}
 
 export interface SalaryRecord {
   id: string;
@@ -64,15 +92,12 @@ export interface SalaryRecord {
   hasCongesRachat?: boolean;
 
   /**
-   * Montant régulier que l'utilisateur alloue à l'investissement ce mois-ci —
-   * dérivé du seul salaire de base, JAMAIS des primes/rachats (voir bonusReserveContribution).
-   * C'est ce champ qui alimente la moyenne glissante et le monthlyBudget (DCA).
+   * Montant régulier que l'utilisateur alloue à l'investissement ce mois-ci (Théorie) —
+   * dérivé du seul salaire de base, JAMAIS des primes/rachats.
    */
   regularInvestableAmount: number;
   /**
    * Part nette des primes/rachats de ce bulletin qui vient s'ajouter à la réserve
-   * (poche séparée, non-DCA — voir computeReserveBalance). Par défaut, la totalité
-   * du net bonus + net rachat, mais l'utilisateur peut ajuster.
    */
   bonusReserveContribution: number;
   /** Taux d'épargne régulier = regularInvestableAmount / (netSalary - bonusNet - congesRachatNet) (%) */
@@ -83,6 +108,10 @@ export interface SalaryRecord {
   documentName?: string;
   /** Notes libres */
   notes?: string;
+
+  /** 🏦 Réalité factuelle constatée en banque via BoursoBank Open Banking */
+  bankReality?: BankReconciliationRecord;
+
   createdAt: number;
   updatedAt: number;
 }
@@ -118,7 +147,7 @@ export interface RevenueConfig {
   autoSyncMonthlyBudget: boolean;
   /** Nombre de mois utilisés pour la moyenne glissante */
   rollingAverageMonths: number;
-  /** Répartition cible du montant investissable RÉGULIER entre enveloppes (doit sommer à 1) — ne s'applique pas à la réserve primes/rachats, allouée manuellement */
+  /** Répartition cible du montant investissable RÉGULIER entre enveloppes (doit sommer à 1) */
   allocationSplit: {
     PEA: number;
     'PEA-PME': number;
@@ -126,7 +155,6 @@ export interface RevenueConfig {
   };
   /**
    * Enveloppe par défaut proposée lors de l'allocation manuelle de la réserve
-   * (l'utilisateur alloue généralement ses primes/rachats en CTO).
    */
   defaultReserveEnvelope: 'PEA' | 'PEA-PME' | 'CTO';
 }
@@ -151,6 +179,12 @@ export interface SalaryAnalytics {
   suggestedMonthlyBudget: number;
   /** Total accumulé en réserve primes/rachats sur l'année en cours, non encore alloué */
   currentYearReserveAccrued: number;
+
+  // Realized Bank Metrics
+  averageActualNetSalary: number;
+  averageActualInvested: number;
+  averageActualSavingsRate: number;
+  reconciledMonthsCount: number;
 }
 
 export function computeSalaryAnalytics(
@@ -167,6 +201,10 @@ export function computeSalaryAnalytics(
       totalRecords: 0,
       suggestedMonthlyBudget: 0,
       currentYearReserveAccrued: 0,
+      averageActualNetSalary: 0,
+      averageActualInvested: 0,
+      averageActualSavingsRate: 0,
+      reconciledMonthsCount: 0,
     };
   }
 
@@ -176,6 +214,22 @@ export function computeSalaryAnalytics(
   const averageNetSalary = window.reduce((s, r) => s + (r.netSalary || 0), 0) / (window.length || 1);
   const averageRegularInvestable = window.reduce((s, r) => s + (r.regularInvestableAmount ?? r.netSalary ?? 0), 0) / (window.length || 1);
   const averageSavingsRate = window.reduce((s, r) => s + (r.savingsRate || 0), 0) / (window.length || 1);
+
+  // Reconciled bank reality calculations
+  const reconciledWindow = window.filter((r) => r.bankReality && r.bankReality.reconciled);
+  const reconciledCount = reconciledWindow.length;
+  
+  const averageActualNetSalary = reconciledCount > 0
+    ? reconciledWindow.reduce((s, r) => s + (r.bankReality?.actualNetSalaryReceived || r.netSalary || 0), 0) / reconciledCount
+    : averageNetSalary;
+
+  const averageActualInvested = reconciledCount > 0
+    ? reconciledWindow.reduce((s, r) => s + (r.bankReality?.totalActualInvested || r.regularInvestableAmount || 0), 0) / reconciledCount
+    : averageRegularInvestable;
+
+  const averageActualSavingsRate = reconciledCount > 0
+    ? reconciledWindow.reduce((s, r) => s + (r.bankReality?.actualSavingsRate || r.savingsRate || 0), 0) / reconciledCount
+    : averageSavingsRate;
 
   const currentYear = sorted[0]?.period?.slice(0, 4) || new Date().getFullYear().toString();
   const yearRecords = records.filter((r) => r.period && r.period.startsWith(currentYear));
@@ -189,8 +243,12 @@ export function computeSalaryAnalytics(
     averageRegularInvestable: isNaN(averageRegularInvestable) ? 0 : averageRegularInvestable,
     averageSavingsRate: isNaN(averageSavingsRate) ? 0 : averageSavingsRate,
     totalRecords: records.length,
-    suggestedMonthlyBudget: Math.round(isNaN(averageRegularInvestable) ? 0 : averageRegularInvestable),
+    suggestedMonthlyBudget: Math.round(isNaN(averageActualInvested && reconciledCount > 0 ? averageActualInvested : averageRegularInvestable) ? 0 : (reconciledCount > 0 ? averageActualInvested : averageRegularInvestable)),
     currentYearReserveAccrued: Math.max(0, totalAccrued - totalAllocated),
+    averageActualNetSalary: isNaN(averageActualNetSalary) ? 0 : averageActualNetSalary,
+    averageActualInvested: isNaN(averageActualInvested) ? 0 : averageActualInvested,
+    averageActualSavingsRate: isNaN(averageActualSavingsRate) ? 0 : averageActualSavingsRate,
+    reconciledMonthsCount: reconciledCount,
   };
 }
 
@@ -200,4 +258,3 @@ export function computeReserveBalance(records: SalaryRecord[] = [], allocations:
   const totalAllocated = (allocations || []).filter(Boolean).reduce((s, a) => s + (a.amount || 0), 0);
   return Math.max(0, totalAccrued - totalAllocated);
 }
-

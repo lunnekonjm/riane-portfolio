@@ -32,6 +32,21 @@ export function getDb(): Firestore {
   return dbInstance;
 }
 
+export function sanitizeForFirestore<T>(obj: T): T {
+  if (obj === null || obj === undefined) return obj;
+  if (typeof obj !== 'object') return obj;
+  if (Array.isArray(obj)) {
+    return obj.map((item) => sanitizeForFirestore(item)) as unknown as T;
+  }
+  const clean: Record<string, any> = {};
+  for (const [key, value] of Object.entries(obj as Record<string, any>)) {
+    if (value !== undefined) {
+      clean[key] = sanitizeForFirestore(value);
+    }
+  }
+  return clean as T;
+}
+
 // ── Portfolio Positions ──
 
 export async function getPositions(uid: string): Promise<Position[]> {
@@ -45,7 +60,7 @@ export async function getPositions(uid: string): Promise<Position[]> {
 export async function savePosition(uid: string, position: Position): Promise<void> {
   const db = getDb();
   const ref = doc(db, 'users', uid, 'portfolio', position.id);
-  await setDoc(ref, { ...position, updatedAt: Date.now() });
+  await setDoc(ref, sanitizeForFirestore({ ...position, updatedAt: Date.now() }));
 }
 
 export async function saveAllPositions(uid: string, positions: Position[]): Promise<void> {
@@ -53,7 +68,7 @@ export async function saveAllPositions(uid: string, positions: Position[]): Prom
   const batch = writeBatch(db);
   positions.forEach((pos) => {
     const ref = doc(db, 'users', uid, 'portfolio', pos.id);
-    batch.set(ref, { ...pos, updatedAt: Date.now() });
+    batch.set(ref, sanitizeForFirestore({ ...pos, updatedAt: Date.now() }));
   });
   await batch.commit();
 }
@@ -177,7 +192,7 @@ export async function getSalaryRecords(uid: string): Promise<SalaryRecord[]> {
 
 export async function saveSalaryRecord(uid: string, record: SalaryRecord): Promise<void> {
   const db = getDb();
-  await setDoc(doc(db, 'users', uid, 'salary', record.id), { ...record, updatedAt: Date.now() });
+  await setDoc(doc(db, 'users', uid, 'salary', record.id), sanitizeForFirestore({ ...record, updatedAt: Date.now() }));
 }
 
 export async function deleteSalaryRecord(uid: string, recordId: string): Promise<void> {
@@ -193,7 +208,7 @@ export async function getRevenueConfig(uid: string): Promise<RevenueConfig | nul
 
 export async function saveRevenueConfig(uid: string, config: RevenueConfig): Promise<void> {
   const db = getDb();
-  await setDoc(doc(db, 'users', uid, 'settings', 'revenueConfig'), config);
+  await setDoc(doc(db, 'users', uid, 'settings', 'revenueConfig'), sanitizeForFirestore(config));
 }
 
 // ── Réserve primes / rachats (allocation manuelle, hors DCA régulier) ──
@@ -207,7 +222,7 @@ export async function getReserveAllocations(uid: string): Promise<ReserveAllocat
 
 export async function saveReserveAllocation(uid: string, allocation: ReserveAllocation): Promise<void> {
   const db = getDb();
-  await setDoc(doc(db, 'users', uid, 'reserveAllocations', allocation.id), allocation);
+  await setDoc(doc(db, 'users', uid, 'reserveAllocations', allocation.id), sanitizeForFirestore(allocation));
 }
 
 export async function deleteReserveAllocation(uid: string, allocationId: string): Promise<void> {
@@ -226,7 +241,7 @@ export async function getExtraCashEntries(uid: string): Promise<import('@/types/
 
 export async function saveExtraCashEntry(uid: string, entry: import('@/types/revenue').ExtraCashEntry): Promise<void> {
   const db = getDb();
-  await setDoc(doc(db, 'users', uid, 'extraCash', entry.id), { ...entry, updatedAt: Date.now() });
+  await setDoc(doc(db, 'users', uid, 'extraCash', entry.id), sanitizeForFirestore({ ...entry, updatedAt: Date.now() }));
 }
 
 export async function deleteExtraCashEntry(uid: string, entryId: string): Promise<void> {

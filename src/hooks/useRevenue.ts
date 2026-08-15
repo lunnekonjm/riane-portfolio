@@ -19,46 +19,144 @@ import type { SalaryRecord, RevenueConfig, ReserveAllocation, ExtraCashEntry } f
 import { DEFAULT_REVENUE_CONFIG } from '@/types/revenue';
 import type { User } from 'firebase/auth';
 
+const STORAGE_KEYS = {
+  SALARY_RECORDS: 'riane_salary_records',
+  REVENUE_CONFIG: 'riane_revenue_config',
+  RESERVE_ALLOCATIONS: 'riane_reserve_allocations',
+  EXTRA_CASH: 'riane_extra_cash_entries',
+};
+
 export function useRevenue() {
   const [user, setUser] = useState<User | null>(null);
-  const [records, setRecords] = useState<SalaryRecord[]>([]);
-  const [allocations, setAllocations] = useState<ReserveAllocation[]>([]);
-  const [extraCashEntries, setExtraCashEntries] = useState<ExtraCashEntry[]>([]);
-  const [revenueConfig, setRevenueConfig] = useState<RevenueConfig>(DEFAULT_REVENUE_CONFIG);
+
+  const [records, setRecords] = useState<SalaryRecord[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem(STORAGE_KEYS.SALARY_RECORDS);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed)) return parsed;
+        }
+      } catch (e) {
+        console.warn('[useRevenue] Failed to load local salary records:', e);
+      }
+    }
+    return [];
+  });
+
+  const [revenueConfig, setRevenueConfig] = useState<RevenueConfig>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem(STORAGE_KEYS.REVENUE_CONFIG);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          return {
+            ...DEFAULT_REVENUE_CONFIG,
+            ...parsed,
+            allocationSplit: {
+              ...DEFAULT_REVENUE_CONFIG.allocationSplit,
+              ...(parsed.allocationSplit || {}),
+            },
+          };
+        }
+      } catch (e) {
+        console.warn('[useRevenue] Failed to load local revenue config:', e);
+      }
+    }
+    return DEFAULT_REVENUE_CONFIG;
+  });
+
+  const [allocations, setAllocations] = useState<ReserveAllocation[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem(STORAGE_KEYS.RESERVE_ALLOCATIONS);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed)) return parsed;
+        }
+      } catch (e) {
+        console.warn('[useRevenue] Failed to load local reserve allocations:', e);
+      }
+    }
+    return [];
+  });
+
+  const [extraCashEntries, setExtraCashEntries] = useState<ExtraCashEntry[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem(STORAGE_KEYS.EXTRA_CASH);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed)) return parsed;
+        }
+      } catch (e) {
+        console.warn('[useRevenue] Failed to load local extra cash entries:', e);
+      }
+    }
+    return [];
+  });
+
   const [loading, setLoading] = useState(true);
 
+  // Sync with Firestore on Auth Change
   useEffect(() => {
     const unsubscribe = onAuthChange(async (u) => {
       setUser(u);
       if (u) {
         try {
           const [salaryRecords, cfg, reserveAllocations, extras] = await Promise.all([
-            getSalaryRecords(u.uid),
-            getRevenueConfig(u.uid),
-            getReserveAllocations(u.uid),
-            getExtraCashEntries(u.uid),
+            getSalaryRecords(u.uid).catch(() => []),
+            getRevenueConfig(u.uid).catch(() => null),
+            getReserveAllocations(u.uid).catch(() => []),
+            getExtraCashEntries(u.uid).catch(() => []),
           ]);
-          setRecords(salaryRecords || []);
-          const mergedCfg: RevenueConfig = {
-            ...DEFAULT_REVENUE_CONFIG,
-            ...(cfg || {}),
-            allocationSplit: {
-              ...DEFAULT_REVENUE_CONFIG.allocationSplit,
-              ...(cfg?.allocationSplit || {}),
-            },
-            defaultReserveEnvelope: cfg?.defaultReserveEnvelope || DEFAULT_REVENUE_CONFIG.defaultReserveEnvelope,
-          };
-          setRevenueConfig(mergedCfg);
-          setAllocations(reserveAllocations || []);
-          setExtraCashEntries(extras || []);
+
+          if (salaryRecords && salaryRecords.length > 0) {
+            setRecords(salaryRecords);
+            try {
+              localStorage.setItem(STORAGE_KEYS.SALARY_RECORDS, JSON.stringify(salaryRecords));
+            } catch {}
+          } else {
+            // If remote is empty but local has records, sync local to remote
+            if (records.length > 0) {
+              for (const r of records) {
+                saveSalaryRecordToDb(u.uid, r).catch(console.warn);
+              }
+            }
+          }
+
+          if (cfg) {
+            const mergedCfg: RevenueConfig = {
+              ...DEFAULT_REVENUE_CONFIG,
+              ...cfg,
+              allocationSplit: {
+                ...DEFAULT_REVENUE_CONFIG.allocationSplit,
+                ...(cfg.allocationSplit || {}),
+              },
+              defaultReserveEnvelope: cfg.defaultReserveEnvelope || DEFAULT_REVENUE_CONFIG.defaultReserveEnvelope,
+            };
+            setRevenueConfig(mergedCfg);
+            try {
+              localStorage.setItem(STORAGE_KEYS.REVENUE_CONFIG, JSON.stringify(mergedCfg));
+            } catch {}
+          }
+
+          if (reserveAllocations && reserveAllocations.length > 0) {
+            setAllocations(reserveAllocations);
+            try {
+              localStorage.setItem(STORAGE_KEYS.RESERVE_ALLOCATIONS, JSON.stringify(reserveAllocations));
+            } catch {}
+          }
+
+          if (extras && extras.length > 0) {
+            setExtraCashEntries(extras);
+            try {
+              localStorage.setItem(STORAGE_KEYS.EXTRA_CASH, JSON.stringify(extras));
+            } catch {}
+          }
         } catch (err) {
-          console.error('Error loading revenue data:', err);
+          console.error('[useRevenue] Error loading remote revenue data:', err);
         }
-      } else {
-        setRecords([]);
-        setRevenueConfig(DEFAULT_REVENUE_CONFIG);
-        setAllocations([]);
-        setExtraCashEntries([]);
       }
       setLoading(false);
     });
@@ -67,79 +165,153 @@ export function useRevenue() {
 
   const saveRecord = useCallback(
     async (record: SalaryRecord) => {
-      if (!user) return;
-      await saveSalaryRecordToDb(user.uid, record);
+      // 1. Immediate optimistic state update
       setRecords((prev) => {
         const idx = prev.findIndex((r) => r.id === record.id);
-        if (idx >= 0) {
-          const next = [...prev];
-          next[idx] = record;
-          return next;
+        const next = idx >= 0 ? [...prev] : [record, ...prev];
+        if (idx >= 0) next[idx] = record;
+        // 2. Persist to localStorage
+        try {
+          localStorage.setItem(STORAGE_KEYS.SALARY_RECORDS, JSON.stringify(next));
+        } catch (e) {
+          console.warn('[useRevenue] Local storage write error:', e);
         }
-        return [record, ...prev];
+        return next;
       });
+
+      // 3. Sync with Firestore if authenticated
+      if (user) {
+        try {
+          await saveSalaryRecordToDb(user.uid, record);
+        } catch (err) {
+          console.error('[useRevenue] Firestore saveSalaryRecord error:', err);
+        }
+      }
     },
     [user]
   );
 
   const deleteRecord = useCallback(
     async (id: string) => {
-      if (!user) return;
-      await deleteSalaryRecordFromDb(user.uid, id);
-      setRecords((prev) => prev.filter((r) => r.id !== id));
+      setRecords((prev) => {
+        const next = prev.filter((r) => r.id !== id);
+        try {
+          localStorage.setItem(STORAGE_KEYS.SALARY_RECORDS, JSON.stringify(next));
+        } catch {}
+        return next;
+      });
+
+      if (user) {
+        try {
+          await deleteSalaryRecordFromDb(user.uid, id);
+        } catch (err) {
+          console.error('[useRevenue] Firestore deleteSalaryRecord error:', err);
+        }
+      }
     },
     [user]
   );
 
   const saveConfig = useCallback(
     async (cfg: RevenueConfig) => {
-      if (!user) return;
-      await saveRevenueConfigToDb(user.uid, cfg);
       setRevenueConfig(cfg);
+      try {
+        localStorage.setItem(STORAGE_KEYS.REVENUE_CONFIG, JSON.stringify(cfg));
+      } catch {}
+
+      if (user) {
+        try {
+          await saveRevenueConfigToDb(user.uid, cfg);
+        } catch (err) {
+          console.error('[useRevenue] Firestore saveRevenueConfig error:', err);
+        }
+      }
     },
     [user]
   );
 
   const saveAllocation = useCallback(
     async (allocation: ReserveAllocation) => {
-      if (!user) return;
-      await saveReserveAllocationToDb(user.uid, allocation);
-      setAllocations((prev) => [allocation, ...prev]);
+      setAllocations((prev) => {
+        const next = [allocation, ...prev];
+        try {
+          localStorage.setItem(STORAGE_KEYS.RESERVE_ALLOCATIONS, JSON.stringify(next));
+        } catch {}
+        return next;
+      });
+
+      if (user) {
+        try {
+          await saveReserveAllocationToDb(user.uid, allocation);
+        } catch (err) {
+          console.error('[useRevenue] Firestore saveReserveAllocation error:', err);
+        }
+      }
     },
     [user]
   );
 
   const deleteAllocation = useCallback(
     async (id: string) => {
-      if (!user) return;
-      await deleteReserveAllocationFromDb(user.uid, id);
-      setAllocations((prev) => prev.filter((a) => a.id !== id));
+      setAllocations((prev) => {
+        const next = prev.filter((a) => a.id !== id);
+        try {
+          localStorage.setItem(STORAGE_KEYS.RESERVE_ALLOCATIONS, JSON.stringify(next));
+        } catch {}
+        return next;
+      });
+
+      if (user) {
+        try {
+          await deleteReserveAllocationFromDb(user.uid, id);
+        } catch (err) {
+          console.error('[useRevenue] Firestore deleteReserveAllocation error:', err);
+        }
+      }
     },
     [user]
   );
 
   const saveExtraCashEntry = useCallback(
     async (entry: ExtraCashEntry) => {
-      if (!user) return;
-      await saveExtraCashEntryToDb(user.uid, entry);
       setExtraCashEntries((prev) => {
         const idx = prev.findIndex((e) => e.id === entry.id);
-        if (idx >= 0) {
-          const next = [...prev];
-          next[idx] = entry;
-          return next;
-        }
-        return [entry, ...prev];
+        const next = idx >= 0 ? [...prev] : [entry, ...prev];
+        if (idx >= 0) next[idx] = entry;
+        try {
+          localStorage.setItem(STORAGE_KEYS.EXTRA_CASH, JSON.stringify(next));
+        } catch {}
+        return next;
       });
+
+      if (user) {
+        try {
+          await saveExtraCashEntryToDb(user.uid, entry);
+        } catch (err) {
+          console.error('[useRevenue] Firestore saveExtraCashEntry error:', err);
+        }
+      }
     },
     [user]
   );
 
   const deleteExtraCashEntry = useCallback(
     async (id: string) => {
-      if (!user) return;
-      await deleteExtraCashEntryFromDb(user.uid, id);
-      setExtraCashEntries((prev) => prev.filter((e) => e.id !== id));
+      setExtraCashEntries((prev) => {
+        const next = prev.filter((e) => e.id !== id);
+        try {
+          localStorage.setItem(STORAGE_KEYS.EXTRA_CASH, JSON.stringify(next));
+        } catch {}
+        return next;
+      });
+
+      if (user) {
+        try {
+          await deleteExtraCashEntryFromDb(user.uid, id);
+        } catch (err) {
+          console.error('[useRevenue] Firestore deleteExtraCashEntry error:', err);
+        }
+      }
     },
     [user]
   );

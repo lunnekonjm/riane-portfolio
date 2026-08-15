@@ -34,6 +34,7 @@ import SavingsPortfolioTable from '@/components/SavingsPortfolioTable';
 import CoreSatelliteView from '@/components/CoreSatelliteView';
 import InfoTooltip from '@/components/InfoTooltip';
 import { computeSavingsPositionInterest, REGULATED_SAVINGS_METADATA } from '@/engines/savingsInterestEngine';
+import { IntegrationsHubModal } from '@/components/integrations/IntegrationsHubModal';
 
 function formatDCAElapsedTime(startDateStr: string): string {
   if (!startDateStr) return '';
@@ -211,6 +212,7 @@ export default function HomePage() {
   const [showThemeInfoModal, setShowThemeInfoModal] = useState<boolean>(false);
   const [showGlossaryModal, setShowGlossaryModal] = useState<boolean>(false);
   const [showMonteCarloModal, setShowMonteCarloModal] = useState<boolean>(false);
+  const [showIntegrationsModal, setShowIntegrationsModal] = useState<boolean>(false);
   const [showTransactionModal, setShowTransactionModal] = useState<boolean>(false);
   const [selectedHistoryTicker, setSelectedHistoryTicker] = useState<string | undefined>(undefined);
   const [glossaryInitialTerm, setGlossaryInitialTerm] = useState<string | undefined>(undefined);
@@ -761,6 +763,40 @@ export default function HomePage() {
               title="Lancer la simulation stochastique Monte Carlo (10 000 scénarios)"
             >
               🎲 Monte Carlo & FIRE
+            </button>
+
+            {/* 🔗 Hub Multi-Comptes & Sync API Directe (IBKR / BoursoBank / Trade Republic) */}
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm"
+              id="open-integrations-hub-btn"
+              style={{
+                color: 'var(--accent-indigo, #818cf8)',
+                fontSize: 12,
+                fontWeight: 700,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+                border: '1px solid rgba(129, 140, 248, 0.4)',
+                padding: '6px 12px',
+                borderRadius: 10,
+                background: 'rgba(129, 140, 248, 0.1)',
+                cursor: 'pointer',
+              }}
+              onClick={() => setShowIntegrationsModal(true)}
+              title="Ouvrir le Hub de synchronisation multi-comptes (Interactive Brokers, BoursoBank, Trade Republic)"
+            >
+              🔗 Comptes & Sync API
+              <span
+                style={{
+                  width: 7,
+                  height: 7,
+                  borderRadius: '50%',
+                  backgroundColor: '#34d399',
+                  boxShadow: '0 0 8px #34d399',
+                  display: 'inline-block',
+                }}
+              />
             </button>
 
             {/* Global Inflation Toggle Switch */}
@@ -3126,6 +3162,15 @@ export default function HomePage() {
           positions={positions}
           fxRates={fxRates}
           onClose={() => setShowMonteCarloModal(false)}
+        />
+      )}
+
+      {/* 🔗 Modal Hub Multi-Comptes & Sync API Directe */}
+      {showIntegrationsModal && (
+        <IntegrationsHubModal
+          isOpen={showIntegrationsModal}
+          onClose={() => setShowIntegrationsModal(false)}
+          fxRateEURUSD={fxRates['USD'] || 1.08}
         />
       )}
 

@@ -21,13 +21,14 @@ export function getTrueLayerAuthUrl(redirectUri: string, state?: string): string
   const clientId = process.env.TRUELAYER_CLIENT_ID;
   if (!clientId) return null;
 
+  const sandbox = isSandbox();
   const baseUrl = getTrueLayerAuthBaseUrl();
   const params = new URLSearchParams({
     response_type: "code",
     client_id: clientId,
-    scope: "info accounts balance cards transactions direct_debits standing_orders offline_access",
+    scope: "info accounts balance transactions offline_access",
     redirect_uri: redirectUri,
-    providers: "fr-all uk-ob-all",
+    ...(sandbox ? { enable_mock: "true" } : {}),
     ...(state ? { state } : {}),
   });
 

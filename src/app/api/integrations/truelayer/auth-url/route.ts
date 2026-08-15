@@ -5,7 +5,8 @@ export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
   try {
-    const { origin } = new URL(request.url);
+    const { origin, searchParams } = new URL(request.url);
+    const format = searchParams.get("format");
     const redirectUri = `${origin}/api/integrations/truelayer/callback`;
     const authUrl = getTrueLayerAuthUrl(redirectUri);
 
@@ -16,7 +17,13 @@ export async function GET(request: Request) {
       );
     }
 
-    return NextResponse.json({ authUrl, redirectUri });
+    // If API client requests JSON specifically
+    if (format === "json") {
+      return NextResponse.json({ authUrl, redirectUri });
+    }
+
+    // Direct browser navigation redirects directly to TrueLayer OAuth dialog
+    return NextResponse.redirect(authUrl);
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Internal Server Error";
     return NextResponse.json({ error: msg }, { status: 500 });

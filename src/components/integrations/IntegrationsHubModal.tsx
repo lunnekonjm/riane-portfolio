@@ -690,20 +690,57 @@ export const IntegrationsHubModal: React.FC<IntegrationsHubModalProps> = ({
                     borderRadius: 14,
                     background: 'var(--bg-tertiary)',
                     border: '1px solid var(--border-subtle)',
-                    textAlign: 'center',
                     display: 'flex',
                     flexDirection: 'column',
-                    alignItems: 'center',
-                    gap: 10,
+                    gap: 16,
                   }}
                 >
-                  <span style={{ fontSize: 32 }}>🛡️</span>
-                  <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)' }}>
-                    Connexion Sécurisée Open Banking DSP2
+                  <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontSize: 32 }}>🛡️</span>
+                    <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)' }}>
+                      Connexion Sécurisée Open Banking DSP2
+                    </div>
+                    <p style={{ fontSize: 12, color: 'var(--text-secondary)', maxWidth: 540, margin: 0, lineHeight: 1.5 }}>
+                      Pour afficher en temps réel vos soldes BoursoBank (Compte Courant, Livret A et PEA-PME) sans aucune saisie manuelle, cliquez sur le bouton <strong>Connecter BoursoBank DSP2</strong> ci-dessus.
+                    </p>
                   </div>
-                  <p style={{ fontSize: 12, color: 'var(--text-secondary)', maxWidth: 520, margin: 0, lineHeight: 1.5 }}>
-                    Pour afficher en temps réel vos soldes BoursoBank (Compte Courant, Livret A et PEA-PME) sans aucune saisie manuelle, cliquez sur le bouton ci-dessus afin d'autoriser l'accès via le portail Open Banking TrueLayer.
-                  </p>
+
+                  {/* Configuration Help Box */}
+                  <div
+                    style={{
+                      padding: '14px 18px',
+                      borderRadius: 10,
+                      background: 'rgba(79, 70, 229, 0.08)',
+                      border: '1px solid rgba(79, 70, 229, 0.25)',
+                      fontSize: 12,
+                      color: 'var(--text-secondary)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 8,
+                    }}
+                  >
+                    <div style={{ fontWeight: 700, color: '#818cf8', display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span>⚙️</span> Configuration Console TrueLayer (Redirect URI) :
+                    </div>
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                      Dans votre console TrueLayer (<strong>Applications &gt; Riane Portfolio &gt; App Settings &gt; Redirect URIs</strong>), assurez-vous d&apos;avoir ajouté cette URL de redirection :
+                    </div>
+                    <div
+                      style={{
+                        padding: '6px 10px',
+                        borderRadius: 6,
+                        background: 'var(--bg-primary)',
+                        border: '1px solid var(--border-medium)',
+                        fontFamily: 'var(--font-mono)',
+                        fontSize: 11,
+                        color: 'var(--accent-cyan)',
+                        wordBreak: 'break-all',
+                        userSelect: 'all',
+                      }}
+                    >
+                      https://riane-portfolio-one.vercel.app/api/integrations/truelayer/callback
+                    </div>
+                  </div>
                 </div>
               )}
             </div>

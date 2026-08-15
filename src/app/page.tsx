@@ -204,7 +204,6 @@ export default function HomePage() {
         }
         if (tlStatus === 'success' || tlStatus === 'code_received') {
           setToast({ message: 'BoursoBank connecté avec succès via DSP2 !', type: 'success' });
-          setShowIntegrationsModal(true);
         } else if (tlStatus === 'error' || tlStatus === 'token_error') {
           const msg = params.get('msg') || 'Échec de connexion bancaire';
           setToast({ message: `Erreur TrueLayer : ${msg}`, type: 'error' });
@@ -212,6 +211,11 @@ export default function HomePage() {
         const viewParam = params.get('view') as PageView | null;
         if (viewParam && ['dashboard', 'envelopes', 'revenue', 'analysis', 'risk', 'audit', 'reports'].includes(viewParam)) {
           setCurrentView(viewParam);
+        }
+
+        // Clean the URL query params to prevent reopening or re-triggering on refresh
+        if (tlStatus || tlToken || params.get('code')) {
+          window.history.replaceState({}, document.title, window.location.pathname);
         }
       } catch {
         // ignore

@@ -108,6 +108,10 @@ export interface PortfolioConfig {
   baseCurrency: Currency;
   /** Investment horizon in years */
   horizonYears: number;
+  /** Optional start date of global DCA (YYYY-MM-DD) */
+  dcaStartDate?: string;
+  /** Multi-tier / historical DCA tranches over time (e.g. 1000€/m then 1500€/m) */
+  dcaHistory?: DCATranche[];
 }
 
 export interface EnvelopeSummary {

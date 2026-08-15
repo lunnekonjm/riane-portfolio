@@ -9,6 +9,7 @@ export interface InfoTooltipProps {
   position?: 'top' | 'bottom' | 'auto';
   align?: 'left' | 'center' | 'right' | 'auto';
   color?: 'cyan' | 'emerald' | 'rose' | 'amber' | 'default';
+  theme?: 'cyan' | 'emerald' | 'rose' | 'amber' | 'default';
   width?: number;
   icon?: React.ReactNode;
   size?: number;
@@ -22,12 +23,14 @@ export default function InfoTooltip({
   position = 'auto',
   align = 'auto',
   color = 'cyan',
+  theme,
   width = 260,
   icon,
   size = 18,
   style,
   className,
 }: InfoTooltipProps) {
+  const activeColor = theme || color;
   const [isOpen, setIsOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [coords, setCoords] = useState<{ top: number; left: number }>({
@@ -142,7 +145,7 @@ export default function InfoTooltip({
       border: 'rgba(255, 255, 255, 0.2)',
       glow: 'rgba(0, 0, 0, 0.4)',
     },
-  }[color];
+  }[activeColor || 'cyan'];
 
   const tooltipPortal = isOpen && mounted && typeof document !== 'undefined' ? (
     <div

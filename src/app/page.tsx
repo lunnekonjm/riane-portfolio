@@ -279,7 +279,9 @@ export default function HomePage() {
           isIntegerOnly,
           (pos.dcaFrequency || 'monthly') as any,
           pos.dcaDepositMonth || 1,
-          pos.dcaDepositDay || 5
+          pos.dcaDepositDay || 5,
+          pos.dcaHistory,
+          pos.depositsHistory
         );
 
         const finalShares = sim.totalShares;

@@ -2135,74 +2135,86 @@ export default function HomePage() {
           {/* ═══ RISK ═══ */}
           {currentView === 'risk' && (
             <>
-              {/* Parametric VaR Card */}
+              {/* Moniteur de Résilience Stratégique & Horizon Long Terme */}
               {(() => {
                 const metrics = calculatePortfolioRiskMetrics(positions, fxRates);
+                const monthlyDCA = config?.monthlyBudget || 1000;
                 return (
-                  <div className="card" style={{ borderLeft: '4px solid var(--accent-cyan)' }}>
+                  <div className="card" style={{ borderLeft: '4px solid var(--accent-emerald)', background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.03) 0%, rgba(6, 182, 212, 0.03) 100%)' }}>
                     <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
                       <div>
-                        <span className="card-title">⚡ Métriques de Risque Paramétrique &amp; Volatilité</span>
+                        <span className="card-title">🛡️ Moniteur de Résilience &amp; Croissance Long Terme (DCA 15-20 ans)</span>
                         <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>
-                          Analyse statistique de la résilience de votre portefeuille face aux fluctuations de marché.
+                          Aligné sur votre stratégie de constitution de patrimoine et la puissance de l&apos;effet d&apos;intérêt composé.
                         </div>
                       </div>
                       <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                        <button type="button" className="btn btn-ghost btn-sm" style={{ fontSize: 'var(--text-xs)', color: 'var(--accent-cyan)', fontWeight: 600 }} onClick={() => openGlossary('var')}>
-                          💡 Explication des Risques
+                        <button
+                          type="button"
+                          className="btn btn-primary btn-sm"
+                          style={{ fontSize: 12, fontWeight: 700, background: 'linear-gradient(135deg, #06b6d4 0%, #0891b2 100%)' }}
+                          onClick={() => setShowMonteCarloModal(true)}
+                        >
+                          🎲 Simulation Monte Carlo 15-20 ans
                         </button>
-                        <span className="badge badge-cyan" style={{ fontSize: 12, padding: '4px 10px' }}>
-                          Score Diversification : {metrics.diversificationScore}/100
+                        <span className="badge badge-emerald" style={{ fontSize: 12, padding: '4px 10px', fontWeight: 700 }}>
+                          Score Résilience : {metrics.diversificationScore}/100
                         </span>
                       </div>
                     </div>
 
-                    <div className="grid-4" style={{ marginBottom: 8, marginTop: 12, gap: 16 }}>
+                    <div className="grid-4" style={{ marginBottom: 14, marginTop: 14, gap: 16 }}>
+                      {/* 1. Rendement CAGR Espéré */}
                       <div style={{ background: 'var(--bg-tertiary)', padding: 14, borderRadius: 10, border: '1px solid var(--border-subtle)' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', fontWeight: 600, textTransform: 'uppercase' }}>Volatilité Annuelle</span>
-                          <span style={{ fontSize: 14 }}>📉</span>
+                          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', fontWeight: 600, textTransform: 'uppercase' }}>Rendement Espéré (CAGR)</span>
+                          <span style={{ fontSize: 14 }}>📈</span>
+                        </div>
+                        <strong className="mono" style={{ fontSize: 22, color: 'var(--accent-emerald)', display: 'block', margin: '4px 0' }}>+{metrics.expectedReturn || 8.5}% / an</strong>
+                        <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
+                          Scénario neutre fondé sur vos 3 piliers (Core PEA, Small Caps &amp; Tech US).
+                        </div>
+                      </div>
+
+                      {/* 2. Résilience & Effet Parapluie DCA */}
+                      <div style={{ background: 'var(--bg-tertiary)', padding: 14, borderRadius: 10, border: '1px solid var(--border-subtle)' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', fontWeight: 600, textTransform: 'uppercase' }}>Effet Parapluie DCA</span>
+                          <span style={{ fontSize: 14 }}>☔</span>
+                        </div>
+                        <strong className="mono" style={{ fontSize: 22, color: 'var(--accent-cyan)', display: 'block', margin: '4px 0' }}>{monthlyDCA.toLocaleString('fr-FR')} € / mois</strong>
+                        <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
+                          En cas de baisse, vos achats mensuels abaissent votre PRU moyen (accumulation au rabais).
+                        </div>
+                      </div>
+
+                      {/* 3. Volatilité & Profil */}
+                      <div style={{ background: 'var(--bg-tertiary)', padding: 14, borderRadius: 10, border: '1px solid var(--border-subtle)' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', fontWeight: 600, textTransform: 'uppercase' }}>Volatilité Normale</span>
+                          <span style={{ fontSize: 14 }}>⚡</span>
                         </div>
                         <strong className="mono" style={{ fontSize: 22, color: 'var(--accent-amber)', display: 'block', margin: '4px 0' }}>{metrics.annualVolatility}%</strong>
                         <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
-                          Amplitude moyenne des cours. 19% correspond à un profil dynamique équilibré.
+                          Fluctuation prévisible pour un portefeuille de croissance dynamique (Small Caps + Tech).
                         </div>
                       </div>
 
+                      {/* 4. Trésorerie Garantie & Matelas de Sécurité */}
                       <div style={{ background: 'var(--bg-tertiary)', padding: 14, borderRadius: 10, border: '1px solid var(--border-subtle)' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', fontWeight: 600, textTransform: 'uppercase' }}>VaR 95% (Choc Normal)</span>
+                          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', fontWeight: 600, textTransform: 'uppercase' }}>Matelas Sécurisé (Livrets)</span>
                           <span style={{ fontSize: 14 }}>🛡️</span>
                         </div>
-                        <strong className="mono" style={{ fontSize: 22, color: 'var(--accent-rose)', display: 'block', margin: '4px 0' }}>-{metrics.var95EUR.toLocaleString('fr-FR')} €</strong>
-                        <div style={{ fontSize: 'var(--text-xs)', color: 'var(--accent-rose)', fontWeight: 600 }}>-{metrics.var95Percent}% de perte max</div>
-                        <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', marginTop: 2, lineHeight: 1.4 }}>
-                          Pertes maximales estimées dans 95% des scénarios de marché normaux (1 an).
-                        </div>
-                      </div>
-
-                      <div style={{ background: 'var(--bg-tertiary)', padding: 14, borderRadius: 10, border: '1px solid var(--border-subtle)' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', fontWeight: 600, textTransform: 'uppercase' }}>VaR 99% (Krach 1%)</span>
-                          <span style={{ fontSize: 14 }}>⚡</span>
-                        </div>
-                        <strong className="mono" style={{ fontSize: 22, color: 'var(--accent-rose)', display: 'block', margin: '4px 0' }}>-{metrics.var99EUR.toLocaleString('fr-FR')} €</strong>
-                        <div style={{ fontSize: 'var(--text-xs)', color: 'var(--accent-rose)', fontWeight: 600 }}>-{metrics.var99Percent}% de perte max</div>
-                        <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', marginTop: 2, lineHeight: 1.4 }}>
-                          Choc extrême estimé lors du pire 1% des crises financières historiques.
-                        </div>
-                      </div>
-
-                      <div style={{ background: 'var(--bg-tertiary)', padding: 14, borderRadius: 10, border: '1px solid var(--border-subtle)' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', fontWeight: 600, textTransform: 'uppercase' }}>Ratio de Sharpe Estimé</span>
-                          <span style={{ fontSize: 14 }}>⚖️</span>
-                        </div>
-                        <strong className="mono" style={{ fontSize: 22, color: 'var(--accent-emerald)', display: 'block', margin: '4px 0' }}>{metrics.estimatedSharpeRatio}</strong>
+                        <strong className="mono" style={{ fontSize: 22, color: 'var(--accent-emerald)', display: 'block', margin: '4px 0' }}>{(savingsVal || 0).toLocaleString('fr-FR')} €</strong>
                         <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
-                          Rendement obtenu par unité de risque pris (&gt; 0.3 = rendement positif).
+                          Trésorerie 100% sans risque et disponible, totalement isolée de la volatilité boursière.
                         </div>
                       </div>
+                    </div>
+
+                    <div style={{ padding: '10px 14px', background: 'rgba(16, 185, 129, 0.08)', borderRadius: 8, border: '1px solid rgba(16, 185, 129, 0.2)', fontSize: 13, color: 'var(--text-primary)', lineHeight: 1.45 }}>
+                      💡 <strong>Principe Clé de l&apos;Investisseur Long Terme :</strong> À votre horizon (15-20 ans), les variations temporaires des cours ne sont pas des pertes réelles. Chaque repli de marché est une opportunité d&apos;acheter davantage de parts à bas coût avec vos versements DCA mensuels.
                     </div>
                   </div>
                 );

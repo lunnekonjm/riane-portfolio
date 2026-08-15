@@ -35,6 +35,8 @@ import CoreSatelliteView from '@/components/CoreSatelliteView';
 import InfoTooltip from '@/components/InfoTooltip';
 import { computeSavingsPositionInterest, REGULATED_SAVINGS_METADATA } from '@/engines/savingsInterestEngine';
 import { IntegrationsHubModal } from '@/components/integrations/IntegrationsHubModal';
+import { useBoursoLive } from '@/hooks/useBoursoLive';
+import BoursoLiveBar from '@/components/BoursoLiveBar';
 
 function formatDCAElapsedTime(startDateStr: string): string {
   if (!startDateStr) return '';
@@ -254,7 +256,9 @@ export default function HomePage() {
     saveExtraCashEntry, deleteExtraCashEntry,
   } = useRevenue();
 
-  const [rebalanceBudgetMode, setRebalanceBudgetMode] = useState<'dca' | 'extra' | 'combo' | 'custom'>('dca');
+  const boursoLive = useBoursoLive();
+
+  const [rebalanceBudgetMode, setRebalanceBudgetMode] = useState<'dca' | 'tampon' | 'extra' | 'combo' | 'custom'>('dca');
   const [customRebalanceAmount, setCustomRebalanceAmount] = useState<number>(1000);
   const [simulatedMarketDrop, setSimulatedMarketDrop] = useState<number>(0.25);
 
@@ -872,6 +876,16 @@ export default function HomePage() {
                 onOpenAnalysis={() => setCurrentView('analysis')}
                 onNavigateView={setCurrentView}
                 onOpenRebalance={openRebalanceModal}
+              />
+
+              {/* 🏦 Hub Bancaire BoursoBank & Liquidités Live */}
+              <BoursoLiveBar
+                onOpenIntegrations={() => setShowIntegrationsModal(true)}
+                onOpenRebalanceWithTampon={(amount) => {
+                  setRebalanceBudgetMode('tampon');
+                  setFlowRebalanceResult(calculateSmartFlowRebalance(positions, amount, fxRates));
+                  setShowFlowRebalanceModal(true);
+                }}
               />
 
               {/* 📅 Dashboard Date & Market Last Refresh Bar */}
@@ -2711,6 +2725,27 @@ export default function HomePage() {
                   🎯 DCA Seul ({(config?.monthlyBudget || 1000).toLocaleString('fr-FR')} €)
                 </button>
 
+                {boursoLive.tamponEUR > 0 && (
+                  <button
+                    type="button"
+                    className={`btn btn-sm ${rebalanceBudgetMode === 'tampon' ? 'btn-primary' : 'btn-ghost'}`}
+                    style={{
+                      flex: 1,
+                      minWidth: 140,
+                      fontSize: 12,
+                      fontWeight: 700,
+                      background: rebalanceBudgetMode === 'tampon' ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)' : undefined,
+                      border: '1px solid rgba(16, 185, 129, 0.4)',
+                    }}
+                    onClick={() => {
+                      setRebalanceBudgetMode('tampon');
+                      setFlowRebalanceResult(calculateSmartFlowRebalance(positions, boursoLive.tamponEUR, fxRates));
+                    }}
+                  >
+                    ⚡ Tampon Bourso ({boursoLive.tamponEUR.toLocaleString('fr-FR')} €)
+                  </button>
+                )}
+
                 {totalAvailableExtraCash > 0 && (
                   <>
                     <button
@@ -2831,7 +2866,15 @@ export default function HomePage() {
                     .filter((i) => i.recommendedShares > 0)
                     .map((i, idx) => `${idx + 1}. [${i.envelope}] Acheter ${i.recommendedShares} part(s) de ${i.ticker} (${i.name}) ~${i.recommendedCost} €`)
                     .join('\n');
-                  const sourceLabel = rebalanceBudgetMode === 'dca' ? 'DCA Mensuel' : rebalanceBudgetMode === 'extra' ? 'Primes & Tontine' : rebalanceBudgetMode === 'combo' ? 'Combo DCA + Primes' : 'Montant Libre';
+                  const sourceLabel = rebalanceBudgetMode === 'dca'
+                    ? 'DCA Mensuel'
+                    : rebalanceBudgetMode === 'tampon'
+                    ? 'Compte Tampon BoursoBank (••••4455)'
+                    : rebalanceBudgetMode === 'extra'
+                    ? 'Primes & Tontine'
+                    : rebalanceBudgetMode === 'combo'
+                    ? 'Combo DCA + Primes'
+                    : 'Montant Libre';
                   const text = `📋 FEUILLE D'ORDRES RIANE PORTFOLIO (${new Date().toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })})\nSource : ${sourceLabel} | Budget : ${flowRebalanceResult.totalSpent} € (Reliquat : ${flowRebalanceResult.uninvestedCash} €)\n\n${orders}`;
                   navigator.clipboard.writeText(text);
                   showToast('📋 Feuille d\'ordres copiée dans le presse-papier !');

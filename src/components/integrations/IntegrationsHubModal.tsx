@@ -52,6 +52,9 @@ export const IntegrationsHubModal: React.FC<IntegrationsHubModalProps> = ({
       localStorage.setItem('riane_livret_a_rate', rateVal.toString());
       localStorage.setItem('riane_pea_pme_balance', peaVal.toString());
       setManualSavedSuccess(true);
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('riane_bourso_updated'));
+      }
       setTimeout(() => setManualSavedSuccess(false), 3500);
     } catch (e) {
       console.error('Erreur sauvegarde manuelle Livret/PEA:', e);
@@ -84,6 +87,9 @@ export const IntegrationsHubModal: React.FC<IntegrationsHubModalProps> = ({
       };
       try {
         localStorage.setItem('riane_bourso_accounts_config', JSON.stringify(updated));
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new Event('riane_bourso_updated'));
+        }
       } catch {}
       return updated;
     });
@@ -129,7 +135,17 @@ export const IntegrationsHubModal: React.FC<IntegrationsHubModalProps> = ({
         const data = await res.json();
         setSnaptradeData(data.snaptrade);
         setTruelayerData(data.truelayer);
-        setLastSyncTime(new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
+        const timeStr = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        setLastSyncTime(timeStr);
+        if (data.truelayer?.accounts && Array.isArray(data.truelayer.accounts)) {
+          try {
+            localStorage.setItem('truelayer_cached_accounts', JSON.stringify(data.truelayer.accounts));
+            localStorage.setItem('truelayer_last_sync', timeStr);
+            if (typeof window !== 'undefined') {
+              window.dispatchEvent(new Event('riane_bourso_updated'));
+            }
+          } catch {}
+        }
       }
     } catch (err) {
       console.error('Erreur lors de la synchronisation:', err);

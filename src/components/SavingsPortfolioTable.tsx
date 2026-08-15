@@ -4,6 +4,7 @@ import { useState, useMemo } from 'react';
 import type { Position } from '@/types/portfolio';
 import { computeSavingsPositionInterest } from '@/engines/savingsInterestEngine';
 import AssetLogo from '@/components/AssetLogo';
+import { useBoursoLive } from '@/hooks/useBoursoLive';
 
 interface SavingsPortfolioTableProps {
   positions: Position[];
@@ -19,6 +20,7 @@ export default function SavingsPortfolioTable({
   onAddSavingsPosition,
 }: SavingsPortfolioTableProps) {
   const [selectedSavingsEnvelope, setSelectedSavingsEnvelope] = useState<string>('ALL');
+  const boursoLive = useBoursoLive();
 
   const savingsPositions = useMemo(() => {
     return positions.filter(
@@ -77,6 +79,13 @@ export default function SavingsPortfolioTable({
         <p style={{ fontSize: 14, color: 'var(--text-secondary)', marginBottom: 18 }}>
           Ajoutez vos Livrets A, LDDS, PEE (Natixis), Assurance-Vie ou SCPI pour suivre votre patrimoine hors-bourse et calculer vos intérêts réels.
         </p>
+        {boursoLive.livretAEUR > 0 && (
+          <div style={{ margin: '0 auto 16px auto', maxWidth: 460, padding: 12, borderRadius: 10, background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.3)' }}>
+            <span style={{ fontSize: 13, color: 'var(--accent-emerald)', fontWeight: 700 }}>
+              🏦 Livret A BoursoBank Synchronisé : {boursoLive.livretAEUR.toLocaleString('fr-FR')} € ({boursoLive.livretARate}% net)
+            </span>
+          </div>
+        )}
         <button className="btn btn-primary" onClick={onAddSavingsPosition} style={{ fontSize: 14 }}>
           ➕ Ajouter un compte épargne / livret
         </button>

@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import type { Position } from '@/types/portfolio';
+import { useBoursoLive } from '@/hooks/useBoursoLive';
 
 interface EnvelopesTaxViewProps {
   positions: Position[];
@@ -138,6 +139,8 @@ export default function EnvelopesTaxView({
   // UX Optimization: Option to hide empty 0€ envelopes to avoid screen clutter
   const [hideEmptyEnvelopes, setHideEmptyEnvelopes] = useState<boolean>(true);
 
+  const boursoLive = useBoursoLive();
+
   // Group positions by envelope
   const envelopeGroups = positions.reduce((acc, pos) => {
     const env = pos.envelope;
@@ -151,7 +154,8 @@ export default function EnvelopesTaxView({
   const peaCost = peaPositions.reduce((sum, p) => sum + (p.quantity * p.avgPrice * (fxRates[p.currency] || 1)), 0) / factor;
 
   const peaPmePositions = envelopeGroups['PEA-PME'] || [];
-  const peaPmeCost = peaPmePositions.reduce((sum, p) => sum + (p.quantity * p.avgPrice * (fxRates[p.currency] || 1)), 0) / factor;
+  const rawPeaPmeCost = peaPmePositions.reduce((sum, p) => sum + (p.quantity * p.avgPrice * (fxRates[p.currency] || 1)), 0) / factor;
+  const peaPmeCost = rawPeaPmeCost > 0 ? rawPeaPmeCost : (boursoLive.peaPmeEUR / factor);
 
   // Legal French Rule: Combined PEA + PEA-PME deposits cannot exceed 225,000 €!
   const maxPeaPmeAllowed = Math.max(0, 225000 - peaCost);
@@ -185,6 +189,15 @@ export default function EnvelopesTaxView({
         totalValue += p.quantity * price * rate;
         totalCost += p.quantity * p.avgPrice * rate;
       }
+    }
+
+    // Auto-integrate BoursoBank Livret A & PEA-PME if no manual positions exist
+    if (envKey === 'LIVRET' && envPositions.length === 0 && boursoLive.livretAEUR > 0) {
+      totalValue = (boursoLive.livretAEUR + boursoLive.livretAYearlyInterest) / factor;
+      totalCost = boursoLive.livretAEUR / factor;
+    } else if (envKey === 'PEA-PME' && envPositions.length === 0 && boursoLive.peaPmeEUR > 0) {
+      totalValue = boursoLive.peaPmeEUR / factor;
+      totalCost = boursoLive.peaPmeEUR / factor;
     }
 
     const gainLoss = totalValue - totalCost;

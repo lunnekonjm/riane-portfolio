@@ -4,6 +4,7 @@ import { useState, useCallback, useRef, useMemo } from 'react';
 import type { SalaryRecord, RevenueConfig, ReserveAllocation, ExtraCashEntry, ExtraCashCategory } from '@/types/revenue';
 import { computeSalaryAnalytics, computeReserveBalance, DEFAULT_REVENUE_CONFIG, REFERENCE_NET_RATES } from '@/types/revenue';
 import type { PortfolioConfig } from '@/types/portfolio';
+import { useBoursoLive } from '@/hooks/useBoursoLive';
 
 interface RevenueBudgetViewProps {
   records: SalaryRecord[];
@@ -107,6 +108,8 @@ export default function RevenueBudgetView({
   const [allocEnvelope, setAllocEnvelope] = useState<'PEA' | 'PEA-PME' | 'CTO'>('CTO');
   const [allocTicker, setAllocTicker] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const boursoLive = useBoursoLive();
 
   const analytics = computeSalaryAnalytics(records || [], allocations || [], localConfig?.rollingAverageMonths || 3);
   const reserveBalance = useMemo(() => computeReserveBalance(records || [], allocations || []), [records, allocations]);
@@ -328,6 +331,96 @@ export default function RevenueBudgetView({
         <div className="card" style={{ borderLeft: '3px solid var(--accent-emerald)', background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.05) 0%, rgba(6, 182, 212, 0.05) 100%)' }}>
           <div className="card-header"><span className="card-title">💎 Total Extras &amp; Primes Dispo</span></div>
           <div className="card-value" style={{ color: 'var(--accent-emerald)' }}>+{grandTotalAvailableExtra.toLocaleString('fr-FR')} €</div>
+        </div>
+      </div>
+
+      {/* 🏦 LIVE BOURSOBANK REAL ACCOUNTS & TAMPON SAS */}
+      <div
+        className="card"
+        style={{
+          marginBottom: 24,
+          border: '1px solid rgba(6, 182, 212, 0.3)',
+          background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.9) 0%, rgba(30, 41, 59, 0.7) 100%)',
+          padding: 16,
+          borderRadius: 12,
+        }}
+      >
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12, marginBottom: 14 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{ fontSize: 22 }}>🏦</span>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <h4 style={{ fontSize: 15, margin: 0, fontWeight: 800, color: 'var(--text-primary)' }}>
+                  Comptes Bancaires Live (BoursoBank Open Banking)
+                </h4>
+                <span
+                  style={{
+                    fontSize: 10,
+                    fontWeight: 700,
+                    padding: '2px 8px',
+                    borderRadius: 10,
+                    background: boursoLive.isConnected ? 'rgba(16, 185, 129, 0.15)' : 'rgba(245, 158, 11, 0.15)',
+                    color: boursoLive.isConnected ? 'var(--accent-emerald)' : 'var(--accent-amber)',
+                    border: `1px solid ${boursoLive.isConnected ? 'var(--accent-emerald)' : 'var(--accent-amber)'}`,
+                  }}
+                >
+                  {boursoLive.isConnected ? '🟢 Live DSP2' : '🟡 À synchroniser'}
+                </span>
+              </div>
+              <p style={{ margin: '2px 0 0 0', fontSize: 12, color: 'var(--text-secondary)' }}>
+                Soldes réels synchronisés — Utilisez votre Compte Tampon comme sas de dispatching
+              </p>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            {boursoLive.tamponEUR > 0 && onOpenRebalancerWithBudget && (
+              <button
+                type="button"
+                className="btn btn-primary btn-sm"
+                style={{
+                  background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                  fontWeight: 700,
+                  fontSize: 12,
+                  padding: '6px 12px',
+                }}
+                onClick={() => onOpenRebalancerWithBudget(boursoLive.tamponEUR)}
+              >
+                ⚡ Rééquilibrer avec le Tampon ({boursoLive.tamponEUR.toLocaleString('fr-FR')} €)
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Real Accounts 4-Grid */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: 10 }}>
+          <div style={{ padding: '10px 12px', borderRadius: 8, background: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)' }}>
+            <span style={{ fontSize: 11, color: 'var(--accent-cyan)', fontWeight: 700, textTransform: 'uppercase' }}>💳 Compte Courant</span>
+            <div style={{ fontSize: 16, fontWeight: 800, fontFamily: 'var(--font-mono)', marginTop: 4, color: boursoLive.checkingEUR < 0 ? 'var(--accent-amber)' : 'var(--text-primary)' }}>
+              {boursoLive.checkingEUR.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
+            </div>
+          </div>
+
+          <div style={{ padding: '10px 12px', borderRadius: 8, background: 'rgba(16, 185, 129, 0.08)', border: '1px solid rgba(16, 185, 129, 0.3)' }}>
+            <span style={{ fontSize: 11, color: 'var(--accent-emerald)', fontWeight: 800, textTransform: 'uppercase' }}>⚡ Compte Tampon (Surplus)</span>
+            <div style={{ fontSize: 16, fontWeight: 800, fontFamily: 'var(--font-mono)', marginTop: 4, color: 'var(--accent-emerald)' }}>
+              {boursoLive.tamponEUR.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
+            </div>
+          </div>
+
+          <div style={{ padding: '10px 12px', borderRadius: 8, background: 'rgba(129, 140, 248, 0.08)', border: '1px solid rgba(129, 140, 248, 0.3)' }}>
+            <span style={{ fontSize: 11, color: '#818cf8', fontWeight: 800, textTransform: 'uppercase' }}>🤝 Compte Tontine</span>
+            <div style={{ fontSize: 16, fontWeight: 800, fontFamily: 'var(--font-mono)', marginTop: 4, color: '#818cf8' }}>
+              {boursoLive.tontineEUR.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
+            </div>
+          </div>
+
+          <div style={{ padding: '10px 12px', borderRadius: 8, background: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)' }}>
+            <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>🛡️ Livret A ({boursoLive.livretARate}%)</span>
+            <div style={{ fontSize: 16, fontWeight: 800, fontFamily: 'var(--font-mono)', marginTop: 4, color: 'var(--text-primary)' }}>
+              {boursoLive.livretAEUR > 0 ? boursoLive.livretAEUR.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' }) : 'Non renseigné'}
+            </div>
+          </div>
         </div>
       </div>
 

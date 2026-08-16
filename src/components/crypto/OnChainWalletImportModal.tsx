@@ -26,6 +26,7 @@ export default function OnChainWalletImportModal({
   const [scanResults, setScanResults] = useState<DiscoveredCryptoAsset[]>([]);
   const [hasScanned, setHasScanned] = useState(false);
   const [showZeroValued, setShowZeroValued] = useState(false);
+  const [scanWarning, setScanWarning] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
@@ -57,6 +58,7 @@ export default function OnChainWalletImportModal({
         setScanResults([]);
       } else {
         setScanResults(data.assets || []);
+        setScanWarning(data.warning || null);
         setHasScanned(true);
       }
     } catch (err: any) {
@@ -322,6 +324,12 @@ export default function OnChainWalletImportModal({
           {error && (
             <div style={{ marginTop: 10, padding: '8px 12px', borderRadius: 8, background: 'rgba(239, 68, 68, 0.15)', border: '1px solid rgba(239, 68, 68, 0.3)', color: '#f87171', fontSize: 12 }}>
               ⚠️ {error}
+            </div>
+          )}
+
+          {scanWarning && (
+            <div style={{ marginTop: 10, padding: '10px 14px', borderRadius: 8, background: 'rgba(245, 158, 11, 0.15)', border: '1px solid rgba(245, 158, 11, 0.3)', color: '#fbbf24', fontSize: 12, lineHeight: 1.4 }}>
+              💡 <strong>Smart Contract détecté</strong> : {scanWarning}
             </div>
           )}
         </form>

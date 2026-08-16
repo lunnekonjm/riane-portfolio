@@ -26,6 +26,8 @@ export interface OnChainScanResult {
   assets: DiscoveredCryptoAsset[];
   totalValueEUR: number;
   error?: string;
+  warning?: string;
+  isTokenContract?: boolean;
 }
 
 const PUBLIC_RPCS = {
@@ -196,8 +198,24 @@ const COMMON_TOKEN_CONTRACTS: TokenContractDef[] = [
 /**
  * Récupère le prix de référence en EUR
  */
-async function fetchPriceEUR(ticker: string, fallback: number, coingeckoId?: string): Promise<number> {
-  // 1. Try CoinGecko if ID available
+async function fetchPriceEUR(ticker: string, fallback: number, coingeckoId?: string, mintAddress?: string): Promise<number> {
+  // 1. Try DexScreener if token contract / mint address is known (ideal for on-chain Solana tokens like GST, GMT)
+  if (mintAddress) {
+    try {
+      const res = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${encodeURIComponent(mintAddress)}`, {
+        signal: AbortSignal.timeout(3500),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const usd = Number(data?.pairs?.[0]?.priceUsd);
+        if (!isNaN(usd) && usd > 0) {
+          return usd * 0.864; // USD -> EUR
+        }
+      }
+    } catch {}
+  }
+
+  // 2. Try CoinGecko if ID available
   if (coingeckoId) {
     try {
       const res = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${encodeURIComponent(coingeckoId)}&vs_currencies=eur`, {
@@ -212,7 +230,7 @@ async function fetchPriceEUR(ticker: string, fallback: number, coingeckoId?: str
     } catch {}
   }
 
-  // 2. Try Yahoo Finance with exact ticker
+  // 3. Try Yahoo Finance with exact ticker
   try {
     const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?range=1d&interval=1d`;
     const res = await fetch(url, {
@@ -226,7 +244,7 @@ async function fetchPriceEUR(ticker: string, fallback: number, coingeckoId?: str
     }
   } catch {}
 
-  // 3. Try Yahoo Finance USD pair if ticker is -EUR
+  // 4. Try Yahoo Finance USD pair if ticker is -EUR
   if (ticker.endsWith('-EUR')) {
     try {
       const usdTicker = ticker.replace(/-EUR$/, '-USD');
@@ -238,7 +256,7 @@ async function fetchPriceEUR(ticker: string, fallback: number, coingeckoId?: str
       if (res.ok) {
         const json = await res.json();
         const usdPrice = json?.chart?.result?.[0]?.meta?.regularMarketPrice;
-        if (typeof usdPrice === 'number' && usdPrice > 0) return usdPrice * 0.86;
+        if (typeof usdPrice === 'number' && usdPrice > 0) return usdPrice * 0.864;
       }
     } catch {}
   }
@@ -255,6 +273,15 @@ export async function scanWalletAllAssets(
 ): Promise<OnChainScanResult> {
   const address = rawAddress.trim();
   const discovered: DiscoveredCryptoAsset[] = [];
+  let isTokenContract = false;
+  let contractWarning: string | undefined = undefined;
+
+  // Vérification si l'utilisateur a collé l'adresse d'un smart contract / mint de token plutôt que son wallet
+  if (SOLANA_SPL_MAP[address] || COMMON_TOKEN_CONTRACTS.some(c => c.address.toLowerCase() === address.toLowerCase())) {
+    const matchedToken = SOLANA_SPL_MAP[address]?.name || COMMON_TOKEN_CONTRACTS.find(c => c.address.toLowerCase() === address.toLowerCase())?.name || 'Token';
+    isTokenContract = true;
+    contractWarning = `Attention : Cette adresse correspond au Smart Contract officiel du token « ${matchedToken} » (le contrat du projet), et non à votre adresse de portefeuille personnel. Les fonds affichés appartiennent au contrat du projet.`;
+  }
 
   if (!address) {
     return {
@@ -424,7 +451,7 @@ export async function scanWalletAllAssets(
               const name = def ? def.name : (isNFT ? `NFT / Collectible (${mint.slice(0, 6)}...)` : `SPL Token (${mint.slice(0, 6)}...)`);
               const ticker = def ? def.ticker : `${symbol}-EUR`;
               const icon = def ? def.icon : (isNFT ? '🖼️' : '🟣');
-              const price = await fetchPriceEUR(ticker, def?.fallbackPriceEUR || 0, def?.coingeckoId);
+              const price = await fetchPriceEUR(ticker, def?.fallbackPriceEUR || 0, def?.coingeckoId, mint);
               const val = uiAmount * price;
               const isValuable = val > 0.01 || (def !== undefined && price > 0);
 
@@ -455,6 +482,8 @@ export async function scanWalletAllAssets(
       success: true,
       address,
       detectedType: 'SOLANA',
+      warning: contractWarning,
+      isTokenContract,
       assets: discovered,
       totalValueEUR: discovered.reduce((sum, a) => sum + (a.selected ? a.valueEUR : 0), 0),
     };

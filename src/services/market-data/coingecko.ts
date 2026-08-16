@@ -1,3 +1,12 @@
+const DEXSCREENER_MINTS: Record<string, string> = {
+  'GST': 'AFbX8oGjGpmVFywbVouvhQSRmiW2aR1mohfahi4Y2AdB',
+  'GST-EUR': 'AFbX8oGjGpmVFywbVouvhQSRmiW2aR1mohfahi4Y2AdB',
+  'GST-USD': 'AFbX8oGjGpmVFywbVouvhQSRmiW2aR1mohfahi4Y2AdB',
+  'GMT': '7i5KKDFALHgnWaPtKjdLVdvoJBnhRQuKAezGUrX1KDt2',
+  'GMT-EUR': '7i5KKDFALHgnWaPtKjdLVdvoJBnhRQuKAezGUrX1KDt2',
+  'GMT-USD': '7i5KKDFALHgnWaPtKjdLVdvoJBnhRQuKAezGUrX1KDt2',
+};
+
 import type { QuoteData } from './types';
 
 const COINGECKO_MAP: Record<string, string> = {
@@ -32,6 +41,37 @@ export const coingeckoProvider = {
 
   async getQuote(ticker: string): Promise<QuoteData> {
     const clean = ticker.trim().toUpperCase();
+    const mint = DEXSCREENER_MINTS[clean] || DEXSCREENER_MINTS[clean.replace('-EUR', '').replace('-USD', '')];
+    if (mint) {
+      try {
+        const dRes = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${mint}`, { signal: AbortSignal.timeout(4000) });
+        if (dRes.ok) {
+          const dData = await dRes.json();
+          const usdPrice = Number(dData?.pairs?.[0]?.priceUsd);
+          if (!isNaN(usdPrice) && usdPrice > 0) {
+            const price = usdPrice * 0.864;
+            const changePercent = Number(dData?.pairs?.[0]?.priceChange?.h24 || 0);
+            const change = price * (changePercent / 100);
+            return {
+              ticker,
+              price,
+              change,
+              changePercent,
+              high: price * 1.05,
+              low: price * 0.95,
+              open: price - change,
+              previousClose: price - change,
+              volume: Number(dData?.pairs?.[0]?.volume?.h24 || 0),
+              timestamp: Date.now(),
+              currency: 'EUR',
+              source: 'DexScreener (On-Chain)',
+              marketState: 'REGULAR',
+              quoteTypeLabel: '🟢 Cours Crypto On-Chain en Direct (DexScreener)',
+            };
+          }
+        }
+      } catch {}
+    }
     const id = COINGECKO_MAP[clean] || COINGECKO_MAP[clean.replace('-EUR', '').replace('-USD', '')];
     if (!id) {
       throw new Error(`CoinGecko ID not found for ticker: ${ticker}`);

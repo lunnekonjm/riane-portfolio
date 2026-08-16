@@ -5,6 +5,7 @@
 
 import type { QuoteData, CompanyProfile, HistoricalDataPoint, NewsItem } from './types';
 import { yahooFinanceProvider } from './yahooFinance';
+import { coingeckoProvider } from './coingecko';
 import { alphaVantageProvider } from './alphaVantage';
 import { finnhubProvider } from './finnhub';
 import { getCached, setCache, CACHE_TTL } from './cache';
@@ -29,6 +30,8 @@ const CRYPTO_TICKER_MAP: Record<string, string> = {
   LINK: 'LINK-EUR',
   POL: 'POL-EUR',
   MATIC: 'MATIC-EUR',
+  GST: 'GST-EUR',
+  GMT: 'GMT-EUR',
 };
 
 export function normalizeMarketTicker(ticker: string): string {
@@ -41,7 +44,7 @@ export function normalizeMarketTicker(ticker: string): string {
 }
 
 /**
- * Get a real-time quote — Yahoo Finance first (gratuit), then Finnhub, then Alpha Vantage
+ * Get a real-time quote — Yahoo Finance first (gratuit), then CoinGecko (for crypto), then Finnhub, then Alpha Vantage
  */
 export async function getQuote(ticker: string): Promise<QuoteData> {
   const normalizedTicker = normalizeMarketTicker(ticker);
@@ -58,7 +61,19 @@ export async function getQuote(ticker: string): Promise<QuoteData> {
       return resultQuote;
     }
   } catch (err) {
-    console.warn(`[MarketData] Yahoo Finance failed for ${normalizedTicker}:`, err);
+    // Yahoo failed, fallback to specialized providers
+  }
+
+  // Fallback: CoinGecko (for altcoins, SPL tokens & cryptos)
+  try {
+    const quote = await coingeckoProvider.getQuote(normalizedTicker);
+    if (quote.price > 0) {
+      const resultQuote = { ...quote, ticker };
+      setCache(cacheKey, resultQuote, CACHE_TTL.QUOTE);
+      return resultQuote;
+    }
+  } catch {
+    // ignore
   }
 
   // Fallback: Finnhub

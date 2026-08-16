@@ -49,6 +49,128 @@ interface TokenContractDef {
   fallbackPriceEUR: number;
 }
 
+
+// Solana SPL Token Definitions
+interface SolanaSplDef {
+  symbol: string;
+  name: string;
+  ticker: string;
+  coingeckoId?: string;
+  fallbackPriceEUR: number;
+  icon: string;
+}
+
+const SOLANA_SPL_MAP: Record<string, SolanaSplDef> = {
+  // GST - Green Satoshi Token (STEPN on Solana)
+  'AFbX8oGjGpmVFywbVouvhQSRmiW2aR1mohfahi4Y2AdB': {
+    symbol: 'GST',
+    name: 'Green Satoshi Token (SOL)',
+    ticker: 'GST-EUR',
+    coingeckoId: 'green-satoshi-token',
+    fallbackPriceEUR: 0.00085,
+    icon: '👟',
+  },
+  // GMT - STEPN Governance
+  '7i5KKDFALHgnWaPtKjdLVdvoJBnhRQuKAezGUrX1KDt2': {
+    symbol: 'GMT',
+    name: 'STEPN (GMT)',
+    ticker: 'GMT-EUR',
+    coingeckoId: 'stepn',
+    fallbackPriceEUR: 0.12,
+    icon: '👟',
+  },
+  // USDC SPL
+  'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v': {
+    symbol: 'USDC',
+    name: 'USD Coin (Solana)',
+    ticker: 'USDC-EUR',
+    coingeckoId: 'usd-coin',
+    fallbackPriceEUR: 0.95,
+    icon: '💵',
+  },
+  // USDT SPL
+  'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB': {
+    symbol: 'USDT',
+    name: 'Tether USD (Solana)',
+    ticker: 'USDT-EUR',
+    coingeckoId: 'tether',
+    fallbackPriceEUR: 0.95,
+    icon: '💵',
+  },
+  // BONK
+  'DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263': {
+    symbol: 'BONK',
+    name: 'Bonk',
+    ticker: 'BONK-EUR',
+    coingeckoId: 'bonk',
+    fallbackPriceEUR: 0.00002,
+    icon: '🐶',
+  },
+  // JUP
+  'JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN': {
+    symbol: 'JUP',
+    name: 'Jupiter',
+    ticker: 'JUP-EUR',
+    coingeckoId: 'jupiter-exchange-solana',
+    fallbackPriceEUR: 0.85,
+    icon: '🪐',
+  },
+  // RAY
+  '4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R': {
+    symbol: 'RAY',
+    name: 'Raydium',
+    ticker: 'RAY-EUR',
+    coingeckoId: 'raydium',
+    fallbackPriceEUR: 1.8,
+    icon: '⚡',
+  },
+  // WIF
+  'EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm': {
+    symbol: 'WIF',
+    name: 'dogwifhat',
+    ticker: 'WIF-EUR',
+    coingeckoId: 'dogwifcoin',
+    fallbackPriceEUR: 1.5,
+    icon: '🐶',
+  },
+  // RENDER
+  'rndrizKT3MK1iimdxRdWabcF7Zg7AR5T4nud4EkHBXd': {
+    symbol: 'RENDER',
+    name: 'Render Token (SOL)',
+    ticker: 'RENDER-EUR',
+    coingeckoId: 'render-token',
+    fallbackPriceEUR: 5.5,
+    icon: '🎨',
+  },
+  // MSOL
+  'mSoLzYCxHdYgdzU16g5QSh3i5K3z3KZK7ytfqcJm7So': {
+    symbol: 'MSOL',
+    name: 'Marinade Staked SOL',
+    ticker: 'MSOL-EUR',
+    coingeckoId: 'marinade-staked-sol',
+    fallbackPriceEUR: 200,
+    icon: '🥩',
+  },
+  // JITOSOL
+  'J1toso1uCk3RLmjorhTtrVwY9HJ7X8V9yYac6Y7kGCPn': {
+    symbol: 'JITOSOL',
+    name: 'Jito Staked SOL',
+    ticker: 'JITOSOL-EUR',
+    coingeckoId: 'jito-staked-sol',
+    fallbackPriceEUR: 200,
+    icon: '🥩',
+  },
+  // PYTH
+  'PYTHx3w5gnk1bZf6n6C6Tdmk6c7M4N8mQ3pWjYnL6': {
+    symbol: 'PYTH',
+    name: 'Pyth Network',
+    ticker: 'PYTH-EUR',
+    coingeckoId: 'pyth-network',
+    fallbackPriceEUR: 0.35,
+    icon: '🔮',
+  },
+};
+
 const COMMON_TOKEN_CONTRACTS: TokenContractDef[] = [
   // Ethereum ERC20
   { symbol: 'USDT', name: 'Tether USD', ticker: 'USDT-EUR', decimals: 6, address: '0xdac17f958d2ee523a2206206994597c13d831ec7', chain: 'ETH', fallbackPriceEUR: 0.95 },
@@ -74,7 +196,23 @@ const COMMON_TOKEN_CONTRACTS: TokenContractDef[] = [
 /**
  * Récupère le prix de référence en EUR
  */
-async function fetchPriceEUR(ticker: string, fallback: number): Promise<number> {
+async function fetchPriceEUR(ticker: string, fallback: number, coingeckoId?: string): Promise<number> {
+  // 1. Try CoinGecko if ID available
+  if (coingeckoId) {
+    try {
+      const res = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${encodeURIComponent(coingeckoId)}&vs_currencies=eur`, {
+        headers: { 'User-Agent': 'Mozilla/5.0' },
+        signal: AbortSignal.timeout(3000),
+      });
+      if (res.ok) {
+        const json = await res.json();
+        const p = json?.[coingeckoId]?.eur;
+        if (typeof p === 'number' && p > 0) return p;
+      }
+    } catch {}
+  }
+
+  // 2. Try Yahoo Finance with exact ticker
   try {
     const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?range=1d&interval=1d`;
     const res = await fetch(url, {
@@ -86,9 +224,25 @@ async function fetchPriceEUR(ticker: string, fallback: number): Promise<number> 
       const price = json?.chart?.result?.[0]?.meta?.regularMarketPrice;
       if (typeof price === 'number' && price > 0) return price;
     }
-  } catch {
-    // Ignore and return fallback
+  } catch {}
+
+  // 3. Try Yahoo Finance USD pair if ticker is -EUR
+  if (ticker.endsWith('-EUR')) {
+    try {
+      const usdTicker = ticker.replace(/-EUR$/, '-USD');
+      const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(usdTicker)}?range=1d&interval=1d`;
+      const res = await fetch(url, {
+        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' },
+        signal: AbortSignal.timeout(3500),
+      });
+      if (res.ok) {
+        const json = await res.json();
+        const usdPrice = json?.chart?.result?.[0]?.meta?.regularMarketPrice;
+        if (typeof usdPrice === 'number' && usdPrice > 0) return usdPrice * 0.86;
+      }
+    } catch {}
   }
+
   return fallback;
 }
 
@@ -191,8 +345,9 @@ export async function scanWalletAllAssets(
     };
   }
 
-  // 2. Détection SOLANA
+  // 2. Détection SOLANA (Native SOL + SPL Tokens GST, GMT, USDC, BONK, etc.)
   if (/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(address) && !address.startsWith('0x')) {
+    // 2.1 Native SOL Balance
     try {
       const res = await fetch(PUBLIC_RPCS.SOLANA, {
         method: 'POST',
@@ -209,9 +364,9 @@ export async function scanWalletAllAssets(
         const data = await res.json();
         const lamports = data.result?.value ?? 0;
         const solBalance = lamports / 1e9;
-        const price = await fetchPriceEUR('SOL-EUR', 180);
+        const price = await fetchPriceEUR('SOL-EUR', 180, 'solana');
 
-        if (solBalance > 0) {
+        if (solBalance > 0.0001) {
           discovered.push({
             id: `sol-${address.slice(-6)}`,
             ticker: 'SOL-EUR',
@@ -227,8 +382,67 @@ export async function scanWalletAllAssets(
           });
         }
       }
-    } catch {
-      // Ignore
+    } catch {}
+
+    // 2.2 SPL Token Accounts (Token Program & Token-2022 Program)
+    const tokenPrograms = [
+      'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA', // Standard SPL Token
+      'TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb', // Token-2022
+    ];
+
+    for (const progId of tokenPrograms) {
+      try {
+        const res = await fetch(PUBLIC_RPCS.SOLANA, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            jsonrpc: '2.0',
+            id: 2,
+            method: 'getTokenAccountsByOwner',
+            params: [
+              address,
+              { programId: progId },
+              { encoding: 'jsonParsed' },
+            ],
+          }),
+          signal: AbortSignal.timeout(6000),
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          const accounts = data.result?.value || [];
+
+          for (const acc of accounts) {
+            const info = acc.account?.data?.parsed?.info;
+            const mint = info?.mint;
+            const uiAmount = info?.tokenAmount?.uiAmount ?? (Number(info?.tokenAmount?.amount || 0) / Math.pow(10, info?.tokenAmount?.decimals || 0));
+
+            if (uiAmount > 0.000001 && mint) {
+              const def = SOLANA_SPL_MAP[mint];
+              const symbol = def ? def.symbol : `SPL-${mint.slice(0, 4)}`;
+              const name = def ? def.name : `SPL Token (${mint.slice(0, 6)}...)`;
+              const ticker = def ? def.ticker : `${symbol}-EUR`;
+              const icon = def ? def.icon : '🟣';
+              const price = await fetchPriceEUR(ticker, def?.fallbackPriceEUR || 0, def?.coingeckoId);
+
+              discovered.push({
+                id: `sol-spl-${mint.slice(-6)}`,
+                ticker,
+                name,
+                symbol,
+                chain: 'SOLANA',
+                chainLabel: 'Réseau Solana (SPL Token)',
+                chainIcon: icon,
+                balance: uiAmount,
+                priceEUR: price,
+                valueEUR: uiAmount * price,
+                contractAddress: mint,
+                selected: true,
+              });
+            }
+          }
+        }
+      } catch {}
     }
 
     return {

@@ -528,6 +528,26 @@ export const ASSET_REGISTRY: RegisteredAsset[] = [
     searchTerms: ['eth', 'eth-usd', 'ethusd', 'ethereum', 'ether', 'smart contracts', 'vitalik'],
   },
   {
+    ticker: 'GST-EUR',
+    name: 'Green Satoshi Token (GST / EUR)',
+    assetType: 'CRYPTO',
+    envelope: 'CRYPTO',
+    currency: 'EUR',
+    themes: ['general', 'gaming'],
+    exchange: 'Solana SPL',
+    searchTerms: ['gst', 'gst-eur', 'gsteur', 'green satoshi token', 'stepn', 'solana spl'],
+  },
+  {
+    ticker: 'GMT-EUR',
+    name: 'STEPN (GMT / EUR)',
+    assetType: 'CRYPTO',
+    envelope: 'CRYPTO',
+    currency: 'EUR',
+    themes: ['general', 'gaming'],
+    exchange: 'Solana SPL',
+    searchTerms: ['gmt', 'gmt-eur', 'gmteur', 'stepn', 'solana spl'],
+  },
+  {
     ticker: 'SOL-EUR',
     name: 'Solana (SOL / EUR)',
     assetType: 'CRYPTO',
@@ -578,7 +598,7 @@ export function searchAssets(query: string): RegisteredAsset[] {
     }
 
     // 4. Search terms check
-    return asset.searchTerms.some((term) => {
+    return (asset.searchTerms || []).some((term) => {
       const cleanTerm = term.toLowerCase().replace(/[^a-z0-9]/g, '');
       return cleanTerm.includes(cleanQuery) || (cleanQuery.length >= 3 && cleanTerm.includes(cleanQuery));
     });

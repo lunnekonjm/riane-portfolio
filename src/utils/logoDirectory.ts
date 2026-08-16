@@ -109,7 +109,18 @@ const TICKER_DOMAIN_MAP: Record<string, { domain?: string; directUrl?: string; e
   'DOGE': { directUrl: 'https://assets.coingecko.com/coins/images/5/large/dogecoin.png', emoji: '🐕' },
   'NEAR': { directUrl: 'https://assets.coingecko.com/coins/images/10365/large/near.png', emoji: 'Ⓝ' },
   'SUI': { directUrl: 'https://assets.coingecko.com/coins/images/26375/large/sui-ocean-square.png', emoji: '💧' },
-  'APT': { directUrl: 'https://assets.coingecko.com/coins/images/26455/large/aptos_round.png', emoji: '▲' }
+  'APT': { directUrl: 'https://assets.coingecko.com/coins/images/26455/large/aptos_round.png', emoji: '▲' },
+  'GST': { directUrl: 'https://coin-images.coingecko.com/coins/images/21841/large/gst.png?1696521196', emoji: '👟' },
+  'GST-EUR': { directUrl: 'https://coin-images.coingecko.com/coins/images/21841/large/gst.png?1696521196', emoji: '👟' },
+  'GST-USD': { directUrl: 'https://coin-images.coingecko.com/coins/images/21841/large/gst.png?1696521196', emoji: '👟' },
+  'GMT': { directUrl: 'https://coin-images.coingecko.com/coins/images/23597/large/token-gmt-200x200.png?1703153841', emoji: '👟' },
+  'GMT-EUR': { directUrl: 'https://coin-images.coingecko.com/coins/images/23597/large/token-gmt-200x200.png?1703153841', emoji: '👟' },
+  'BONK': { directUrl: 'https://coin-images.coingecko.com/coins/images/28600/large/bonk.jpg', emoji: '🐶' },
+  'JUP': { directUrl: 'https://coin-images.coingecko.com/coins/images/34188/large/jup.png', emoji: '🪐' },
+  'RAY': { directUrl: 'https://coin-images.coingecko.com/coins/images/13928/large/PSigc4ie_400x400.jpg', emoji: '⚡' },
+  'WIF': { directUrl: 'https://coin-images.coingecko.com/coins/images/33566/large/dogwifhat.jpg', emoji: '🐶' },
+  'RENDER': { directUrl: 'https://coin-images.coingecko.com/coins/images/11636/large/rndr.png', emoji: '🎨' },
+  'PYTH': { directUrl: 'https://coin-images.coingecko.com/coins/images/31924/large/pyth.png', emoji: '🔮' }
 };
 
 // Mapping Établissements Bancaires & Teneurs de Compte

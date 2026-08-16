@@ -264,7 +264,7 @@ export default function HomePage() {
     netLiquidationDetails, peaSeniority, setPeaSeniority,
     monthlyDCATotal, saving, pendingCount, filledPositions, fxRates, lastPricesUpdated, marketStatusLabel,
     canUndo, undoLastAction, canRedo, redoLastAction, transactions, recordTransaction,
-    addPosition, updatePosition, removePosition, updateConfig, updateInvestorProfile,
+    addPosition, updatePosition, removePosition, upsertPositionsBatch, updateConfig, updateInvestorProfile,
     refreshing, refreshPrices, refreshAllPortfolios, refreshMarketPrices, refreshCryptoPrices, refreshSavingsPrices, resetPortfolio,
   } = usePortfolio();
   const {
@@ -543,16 +543,15 @@ export default function HomePage() {
   };
 
   const handleSavePosition = async (pos: Position) => {
-    const isExisting = positions.some((p) => p.id === pos.id);
+    const isExisting = positions.some((p) => p.id === pos.id || (p.envelope === pos.envelope && p.ticker === pos.ticker));
     if (isExisting) {
       await updatePosition(pos);
-      showToast(`${pos.name} mis à jour avec succès`);
+      showToast(`✓ ${pos.name} mis à jour instantanément`);
     } else {
       await addPosition(pos);
-      showToast(`${pos.name} ajouté au portefeuille`);
+      showToast(`✓ ${pos.name} ajouté instantanément au portefeuille`);
     }
     setEditingPosition(null);
-    refreshPrices();
   };
 
   const handleDeletePosition = async (id: string) => {
@@ -2235,6 +2234,10 @@ export default function HomePage() {
                 onDeletePosition={(id) => handleDeletePosition(id)}
                 onAddCryptoPosition={() => setEditingPosition('new_crypto')}
                 onSavePosition={handleSavePosition}
+                onBatchImportPositions={async (batch) => {
+                  await upsertPositionsBatch(batch);
+                  showToast(`✓ ${batch.length} crypto-actif(s) importé(s) instantanément !`);
+                }}
               />
 
               {/* Strategic Core vs Satellite View (CDC V4) */}

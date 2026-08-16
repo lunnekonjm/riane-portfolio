@@ -18,6 +18,7 @@ interface CryptoPortfolioTableProps {
   onDeletePosition: (id: string) => void;
   onAddCryptoPosition: () => void;
   onSavePosition?: (pos: Position) => void;
+  onBatchImportPositions?: (positions: Position[]) => void;
 }
 
 export default function CryptoPortfolioTable({
@@ -30,6 +31,7 @@ export default function CryptoPortfolioTable({
   onDeletePosition,
   onAddCryptoPosition,
   onSavePosition,
+  onBatchImportPositions,
 }: CryptoPortfolioTableProps) {
   const [selectedWalletFilter, setSelectedWalletFilter] = useState<string>('ALL');
   const [selectedPositionForLot, setSelectedPositionForLot] = useState<Position | null>(null);
@@ -132,13 +134,17 @@ export default function CryptoPortfolioTable({
   };
 
   const handleBatchImport = (importedAssets: Position[]) => {
-    importedAssets.forEach((asset) => {
-      if (onSavePosition) {
-        onSavePosition(asset);
-      } else {
-        onEditPosition(asset);
-      }
-    });
+    if (onBatchImportPositions) {
+      onBatchImportPositions(importedAssets);
+    } else {
+      importedAssets.forEach((asset) => {
+        if (onSavePosition) {
+          onSavePosition(asset);
+        } else {
+          onEditPosition(asset);
+        }
+      });
+    }
   };
 
   if (cryptoPositions.length === 0) {

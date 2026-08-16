@@ -245,37 +245,37 @@ export function usePortfolio() {
         setFxRates((prev) => ({ ...prev, ...rates }));
       }
 
-      let updatedList = workingPositions;
-      if (quotes.size > 0) {
-        const firstQuote = Array.from(quotes.values())[0];
-        if (firstQuote?.quoteTypeLabel) {
-          setMarketStatusLabel(firstQuote.quoteTypeLabel);
+      let updatedList: Position[] = [];
+      setPositions((prev) => {
+        if (quotes.size > 0) {
+          const firstQuote = Array.from(quotes.values())[0];
+          if (firstQuote?.quoteTypeLabel) {
+            setMarketStatusLabel(firstQuote.quoteTypeLabel);
+          }
         }
 
-        updatedList = workingPositions.map((p) => {
+        updatedList = prev.map((p) => {
           const quote = quotes.get(p.ticker);
           if (quote && quote.price > 0) {
             return { ...p, currentPrice: quote.price };
           }
           return p;
         });
-      }
 
-      setPositions(updatedList);
-      setLastPricesUpdated(Date.now());
-
-      try {
-        localStorage.setItem('riane_local_positions', JSON.stringify(updatedList));
-      } catch {}
-
-      if (user) {
         try {
-          await saveAllPositions(user.uid, updatedList);
-        } catch (err) {
-          console.warn('[Portfolio] Firestore update failed during price refresh:', err);
-        }
-      }
+          localStorage.setItem('riane_local_positions', JSON.stringify(updatedList));
+        } catch {}
 
+        if (user) {
+          saveAllPositions(user.uid, updatedList).catch((err) =>
+            console.warn('[Portfolio] Firestore update failed during price refresh:', err)
+          );
+        }
+
+        return updatedList;
+      });
+
+      setLastPricesUpdated(Date.now());
       return updatedList;
     } catch (err) {
       console.warn('[Portfolio] Price refresh failed:', err);
@@ -378,6 +378,55 @@ export function usePortfolio() {
   }, [redoStack, positions, user]);
 
   // ── CRUD ──
+  const upsertPositionsBatch = useCallback(async (newOrUpdatedList: Position[]) => {
+    pushSnapshot();
+    setSaving(true);
+    clearAnalysisCache();
+
+    const sanitizedList = newOrUpdatedList.map(sanitizeCryptoPosition);
+
+    setPositions((prev) => {
+      const posMap = new Map<string, Position>();
+      prev.forEach((p) => posMap.set(p.id, p));
+
+      sanitizedList.forEach((pos) => {
+        const existing = posMap.get(pos.id);
+        const oldQty = existing ? existing.quantity : 0;
+        const delta = pos.quantity - oldQty;
+
+        if (delta !== 0) {
+          recordTransaction({
+            positionId: pos.id,
+            ticker: pos.ticker,
+            name: pos.name,
+            type: delta > 0 ? 'BUY' : 'SELL',
+            sharesDelta: delta,
+            price: pos.avgPrice || pos.currentPrice || 1,
+            totalAmount: Math.abs(delta * (pos.avgPrice || pos.currentPrice || 1)),
+            currency: pos.currency,
+            reason: 'Synchronisation / Import de portefeuille on-chain',
+          });
+        }
+        posMap.set(pos.id, pos);
+      });
+
+      const updated = Array.from(posMap.values());
+      try {
+        localStorage.setItem('riane_local_positions', JSON.stringify(updated));
+      } catch {}
+
+      if (user) {
+        saveAllPositions(user.uid, updated).catch((err) => {
+          console.warn('[Portfolio] Batch Firestore save failed:', err);
+        });
+      }
+
+      return updated;
+    });
+
+    setSaving(false);
+  }, [user, pushSnapshot, recordTransaction]);
+
   const addPosition = useCallback(async (pos: Position) => {
     pushSnapshot();
     setSaving(true);
@@ -566,23 +615,28 @@ export function usePortfolio() {
         setFxRates((prev) => ({ ...prev, ...rates }));
       }
 
-      const updated = positions.map((p) => {
-        const quote = quotes.get(p.ticker);
-        if (quote && quote.price > 0) {
-          return { ...p, currentPrice: quote.price };
+      let updatedCount = 0;
+      setPositions((prev) => {
+        const updated = prev.map((p) => {
+          const quote = quotes.get(p.ticker);
+          if (quote && quote.price > 0) {
+            return { ...p, currentPrice: quote.price };
+          }
+          return p;
+        });
+
+        try {
+          localStorage.setItem('riane_local_positions', JSON.stringify(updated));
+        } catch {}
+        if (user) {
+          saveAllPositions(user.uid, updated).catch(() => {});
         }
-        return p;
+        updatedCount = updated.length;
+        return updated;
       });
 
-      setPositions(updated);
       setLastPricesUpdated(Date.now());
-      try {
-        localStorage.setItem('riane_local_positions', JSON.stringify(updated));
-      } catch {}
-      if (user) {
-        saveAllPositions(user.uid, updated).catch(() => {});
-      }
-      return { success: true, count: marketPositions.length };
+      return { success: true, count: updatedCount };
     } finally {
       setRefreshing(false);
     }
@@ -602,23 +656,28 @@ export function usePortfolio() {
       const tickers = cryptoPositions.map((p) => p.ticker);
       const quotes = await getMultipleQuotes(tickers);
 
-      const updated = currentPos.map((p) => {
-        const quote = quotes.get(p.ticker);
-        if (quote && quote.price > 0) {
-          return { ...p, currentPrice: quote.price };
+      let cryptoCount = 0;
+      setPositions((prev) => {
+        const updated = prev.map((p) => {
+          const quote = quotes.get(p.ticker);
+          if (quote && quote.price > 0) {
+            return { ...p, currentPrice: quote.price };
+          }
+          return p;
+        });
+
+        try {
+          localStorage.setItem('riane_local_positions', JSON.stringify(updated));
+        } catch {}
+        if (user) {
+          saveAllPositions(user.uid, updated).catch(() => {});
         }
-        return p;
+        cryptoCount = updated.filter((p) => p.envelope === 'CRYPTO' || p.assetType === 'CRYPTO').length;
+        return updated;
       });
 
-      setPositions(updated);
       setLastPricesUpdated(Date.now());
-      try {
-        localStorage.setItem('riane_local_positions', JSON.stringify(updated));
-      } catch {}
-      if (user) {
-        saveAllPositions(user.uid, updated).catch(() => {});
-      }
-      return { success: true, count: cryptoPositions.length };
+      return { success: true, count: cryptoCount };
     } finally {
       setRefreshing(false);
     }
@@ -881,6 +940,7 @@ export function usePortfolio() {
     addPosition,
     updatePosition,
     removePosition,
+    upsertPositionsBatch,
     updateConfig,
     updateInvestorProfile,
     refreshing,

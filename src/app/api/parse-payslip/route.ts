@@ -13,8 +13,10 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { sanitizeSensitiveFinancialText } from '@/services/ai/redactorEngine';
 
 // Polyfill browser globals for pdf-parse / pdfjs-dist in Node.js serverless runtimes
+
 if (typeof (globalThis as any).DOMMatrix === 'undefined') {
   (globalThis as any).DOMMatrix = class DOMMatrix {
     a = 1; b = 0; c = 0; d = 1; e = 0; f = 0;
@@ -185,7 +187,8 @@ export async function POST(request: NextRequest) {
         const parsedData = await pdfParse(buffer);
         const payslipText = parsedData.text || '';
         if (payslipText.trim().length >= 20) {
-          const prompt = EXTRACTION_PROMPT.replace('{PAYSLIP_TEXT}', payslipText.slice(0, 12000));
+          const sanitized = sanitizeSensitiveFinancialText(payslipText).redactedText;
+          const prompt = EXTRACTION_PROMPT.replace('{PAYSLIP_TEXT}', sanitized.slice(0, 12000));
           responseText = await callGeminiWithRotation(genAI, prompt);
         }
       } catch (pdfParseErr) {
@@ -194,9 +197,11 @@ export async function POST(request: NextRequest) {
     }
 
     if (!responseText && rawTextContent) {
-      const prompt = EXTRACTION_PROMPT.replace('{PAYSLIP_TEXT}', rawTextContent.slice(0, 12000));
+      const sanitized = sanitizeSensitiveFinancialText(rawTextContent).redactedText;
+      const prompt = EXTRACTION_PROMPT.replace('{PAYSLIP_TEXT}', sanitized.slice(0, 12000));
       responseText = await callGeminiWithRotation(genAI, prompt);
     }
+
 
     if (!responseText) {
       return NextResponse.json(

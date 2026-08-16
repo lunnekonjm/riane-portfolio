@@ -22,8 +22,13 @@ import {
 import type { PortfolioConfig } from '@/types/portfolio';
 import { useBoursoLive } from '@/hooks/useBoursoLive';
 import ConfirmationModal from '@/components/ConfirmationModal';
+import { LiquidTankWidget } from '@/components/LiquidTankWidget';
+import { CrisisModeModal } from '@/components/CrisisModeModal';
+import { computeCrisisRunwayMetrics } from '@/engines/crisisRunwayEngine';
+import { computeDetailedSalaryAnalytics, formatSalaryPeriodLabel } from '@/engines/salaryAnalyticsEngine';
 
 interface RevenueBudgetViewProps {
+
   records: SalaryRecord[];
   revenueConfig: RevenueConfig;
   allocations: ReserveAllocation[];
@@ -78,10 +83,12 @@ const CATEGORY_MAP = new Map(BANK_CATEGORY_OPTIONS.map((c) => [c.value, c]));
 export default function RevenueBudgetView({
   records,
   revenueConfig,
+  allocations = [],
   portfolioConfig,
   onSaveRecord,
   onDeleteRecord,
   onOpenRebalancerWithBudget,
+  onSyncMonthlyBudget,
   onOpenIntegrationsHub,
   onShowToast,
 }: RevenueBudgetViewProps) {
@@ -100,12 +107,38 @@ export default function RevenueBudgetView({
   const [matchesHistory, setMatchesHistory] = useState<BankTransactionMatch[][]>([]);
   const [matchesRedo, setMatchesRedo] = useState<BankTransactionMatch[][]>([]);
 
-  // Confirmation Modals State
+  // Confirmation & Crisis Modals State
   const [isResetMonthModalOpen, setIsResetMonthModalOpen] = useState(false);
   const [isClearCacheModalOpen, setIsClearCacheModalOpen] = useState(false);
+  const [isCrisisModalOpen, setIsCrisisModalOpen] = useState(false);
+  const [vitalExpenses, setVitalExpenses] = useState<number>(1150);
 
   const boursoLive = useBoursoLive();
   const targetMonthlyBudget = portfolioConfig?.monthlyBudget || 400;
+
+  // Calculs de résilience et d'analytique salariale (Aura Engine)
+  const cleanRecords = useMemo(() => {
+    return records.filter((r) => !r.id?.startsWith('sal-sample-') && !r.id?.includes('sample'));
+  }, [records]);
+
+  const detailedSalaryAnalytics = useMemo(() => {
+    return computeDetailedSalaryAnalytics(cleanRecords, allocations);
+  }, [cleanRecords, allocations]);
+
+  const emergencySavings = useMemo(() => {
+    const liveAvailable = (boursoLive.tamponEUR || 0) + (boursoLive.livretAEUR || 0);
+    if (liveAvailable > 0) return liveAvailable;
+    return detailedSalaryAnalytics.totalReserveBalanceAvailable || 1500;
+  }, [boursoLive.tamponEUR, boursoLive.livretAEUR, detailedSalaryAnalytics.totalReserveBalanceAvailable]);
+
+  const crisisMetrics = useMemo(() => {
+    return computeCrisisRunwayMetrics({
+      emergencySavings,
+      vitalExpenses,
+      targetMonths: 6,
+    });
+  }, [emergencySavings, vitalExpenses]);
+
 
   // Read cached TrueLayer transactions on mount — NO FAKE SEEDING
   useEffect(() => {
@@ -118,11 +151,6 @@ export default function RevenueBudgetView({
       }
     }
   }, []);
-
-  // Filter out any legacy ghost sample records
-  const cleanRecords = useMemo(() => {
-    return records.filter((r) => !r.id?.startsWith('sal-sample-') && !r.id?.includes('sample'));
-  }, [records]);
 
   // Compute available months list (real transactions + saved real records)
   const availableMonths = useMemo(() => {
@@ -494,6 +522,12 @@ export default function RevenueBudgetView({
         )}
       </div>
 
+      {/* 🛡️ 1.5. WIDGET DU RÉSERVOIR LIQUIDE & RÉSILIENCE FINANCIÈRE (AURA PRO ENGINE) */}
+      <LiquidTankWidget
+        metrics={crisisMetrics}
+        onOpenCrisisModal={() => setIsCrisisModalOpen(true)}
+      />
+
       {/* 📊 2. SECTION CENTRALE : ANALYSE DU MOIS ÉCOULÉ (THÉORIE VS RÉALITÉ) */}
       <div
         className="card"
@@ -510,6 +544,7 @@ export default function RevenueBudgetView({
               Analyse Mensuelle : {getPeriodLabel(selectedMonth)}
             </h4>
             <p style={{ margin: '3px 0 0 0', fontSize: 13, color: 'var(--text-secondary)' }}>
+
               Confrontation directe des montants constatés en banque avec votre budget cible.
             </p>
           </div>
@@ -782,6 +817,79 @@ export default function RevenueBudgetView({
         </div>
       )}
 
+      {/* 💼 3.5. ANALYTIQUE SALARIALE & TENDANCE MULTI-ANNUELLE (AURA BUDGET PRO ENGINE) */}
+      {detailedSalaryAnalytics.totalRecordsCount > 0 && (
+        <div
+          className="card"
+          style={{
+            border: '1px solid rgba(245, 158, 11, 0.3)',
+            background: 'linear-gradient(135deg, rgba(30, 27, 75, 0.2) 0%, rgba(15, 23, 42, 0.95) 100%)',
+            padding: 20,
+            borderRadius: 12,
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12, marginBottom: 16 }}>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ fontSize: 16 }}>💼</span>
+                <h4 style={{ fontSize: 15, margin: 0, fontWeight: 800, color: 'var(--text-primary)' }}>
+                  Analytique &amp; Croissance Salariale Multi-Annuelle (Moteur Aura)
+                </h4>
+              </div>
+              <p style={{ margin: '3px 0 0 0', fontSize: 12, color: 'var(--text-secondary)' }}>
+                Agrégation continue de vos bulletins de paie : moyenne lissée, pouvoir d'achat réel et taux d'effort.
+              </p>
+            </div>
+
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <span
+                style={{
+                  fontSize: 11,
+                  fontWeight: 700,
+                  padding: '3px 8px',
+                  borderRadius: 12,
+                  background: detailedSalaryAnalytics.growthTrendPercent >= 0 ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                  color: detailedSalaryAnalytics.growthTrendPercent >= 0 ? 'var(--accent-emerald)' : '#ef4444',
+                  border: `1px solid ${detailedSalaryAnalytics.growthTrendPercent >= 0 ? 'var(--accent-emerald)' : '#ef4444'}`,
+                }}
+              >
+                {detailedSalaryAnalytics.growthTrendPercent >= 0 ? `📈 +${detailedSalaryAnalytics.growthTrendPercent.toFixed(1)}%` : `📉 ${detailedSalaryAnalytics.growthTrendPercent.toFixed(1)}%`} Évolution
+              </span>
+            </div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
+            <div style={{ padding: 12, borderRadius: 8, background: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)' }}>
+              <span style={{ fontSize: 11, color: 'var(--text-secondary)', display: 'block' }}>Moyenne Net Mensuel</span>
+              <span style={{ fontSize: 18, fontWeight: 800, color: 'var(--accent-cyan)', fontFamily: 'var(--font-mono)' }}>
+                {Math.round(detailedSalaryAnalytics.overallAverageNet).toLocaleString('fr-FR')} €
+              </span>
+            </div>
+
+            <div style={{ padding: 12, borderRadius: 8, background: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)' }}>
+              <span style={{ fontSize: 11, color: 'var(--text-secondary)', display: 'block' }}>Taux d'Épargne Global</span>
+              <span style={{ fontSize: 18, fontWeight: 800, color: 'var(--accent-emerald)', fontFamily: 'var(--font-mono)' }}>
+                {detailedSalaryAnalytics.overallSavingsRate.toFixed(1)}%
+              </span>
+            </div>
+
+            <div style={{ padding: 12, borderRadius: 8, background: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)' }}>
+              <span style={{ fontSize: 11, color: 'var(--text-secondary)', display: 'block' }}>Solde Réserve Disponible</span>
+              <span style={{ fontSize: 18, fontWeight: 800, color: '#f59e0b', fontFamily: 'var(--font-mono)' }}>
+                {Math.round(detailedSalaryAnalytics.totalReserveBalanceAvailable).toLocaleString('fr-FR')} €
+              </span>
+            </div>
+
+            <div style={{ padding: 12, borderRadius: 8, background: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)' }}>
+              <span style={{ fontSize: 11, color: 'var(--text-secondary)', display: 'block' }}>Taux Prélèvement Source Moy.</span>
+              <span style={{ fontSize: 18, fontWeight: 800, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>
+                {detailedSalaryAnalytics.averageEffectiveTaxRate.toFixed(1)}%
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* 🔍 4. MODAL DE REVUE & VALIDATION TRANSPARENTE DES TRANSACTIONS */}
       {isReviewModalOpen && (
         <div
@@ -1014,6 +1122,23 @@ export default function RevenueBudgetView({
         onConfirm={handleConfirmClearCache}
         onCancel={() => setIsClearCacheModalOpen(false)}
       />
+
+      {/* 🚨 7. MODAL DE CRISE & COMPARATEUR CLIC (AURA PRO ENGINE) */}
+      <CrisisModeModal
+        isOpen={isCrisisModalOpen}
+        onClose={() => setIsCrisisModalOpen(false)}
+        currentEmergencySavings={emergencySavings}
+        vitalMonthlyExpenses={vitalExpenses}
+        monthlyNetIncome={actualSalary > 0 ? actualSalary : 2861.26}
+        onApplyAdjustment={async (monthlyReduction, note) => {
+          const newBudget = Math.max(100, targetMonthlyBudget - monthlyReduction);
+          if (onSyncMonthlyBudget) {
+            await onSyncMonthlyBudget(newBudget);
+            onShowToast(`⚡ Budget d'investissement ajusté à ${newBudget} €/m (${note})`, 'success');
+          }
+        }}
+      />
     </div>
   );
 }
+

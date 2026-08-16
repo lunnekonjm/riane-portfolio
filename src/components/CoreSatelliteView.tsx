@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import type { Position } from '@/types/portfolio';
 import AssetLogo from './AssetLogo';
+import PlatformBadge from './PlatformBadge';
 
 interface CoreSatelliteViewProps {
   positions: Position[];
@@ -414,8 +415,11 @@ export default function CoreSatelliteView({
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                           <AssetLogo ticker={p.ticker} name={p.name} size={24} />
                           <div>
-                            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>
-                              {p.ticker}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                              <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>
+                                {p.ticker}
+                              </div>
+                              {p.institutionName && <PlatformBadge name={p.institutionName} style={{ fontSize: 9, padding: '1px 5px' }} />}
                             </div>
                             <div style={{ fontSize: 11, color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 120 }}>
                               {p.name}

@@ -2042,6 +2042,7 @@ export default function HomePage() {
                                           ticker={pos.ticker}
                                           name={pos.name}
                                           envelope={pos.envelope}
+                                          institutionName={pos.institutionName}
                                           size={32}
                                         />
                                         <div style={{ minWidth: 0, flex: 1 }}>
@@ -2063,6 +2064,9 @@ export default function HomePage() {
                                             <span className="mono" style={{ fontSize: 11, color: 'var(--accent-cyan)', fontWeight: 600 }}>
                                               🏷️ {pos.ticker}
                                             </span>
+                                            {pos.institutionName && (
+                                              <PlatformBadge name={pos.institutionName} />
+                                            )}
                                             {!hasFilled && (
                                               <span style={{ fontSize: 10, color: 'var(--accent-amber)' }}>
                                                 ✍️ Renseigner

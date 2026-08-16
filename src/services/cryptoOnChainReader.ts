@@ -175,6 +175,8 @@ const SOLANA_SPL_MAP: Record<string, SolanaSplDef> = {
 
 const COMMON_TOKEN_CONTRACTS: TokenContractDef[] = [
   // Ethereum ERC20
+  { symbol: 'DMTR', name: 'Dimitra', ticker: 'DMTR-EUR', decimals: 18, address: '0x51cb253744189f11241becb29bedd3f1b5384fdb', chain: 'ETH', fallbackPriceEUR: 0.0043 },
+  { symbol: 'WTK', name: 'WadzPay', ticker: 'WTK-EUR', decimals: 18, address: '0x4cff49d0a19ed6ff845a9122fa912abcfb1f68a6', chain: 'ETH', fallbackPriceEUR: 0.015 },
   { symbol: 'USDT', name: 'Tether USD', ticker: 'USDT-EUR', decimals: 6, address: '0xdac17f958d2ee523a2206206994597c13d831ec7', chain: 'ETH', fallbackPriceEUR: 0.95 },
   { symbol: 'USDC', name: 'USD Coin', ticker: 'USDC-EUR', decimals: 6, address: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48', chain: 'ETH', fallbackPriceEUR: 0.95 },
   { symbol: 'LINK', name: 'Chainlink', ticker: 'LINK-EUR', decimals: 18, address: '0x514910771af9ca656af840dff83e8264ecf986ca', chain: 'ETH', fallbackPriceEUR: 15.5 },
@@ -549,6 +551,54 @@ export async function scanWalletAllAssets(
       })
     );
 
+    // 3.1 Dynamic Token Discovery on Ethereum via Ethplorer
+    try {
+      const ethRes = await fetch(`https://api.ethplorer.io/getAddressInfo/${address}?apiKey=freekey`, {
+        signal: AbortSignal.timeout(5000),
+      });
+      if (ethRes.ok) {
+        const ethData = await ethRes.json();
+        for (const tok of ethData.tokens || []) {
+          const info = tok.tokenInfo;
+          if (!info || !info.address) continue;
+          const decimals = Number(info.decimals || 18);
+          const bal = Number(tok.balance) / Math.pow(10, decimals);
+          if (bal > 0.0001) {
+            const sym = (info.symbol || 'ERC20').toUpperCase();
+            const name = info.name || sym;
+            const ticker = `${sym}-EUR`;
+            const contractAddr = info.address.toLowerCase();
+
+            if (!discovered.some(d => d.contractAddress?.toLowerCase() === contractAddr)) {
+              let price = 0;
+              if (info.price?.rate && typeof info.price.rate === 'number' && info.price.rate > 0) {
+                price = info.price.rate * 0.864;
+              } else {
+                price = await fetchPriceEUR(ticker, 0, undefined, info.address);
+              }
+              const val = bal * price;
+              const isValuable = val > 0.01 || price > 0;
+
+              discovered.push({
+                id: `${sym.toLowerCase()}-eth-${contractAddr.slice(-4)}`,
+                ticker,
+                name,
+                symbol: sym,
+                chain: 'ETH',
+                chainLabel: 'Ethereum (ERC20)',
+                chainIcon: '🔷',
+                balance: bal,
+                priceEUR: price,
+                valueEUR: val,
+                contractAddress: info.address,
+                selected: isValuable,
+              });
+            }
+          }
+        }
+      }
+    } catch {}
+
     // Check ERC-20 / BEP-20 Top tokens via eth_call balanceOf(address)
     // 0x70a08231000000000000000000000000 + address without 0x
     const paddedAddr = address.toLowerCase().replace(/^0x/, '').padStart(64, '0');
@@ -574,7 +624,7 @@ export async function scanWalletAllAssets(
             if (data.result && data.result !== '0x' && data.result !== '0x0') {
               const raw = BigInt(data.result);
               const bal = Number(raw) / Math.pow(10, tok.decimals);
-              if (bal > 0.0001) {
+              if (bal > 0.0001 && !discovered.some(d => d.contractAddress?.toLowerCase() === tok.address.toLowerCase())) {
                 const chainLabel = tok.chain === 'BSC' ? 'BNB Chain (BEP20)' : tok.chain === 'POLYGON' ? 'Polygon (ERC20)' : 'Ethereum (ERC20)';
                 const chainIcon = tok.chain === 'BSC' ? '🟡' : tok.chain === 'POLYGON' ? '🟣' : '🔷';
                 const price = tok.fallbackPriceEUR;
@@ -601,12 +651,15 @@ export async function scanWalletAllAssets(
       })
     );
 
+    // Sort: assets with positive value first, then others
+    discovered.sort((a, b) => (b.valueEUR || 0) - (a.valueEUR || 0));
+
     return {
       success: true,
       address,
       detectedType: 'EVM',
       assets: discovered,
-      totalValueEUR: discovered.reduce((sum, a) => sum + a.valueEUR, 0),
+      totalValueEUR: discovered.reduce((sum, a) => sum + (a.selected ? a.valueEUR : 0), 0),
     };
   }
 

@@ -5,11 +5,23 @@ const DEXSCREENER_MINTS: Record<string, string> = {
   'GMT': '7i5KKDFALHgnWaPtKjdLVdvoJBnhRQuKAezGUrX1KDt2',
   'GMT-EUR': '7i5KKDFALHgnWaPtKjdLVdvoJBnhRQuKAezGUrX1KDt2',
   'GMT-USD': '7i5KKDFALHgnWaPtKjdLVdvoJBnhRQuKAezGUrX1KDt2',
+  'DMTR': '0x51cb253744189f11241becb29bedd3f1b5384fdb',
+  'DMTR-EUR': '0x51cb253744189f11241becb29bedd3f1b5384fdb',
+  'DMTR-USD': '0x51cb253744189f11241becb29bedd3f1b5384fdb',
+  'WTK': '0x4cff49d0a19ed6ff845a9122fa912abcfb1f68a6',
+  'WTK-EUR': '0x4cff49d0a19ed6ff845a9122fa912abcfb1f68a6',
+  'WTK-USD': '0x4cff49d0a19ed6ff845a9122fa912abcfb1f68a6',
 };
 
 import type { QuoteData } from './types';
 
 const COINGECKO_MAP: Record<string, string> = {
+  'DMTR': 'dimitra',
+  'DMTR-EUR': 'dimitra',
+  'DMTR-USD': 'dimitra',
+  'WTK': 'wadzpay-token',
+  'WTK-EUR': 'wadzpay-token',
+  'WTK-USD': 'wadzpay-token',
   'GST': 'green-satoshi-token',
   'GST-EUR': 'green-satoshi-token',
   'GST-USD': 'green-satoshi-token',

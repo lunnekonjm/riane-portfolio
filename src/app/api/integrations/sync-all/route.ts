@@ -44,7 +44,7 @@ export async function GET(request: Request) {
         : {
             connected: false,
             timestamp: new Date().toISOString(),
-            environment: "sandbox" as const,
+            environment: (process.env.TRUELAYER_CLIENT_ID?.startsWith("sandbox-") ? "sandbox" : "live") as "sandbox" | "live",
             accounts: [],
             totalCheckingEUR: 0,
             totalSavingsEUR: 0,

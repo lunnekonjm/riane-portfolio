@@ -39,9 +39,48 @@ export function getTrueLayerAuthUrl(redirectUri: string, state?: string, provide
 }
 
 /**
+ * Refresh access token using refresh_token
+ */
+export async function refreshTrueLayerToken(refreshToken: string): Promise<{ accessToken: string; refreshToken?: string } | null> {
+  const clientId = process.env.TRUELAYER_CLIENT_ID;
+  const clientSecret = process.env.TRUELAYER_CLIENT_SECRET;
+  if (!clientId || !clientSecret || !refreshToken) return null;
+
+  try {
+    const authBase = getTrueLayerAuthBaseUrl();
+    const tokenRes = await fetch(`${authBase}/connect/token`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: new URLSearchParams({
+        grant_type: "refresh_token",
+        client_id: clientId,
+        client_secret: clientSecret,
+        refresh_token: refreshToken,
+      }),
+    });
+
+    if (!tokenRes.ok) {
+      console.warn("[TrueLayer] Token refresh failed:", tokenRes.status);
+      return null;
+    }
+
+    const data = await tokenRes.json();
+    return {
+      accessToken: data.access_token,
+      refreshToken: data.refresh_token || refreshToken,
+    };
+  } catch (e) {
+    console.warn("[TrueLayer] Error refreshing token:", e);
+    return null;
+  }
+}
+
+/**
  * Fetch TrueLayer accounts and balances using an existing access token or stored credentials
  */
-export async function fetchTrueLayerSummary(accessToken?: string): Promise<TrueLayerSyncResult> {
+export async function fetchTrueLayerSummary(accessToken?: string, refreshToken?: string): Promise<TrueLayerSyncResult> {
   const clientId = process.env.TRUELAYER_CLIENT_ID;
   const sandbox = isSandbox();
 
@@ -59,8 +98,16 @@ export async function fetchTrueLayerSummary(accessToken?: string): Promise<TrueL
     };
   }
 
-  if (!accessToken) {
-    // If no access token provided yet, return connection ready state
+  let tokenToUse = accessToken;
+
+  if (!tokenToUse && refreshToken) {
+    const refreshed = await refreshTrueLayerToken(refreshToken);
+    if (refreshed?.accessToken) {
+      tokenToUse = refreshed.accessToken;
+    }
+  }
+
+  if (!tokenToUse) {
     return {
       connected: false,
       timestamp: new Date().toISOString(),
@@ -70,7 +117,7 @@ export async function fetchTrueLayerSummary(accessToken?: string): Promise<TrueL
       totalSavingsEUR: 0,
       totalInvestedEUR: 0,
       totalBoursoBankEUR: 0,
-      partialErrors: ["BoursoBank non connecté via TrueLayer. Cliquez sur 'Connecter BoursoBank' pour autoriser l'accès DSP2."],
+      partialErrors: [],
     };
   }
 
@@ -79,11 +126,35 @@ export async function fetchTrueLayerSummary(accessToken?: string): Promise<TrueL
   const accounts: TrueLayerAccountSummary[] = [];
 
   try {
-    const accResponse = await fetch(`${apiBase}/accounts`, {
+    let accResponse = await fetch(`${apiBase}/accounts`, {
       headers: {
-        Authorization: `Bearer ${accessToken}`,
+        Authorization: `Bearer ${tokenToUse}`,
       },
     });
+
+    if (accResponse.status === 401 && refreshToken) {
+      const refreshed = await refreshTrueLayerToken(refreshToken);
+      if (refreshed?.accessToken) {
+        tokenToUse = refreshed.accessToken;
+        accResponse = await fetch(`${apiBase}/accounts`, {
+          headers: { Authorization: `Bearer ${tokenToUse}` },
+        });
+      }
+    }
+
+    if (accResponse.status === 401) {
+      return {
+        connected: false,
+        timestamp: new Date().toISOString(),
+        environment: sandbox ? "sandbox" : "live",
+        accounts: [],
+        totalCheckingEUR: 0,
+        totalSavingsEUR: 0,
+        totalInvestedEUR: 0,
+        totalBoursoBankEUR: 0,
+        partialErrors: ["Session BoursoBank expirée (401). Veuillez vous reconnecter."],
+      };
+    }
 
     if (!accResponse.ok) {
       const errText = await accResponse.text();
@@ -113,7 +184,7 @@ export async function fetchTrueLayerSummary(accessToken?: string): Promise<TrueL
       try {
         const balResponse = await fetch(`${apiBase}/accounts/${accId}/balance`, {
           headers: {
-            Authorization: `Bearer ${accessToken}`,
+            Authorization: `Bearer ${tokenToUse}`,
           },
         });
 
@@ -153,7 +224,7 @@ export async function fetchTrueLayerSummary(accessToken?: string): Promise<TrueL
     try {
       const cardsResponse = await fetch(`${apiBase}/cards`, {
         headers: {
-          Authorization: `Bearer ${accessToken}`,
+          Authorization: `Bearer ${tokenToUse}`,
         },
       });
       if (cardsResponse.ok) {
@@ -167,7 +238,7 @@ export async function fetchTrueLayerSummary(accessToken?: string): Promise<TrueL
           let availableBal = 0;
           try {
             const cardBalResponse = await fetch(`${apiBase}/cards/${cardId}/balance`, {
-              headers: { Authorization: `Bearer ${accessToken}` },
+              headers: { Authorization: `Bearer ${tokenToUse}` },
             });
             if (cardBalResponse.ok) {
               const cardBalData = await cardBalResponse.json();
@@ -236,10 +307,20 @@ export async function fetchTrueLayerSummary(accessToken?: string): Promise<TrueL
 export async function fetchTrueLayerTransactions(
   accessToken?: string,
   from?: string,
-  to?: string
-): Promise<{ transactions: Array<{ id: string; date: string; description: string; amount: number; accountType?: string; counterpartyName?: string }>; partialErrors: string[] }> {
-  if (!accessToken) {
-    return { transactions: [], partialErrors: ['Non connecté à TrueLayer'] };
+  to?: string,
+  refreshToken?: string
+): Promise<{ transactions: Array<{ id: string; date: string; description: string; amount: number; accountType?: string; counterpartyName?: string }>; partialErrors: string[]; requiresReauth?: boolean }> {
+  let tokenToUse = accessToken;
+
+  if (!tokenToUse && refreshToken) {
+    const refreshed = await refreshTrueLayerToken(refreshToken);
+    if (refreshed?.accessToken) {
+      tokenToUse = refreshed.accessToken;
+    }
+  }
+
+  if (!tokenToUse) {
+    return { transactions: [], partialErrors: ['Non connecté à BoursoBank. Veuillez vous connecter.'], requiresReauth: true };
   }
 
   const apiBase = getTrueLayerApiBaseUrl();
@@ -247,9 +328,27 @@ export async function fetchTrueLayerTransactions(
   const transactions: Array<{ id: string; date: string; description: string; amount: number; accountType?: string; counterpartyName?: string }> = [];
 
   try {
-    const accResponse = await fetch(`${apiBase}/accounts`, {
-      headers: { Authorization: `Bearer ${accessToken}` },
+    let accResponse = await fetch(`${apiBase}/accounts`, {
+      headers: { Authorization: `Bearer ${tokenToUse}` },
     });
+
+    if (accResponse.status === 401 && refreshToken) {
+      const refreshed = await refreshTrueLayerToken(refreshToken);
+      if (refreshed?.accessToken) {
+        tokenToUse = refreshed.accessToken;
+        accResponse = await fetch(`${apiBase}/accounts`, {
+          headers: { Authorization: `Bearer ${tokenToUse}` },
+        });
+      }
+    }
+
+    if (accResponse.status === 401) {
+      return {
+        transactions: [],
+        partialErrors: ['Session BoursoBank expirée. Veuillez vous reconnecter.'],
+        requiresReauth: true,
+      };
+    }
 
     if (!accResponse.ok) {
       throw new Error(`Accounts API returned ${accResponse.status}`);
@@ -269,7 +368,7 @@ export async function fetchTrueLayerTransactions(
       try {
         const txUrl = `${apiBase}/accounts/${accId}/transactions?from=${encodeURIComponent(defaultFrom)}&to=${encodeURIComponent(defaultTo)}`;
         const txRes = await fetch(txUrl, {
-          headers: { Authorization: `Bearer ${accessToken}` },
+          headers: { Authorization: `Bearer ${tokenToUse}` },
         });
 
         if (txRes.ok) {
@@ -298,9 +397,10 @@ export async function fetchTrueLayerTransactions(
     }
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
-    partialErrors.push(`TrueLayer Sync error: ${msg}`);
+    partialErrors.push(`TrueLayer Sync: ${msg}`);
   }
 
   return { transactions, partialErrors };
 }
+
 

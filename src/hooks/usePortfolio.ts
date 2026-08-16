@@ -19,6 +19,7 @@ import type { Position, PortfolioConfig, TransactionRecord, InvestorProfile } fr
 import type { User } from 'firebase/auth';
 import { clearAnalysisCache } from '@/utils/analysisCache';
 import { computeSavingsPositionInterest, REGULATED_SAVINGS_METADATA } from '@/engines/savingsInterestEngine';
+import { getActiveDCATranche } from '@/utils/dcaHistoryHelper';
 
 export function usePortfolio() {
   const [user, setUser] = useState<User | null>(null);
@@ -506,14 +507,22 @@ export function usePortfolio() {
   }, 0);
 
   const marketGain = marketVal - marketCostVal;
-  const marketDCAVal = marketPos.reduce((sum, p) => sum + (p.monthlyDCA || 0), 0);
+  const marketDCAVal = marketPos.reduce((sum, p) => {
+    const active = p.dcaHistory && p.dcaHistory.length > 0 ? getActiveDCATranche(p.dcaHistory) : null;
+    const eff = active ? active.amount : (p.monthlyDCA || (p.annualBudget ? Math.round(p.annualBudget / 12) : 0));
+    return sum + (eff || 0);
+  }, 0);
 
   const savingsCalcs = savingsPos.map((p) => computeSavingsPositionInterest(p));
   const savingsVal = savingsCalcs.reduce((sum, c) => sum + c.currentBalance, 0);
   const savingsCostVal = savingsCalcs.reduce((sum, c) => sum + c.principalDeposited, 0);
   const savingsGain = savingsVal - savingsCostVal;
   const savingsAnnualInt = savingsCalcs.reduce((sum, c) => sum + c.projectedAnnualInterest, 0);
-  const savingsDCAVal = savingsPos.reduce((sum, p) => sum + (p.monthlyDCA || 0), 0);
+  const savingsDCAVal = savingsPos.reduce((sum, p) => {
+    const active = p.dcaHistory && p.dcaHistory.length > 0 ? getActiveDCATranche(p.dcaHistory) : null;
+    const eff = active ? active.amount : (p.monthlyDCA || (p.annualBudget ? Math.round(p.annualBudget / 12) : 0));
+    return sum + (eff || 0);
+  }, 0);
 
   const totalValue = marketVal + savingsVal;
   const totalCost = marketCostVal + savingsCostVal;

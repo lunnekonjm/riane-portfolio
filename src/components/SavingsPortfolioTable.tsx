@@ -3,6 +3,7 @@
 import { useState, useMemo } from 'react';
 import type { Position } from '@/types/portfolio';
 import { computeSavingsPositionInterest } from '@/engines/savingsInterestEngine';
+import { getActiveDCATranche } from '@/utils/dcaHistoryHelper';
 import AssetLogo from '@/components/AssetLogo';
 import { useBoursoLive } from '@/hooks/useBoursoLive';
 
@@ -70,7 +71,11 @@ export default function SavingsPortfolioTable({
 
   const totalValue = calculations.reduce((acc, c) => acc + c.interest.currentBalance, 0);
   const totalAnnualInterest = calculations.reduce((acc, c) => acc + c.interest.projectedAnnualInterest, 0);
-  const totalMonthlyDCA = savingsPositions.reduce((acc, p) => acc + (p.monthlyDCA || 0), 0);
+  const totalMonthlyDCA = savingsPositions.reduce((acc, p) => {
+    const active = p.dcaHistory && p.dcaHistory.length > 0 ? getActiveDCATranche(p.dcaHistory) : null;
+    const effective = active ? active.amount : (p.monthlyDCA || (p.annualBudget ? Math.round(p.annualBudget / 12) : 0));
+    return acc + (effective || 0);
+  }, 0);
 
   if (savingsPositions.length === 0) {
     return (
@@ -177,7 +182,7 @@ export default function SavingsPortfolioTable({
               filteredCalculations.map(({ position, interest }) => {
               const envClass = position.envelope.toLowerCase();
               const activeTranche = position.dcaHistory && position.dcaHistory.length > 0
-                ? (position.dcaHistory.find(t => !t.endDate || t.endDate >= new Date().toISOString().split('T')[0]) || position.dcaHistory[position.dcaHistory.length - 1])
+                ? getActiveDCATranche(position.dcaHistory)
                 : null;
               const effectiveMonthlyDCA = activeTranche ? activeTranche.amount : (position.monthlyDCA || (position.annualBudget ? Math.round(position.annualBudget / 12) : 0));
               const hasActiveDCA = Boolean((effectiveMonthlyDCA && effectiveMonthlyDCA > 0) || (position.dcaHistory && position.dcaHistory.length > 0));

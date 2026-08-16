@@ -4,6 +4,7 @@
    ══════════════════════════════════════════════════ */
 
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+@import './valuation.css';
 
 /* ── CSS Variables ── */
 :root {
@@ -233,36 +234,32 @@
 }
 
 /* Special positioning for Table Headers (pops down cleanly below header line) */
-th [data-tooltip],
-th[data-tooltip] {
+th [data-tooltip] {
   position: relative;
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
   cursor: help;
 }
 
-th [data-tooltip]::after,
-th[data-tooltip]::after {
+th [data-tooltip]::after {
   bottom: auto;
   top: 135%;
   transform: translateX(-50%) translateY(-4px);
 }
 
-th [data-tooltip]::before,
-th[data-tooltip]::before {
+th [data-tooltip]::before {
   bottom: auto;
   top: 110%;
   border-color: transparent transparent rgba(6, 182, 212, 0.6) transparent;
   transform: translateX(-50%) translateY(-4px);
 }
 
-th [data-tooltip]:hover::after,
-th[data-tooltip]:hover::after {
+th [data-tooltip]:hover::after {
   opacity: 1;
   transform: translateX(-50%) translateY(0);
 }
 
-th [data-tooltip]:hover::before,
-th[data-tooltip]:hover::before {
+th [data-tooltip]:hover::before {
   opacity: 1;
   transform: translateX(-50%) translateY(0);
 }
@@ -270,8 +267,6 @@ th[data-tooltip]:hover::before {
 /* Auto-align rightmost table columns to the left to prevent edge truncation */
 th:last-child [data-tooltip]::after,
 th:nth-last-child(2) [data-tooltip]::after,
-th:last-child[data-tooltip]::after,
-th:nth-last-child(2)[data-tooltip]::after,
 td:last-child [data-tooltip]::after,
 td:nth-last-child(2) [data-tooltip]::after,
 td:last-child[data-tooltip]::after,
@@ -283,8 +278,6 @@ td:nth-last-child(2)[data-tooltip]::after {
 
 th:last-child [data-tooltip]::before,
 th:nth-last-child(2) [data-tooltip]::before,
-th:last-child[data-tooltip]::before,
-th:nth-last-child(2)[data-tooltip]::before,
 td:last-child [data-tooltip]::before,
 td:nth-last-child(2) [data-tooltip]::before,
 td:last-child[data-tooltip]::before,
@@ -296,8 +289,6 @@ td:nth-last-child(2)[data-tooltip]::before {
 
 th:last-child [data-tooltip]:hover::after,
 th:nth-last-child(2) [data-tooltip]:hover::after,
-th:last-child[data-tooltip]:hover::after,
-th:nth-last-child(2)[data-tooltip]:hover::after,
 td:last-child [data-tooltip]:hover::after,
 td:nth-last-child(2) [data-tooltip]:hover::after,
 td:last-child[data-tooltip]:hover::after,
@@ -307,8 +298,6 @@ td:nth-last-child(2)[data-tooltip]:hover::after {
 
 th:last-child [data-tooltip]:hover::before,
 th:nth-last-child(2) [data-tooltip]:hover::before,
-th:last-child[data-tooltip]:hover::before,
-th:nth-last-child(2)[data-tooltip]:hover::before,
 td:last-child [data-tooltip]:hover::before,
 td:nth-last-child(2) [data-tooltip]:hover::before,
 td:last-child[data-tooltip]:hover::before,

@@ -7,7 +7,9 @@ import { simulatePositionDCA, type DCASimulationResult } from '@/engines/dcaSimu
 import { searchAssets, ASSET_REGISTRY, type RegisteredAsset } from '@/data/assetRegistry';
 import { getQuote, getCompanyProfile, searchYahooFinance } from '@/services/market-data/provider';
 import { computeSavingsPositionInterest } from '@/engines/savingsInterestEngine';
+import { getActiveDCATranche, updateChainedTranches, deleteChainedTranche, addContinuousTranche } from '@/utils/dcaHistoryHelper';
 import CustomDatePicker from '@/components/CustomDatePicker';
+import ConfirmationModal from '@/components/ConfirmationModal';
 
 interface PositionEditorProps {
   position?: Position | null;
@@ -247,6 +249,9 @@ export default function PositionEditor({ position, initialEnvelope, onSave, onCl
     setDepositsHistory((prev) => [...prev, newDep]);
   };
 
+  const [isClearDepositsModalOpen, setIsClearDepositsModalOpen] = useState(false);
+  const [isDeletePositionModalOpen, setIsDeletePositionModalOpen] = useState(false);
+
   const handleUpdateDeposit = (id: string, updates: Partial<SavingsDeposit>) => {
     setDepositsHistory((prev) => prev.map((d) => d.id === id ? { ...d, ...updates } : d));
   };
@@ -256,9 +261,12 @@ export default function PositionEditor({ position, initialEnvelope, onSave, onCl
   };
 
   const handleClearAllDeposits = () => {
-    if (window.confirm('Êtes-vous sûr de vouloir supprimer tous les versements libres et apports enregistrés ?')) {
-      setDepositsHistory([]);
-    }
+    setIsClearDepositsModalOpen(true);
+  };
+
+  const handleConfirmClearDeposits = () => {
+    setDepositsHistory([]);
+    setIsClearDepositsModalOpen(false);
   };
 
   // Multi-Tier Historical DCA Tranches (Paliers d'évolution du DCA)
@@ -286,65 +294,45 @@ export default function PositionEditor({ position, initialEnvelope, onSave, onCl
   });
 
   const handleAddTranche = () => {
-    const todayStr = new Date().toISOString().split('T')[0];
-    const lastTranche = dcaHistory.length > 0 ? dcaHistory[dcaHistory.length - 1] : null;
-    const newTranche: DCATranche = {
-      id: `tranche-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-      startDate: todayStr,
-      amount: lastTranche ? lastTranche.amount : (form.monthlyDCA || 200),
-      frequency: form.dcaFrequency || 'monthly',
-      depositDay: form.dcaDepositDay || 5,
-      label: `Palier #${dcaHistory.length + 1}`,
-    };
-    setDcaHistory((prev) => [...prev, newTranche]);
+    setIsMultiTierDCA(true);
+    setDcaHistory((prev) => addContinuousTranche(prev, form.monthlyDCA || 200));
   };
 
   const handleCreateSuccessorTranche = () => {
     setIsMultiTierDCA(true);
     const todayStr = new Date().toISOString().split('T')[0];
-    
-    let currentTiers = [...dcaHistory];
-    if (currentTiers.length === 0) {
-      currentTiers = [
-        {
-          id: `tranche-${Date.now()}-0`,
-          startDate: dcaStartDate || '2023-01-01',
-          endDate: todayStr,
-          amount: form.monthlyDCA || 200,
-          frequency: form.dcaFrequency || 'monthly',
-          depositDay: form.dcaDepositDay || 5,
-          label: 'Palier 1 (Précédent)',
-        }
-      ];
-    } else {
-      const lastIdx = currentTiers.length - 1;
-      if (!currentTiers[lastIdx].endDate) {
-        currentTiers[lastIdx] = {
-          ...currentTiers[lastIdx],
-          endDate: todayStr,
-        };
+    setDcaHistory((prev) => {
+      if (prev.length === 0) {
+        return [
+          {
+            id: `tranche-${Date.now()}-0`,
+            startDate: dcaStartDate || '2023-01-01',
+            endDate: todayStr,
+            amount: form.monthlyDCA || 200,
+            frequency: form.dcaFrequency || 'monthly',
+            depositDay: form.dcaDepositDay || 5,
+            label: 'Palier 1 (Précédent)',
+          },
+          {
+            id: `tranche-${Date.now()}-1`,
+            startDate: todayStr,
+            amount: (form.monthlyDCA || 200) > 0 ? Math.round(((form.monthlyDCA || 200) * 1.5) / 50) * 50 : 400,
+            frequency: form.dcaFrequency || 'monthly',
+            depositDay: form.dcaDepositDay || 5,
+            label: 'Palier 2 (Nouveau budget)',
+          },
+        ];
       }
-    }
-
-    const lastAmount = currentTiers.length > 0 ? currentTiers[currentTiers.length - 1].amount : (form.monthlyDCA || 200);
-    const newTranche: DCATranche = {
-      id: `tranche-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-      startDate: todayStr,
-      amount: lastAmount > 0 ? Math.round(lastAmount * 1.5 / 50) * 50 : 400,
-      frequency: form.dcaFrequency || 'monthly',
-      depositDay: form.dcaDepositDay || 5,
-      label: `Palier #${currentTiers.length + 1} (Nouveau budget)`,
-    };
-
-    setDcaHistory([...currentTiers, newTranche]);
+      return addContinuousTranche(prev, undefined, todayStr);
+    });
   };
 
   const handleUpdateTranche = (id: string, updates: Partial<DCATranche>) => {
-    setDcaHistory((prev) => prev.map((t) => t.id === id ? { ...t, ...updates } : t));
+    setDcaHistory((prev) => updateChainedTranches(prev, id, updates));
   };
 
   const handleDeleteTranche = (id: string) => {
-    setDcaHistory((prev) => prev.filter((t) => t.id !== id));
+    setDcaHistory((prev) => deleteChainedTranche(prev, id));
   };
 
   const [isCalculatingDCA, setIsCalculatingDCA] = useState<boolean>(false);
@@ -777,13 +765,13 @@ function autoGenerateThemes(
     let finalDcaStartDate = dcaStartDate;
 
     if (isMultiTierDCA && dcaHistory.length > 0) {
-      const sortedTranches = [...dcaHistory].sort((a, b) => b.startDate.localeCompare(a.startDate));
-      const activeTranche = sortedTranches.find((t) => !t.endDate) || sortedTranches[0];
-      if (activeTranche) {
-        finalMonthlyDCA = activeTranche.amount;
-        if (sortedTranches[sortedTranches.length - 1]) {
-          finalDcaStartDate = sortedTranches[sortedTranches.length - 1].startDate;
-        }
+      const active = getActiveDCATranche(dcaHistory);
+      if (active) {
+        finalMonthlyDCA = active.amount;
+      }
+      const sortedTranches = [...dcaHistory].sort((a, b) => a.startDate.localeCompare(b.startDate));
+      if (sortedTranches.length > 0) {
+        finalDcaStartDate = sortedTranches[0].startDate;
       }
     } else {
       // Convert the unified UI "amount" back to the expected underlying properties
@@ -1715,93 +1703,126 @@ function autoGenerateThemes(
               </>
             ) : (
               <div style={{ marginBottom: 14 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, flexWrap: 'wrap', gap: 6 }}>
+                  <span style={{ fontSize: 11, color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <span>🔗</span> <strong>Paliers liés en continu</strong> (dates enchaînées automatiquement)
+                  </span>
+                  {(() => {
+                    const activeTranche = getActiveDCATranche(dcaHistory);
+                    return activeTranche ? (
+                      <span style={{ fontSize: 11, background: 'rgba(16, 185, 129, 0.15)', color: 'var(--accent-emerald)', padding: '2px 8px', borderRadius: 6, fontWeight: 700, border: '1px solid rgba(16, 185, 129, 0.3)' }}>
+                        🟢 Actuel : {activeTranche.amount.toLocaleString('fr-FR')} {form.currency === 'USD' ? '$' : '€'}/m
+                      </span>
+                    ) : null;
+                  })()}
+                </div>
+
                 {/* Multi-Tier Tranches List */}
                 <div style={{
                   display: 'flex',
                   flexDirection: 'column',
                   gap: 8,
-                  maxHeight: 220,
+                  maxHeight: 240,
                   overflowY: 'auto',
                   paddingRight: 4,
                   scrollbarWidth: 'thin',
                   marginBottom: 10
                 }}>
-                  {dcaHistory.map((tranche, idx) => (
-                    <div
-                      key={tranche.id}
-                      style={{
-                        display: 'grid',
-                        gridTemplateColumns: 'minmax(120px, 1fr) minmax(120px, 1fr) minmax(90px, 0.9fr) minmax(110px, 1.1fr) 32px',
-                        gap: 8,
-                        alignItems: 'center',
-                        padding: '6px 8px',
-                        background: 'var(--bg-secondary)',
-                        border: '1px solid var(--border-subtle)',
-                        borderRadius: 8,
-                      }}
-                    >
-                      <div>
-                        <label style={{ display: 'block', fontSize: 9, color: 'var(--text-tertiary)', marginBottom: 2 }}>
-                          Début #{idx + 1}
-                        </label>
-                        <CustomDatePicker
-                          value={tranche.startDate}
-                          onChange={(newDate) => handleUpdateTranche(tranche.id, { startDate: newDate })}
-                        />
-                      </div>
+                  {dcaHistory.map((tranche, idx) => {
+                    const todayIso = new Date().toISOString().split('T')[0];
+                    const isFuture = tranche.startDate > todayIso;
+                    const isPast = Boolean(tranche.endDate && tranche.endDate < todayIso);
+                    const isCurrent = !isFuture && !isPast;
 
-                      <div>
-                        <label style={{ display: 'block', fontSize: 9, color: 'var(--text-tertiary)', marginBottom: 2 }}>
-                          Fin {tranche.endDate ? '' : '(En cours)'}
-                        </label>
-                        <CustomDatePicker
-                          value={tranche.endDate || ''}
-                          onChange={(newDate) => handleUpdateTranche(tranche.id, { endDate: newDate || undefined })}
-                        />
-                      </div>
+                    return (
+                      <div
+                        key={tranche.id}
+                        style={{
+                          display: 'grid',
+                          gridTemplateColumns: 'minmax(120px, 1fr) minmax(120px, 1fr) minmax(90px, 0.9fr) minmax(110px, 1.1fr) 32px',
+                          gap: 8,
+                          alignItems: 'center',
+                          padding: '8px 10px',
+                          background: isCurrent ? 'rgba(16, 185, 129, 0.04)' : 'var(--bg-secondary)',
+                          border: `1px solid ${isCurrent ? 'rgba(16, 185, 129, 0.4)' : isFuture ? 'rgba(6, 182, 212, 0.3)' : 'var(--border-subtle)'}`,
+                          borderRadius: 8,
+                        }}
+                      >
+                        <div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 2 }}>
+                            <label style={{ fontSize: 9, color: 'var(--text-tertiary)' }}>
+                              Début #{idx + 1}
+                            </label>
+                            {isCurrent && (
+                              <span style={{ fontSize: 8, padding: '1px 3px', borderRadius: 3, background: 'rgba(16, 185, 129, 0.2)', color: 'var(--accent-emerald)', fontWeight: 700 }}>
+                                En cours
+                              </span>
+                            )}
+                            {isFuture && (
+                              <span style={{ fontSize: 8, padding: '1px 3px', borderRadius: 3, background: 'rgba(6, 182, 212, 0.2)', color: 'var(--accent-cyan)', fontWeight: 700 }}>
+                                Prévu
+                              </span>
+                            )}
+                          </div>
+                          <CustomDatePicker
+                            value={tranche.startDate}
+                            onChange={(newDate) => handleUpdateTranche(tranche.id, { startDate: newDate })}
+                          />
+                        </div>
 
-                      <div>
-                        <label style={{ display: 'block', fontSize: 9, color: 'var(--text-tertiary)', marginBottom: 2 }}>
-                          Budget ({form.currency === 'USD' ? '$' : '€'})
-                        </label>
-                        <input
-                          className="input mono"
-                          type="number"
-                          step="10"
-                          min="0"
-                          style={{ fontSize: 12, padding: '5px 8px', fontWeight: 600 }}
-                          value={tranche.amount || ''}
-                          onChange={(e) => handleUpdateTranche(tranche.id, { amount: parseFloat(e.target.value) || 0 })}
-                          placeholder="0"
-                        />
-                      </div>
+                        <div>
+                          <label style={{ display: 'block', fontSize: 9, color: 'var(--text-tertiary)', marginBottom: 2 }}>
+                            Fin {tranche.endDate ? '' : '(Indéterminé)'}
+                          </label>
+                          <CustomDatePicker
+                            value={tranche.endDate || ''}
+                            onChange={(newDate) => handleUpdateTranche(tranche.id, { endDate: newDate || undefined })}
+                          />
+                        </div>
 
-                      <div>
-                        <label style={{ display: 'block', fontSize: 9, color: 'var(--text-tertiary)', marginBottom: 2 }}>
-                          Libellé / Note
-                        </label>
-                        <input
-                          className="input"
-                          style={{ fontSize: 12, padding: '5px 8px' }}
-                          value={tranche.label || ''}
-                          onChange={(e) => handleUpdateTranche(tranche.id, { label: e.target.value })}
-                          placeholder={`Palier #${idx + 1}`}
-                        />
-                      </div>
+                        <div>
+                          <label style={{ display: 'block', fontSize: 9, color: 'var(--text-tertiary)', marginBottom: 2 }}>
+                            Budget ({form.currency === 'USD' ? '$' : '€'})
+                          </label>
+                          <input
+                            className="input mono"
+                            type="number"
+                            step="10"
+                            min="0"
+                            style={{ fontSize: 12, padding: '5px 8px', fontWeight: 600 }}
+                            value={tranche.amount || ''}
+                            onChange={(e) => handleUpdateTranche(tranche.id, { amount: parseFloat(e.target.value) || 0 })}
+                            placeholder="0"
+                          />
+                        </div>
 
-                      <div style={{ display: 'flex', justifyContent: 'center', paddingTop: 12 }}>
-                        <button
-                          type="button"
-                          className="btn btn-ghost"
-                          style={{ padding: '4px', color: 'var(--accent-rose)', minWidth: 'auto', fontSize: 13 }}
-                          onClick={() => handleDeleteTranche(tranche.id)}
-                          title="Supprimer ce palier"
-                        >
-                          🗑️
-                        </button>
+                        <div>
+                          <label style={{ display: 'block', fontSize: 9, color: 'var(--text-tertiary)', marginBottom: 2 }}>
+                            Libellé / Note
+                          </label>
+                          <input
+                            className="input"
+                            style={{ fontSize: 12, padding: '5px 8px' }}
+                            value={tranche.label || ''}
+                            onChange={(e) => handleUpdateTranche(tranche.id, { label: e.target.value })}
+                            placeholder={`Palier #${idx + 1}`}
+                          />
+                        </div>
+
+                        <div style={{ display: 'flex', justifyContent: 'center', paddingTop: 12 }}>
+                          <button
+                            type="button"
+                            className="btn btn-ghost"
+                            style={{ padding: '4px', color: 'var(--accent-rose)', minWidth: 'auto', fontSize: 13 }}
+                            onClick={() => handleDeleteTranche(tranche.id)}
+                            title="Supprimer ce palier"
+                          >
+                            🗑️
+                          </button>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
 
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -1811,7 +1832,7 @@ function autoGenerateThemes(
                     style={{ fontSize: 11, padding: '4px 10px', borderRadius: 6 }}
                     onClick={handleAddTranche}
                   >
-                    ➕ Ajouter un palier libre
+                    ➕ Ajouter un palier lié
                   </button>
                   <button
                     type="button"
@@ -2220,7 +2241,7 @@ function autoGenerateThemes(
                   type="button"
                   className="btn btn-ghost"
                   style={{ color: 'var(--accent-rose)' }}
-                  onClick={() => { if (confirm(`Supprimer ${form.name} ?`)) onDelete(form.id); }}
+                  onClick={() => setIsDeletePositionModalOpen(true)}
                   id="btn-delete-position"
                 >
                   🗑️ Supprimer
@@ -2236,6 +2257,55 @@ function autoGenerateThemes(
           </div>
         </form>
       </div>
+
+      {/* ⚠️ Modal confirmation: Tout effacer les versements */}
+      <ConfirmationModal
+        isOpen={isClearDepositsModalOpen}
+        title="Effacer tous les versements"
+        variant="danger"
+        icon="🗑️"
+        confirmText="Supprimer tous les versements"
+        cancelText="Annuler"
+        message={
+          <div>
+            <p style={{ margin: '0 0 8px 0' }}>
+              Êtes-vous sûr de vouloir supprimer tous les versements libres et apports enregistrés pour <strong>{form.name || 'cette position'}</strong> ?
+            </p>
+            <p style={{ margin: 0, fontSize: 12.5, color: 'var(--text-secondary)' }}>
+              Les calculs d&apos;intérêts et de plus-values historiques associés à ces versements seront réinitialisés.
+            </p>
+          </div>
+        }
+        onConfirm={handleConfirmClearDeposits}
+        onCancel={() => setIsClearDepositsModalOpen(false)}
+      />
+
+      {/* ⚠️ Modal confirmation: Supprimer la position */}
+      {!isNew && onDelete && (
+        <ConfirmationModal
+          isOpen={isDeletePositionModalOpen}
+          title={`Supprimer la position « ${form.name} »`}
+          variant="danger"
+          icon="⚠️"
+          confirmText="Supprimer définitivement"
+          cancelText="Conserver"
+          message={
+            <div>
+              <p style={{ margin: '0 0 8px 0' }}>
+                Êtes-vous certain de vouloir supprimer <strong>{form.name} ({form.ticker})</strong> de votre portefeuille ?
+              </p>
+              <p style={{ margin: 0, fontSize: 12.5, color: 'var(--text-secondary)' }}>
+                Cette opération enregistrera une vente / liquidation dans votre historique d&apos;arbitrages.
+              </p>
+            </div>
+          }
+          onConfirm={() => {
+            setIsDeletePositionModalOpen(false);
+            onDelete(form.id);
+          }}
+          onCancel={() => setIsDeletePositionModalOpen(false)}
+        />
+      )}
     </div>
   );
 }

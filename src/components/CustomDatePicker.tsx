@@ -1,16 +1,17 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 
 interface CustomDatePickerProps {
   value: string; // Format: 'YYYY-MM-DD' or 'YYYY-MM'
   onChange: (newValue: string) => void;
   showDaySelector?: boolean;
+  label?: string;
 }
 
 const MONTH_NAMES_FR = [
-  'janvier', 'février', 'mars', 'avril', 'mai', 'juin',
-  'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'
+  'Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
+  'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'
 ];
 
 const MONTH_SHORT_FR = [
@@ -18,280 +19,395 @@ const MONTH_SHORT_FR = [
   'Juil.', 'Août', 'Sept.', 'Oct.', 'Nov.', 'Déc.'
 ];
 
-export default function CustomDatePicker({ value, onChange, showDaySelector = true }: CustomDatePickerProps) {
+export default function CustomDatePicker({
+  value,
+  onChange,
+  showDaySelector = true,
+  label,
+}: CustomDatePickerProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const [popupAlign, setPopupAlign] = useState<'left' | 'right'>('left');
-  const containerRef = useRef<HTMLDivElement>(null);
 
   // Parse current value 'YYYY-MM-DD' or 'YYYY-MM'
   const parts = (value || '2024-01-05').split('-');
   const currentYear = parseInt(parts[0] || '2024', 10);
-  const currentMonth = parseInt(parts[1] || '01', 10) - 1; // 0-indexed
-  const initialDay = parts[2] ? parseInt(parts[2], 10) : 5;
+  const currentMonth = Math.max(0, Math.min(11, parseInt(parts[1] || '01', 10) - 1)); // 0-indexed
+  const initialDay = parts[2] ? Math.max(1, Math.min(31, parseInt(parts[2], 10))) : 5;
 
-  const [viewYear, setViewYear] = useState<number>(currentYear);
-  const [selectedDay, setSelectedDay] = useState<number>(initialDay);
+  const [tempYear, setTempYear] = useState<number>(currentYear);
+  const [tempMonth, setTempMonth] = useState<number>(currentMonth);
+  const [tempDay, setTempDay] = useState<number>(initialDay);
 
-  // Sync viewYear & selectedDay when value changes externally
+  // Sync state when opened or when external value changes
   useEffect(() => {
-    setViewYear(currentYear);
-    if (parts[2]) {
-      setSelectedDay(parseInt(parts[2], 10));
+    if (isOpen) {
+      setTempYear(currentYear);
+      setTempMonth(currentMonth);
+      setTempDay(initialDay);
     }
-  }, [currentYear, parts[2]]);
+  }, [isOpen, currentYear, currentMonth, initialDay]);
 
-  // Smart placement on open relative to modal or viewport
+  // Handle ESC key to close
   useEffect(() => {
-    if (isOpen && containerRef.current) {
-      const el = containerRef.current;
-      const modalEl = el.closest('.modal-content') || el.closest('.card') || document.body;
-      const parentRect = modalEl.getBoundingClientRect();
-      const rect = el.getBoundingClientRect();
-
-      const spaceRightInParent = parentRect.right - rect.left;
-      const spaceRightInWindow = window.innerWidth - rect.left;
-      const minSpaceNeeded = 285;
-
-      if (spaceRightInParent < minSpaceNeeded || spaceRightInWindow < minSpaceNeeded) {
-        setPopupAlign('right');
-      } else {
-        setPopupAlign('left');
-      }
-    }
-  }, [isOpen]);
-
-  // Click outside to close
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isOpen) {
         setIsOpen(false);
       }
-    }
+    };
     if (isOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener('keydown', handleKeyDown);
     }
     return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleKeyDown);
     };
   }, [isOpen]);
 
-  const handleSelectMonth = (monthIndex: number) => {
-    const mm = String(monthIndex + 1).padStart(2, '0');
-    const dd = String(selectedDay).padStart(2, '0');
-    const yyyy = String(viewYear);
-    onChange(`${yyyy}-${mm}-${dd}`);
+  const handleConfirm = () => {
+    const mm = String(tempMonth + 1).padStart(2, '0');
+    const dd = String(tempDay).padStart(2, '0');
+    const yyyy = String(tempYear);
+    const finalDate = showDaySelector ? `${yyyy}-${mm}-${dd}` : `${yyyy}-${mm}`;
+    onChange(finalDate);
     setIsOpen(false);
   };
 
-  const formattedLabel = parts[2] 
-    ? `${selectedDay} ${MONTH_SHORT_FR[currentMonth] || 'Janv.'} ${currentYear}`
+  const handleSelectToday = () => {
+    const now = new Date();
+    setTempYear(now.getFullYear());
+    setTempMonth(now.getMonth());
+    setTempDay(now.getDate());
+  };
+
+  const handleSelectFirstOfMonth = () => {
+    setTempDay(1);
+  };
+
+  const formattedDisplayLabel = parts[2]
+    ? `${initialDay} ${MONTH_SHORT_FR[currentMonth] || 'Janv.'} ${currentYear}`
     : `${MONTH_SHORT_FR[currentMonth] || 'Janv.'} ${currentYear}`;
 
+  const quickYears = [tempYear - 2, tempYear - 1, tempYear, tempYear + 1, tempYear + 2];
+
   return (
-    <div ref={containerRef} style={{ position: 'relative', width: '100%', minWidth: 135 }}>
+    <>
       {/* Trigger Button */}
       <button
         type="button"
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={() => setIsOpen(true)}
+        className="btn"
         style={{
-          display: 'flex',
+          display: 'inline-flex',
           alignItems: 'center',
           justifyContent: 'space-between',
           width: '100%',
           gap: 6,
-          background: isOpen ? 'var(--accent-cyan-glow)' : 'var(--bg-tertiary)',
-          border: `1px solid ${isOpen ? 'var(--accent-cyan)' : 'var(--border-subtle)'}`,
-          borderRadius: 10,
-          padding: '7px 10px',
+          background: 'var(--bg-tertiary)',
+          border: '1px solid var(--border-subtle)',
+          borderRadius: 8,
+          padding: '6px 10px',
           color: 'var(--accent-cyan)',
           fontFamily: 'var(--font-mono)',
-          fontSize: 12.5,
+          fontSize: 12,
           fontWeight: 700,
           cursor: 'pointer',
           transition: 'all 0.2s ease',
-          boxShadow: isOpen ? '0 0 12px rgba(6, 182, 212, 0.3)' : 'none',
         }}
+        title="Cliquer pour ouvrir le sélecteur de date"
       >
-        <span style={{ display: 'flex', alignItems: 'center', gap: 5, minWidth: 0, whiteSpace: 'nowrap' }}>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, minWidth: 0, whiteSpace: 'nowrap' }}>
           <span style={{ fontSize: 13, flexShrink: 0 }}>📅</span>
-          <span style={{ whiteSpace: 'nowrap' }}>{formattedLabel}</span>
+          <span style={{ whiteSpace: 'nowrap' }}>{formattedDisplayLabel}</span>
         </span>
-        <span style={{ fontSize: 'var(--text-xs)', opacity: 0.8, transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s ease', marginLeft: 2, flexShrink: 0 }}>
+        <span style={{ fontSize: 10, opacity: 0.7, marginLeft: 2, flexShrink: 0 }}>
           ▼
         </span>
       </button>
 
-      {/* Popover Menu */}
+      {/* Centered Modal Dialog Overlay */}
       {isOpen && (
         <div
+          className="modal-overlay"
           style={{
-            position: 'absolute',
-            top: 'calc(100% + 6px)',
-            left: popupAlign === 'left' ? 0 : 'auto',
-            right: popupAlign === 'right' ? 0 : 'auto',
-            zIndex: 9999,
-            width: 275,
-            maxWidth: 'calc(100vw - 32px)',
-            boxSizing: 'border-box',
-            padding: 14,
-            background: '#0f172a',
-            border: '1px solid rgba(255, 255, 255, 0.18)',
-            borderRadius: 14,
-            boxShadow: '0 16px 40px rgba(0, 0, 0, 0.85), 0 0 20px rgba(6, 182, 212, 0.25)',
-            backdropFilter: 'blur(24px)',
+            position: 'fixed',
+            inset: 0,
+            zIndex: 99999,
+            backgroundColor: 'rgba(0, 0, 0, 0.75)',
+            backdropFilter: 'blur(10px)',
+            WebkitBackdropFilter: 'blur(10px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 16,
             animation: 'fadeIn 0.15s ease-out',
           }}
+          onClick={() => setIsOpen(false)}
         >
-          {/* Header Year Navigator */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-            <button
-              type="button"
-              className="btn btn-ghost btn-sm"
-              onClick={() => setViewYear(viewYear - 1)}
-              style={{ fontSize: 14, padding: '4px 8px', color: 'var(--text-secondary)' }}
-              title="Année précédente"
+          <div
+            className="modal-content"
+            style={{
+              maxWidth: 420,
+              width: '100%',
+              background: '#0f172a',
+              border: '1px solid rgba(6, 182, 212, 0.3)',
+              borderRadius: 16,
+              boxShadow: '0 25px 60px rgba(0, 0, 0, 0.9), 0 0 35px rgba(6, 182, 212, 0.2)',
+              padding: 0,
+              overflow: 'hidden',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                padding: '16px 20px',
+                borderBottom: '1px solid var(--border-subtle)',
+                background: 'rgba(255, 255, 255, 0.03)',
+              }}
             >
-              ◀
-            </button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ fontSize: 20 }}>📅</span>
+                <div>
+                  <h4 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: 'var(--text-primary)' }}>
+                    {label || 'Sélectionner une date'}
+                  </h4>
+                  <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
+                    Naviguez facilement entre années et mois
+                  </span>
+                </div>
+              </div>
+              <button
+                type="button"
+                className="btn btn-ghost btn-sm"
+                onClick={() => setIsOpen(false)}
+                style={{ fontSize: 18, padding: '4px 8px', color: 'var(--text-secondary)' }}
+              >
+                &times;
+              </button>
+            </div>
 
-            <span style={{ fontWeight: 700, fontSize: 16, color: '#f8fafc', fontFamily: 'var(--font-mono)' }}>
-              {viewYear}
-            </span>
+            {/* Content Body */}
+            <div style={{ padding: '18px 20px' }}>
+              {/* Year Selector */}
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    onClick={() => setTempYear(tempYear - 1)}
+                    style={{ padding: '6px 12px', fontSize: 14 }}
+                    title="Année précédente"
+                  >
+                    ◀
+                  </button>
 
-            <button
-              type="button"
-              className="btn btn-ghost btn-sm"
-              onClick={() => setViewYear(viewYear + 1)}
-              style={{ fontSize: 14, padding: '4px 8px', color: 'var(--text-secondary)' }}
-              title="Année suivante"
-            >
-              ▶
-            </button>
-          </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span style={{ fontSize: 18, fontWeight: 800, fontFamily: 'var(--font-mono)', color: 'var(--accent-cyan)' }}>
+                      {tempYear}
+                    </span>
+                  </div>
 
-          {/* Day of Month Selector Bar */}
-          {showDaySelector && (
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, padding: '6px 10px', background: 'rgba(255, 255, 255, 0.04)', borderRadius: 8 }}>
-              <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Jour de versement :</span>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <input
-                  type="number"
-                  min="1"
-                  max="31"
-                  value={selectedDay}
-                  onChange={(e) => {
-                    const day = Math.min(31, Math.max(1, parseInt(e.target.value) || 1));
-                    setSelectedDay(day);
-                    const mm = String(currentMonth + 1).padStart(2, '0');
-                    const dd = String(day).padStart(2, '0');
-                    const yyyy = String(viewYear);
-                    onChange(`${yyyy}-${mm}-${dd}`);
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    onClick={() => setTempYear(tempYear + 1)}
+                    style={{ padding: '6px 12px', fontSize: 14 }}
+                    title="Année suivante"
+                  >
+                    ▶
+                  </button>
+                </div>
+
+                {/* Quick Year Pills */}
+                <div style={{ display: 'flex', justifyContent: 'center', gap: 6, flexWrap: 'wrap' }}>
+                  {quickYears.map((yr) => (
+                    <button
+                      key={yr}
+                      type="button"
+                      onClick={() => setTempYear(yr)}
+                      style={{
+                        padding: '3px 8px',
+                        fontSize: 11,
+                        borderRadius: 6,
+                        border: yr === tempYear ? '1px solid var(--accent-cyan)' : '1px solid rgba(255, 255, 255, 0.1)',
+                        background: yr === tempYear ? 'rgba(6, 182, 212, 0.15)' : 'rgba(255, 255, 255, 0.03)',
+                        color: yr === tempYear ? 'var(--accent-cyan)' : 'var(--text-secondary)',
+                        fontWeight: yr === tempYear ? 700 : 500,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      {yr}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Month Grid (4 cols x 3 rows) */}
+              <div style={{ marginBottom: 16 }}>
+                <label style={{ display: 'block', fontSize: 11, color: 'var(--text-secondary)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>
+                  Mois
+                </label>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6 }}>
+                  {MONTH_SHORT_FR.map((mName, idx) => {
+                    const isSelected = idx === tempMonth;
+                    return (
+                      <button
+                        key={mName}
+                        type="button"
+                        onClick={() => setTempMonth(idx)}
+                        style={{
+                          padding: '8px 4px',
+                          borderRadius: 8,
+                          border: isSelected ? '1px solid var(--accent-cyan)' : '1px solid rgba(255, 255, 255, 0.08)',
+                          background: isSelected
+                            ? 'linear-gradient(135deg, #06b6d4 0%, #0284c7 100%)'
+                            : 'rgba(255, 255, 255, 0.04)',
+                          color: isSelected ? '#ffffff' : '#cbd5e1',
+                          fontSize: 12,
+                          fontWeight: isSelected ? 700 : 500,
+                          cursor: 'pointer',
+                          textAlign: 'center',
+                          transition: 'all 0.15s ease',
+                          boxShadow: isSelected ? '0 4px 12px rgba(6, 182, 212, 0.35)' : 'none',
+                        }}
+                      >
+                        {mName}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Day of Month Selector Bar (if enabled) */}
+              {showDaySelector && (
+                <div style={{ marginBottom: 16, background: 'rgba(255, 255, 255, 0.03)', padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border-subtle)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                    <span style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600 }}>
+                      Jour du mois :
+                    </span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <input
+                        type="number"
+                        min="1"
+                        max="31"
+                        value={tempDay}
+                        onChange={(e) => {
+                          const d = Math.max(1, Math.min(31, parseInt(e.target.value) || 1));
+                          setTempDay(d);
+                        }}
+                        style={{
+                          width: 52,
+                          background: 'var(--bg-secondary)',
+                          border: '1px solid var(--accent-cyan)',
+                          borderRadius: 6,
+                          color: 'var(--accent-cyan)',
+                          fontFamily: 'var(--font-mono)',
+                          fontWeight: 700,
+                          fontSize: 13,
+                          textAlign: 'center',
+                          padding: '3px 4px',
+                          outline: 'none',
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Day Shortcut Buttons */}
+                  <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                    {[1, 5, 10, 15, 20, 25, 28, 31].map((d) => (
+                      <button
+                        key={d}
+                        type="button"
+                        onClick={() => setTempDay(d)}
+                        style={{
+                          padding: '2px 7px',
+                          fontSize: 10,
+                          borderRadius: 4,
+                          border: d === tempDay ? '1px solid var(--accent-cyan)' : '1px solid rgba(255, 255, 255, 0.08)',
+                          background: d === tempDay ? 'rgba(6, 182, 212, 0.2)' : 'transparent',
+                          color: d === tempDay ? 'var(--accent-cyan)' : 'var(--text-secondary)',
+                          fontWeight: d === tempDay ? 700 : 500,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        {d}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Quick Presets */}
+              <div style={{ display: 'flex', gap: 6, justifyContent: 'space-between', marginBottom: 6 }}>
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-sm"
+                  onClick={handleSelectToday}
+                  style={{ fontSize: 11, padding: '4px 8px', color: 'var(--accent-cyan)', fontWeight: 600 }}
+                >
+                  ⚡ Aujourd&apos;hui
+                </button>
+
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-sm"
+                  onClick={handleSelectFirstOfMonth}
+                  style={{ fontSize: 11, padding: '4px 8px', color: 'var(--text-secondary)' }}
+                >
+                  🗓️ 1er du mois
+                </button>
+
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-sm"
+                  onClick={() => {
+                    setTempMonth(0);
+                    setTempDay(1);
                   }}
-                  style={{
-                    width: 48,
-                    background: 'var(--bg-tertiary)',
-                    border: '1px solid var(--accent-cyan)',
-                    borderRadius: 6,
-                    color: 'var(--accent-cyan)',
-                    fontFamily: 'var(--font-mono)',
-                    fontWeight: 700,
-                    fontSize: 13,
-                    textAlign: 'center',
-                    padding: '2px 4px',
-                    outline: 'none',
-                  }}
-                />
+                  style={{ fontSize: 11, padding: '4px 8px', color: 'var(--text-secondary)' }}
+                >
+                  🎯 Début d&apos;année
+                </button>
               </div>
             </div>
-          )}
 
-          {/* Month Grid (3 cols x 4 rows) */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginBottom: 14 }}>
-            {MONTH_SHORT_FR.map((mName, idx) => {
-              const isSelected = viewYear === currentYear && idx === currentMonth;
-              return (
+            {/* Footer */}
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                padding: '12px 20px',
+                borderTop: '1px solid var(--border-subtle)',
+                background: 'rgba(255, 255, 255, 0.02)',
+              }}
+            >
+              <div style={{ fontSize: 12, fontFamily: 'var(--font-mono)', color: 'var(--text-secondary)' }}>
+                {showDaySelector ? `${tempDay} ${MONTH_NAMES_FR[tempMonth]} ${tempYear}` : `${MONTH_NAMES_FR[tempMonth]} ${tempYear}`}
+              </div>
+
+              <div style={{ display: 'flex', gap: 8 }}>
                 <button
-                  key={mName}
                   type="button"
-                  onClick={() => handleSelectMonth(idx)}
-                  style={{
-                    padding: '8px 4px',
-                    borderRadius: 8,
-                    border: isSelected ? '1px solid var(--accent-cyan)' : '1px solid transparent',
-                    background: isSelected
-                      ? 'linear-gradient(135deg, #06b6d4 0%, #0284c7 100%)'
-                      : 'rgba(255, 255, 255, 0.05)',
-                    color: isSelected ? '#ffffff' : '#cbd5e1',
-                    fontSize: 12,
-                    fontWeight: isSelected ? 700 : 500,
-                    cursor: 'pointer',
-                    transition: 'all 0.15s ease',
-                    textAlign: 'center',
-                    boxShadow: isSelected ? '0 4px 12px rgba(6, 182, 212, 0.4)' : 'none',
-                  }}
-                  onMouseEnter={(e) => {
-                    if (!isSelected) {
-                      e.currentTarget.style.background = 'rgba(255, 255, 255, 0.12)';
-                      e.currentTarget.style.color = '#ffffff';
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    if (!isSelected) {
-                      e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)';
-                      e.currentTarget.style.color = '#cbd5e1';
-                    }
-                  }}
+                  className="btn btn-secondary btn-sm"
+                  onClick={() => setIsOpen(false)}
                 >
-                  {mName}
+                  Annuler
                 </button>
-              );
-            })}
-          </div>
-
-          {/* Shortcuts */}
-          <div style={{ borderTop: '1px solid rgba(255, 255, 255, 0.1)', paddingTop: 10, display: 'flex', gap: 6, justifyContent: 'space-between' }}>
-            <button
-              type="button"
-              className="btn btn-ghost btn-sm"
-              onClick={() => {
-                const now = new Date();
-                const yyyy = now.getFullYear();
-                const mm = String(now.getMonth() + 1).padStart(2, '0');
-                const dd = String(selectedDay).padStart(2, '0');
-                onChange(`${yyyy}-${mm}-${dd}`);
-                setIsOpen(false);
-              }}
-              style={{ fontSize: 'var(--text-xs)', padding: '4px 6px', color: 'var(--accent-cyan)', fontWeight: 600 }}
-            >
-              Aujourd&apos;hui
-            </button>
-
-            <button
-              type="button"
-              className="btn btn-ghost btn-sm"
-              onClick={() => {
-                onChange(`2024-01-${String(selectedDay).padStart(2, '0')}`);
-                setIsOpen(false);
-              }}
-              style={{ fontSize: 'var(--text-xs)', padding: '4px 6px', color: 'var(--text-secondary)' }}
-            >
-              Janv 2024
-            </button>
-
-            <button
-              type="button"
-              className="btn btn-ghost btn-sm"
-              onClick={() => {
-                onChange(`2003-01-${String(selectedDay).padStart(2, '0')}`);
-                setIsOpen(false);
-              }}
-              style={{ fontSize: 'var(--text-xs)', padding: '4px 6px', color: 'var(--text-secondary)' }}
-            >
-              2003 (Origine)
-            </button>
+                <button
+                  type="button"
+                  className="btn btn-primary btn-sm"
+                  style={{ background: 'linear-gradient(135deg, var(--accent-cyan), #0891b2)', fontWeight: 700 }}
+                  onClick={handleConfirm}
+                >
+                  ✅ Valider la date
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }

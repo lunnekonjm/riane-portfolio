@@ -2,9 +2,9 @@ import { describe, it, expect } from 'vitest';
 import {
   classifyTransaction,
   buildReconciliationDraft,
-  getThreeMonthSampleData,
   type RawBankTransaction,
 } from '@/services/bankReconciliationEngine';
+import type { SalaryRecord } from '@/types/revenue';
 import { sanitizeForFirestore } from '@/services/firebase/firestore';
 
 describe('Bank Reconciliation Engine', () => {
@@ -113,10 +113,24 @@ describe('Bank Reconciliation Engine', () => {
   });
 
   it('correctly aggregates a month of bank transactions and calculates delta vs plan', () => {
-    const { records, transactions } = getThreeMonthSampleData();
-    const augRecord = records[0]; // Août 2026
+    const testRecord: SalaryRecord = {
+      id: 'sal-test-1',
+      period: '2026-08',
+      periodLabel: 'Août 2026',
+      netSalary: 3250,
+      regularInvestableAmount: 400,
+      savingsRate: 35.0,
+      source: 'manual',
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    };
+    const testTransactions: RawBankTransaction[] = [
+      { id: 'tx-1', date: '2026-08-01', description: 'VIR SEPA VESTAS FRANCE SALAIRE', amount: 3250, accountType: 'Courant' },
+      { id: 'tx-2', date: '2026-08-03', description: 'Versement PEA BoursoBank', amount: -397.44, accountType: 'Courant' },
+      { id: 'tx-3', date: '2026-08-05', description: 'Cotisation Virement Tontine', amount: -100, accountType: 'Courant' },
+    ];
 
-    const recon = buildReconciliationDraft('2026-08', augRecord, transactions);
+    const recon = buildReconciliationDraft('2026-08', testRecord, testTransactions);
     expect(recon.actualNetSalaryReceived).toBe(3250);
     expect(recon.actualInvestedPEA).toBeCloseTo(397.44, 2);
     expect(recon.actualInvestedTontine).toBe(100);

@@ -346,135 +346,7 @@ export function buildReconciliationDraft(
   };
 }
 
-/**
- * Données d'exemple pré-calibrées sur 3 mois récents (Juin 2026, Juillet 2026, Août 2026)
- * Permet de tester instantanément l'affichage complet et le calcul des moyennes.
- */
-export function getThreeMonthSampleData(): {
-  records: SalaryRecord[];
-  transactions: RawBankTransaction[];
-} {
-  const now = Date.now();
 
-  const records: SalaryRecord[] = [
-    {
-      id: 'sal-sample-2026-08',
-      period: '2026-08',
-      periodLabel: 'Août 2026',
-      netSalary: 3250,
-      grossSalary: 4200,
-      netSocial: 3350,
-      incomeTaxRatePercent: 7.1,
-      regularInvestableAmount: 400,
-      bonusReserveContribution: 0,
-      savingsRate: 35.0,
-      source: 'pdf-import',
-      documentName: 'Bulletin_Paie_2026_08.pdf',
-      createdAt: now - 86400000 * 2,
-      updatedAt: now - 86400000 * 2,
-      bankReality: {
-        reconciled: true,
-        reconciledAt: now - 86400000 * 1,
-        period: '2026-08',
-        actualNetSalaryReceived: 3250,
-        actualInvestedPEA: 397.44,
-        actualInvestedTontine: 100,
-        actualInvestedTampon: 0,
-        actualInvestedLivretA: 0,
-        actualInvestedCTO: 0,
-        totalActualInvested: 497.44,
-        actualSavingsRate: 15.3,
-        deltaVsPlan: 97.44,
-        executionRatePercent: 124.4,
-        status: 'OVER_INVESTED',
-      },
-    },
-    {
-      id: 'sal-sample-2026-07',
-      period: '2026-07',
-      periodLabel: 'Juillet 2026',
-      netSalary: 3250,
-      grossSalary: 4200,
-      netSocial: 3350,
-      incomeTaxRatePercent: 7.1,
-      regularInvestableAmount: 400,
-      bonusReserveContribution: 0,
-      savingsRate: 35.0,
-      source: 'pdf-import',
-      documentName: 'Bulletin_Paie_2026_07.pdf',
-      createdAt: now - 86400000 * 32,
-      updatedAt: now - 86400000 * 32,
-      bankReality: {
-        reconciled: true,
-        reconciledAt: now - 86400000 * 30,
-        period: '2026-07',
-        actualNetSalaryReceived: 3250,
-        actualInvestedPEA: 395.45,
-        actualInvestedTontine: 0,
-        actualInvestedTampon: 0,
-        actualInvestedLivretA: 0,
-        actualInvestedCTO: 0,
-        totalActualInvested: 395.45,
-        actualSavingsRate: 12.2,
-        deltaVsPlan: -4.55,
-        executionRatePercent: 98.9,
-        status: 'ON_TRACK',
-      },
-    },
-    {
-      id: 'sal-sample-2026-06',
-      period: '2026-06',
-      periodLabel: 'Juin 2026',
-      netSalary: 4620, // Avec prime/rachat congés
-      grossSalary: 5900,
-      netSocial: 4750,
-      incomeTaxRatePercent: 7.1,
-      baseSalaryNet: 3250,
-      bonusNet: 1370,
-      hasExplicitBonus: true,
-      bonusDescription: 'Prime semestrielle objectifs',
-      regularInvestableAmount: 400,
-      bonusReserveContribution: 1370,
-      savingsRate: 35.0,
-      source: 'pdf-import',
-      documentName: 'Bulletin_Paie_2026_06.pdf',
-      createdAt: now - 86400000 * 62,
-      updatedAt: now - 86400000 * 62,
-      bankReality: {
-        reconciled: true,
-        reconciledAt: now - 86400000 * 60,
-        period: '2026-06',
-        actualNetSalaryReceived: 4620,
-        actualInvestedPEA: 397.12,
-        actualInvestedTontine: 0,
-        actualInvestedTampon: 1370, // Prime virée sur tampon
-        actualInvestedLivretA: 0,
-        actualInvestedCTO: 0,
-        totalActualInvested: 1767.12,
-        actualSavingsRate: 38.2,
-        deltaVsPlan: 1367.12,
-        executionRatePercent: 441.8,
-        status: 'OVER_INVESTED',
-      },
-    },
-  ];
-
-  const transactions: RawBankTransaction[] = [
-    // Août 2026
-    { id: 'tx-20260801-sal', date: '2026-08-01', description: 'VIR SEPA VESTAS FRANCE SALAIRE', amount: 3250, accountType: 'Courant' },
-    { id: 'tx-20260802-pea', date: '2026-08-03', description: 'Versement PEA BoursoBank', amount: -397.44, accountType: 'Courant' },
-    { id: 'tx-20260803-tont', date: '2026-08-05', description: 'Cotisation Virement Tontine', amount: -100, accountType: 'Courant' },
-    // Juillet 2026
-    { id: 'tx-20260701-sal', date: '2026-07-01', description: 'VIR SEPA VESTAS FRANCE SALAIRE', amount: 3250, accountType: 'Courant' },
-    { id: 'tx-20260702-pea', date: '2026-07-02', description: 'Versement PEA BoursoBank', amount: -395.45, accountType: 'Courant' },
-    // Juin 2026
-    { id: 'tx-20260601-sal', date: '2026-06-01', description: 'VIR SEPA VESTAS FRANCE SALAIRE & PRIME', amount: 4620, accountType: 'Courant' },
-    { id: 'tx-20260602-pea', date: '2026-06-02', description: 'Versement PEA BoursoBank', amount: -397.12, accountType: 'Courant' },
-    { id: 'tx-20260603-tam', date: '2026-06-03', description: 'Virement vers Compte Tampon Réserve', amount: -1370, accountType: 'Courant' },
-  ];
-
-  return { records, transactions };
-}
 
 export const TRUELAYER_TX_CACHE_KEY = 'truelayer_cached_transactions_v2';
 export const TRUELAYER_TX_CACHE_TIMESTAMP_KEY = 'truelayer_cached_transactions_ts_v2';
@@ -514,39 +386,56 @@ export function getCachedTrueLayerTransactions(): CachedTransactionsData | null 
  */
 export async function fetchAndCacheTrueLayerTransactions(
   monthsCount: number = 3
-): Promise<{ transactions: RawBankTransaction[]; partialErrors: string[]; months: string[] }> {
+): Promise<{ transactions: RawBankTransaction[]; partialErrors: string[]; months: string[]; requiresReauth?: boolean }> {
   const now = new Date();
   const fromDate = new Date(now.getFullYear(), now.getMonth() - (monthsCount - 1), 1);
   const from = fromDate.toISOString().slice(0, 10);
   const to = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().slice(0, 10);
 
-  const res = await fetch(`/api/integrations/truelayer/transactions?from=${from}&to=${to}`);
-  if (!res.ok) {
-    const errText = await res.text().catch(() => 'Erreur réseau');
-    throw new Error(`Échec de récupération TrueLayer (${res.status}): ${errText}`);
-  }
-
-  const data = await res.json();
-  const txList: RawBankTransaction[] = data.transactions || [];
-  const partialErrors: string[] = data.partialErrors || [];
-
-  if (typeof window !== 'undefined' && txList.length > 0) {
-    try {
-      localStorage.setItem(TRUELAYER_TX_CACHE_KEY, JSON.stringify(txList));
-      localStorage.setItem(TRUELAYER_TX_CACHE_TIMESTAMP_KEY, String(Date.now()));
-    } catch (e) {
-      console.warn('Could not cache transactions in localStorage:', e);
+  try {
+    const res = await fetch(`/api/integrations/truelayer/transactions?from=${from}&to=${to}`);
+    if (!res.ok) {
+      const errText = await res.text().catch(() => 'Erreur réseau');
+      return {
+        transactions: [],
+        partialErrors: [`Échec de récupération (${res.status}): ${errText}`],
+        months: [],
+        requiresReauth: res.status === 401,
+      };
     }
-  }
 
-  const monthSet = new Set<string>();
-  txList.forEach((t) => {
-    if (t.date && t.date.length >= 7) {
-      monthSet.add(t.date.slice(0, 7));
+    const data = await res.json();
+    const txList: RawBankTransaction[] = data.transactions || [];
+    const partialErrors: string[] = data.partialErrors || [];
+    const requiresReauth: boolean = !!data.requiresReauth;
+
+    if (typeof window !== 'undefined' && txList.length > 0) {
+      try {
+        localStorage.setItem(TRUELAYER_TX_CACHE_KEY, JSON.stringify(txList));
+        localStorage.setItem(TRUELAYER_TX_CACHE_TIMESTAMP_KEY, String(Date.now()));
+      } catch (e) {
+        console.warn('Could not cache transactions in localStorage:', e);
+      }
     }
-  });
-  const months = Array.from(monthSet).sort().reverse();
 
-  return { transactions: txList, partialErrors, months };
+    const monthSet = new Set<string>();
+    txList.forEach((t) => {
+      if (t.date && t.date.length >= 7) {
+        monthSet.add(t.date.slice(0, 7));
+      }
+    });
+    const months = Array.from(monthSet).sort().reverse();
+
+    return { transactions: txList, partialErrors, months, requiresReauth };
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : 'Erreur réseau';
+    return {
+      transactions: [],
+      partialErrors: [msg],
+      months: [],
+      requiresReauth: false,
+    };
+  }
 }
+
 

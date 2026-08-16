@@ -31,20 +31,150 @@ export function getTodayDateString(): string {
  */
 export function getActiveDCATranche(tranches?: DCATranche[], targetDate?: string): DCATranche | null {
   if (!tranches || tranches.length === 0) return null;
-  const target = targetDate || getTodayDateString();
+  const target = (targetDate || getTodayDateString()).slice(0, 10);
   const targetMonth = target.slice(0, 7);
 
-  // 1. Cherche une tranche englobant la date cible
-  const matched = tranches.find((t) => {
+  // 1. Tri chronologique ascendant
+  const sorted = [...tranches].sort((a, b) => a.startDate.localeCompare(b.startDate));
+
+  // 2. Correspondance exacte jour : startDate <= target && (!endDate || endDate >= target)
+  const exactMatch = sorted.find((t) => {
+    const startD = t.startDate.slice(0, 10);
+    const endD = t.endDate ? t.endDate.slice(0, 10) : null;
+    return startD <= target && (!endD || endD >= target);
+  });
+  if (exactMatch) return exactMatch;
+
+  // 3. Correspondance mois : startMonth <= targetMonth && (!endMonth || endMonth >= targetMonth)
+  const monthMatch = sorted.find((t) => {
     const startM = t.startDate.slice(0, 7);
     const endM = t.endDate ? t.endDate.slice(0, 7) : null;
     return startM <= targetMonth && (!endM || endM >= targetMonth);
   });
-  if (matched) return matched;
+  if (monthMatch) return monthMatch;
 
-  // 2. Si aucune ne correspond exactement, retourne la dernière chronologiquement
-  const sorted = [...tranches].sort((a, b) => a.startDate.localeCompare(b.startDate));
-  return sorted[sorted.length - 1] || null;
+  // 4. Si la date cible est AVANT le tout premier palier, le palier actif/prévu est le premier chronologique
+  if (target < sorted[0].startDate.slice(0, 10)) {
+    return sorted[0];
+  }
+
+  // 5. Si la date cible est dans un intervalle ou après tous les paliers, prendre le plus récent palier passé
+  const pastTranches = sorted.filter((t) => t.startDate.slice(0, 10) <= target);
+  if (pastTranches.length > 0) {
+    return pastTranches[pastTranches.length - 1];
+  }
+
+  // 6. Repli sur le premier palier chronologique
+  return sorted[0] || null;
+}
+
+/**
+ * Met à jour un palier DCA en propageant automatiquement les dates aux paliers adjacents
+ * afin de garantir une continuité stricte sans chevauchement ni rupture.
+ */
+export function updateChainedTranches(
+  tranches: DCATranche[],
+  targetId: string,
+  updates: Partial<DCATranche>
+): DCATranche[] {
+  const index = tranches.findIndex((t) => t.id === targetId);
+  if (index === -1) return tranches;
+
+  const next = tranches.map((t) => ({ ...t }));
+  const current = { ...next[index], ...updates };
+
+  // Validation: Si date de fin < date de début sur le palier actuel, ajuster pour éviter les inversions
+  if (current.endDate && current.startDate && current.endDate < current.startDate) {
+    if (updates.endDate) {
+      current.endDate = current.startDate;
+    } else if (updates.startDate) {
+      current.startDate = current.endDate;
+    }
+  }
+
+  next[index] = current;
+
+  // 1. Si on a modifié la date de fin du palier `i`, le palier `i+1` (s'il existe) commence à cette même date
+  if (updates.endDate !== undefined && index < next.length - 1) {
+    const nextTranche = next[index + 1];
+    if (current.endDate) {
+      nextTranche.startDate = current.endDate;
+      if (nextTranche.endDate && nextTranche.endDate < nextTranche.startDate) {
+        nextTranche.endDate = undefined;
+      }
+    }
+  }
+
+  // 2. Si on a modifié la date de début du palier `i`, le palier `i-1` (s'il existe) se termine à cette même date
+  if (updates.startDate !== undefined && index > 0) {
+    const prevTranche = next[index - 1];
+    prevTranche.endDate = current.startDate;
+  }
+
+  return next;
+}
+
+/**
+ * Supprime un palier tout en raccordant les paliers adjacents pour maintenir la continuité
+ */
+export function deleteChainedTranche(tranches: DCATranche[], targetId: string): DCATranche[] {
+  const index = tranches.findIndex((t) => t.id === targetId);
+  if (index === -1) return tranches;
+  if (tranches.length <= 1) return tranches;
+
+  const filtered = tranches.filter((t) => t.id !== targetId);
+
+  // Si on a supprimé un palier intermédiaire, on relie le palier précédent au palier suivant
+  if (index > 0 && index < tranches.length && filtered[index - 1] && filtered[index]) {
+    filtered[index - 1].endDate = filtered[index].startDate;
+  }
+
+  return filtered;
+}
+
+/**
+ * Ajoute un nouveau palier continu démarrant exactement à la date de fin du dernier palier
+ * (ou à aujourd'hui si le dernier palier n'a pas de date de fin, en clôturant le dernier palier à aujourd'hui)
+ */
+export function addContinuousTranche(
+  tranches: DCATranche[],
+  defaultAmount?: number,
+  transitionDate?: string
+): DCATranche[] {
+  const todayStr = transitionDate || getTodayDateString();
+  const next = tranches.map((t) => ({ ...t }));
+
+  if (next.length === 0) {
+    return [
+      {
+        id: `tranche-${Date.now()}-0`,
+        startDate: todayStr,
+        amount: defaultAmount || 200,
+        label: 'Palier 1',
+      },
+    ];
+  }
+
+  const lastIdx = next.length - 1;
+  const lastTranche = next[lastIdx];
+  let newStartDate = todayStr;
+
+  if (lastTranche.endDate) {
+    newStartDate = lastTranche.endDate;
+  } else {
+    lastTranche.endDate = todayStr;
+    newStartDate = todayStr;
+  }
+
+  const newAmount = defaultAmount || lastTranche.amount || 200;
+  const newTranche: DCATranche = {
+    id: `tranche-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+    startDate: newStartDate,
+    amount: newAmount,
+    label: `Palier #${next.length + 1}`,
+  };
+
+  return [...next, newTranche];
 }
 
 /**
@@ -181,7 +311,7 @@ export function addOrStepUpDCATranche(
   const sorted = [...existingTranches].sort((a, b) => a.startDate.localeCompare(b.startDate));
   const newStartDate = startDateStr.slice(0, 10);
   
-  // Date de fin pour le palier précédent = veille du nouveau palier
+  // Date de fin pour le palier précédent = veille ou même date du nouveau palier
   const newDateObj = new Date(newStartDate);
   const prevEndDateObj = new Date(newDateObj.getTime() - 24 * 60 * 60 * 1000);
   const prevEndDateStr = prevEndDateObj.toISOString().split('T')[0];

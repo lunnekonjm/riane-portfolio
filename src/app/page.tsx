@@ -34,9 +34,12 @@ import SavingsPortfolioTable from '@/components/SavingsPortfolioTable';
 import CoreSatelliteView from '@/components/CoreSatelliteView';
 import InfoTooltip from '@/components/InfoTooltip';
 import { computeSavingsPositionInterest, REGULATED_SAVINGS_METADATA } from '@/engines/savingsInterestEngine';
+import { getActiveDCATranche } from '@/utils/dcaHistoryHelper';
 import { IntegrationsHubModal } from '@/components/integrations/IntegrationsHubModal';
 import { useBoursoLive } from '@/hooks/useBoursoLive';
 import BoursoLiveBar from '@/components/BoursoLiveBar';
+import { ValuationDashboard } from '@/components/valuation/ValuationDashboard';
+import ConfirmationModal from '@/components/ConfirmationModal';
 
 function formatDCAElapsedTime(startDateStr: string): string {
   if (!startDateStr) return '';
@@ -93,7 +96,7 @@ import type { AnalysisStatus } from '@/types/analysis';
 import type { StressTestResult } from '@/types/simulation';
 import { useMemo } from 'react';
 
-type PageView = 'dashboard' | 'envelopes' | 'analysis' | 'risk' | 'audit' | 'reports' | 'revenue';
+type PageView = 'dashboard' | 'envelopes' | 'analysis' | 'valuation' | 'risk' | 'audit' | 'reports' | 'revenue';
 
 const PIPELINE_STEPS: Array<{ key: AnalysisStatus; label: string; icon: string }> = [
   { key: 'data-collection', label: 'Données', icon: '📊' },
@@ -170,6 +173,7 @@ export default function HomePage() {
   const [editingPosition, setEditingPosition] = useState<Position | null | 'new' | 'new_savings'>(null);
   const [showConfigEditor, setShowConfigEditor] = useState(false);
   const [showFlowRebalanceModal, setShowFlowRebalanceModal] = useState(false);
+  const [showConfirmExecuteFlowRebalance, setShowConfirmExecuteFlowRebalance] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showConfirmSignOut, setShowConfirmSignOut] = useState(false);
   const [showNotificationModal, setShowNotificationModal] = useState(false);
@@ -657,6 +661,9 @@ export default function HomePage() {
         <button className={`sidebar-nav-item ${currentView === 'analysis' ? 'active' : ''}`} onClick={() => setCurrentView('analysis')} id="nav-analysis">
           <span className="nav-icon">🔬</span> Analyse
         </button>
+        <button className={`sidebar-nav-item ${currentView === 'valuation' ? 'active' : ''}`} onClick={() => setCurrentView('valuation')} id="nav-valuation">
+          <span className="nav-icon">📐</span> Prix ≠ Valeur (20)
+        </button>
         <button className={`sidebar-nav-item ${currentView === 'risk' ? 'active' : ''}`} onClick={() => setCurrentView('risk')} id="nav-risk">
           <span className="nav-icon">⚡</span> Risque
         </button>
@@ -704,6 +711,7 @@ export default function HomePage() {
             {currentView === 'revenue' && '💰 Revenu & Budget'}
             {currentView === 'envelopes' && '🏛️ Enveloppes & Fiscalité'}
             {currentView === 'analysis' && '🔬 Analyse à la Demande'}
+            {currentView === 'valuation' && '📐 Prix ≠ Valeur (20 Valeurs)'}
             {currentView === 'risk' && '⚡ Stress Tests & Risque'}
             {currentView === 'audit' && '📋 Journal d\'Audit'}
             {currentView === 'reports' && '📰 Rapports & Newsletters AI'}
@@ -1603,7 +1611,11 @@ export default function HomePage() {
                 }, 0);
                 const totalMarketPLEUR = totalMarketValEUR - totalMarketCostEUR;
                 const totalMarketPLPct = totalMarketCostEUR > 0 ? (totalMarketPLEUR / totalMarketCostEUR) * 100 : 0;
-                const totalMarketMonthlyDCA = marketPositionsAll.reduce((sum, p) => sum + (p.monthlyDCA || (p.annualBudget ? Math.round(p.annualBudget / 12) : 0)), 0);
+                const totalMarketMonthlyDCA = marketPositionsAll.reduce((sum, p) => {
+                  const activeTranche = p.dcaHistory && p.dcaHistory.length > 0 ? getActiveDCATranche(p.dcaHistory) : null;
+                  const effective = activeTranche ? activeTranche.amount : (p.monthlyDCA || (p.annualBudget ? Math.round(p.annualBudget / 12) : 0));
+                  return sum + (effective || 0);
+                }, 0);
 
                 return (
                   <div className="card" style={{ marginBottom: 28, padding: 18 }}>
@@ -1991,7 +2003,7 @@ export default function HomePage() {
                                     <td className="mono" style={{ fontSize: 12, whiteSpace: 'nowrap' }}>
                                       {(() => {
                                         const activeMarketTranche = pos.dcaHistory && pos.dcaHistory.length > 0
-                                          ? (pos.dcaHistory.find(t => !t.endDate || t.endDate >= new Date().toISOString().split('T')[0]) || pos.dcaHistory[pos.dcaHistory.length - 1])
+                                          ? getActiveDCATranche(pos.dcaHistory)
                                           : null;
                                         const effectiveMarketMonthlyDCA = activeMarketTranche ? activeMarketTranche.amount : (pos.monthlyDCA || (pos.annualBudget ? Math.round(pos.annualBudget / 12) : 0));
                                         const hasMarketActiveDCA = Boolean((effectiveMarketMonthlyDCA && effectiveMarketMonthlyDCA > 0) || (pos.annualBudget && pos.annualBudget > 0) || (pos.dcaHistory && pos.dcaHistory.length > 0));
@@ -2168,6 +2180,7 @@ export default function HomePage() {
                 if (!config) return;
                 await updateConfig({ ...config, monthlyBudget: amount });
               }}
+              onOpenIntegrationsHub={() => setShowIntegrationsModal(true)}
               onShowToast={showToast}
             />
           )}
@@ -2202,6 +2215,11 @@ export default function HomePage() {
               onOpenGlossary={openGlossary}
               showToast={(msg, type) => showToast(msg, type)}
             />
+          )}
+
+          {/* ═══ PRIX ≠ VALEUR (20 Valeurs - Modèles BPA & CA, Consensus & IA) ═══ */}
+          {currentView === 'valuation' && (
+            <ValuationDashboard />
           )}
 
           {/* ═══ RISK ═══ */}
@@ -2893,46 +2911,7 @@ export default function HomePage() {
                   type="button"
                   className="btn btn-primary"
                   style={{ padding: '10px 18px', fontSize: 13, background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', boxShadow: '0 4px 14px rgba(16, 185, 129, 0.4)', fontWeight: 700 }}
-                  onClick={async () => {
-                    const confirmed = window.confirm(
-                      `Avez-vous RÉELLEMENT passé ces ordres d'achat sur vos comptes de courtage (BoursoBank / CTO) ?\n\nCette action va enregistrer l'exécution des ordres dans votre portefeuille.`
-                    );
-                    if (!confirmed) return;
-
-                    let appliedCount = 0;
-                    for (const inst of flowRebalanceResult.instructions) {
-                      if (inst.recommendedShares > 0) {
-                        const pos = positions.find((p) => p.id === inst.positionId);
-                        if (pos) {
-                          const newQty = pos.quantity + inst.recommendedShares;
-                          const unitPrice = inst.recommendedShares > 0 ? inst.recommendedCost / inst.recommendedShares : 0;
-                          const effectivePrice = unitPrice || pos.currentPrice || pos.avgPrice || 10;
-                          const newAvgPrice = pos.avgPrice > 0 ? pos.avgPrice : effectivePrice;
-                          await updatePosition({
-                            ...pos,
-                            quantity: newQty,
-                            avgPrice: newAvgPrice,
-                            updatedAt: Date.now(),
-                          });
-                          appliedCount++;
-                        }
-                      }
-                    }
-
-                    // Si on a utilisé le mode Extra ou Combo, marquer les extras comme consommés
-                    if ((rebalanceBudgetMode === 'extra' || rebalanceBudgetMode === 'combo') && extraCashEntries.length > 0) {
-                      for (const extra of extraCashEntries) {
-                        if (extra.isAvailable) {
-                          await saveExtraCashEntry({ ...extra, isAvailable: false });
-                        }
-                      }
-                    }
-
-                    clearAnalysisCache();
-                    setReadNotificationIds(notifications.map((n) => n.id));
-                    showToast(`✅ Exécution réelle enregistrée (+${appliedCount} positions mises à jour)`);
-                    setShowFlowRebalanceModal(false);
-                  }}
+                  onClick={() => setShowConfirmExecuteFlowRebalance(true)}
                 >
                   ✅ Enregistrer comme Exécuté
                 </button>
@@ -2940,6 +2919,65 @@ export default function HomePage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* ⚠️ Confirmation Modal pour Exécution des Ordres de Rééquilibrage */}
+      {showFlowRebalanceModal && flowRebalanceResult && (
+        <ConfirmationModal
+          isOpen={showConfirmExecuteFlowRebalance}
+          title="Confirmer l'exécution réelle des ordres"
+          variant="primary"
+          icon="⚡"
+          confirmText="Oui, enregistrer l'exécution"
+          cancelText="Annuler"
+          message={
+            <div>
+              <p style={{ margin: '0 0 10px 0' }}>
+                Avez-vous <strong>RÉELLEMENT</strong> passé ces ordres d&apos;achat sur vos comptes de courtage (BoursoBank / CTO) ?
+              </p>
+              <p style={{ margin: 0, fontSize: 12.5, color: 'var(--text-secondary)' }}>
+                Cette action va enregistrer l&apos;exécution des ordres, incrémenter le nombre de parts de vos positions et actualiser l&apos;historique de votre portefeuille.
+              </p>
+            </div>
+          }
+          onConfirm={async () => {
+            setShowConfirmExecuteFlowRebalance(false);
+            let appliedCount = 0;
+            for (const inst of flowRebalanceResult.instructions) {
+              if (inst.recommendedShares > 0) {
+                const pos = positions.find((p) => p.id === inst.positionId);
+                if (pos) {
+                  const newQty = pos.quantity + inst.recommendedShares;
+                  const unitPrice = inst.recommendedShares > 0 ? inst.recommendedCost / inst.recommendedShares : 0;
+                  const effectivePrice = unitPrice || pos.currentPrice || pos.avgPrice || 10;
+                  const newAvgPrice = pos.avgPrice > 0 ? pos.avgPrice : effectivePrice;
+                  await updatePosition({
+                    ...pos,
+                    quantity: newQty,
+                    avgPrice: newAvgPrice,
+                    updatedAt: Date.now(),
+                  });
+                  appliedCount++;
+                }
+              }
+            }
+
+            // Si on a utilisé le mode Extra ou Combo, marquer les extras comme consommés
+            if ((rebalanceBudgetMode === 'extra' || rebalanceBudgetMode === 'combo') && extraCashEntries.length > 0) {
+              for (const extra of extraCashEntries) {
+                if (extra.isAvailable) {
+                  await saveExtraCashEntry({ ...extra, isAvailable: false });
+                }
+              }
+            }
+
+            clearAnalysisCache();
+            setReadNotificationIds(notifications.map((n) => n.id));
+            showToast(`✅ Exécution réelle enregistrée (+${appliedCount} positions mises à jour)`);
+            setShowFlowRebalanceModal(false);
+          }}
+          onCancel={() => setShowConfirmExecuteFlowRebalance(false)}
+        />
       )}
 
       {/* 👤 User Profile Modal */}
@@ -3444,6 +3482,19 @@ export default function HomePage() {
         >
           <span className="icon">🔬</span>
           <span>Analyse</span>
+        </button>
+
+        <button
+          type="button"
+          className={`mobile-nav-btn ${currentView === 'valuation' ? 'active' : ''}`}
+          onClick={() => {
+            setCurrentView('valuation');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
+          id="mob-nav-valuation"
+        >
+          <span className="icon">📐</span>
+          <span>Valorisation</span>
         </button>
 
         <button

@@ -35,7 +35,16 @@ export function useRevenue() {
         const saved = localStorage.getItem(STORAGE_KEYS.SALARY_RECORDS);
         if (saved) {
           const parsed = JSON.parse(saved);
-          if (Array.isArray(parsed)) return parsed;
+          if (Array.isArray(parsed)) {
+            // Strip any ghost sample records
+            const realOnly = parsed.filter((r: SalaryRecord) => !r.id?.startsWith('sal-sample-') && !r.id?.includes('sample'));
+            if (realOnly.length !== parsed.length) {
+              try {
+                localStorage.setItem(STORAGE_KEYS.SALARY_RECORDS, JSON.stringify(realOnly));
+              } catch {}
+            }
+            return realOnly;
+          }
         }
       } catch (e) {
         console.warn('[useRevenue] Failed to load local salary records:', e);
@@ -112,14 +121,16 @@ export function useRevenue() {
           ]);
 
           if (salaryRecords && salaryRecords.length > 0) {
-            setRecords(salaryRecords);
+            const realOnly = salaryRecords.filter((r: SalaryRecord) => !r.id?.startsWith('sal-sample-') && !r.id?.includes('sample'));
+            setRecords(realOnly);
             try {
-              localStorage.setItem(STORAGE_KEYS.SALARY_RECORDS, JSON.stringify(salaryRecords));
+              localStorage.setItem(STORAGE_KEYS.SALARY_RECORDS, JSON.stringify(realOnly));
             } catch {}
           } else {
             // If remote is empty but local has records, sync local to remote
             if (records.length > 0) {
-              for (const r of records) {
+              const realOnly = records.filter((r: SalaryRecord) => !r.id?.startsWith('sal-sample-') && !r.id?.includes('sample'));
+              for (const r of realOnly) {
                 saveSalaryRecordToDb(u.uid, r).catch(console.warn);
               }
             }

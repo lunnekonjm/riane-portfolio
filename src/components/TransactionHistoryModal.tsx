@@ -107,32 +107,46 @@ export default function TransactionHistoryModal({
               <p style={{ fontSize: 12, marginTop: 4 }}>Chaque rééquilibrage ou recommandation validée créera un enregistrement ici.</p>
             </div>
           ) : (
-            <div className="table-wrapper" style={{ overflowX: 'auto', width: '100%' }}>
-              <table className="table" style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <div className="table-responsive" style={{ overflowX: 'auto', width: '100%', WebkitOverflowScrolling: 'touch', borderRadius: 'var(--radius-md)' }}>
+              <table className="portfolio-table" style={{ width: '100%' }}>
                 <thead>
-                  <tr style={{ borderBottom: '1px solid var(--border-medium)', background: 'var(--bg-tertiary)' }}>
-                    <th style={{ padding: '12px 14px', textAlign: 'left', whiteSpace: 'nowrap', fontSize: 12, color: 'var(--text-secondary)' }} data-tooltip="Date et heure de l'opération">Date</th>
-                    <th style={{ padding: '12px 14px', textAlign: 'left', whiteSpace: 'nowrap', fontSize: 12, color: 'var(--text-secondary)' }} data-tooltip="Actif et ticker concerné">Actif</th>
-                    <th style={{ padding: '12px 14px', textAlign: 'left', whiteSpace: 'nowrap', fontSize: 12, color: 'var(--text-secondary)' }} data-tooltip="Nature de l'opération (Achat, Vente, Rééquilibrage)">Type d&apos;Opération</th>
-                    <th style={{ padding: '12px 14px', textAlign: 'right', whiteSpace: 'nowrap', fontSize: 12, color: 'var(--text-secondary)' }} data-tooltip="Nombre de parts ajoutées ou retirées">Variation</th>
-                    <th style={{ padding: '12px 14px', textAlign: 'right', whiteSpace: 'nowrap', fontSize: 12, color: 'var(--text-secondary)' }} data-tooltip="Prix unitaire de l'actif lors de l'opération">Prix U.</th>
-                    <th style={{ padding: '12px 14px', textAlign: 'right', whiteSpace: 'nowrap', fontSize: 12, color: 'var(--text-secondary)' }} data-tooltip="Montant financier total engagé (€/$)">Montant Total</th>
-                    <th style={{ padding: '12px 14px', textAlign: 'left', fontSize: 12, color: 'var(--text-secondary)', minWidth: 200 }} data-tooltip="Contexte et justification de la recommandation">Motif & Contexte</th>
+                  <tr style={{ background: 'var(--bg-tertiary)' }}>
+                    <th style={{ minWidth: 110, padding: '10px 12px' }}>
+                      <span data-tooltip="Date et heure de l'opération">Date</span>
+                    </th>
+                    <th style={{ minWidth: 160, padding: '10px 12px' }}>
+                      <span data-tooltip="Actif et ticker concerné">Actif</span>
+                    </th>
+                    <th style={{ minWidth: 135, padding: '10px 12px' }}>
+                      <span data-tooltip="Nature de l'opération (Achat, Vente, Rééquilibrage)">Type d&apos;Opération</span>
+                    </th>
+                    <th style={{ minWidth: 105, padding: '10px 12px', textAlign: 'right' }}>
+                      <span data-tooltip="Nombre de parts ajoutées ou retirées">Variation</span>
+                    </th>
+                    <th style={{ minWidth: 95, padding: '10px 12px', textAlign: 'right' }}>
+                      <span data-tooltip="Prix unitaire de l'actif lors de l'opération">Prix U.</span>
+                    </th>
+                    <th style={{ minWidth: 115, padding: '10px 12px', textAlign: 'right' }}>
+                      <span data-tooltip="Montant financier total engagé (€/$)">Montant Total</span>
+                    </th>
+                    <th style={{ minWidth: 200, padding: '10px 12px' }}>
+                      <span data-tooltip="Contexte et justification de la recommandation">Motif &amp; Contexte</span>
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
                   {filtered.map((tx) => {
                     const isPositive = tx.sharesDelta >= 0;
                     return (
-                      <tr key={tx.id} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                        <td className="mono" style={{ padding: '12px 14px', fontSize: 12, color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
+                      <tr key={tx.id}>
+                        <td className="mono" style={{ padding: '10px 12px', fontSize: 12, color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
                           {tx.date}
                         </td>
-                        <td style={{ padding: '12px 14px' }}>
-                          <div style={{ fontWeight: 600, fontSize: 13 }}>{tx.name}</div>
-                          <span className="badge badge-secondary mono" style={{ fontSize: 'var(--text-xs)' }}>{tx.ticker}</span>
+                        <td style={{ padding: '10px 12px', minWidth: 160 }}>
+                          <div style={{ fontWeight: 600, fontSize: 13, color: 'var(--text-primary)', lineHeight: 1.3 }}>{tx.name}</div>
+                          <span className="badge badge-secondary mono" style={{ fontSize: 10, marginTop: 3 }}>{tx.ticker}</span>
                         </td>
-                        <td style={{ padding: '12px 14px', whiteSpace: 'nowrap' }}>
+                        <td style={{ padding: '10px 12px', whiteSpace: 'nowrap' }}>
                           {tx.type === 'REBALANCE' && <span className="badge badge-primary">🎯 Rééquilibrage</span>}
                           {tx.type === 'CTA_ALERT' && <span className="badge badge-warning">🛡️ Alerte CTA</span>}
                           {tx.type === 'BUY' && <span className="badge badge-success">🟢 Achat</span>}
@@ -140,16 +154,16 @@ export default function TransactionHistoryModal({
                           {tx.type === 'DCA_AUTO' && <span className="badge badge-info">⚡ DCA Auto</span>}
                           {tx.type === 'MANUAL_EDIT' && <span className="badge badge-secondary">✏️ Édition</span>}
                         </td>
-                        <td className="mono" style={{ padding: '12px 14px', textAlign: 'right', fontWeight: 700, color: isPositive ? 'var(--accent-emerald)' : 'var(--accent-rose)', whiteSpace: 'nowrap' }}>
+                        <td className="mono" style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 700, color: isPositive ? 'var(--accent-emerald)' : 'var(--accent-rose)', whiteSpace: 'nowrap' }}>
                           {isPositive ? `+${tx.sharesDelta}` : tx.sharesDelta} part{Math.abs(tx.sharesDelta) > 1 ? 's' : ''}
                         </td>
-                        <td className="mono" style={{ padding: '12px 14px', textAlign: 'right', fontSize: 12, whiteSpace: 'nowrap' }}>
+                        <td className="mono" style={{ padding: '10px 12px', textAlign: 'right', fontSize: 12, whiteSpace: 'nowrap' }}>
                           {tx.price.toFixed(2)} {tx.currency === 'USD' ? '$' : tx.currency === 'GBP' ? '£' : '€'}
                         </td>
-                        <td className="mono" style={{ padding: '12px 14px', textAlign: 'right', fontWeight: 700, fontSize: 13, whiteSpace: 'nowrap' }}>
+                        <td className="mono" style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 700, fontSize: 13, whiteSpace: 'nowrap' }}>
                           {tx.totalAmount.toFixed(2)} {tx.currency === 'USD' ? '$' : tx.currency === 'GBP' ? '£' : '€'}
                         </td>
-                        <td style={{ padding: '12px 14px', fontSize: 12, color: 'var(--text-secondary)', maxWidth: 280 }}>
+                        <td style={{ padding: '10px 12px', fontSize: 12, color: 'var(--text-secondary)', minWidth: 200 }}>
                           {tx.reason}
                         </td>
                       </tr>

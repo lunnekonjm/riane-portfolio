@@ -58,9 +58,20 @@ export async function GET(request: Request) {
       path: "/",
     });
 
+    if (tokenData.refresh_token) {
+      response.cookies.set("truelayer_refresh_token", tokenData.refresh_token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        maxAge: 60 * 60 * 24 * 90, // 90 days
+        path: "/",
+      });
+    }
+
     return response;
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
     return NextResponse.redirect(`${origin}/?truelayer_status=exchange_failed&msg=${encodeURIComponent(msg)}`);
   }
 }
+

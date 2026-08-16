@@ -7,8 +7,11 @@ import {
   addOrStepUpDCATranche,
   getActiveDCATranche,
   getTodayDateString,
+  updateChainedTranches,
+  deleteChainedTranche,
 } from '@/utils/dcaHistoryHelper';
 import InfoTooltip from '@/components/InfoTooltip';
+import CustomDatePicker from '@/components/CustomDatePicker';
 
 interface ConfigEditorProps {
   config: PortfolioConfig;
@@ -95,7 +98,7 @@ export default function ConfigEditor({
 
   const handleUpdateTranche = (id: string, updates: Partial<DCATranche>) => {
     setDcaHistory((prev) => {
-      const next = prev.map((t) => (t.id === id ? { ...t, ...updates } : t));
+      const next = updateChainedTranches(prev, id, updates);
       const active = getActiveDCATranche(next);
       if (active) {
         setForm((p) => ({ ...p, monthlyBudget: active.amount, dcaHistory: next }));
@@ -107,7 +110,7 @@ export default function ConfigEditor({
   const handleDeleteTranche = (id: string) => {
     setDcaHistory((prev) => {
       if (prev.length <= 1) return prev;
-      const next = prev.filter((t) => t.id !== id);
+      const next = deleteChainedTranche(prev, id);
       const active = getActiveDCATranche(next);
       if (active) {
         setForm((p) => ({ ...p, monthlyBudget: active.amount, dcaHistory: next }));
@@ -260,37 +263,30 @@ export default function ConfigEditor({
                         }}
                       >
                         <div>
-                          <label style={{ fontSize: 10, color: 'var(--text-muted)', display: 'block', textTransform: 'uppercase' }}>Début</label>
-                          <input
-                            type="date"
-                            className="input"
-                            style={{ padding: '4px 6px', fontSize: 11 }}
+                          <label style={{ fontSize: 10, color: 'var(--text-muted)', display: 'block', textTransform: 'uppercase', marginBottom: 2 }}>Début</label>
+                          <CustomDatePicker
                             value={tranche.startDate}
-                            onChange={(e) => handleUpdateTranche(tranche.id, { startDate: e.target.value })}
+                            onChange={(val) => handleUpdateTranche(tranche.id, { startDate: val })}
                           />
                         </div>
 
                         <div>
-                          <label style={{ fontSize: 10, color: 'var(--text-muted)', display: 'block', textTransform: 'uppercase' }}>Fin</label>
-                          <input
-                            type="date"
-                            className="input"
-                            style={{ padding: '4px 6px', fontSize: 11 }}
+                          <label style={{ fontSize: 10, color: 'var(--text-muted)', display: 'block', textTransform: 'uppercase', marginBottom: 2 }}>Fin</label>
+                          <CustomDatePicker
                             value={tranche.endDate || ''}
-                            placeholder="En cours..."
-                            onChange={(e) => handleUpdateTranche(tranche.id, { endDate: e.target.value || undefined })}
+                            onChange={(val) => handleUpdateTranche(tranche.id, { endDate: val || undefined })}
                           />
                         </div>
 
                         <div>
-                          <label style={{ fontSize: 10, color: 'var(--text-muted)', display: 'block', textTransform: 'uppercase' }}>Montant</label>
+                          <label style={{ fontSize: 10, color: 'var(--text-muted)', display: 'block', textTransform: 'uppercase', marginBottom: 2 }}>Montant</label>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                             <input
                               type="number"
                               step="50"
                               min="0"
                               className="input mono font-bold"
-                              style={{ padding: '4px 6px', fontSize: 12, color: isTrancheActive ? 'var(--accent-emerald)' : 'inherit' }}
+                              style={{ padding: '6px 8px', fontSize: 12, color: isTrancheActive ? 'var(--accent-emerald)' : 'inherit' }}
                               value={tranche.amount}
                               onChange={(e) => handleUpdateTranche(tranche.id, { amount: parseFloat(e.target.value) || 0 })}
                             />
@@ -299,11 +295,11 @@ export default function ConfigEditor({
                         </div>
 
                         <div>
-                          <label style={{ fontSize: 10, color: 'var(--text-muted)', display: 'block', textTransform: 'uppercase' }}>Motif / Label</label>
+                          <label style={{ fontSize: 10, color: 'var(--text-muted)', display: 'block', textTransform: 'uppercase', marginBottom: 2 }}>Motif / Label</label>
                           <input
                             type="text"
                             className="input"
-                            style={{ padding: '4px 6px', fontSize: 11 }}
+                            style={{ padding: '6px 8px', fontSize: 12 }}
                             value={tranche.label || ''}
                             placeholder="ex: Promotion, Bonus..."
                             onChange={(e) => handleUpdateTranche(tranche.id, { label: e.target.value })}
@@ -347,15 +343,12 @@ export default function ConfigEditor({
                     <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 8, color: 'var(--accent-cyan)' }}>
                       🚀 Programmer un nouveau palier d&apos;épargne
                     </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1.2fr', gap: 8, marginBottom: 8 }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr 1.2fr', gap: 8, marginBottom: 8 }}>
                       <div>
-                        <label className="form-label" style={{ fontSize: 11 }}>Date d&apos;effet</label>
-                        <input
-                          type="date"
-                          className="input"
-                          style={{ fontSize: 12 }}
+                        <label className="form-label" style={{ fontSize: 11, marginBottom: 2 }}>Date d&apos;effet</label>
+                        <CustomDatePicker
                           value={newTrancheDate}
-                          onChange={(e) => setNewTrancheDate(e.target.value)}
+                          onChange={(val) => setNewTrancheDate(val)}
                         />
                       </div>
                       <div>

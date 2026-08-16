@@ -5,6 +5,9 @@ import {
   calculateCumulativeDCA,
   addOrStepUpDCATranche,
   getEffectiveDCAMonthly,
+  updateChainedTranches,
+  deleteChainedTranche,
+  addContinuousTranche,
 } from '../utils/dcaHistoryHelper';
 import type { DCATranche, PortfolioConfig } from '../types/portfolio';
 
@@ -80,5 +83,62 @@ describe('dcaHistoryHelper', () => {
 
     expect(getEffectiveDCAMonthly(config, '2024-05-01')).toBe(800);
     expect(getEffectiveDCAMonthly(config, '2025-02-01')).toBe(1200);
+  });
+
+  it('ne saute PAS sur un palier futur si la date actuelle est antérieure à tous les paliers (Bug fix 500€ vs 700€)', () => {
+    const tranches: DCATranche[] = [
+      { id: 't1', startDate: '2026-09-02', endDate: '2026-12-02', amount: 500, label: 'Palier 1' },
+      { id: 't2', startDate: '2027-01-02', amount: 700, label: 'Palier 2' },
+    ];
+
+    // En août 2026 (avant septembre 2026), le palier attendu est le premier (500€) et JAMAIS le 700€ de 2027
+    expect(getActiveDCATranche(tranches, '2026-08-16')?.amount).toBe(500);
+    expect(getActiveDCATranche(tranches, '2026-10-15')?.amount).toBe(500);
+    expect(getActiveDCATranche(tranches, '2027-02-01')?.amount).toBe(700);
+  });
+
+  it('propage automatiquement les dates entre paliers liés sans chevauchement ni rupture', () => {
+    const initialTranches: DCATranche[] = [
+      { id: 't1', startDate: '2026-06-03', endDate: '2026-08-03', amount: 200, label: 'Palier 1' },
+      { id: 't2', startDate: '2026-08-03', endDate: '2026-12-31', amount: 500, label: 'Palier 2' },
+      { id: 't3', startDate: '2026-12-31', amount: 700, label: 'Palier 3' },
+    ];
+
+    // 1. Déplacer la fin de Palier 1 au 2026-09-15 doit automatiquement mettre à jour le début de Palier 2 au 2026-09-15
+    const updated1 = updateChainedTranches(initialTranches, 't1', { endDate: '2026-09-15' });
+    expect(updated1[0].endDate).toBe('2026-09-15');
+    expect(updated1[1].startDate).toBe('2026-09-15');
+
+    // 2. Déplacer le début de Palier 3 au 2027-02-01 doit automatiquement mettre à jour la fin de Palier 2 au 2027-02-01
+    const updated2 = updateChainedTranches(updated1, 't3', { startDate: '2027-02-01' });
+    expect(updated2[1].endDate).toBe('2027-02-01');
+    expect(updated2[2].startDate).toBe('2027-02-01');
+  });
+
+  it('gère la suppression d’un palier intermédiaire en raccordant les paliers adjacents', () => {
+    const tranches: DCATranche[] = [
+      { id: 't1', startDate: '2026-01-01', endDate: '2026-06-01', amount: 200 },
+      { id: 't2', startDate: '2026-06-01', endDate: '2026-12-01', amount: 500 },
+      { id: 't3', startDate: '2026-12-01', amount: 700 },
+    ];
+
+    const afterDelete = deleteChainedTranche(tranches, 't2');
+    expect(afterDelete).toHaveLength(2);
+    expect(afterDelete[0].id).toBe('t1');
+    expect(afterDelete[0].endDate).toBe('2026-12-01');
+    expect(afterDelete[1].id).toBe('t3');
+    expect(afterDelete[1].startDate).toBe('2026-12-01');
+  });
+
+  it('ajoute un palier continu enchaîné sur la fin du précédent', () => {
+    const tranches: DCATranche[] = [
+      { id: 't1', startDate: '2026-01-01', endDate: '2026-08-01', amount: 300 },
+    ];
+
+    const added = addContinuousTranche(tranches, 500);
+    expect(added).toHaveLength(2);
+    expect(added[0].endDate).toBe('2026-08-01');
+    expect(added[1].startDate).toBe('2026-08-01');
+    expect(added[1].amount).toBe(500);
   });
 });

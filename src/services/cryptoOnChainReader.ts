@@ -418,12 +418,15 @@ export async function scanWalletAllAssets(
             const uiAmount = info?.tokenAmount?.uiAmount ?? (Number(info?.tokenAmount?.amount || 0) / Math.pow(10, info?.tokenAmount?.decimals || 0));
 
             if (uiAmount > 0.000001 && mint) {
-              const def = SOLANA_SPL_MAP[mint];
+              const def = SOLANA_SPL_MAP[mint] || Object.entries(SOLANA_SPL_MAP).find(([k]) => k.toLowerCase() === mint.toLowerCase() || mint.startsWith(k.slice(0, 5)))?.[1];
               const symbol = def ? def.symbol : `SPL-${mint.slice(0, 4)}`;
-              const name = def ? def.name : `SPL Token (${mint.slice(0, 6)}...)`;
+              const isNFT = uiAmount === 1 && !def;
+              const name = def ? def.name : (isNFT ? `NFT / Collectible (${mint.slice(0, 6)}...)` : `SPL Token (${mint.slice(0, 6)}...)`);
               const ticker = def ? def.ticker : `${symbol}-EUR`;
-              const icon = def ? def.icon : '🟣';
+              const icon = def ? def.icon : (isNFT ? '🖼️' : '🟣');
               const price = await fetchPriceEUR(ticker, def?.fallbackPriceEUR || 0, def?.coingeckoId);
+              const val = uiAmount * price;
+              const isValuable = val > 0.01 || (def !== undefined && price > 0);
 
               discovered.push({
                 id: `sol-spl-${mint.slice(-6)}`,
@@ -431,13 +434,13 @@ export async function scanWalletAllAssets(
                 name,
                 symbol,
                 chain: 'SOLANA',
-                chainLabel: 'Réseau Solana (SPL Token)',
+                chainLabel: def ? 'Réseau Solana (SPL Token)' : (isNFT ? 'Solana NFT / Collectible' : 'Solana SPL Token'),
                 chainIcon: icon,
                 balance: uiAmount,
                 priceEUR: price,
-                valueEUR: uiAmount * price,
+                valueEUR: val,
                 contractAddress: mint,
-                selected: true,
+                selected: isValuable,
               });
             }
           }
@@ -445,12 +448,15 @@ export async function scanWalletAllAssets(
       } catch {}
     }
 
+    // Sort: assets with positive value or verified first, then others
+    discovered.sort((a, b) => (b.valueEUR || 0) - (a.valueEUR || 0));
+
     return {
       success: true,
       address,
       detectedType: 'SOLANA',
       assets: discovered,
-      totalValueEUR: discovered.reduce((sum, a) => sum + a.valueEUR, 0),
+      totalValueEUR: discovered.reduce((sum, a) => sum + (a.selected ? a.valueEUR : 0), 0),
     };
   }
 

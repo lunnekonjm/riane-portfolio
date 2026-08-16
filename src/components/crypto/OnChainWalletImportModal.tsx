@@ -25,6 +25,7 @@ export default function OnChainWalletImportModal({
   const [error, setError] = useState<string | null>(null);
   const [scanResults, setScanResults] = useState<DiscoveredCryptoAsset[]>([]);
   const [hasScanned, setHasScanned] = useState(false);
+  const [showZeroValued, setShowZeroValued] = useState(false);
 
   if (!isOpen) return null;
 
@@ -389,8 +390,11 @@ export default function OnChainWalletImportModal({
                 </div>
               </div>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {scanResults.map((asset) => (
+              {(() => {
+                const pricedAssets = scanResults.filter((a) => (a.valueEUR || 0) > 0.01 || a.priceEUR > 0);
+                const unpricedAssets = scanResults.filter((a) => (a.valueEUR || 0) <= 0.01 && a.priceEUR === 0);
+
+                const renderAssetItem = (asset: DiscoveredCryptoAsset) => (
                   <div
                     key={asset.id}
                     style={{
@@ -432,13 +436,39 @@ export default function OnChainWalletImportModal({
                       <strong className="mono" style={{ fontSize: 14, color: 'var(--text-primary)', display: 'block' }}>
                         {asset.balance.toLocaleString('fr-FR', { maximumFractionDigits: 6 })} {asset.symbol}
                       </strong>
-                      <span className="mono" style={{ fontSize: 11, color: 'var(--accent-emerald)', fontWeight: 600 }}>
+                      <span className="mono" style={{ fontSize: 11, color: asset.valueEUR > 0 ? 'var(--accent-emerald)' : 'var(--text-muted)', fontWeight: 600 }}>
                         ≈ {(asset.valueEUR || asset.balance * asset.priceEUR).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
                       </span>
                     </div>
                   </div>
-                ))}
-              </div>
+                );
+
+                return (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    {pricedAssets.map(renderAssetItem)}
+
+                    {unpricedAssets.length > 0 && (
+                      <div style={{ marginTop: 8 }}>
+                        <button
+                          type="button"
+                          className="btn btn-ghost btn-sm"
+                          onClick={() => setShowZeroValued(!showZeroValued)}
+                          style={{ width: '100%', fontSize: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(255, 255, 255, 0.03)', padding: '6px 12px', border: '1px dashed var(--border-subtle)' }}
+                        >
+                          <span>{showZeroValued ? '▼ Masquer' : '▶ Afficher'} {unpricedAssets.length} tokens secondaires & NFTs sans cotation (0,00 €)</span>
+                          <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{unpricedAssets.filter(a => a.selected).length} cochés</span>
+                        </button>
+
+                        {showZeroValued && (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 8 }}>
+                            {unpricedAssets.map(renderAssetItem)}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
           )}
         </div>

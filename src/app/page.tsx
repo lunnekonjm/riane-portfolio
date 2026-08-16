@@ -172,6 +172,17 @@ export default function HomePage() {
   const [queryInput, setQueryInput] = useState('');
   const [selectedStressResult, setSelectedStressResult] = useState<StressTestResult | null>(null);
   const [selectedEnvelopeFilter, setSelectedEnvelopeFilter] = useState<string>('ALL');
+  const [bourseSortKey, setBourseSortKey] = useState<'name' | 'envelope' | 'price' | 'value' | 'perf' | 'dca' | 'weight' | null>(null);
+  const [bourseSortDir, setBourseSortDir] = useState<'asc' | 'desc'>('desc');
+
+  const handleBourseSort = (key: 'name' | 'envelope' | 'price' | 'value' | 'perf' | 'dca' | 'weight') => {
+    if (bourseSortKey === key) {
+      setBourseSortDir((prev) => (prev === 'desc' ? 'asc' : 'desc'));
+    } else {
+      setBourseSortKey(key);
+      setBourseSortDir(key === 'name' || key === 'envelope' ? 'asc' : 'desc');
+    }
+  };
   const [editingPosition, setEditingPosition] = useState<Position | null | 'new' | 'new_savings' | 'new_crypto'>(null);
   const [showConfigEditor, setShowConfigEditor] = useState(false);
   const [showFlowRebalanceModal, setShowFlowRebalanceModal] = useState(false);
@@ -2014,13 +2025,34 @@ export default function HomePage() {
                         <table className="portfolio-table">
                           <thead>
                             <tr>
-                              <th><span data-tooltip="Nom complet de l'actif et ticker boursier">Actif</span></th>
-                              <th><span data-tooltip="Enveloppe fiscale (PEA, PEA-PME, CTO, Spéculatif...)">Enveloppe</span></th>
-                              <th><span data-tooltip="Cours actuel du marché et PRU d'achat">Prix / Rendement</span></th>
-                              <th><span data-tooltip="Valeur totale détenue et nombre de parts">Valeur / Solde</span></th>
-                              <th><span data-tooltip="Plus ou Moins-value latente totale (% et montant €/$)">Gains &amp; Performance</span></th>
-                              <th><span data-tooltip="Budget mensuel ou annuel d'accumulation DCA">DCA</span></th>
-                              <th><span data-tooltip="Poids actuel comparé au Plafond d'Allocation Max de sécurité">Plafond &amp; Risque</span></th>
+                              <th className={`sortable ${bourseSortKey === 'name' ? 'active' : ''}`} onClick={() => handleBourseSort('name')} title="Trier par Nom / Ticker">
+                                <span data-tooltip="Nom complet de l'actif et ticker boursier">Actif</span>
+                                <span className="sort-icon">{bourseSortKey === 'name' ? (bourseSortDir === 'asc' ? '▲' : '▼') : '⇅'}</span>
+                              </th>
+                              <th className={`sortable ${bourseSortKey === 'envelope' ? 'active' : ''}`} onClick={() => handleBourseSort('envelope')} title="Trier par Enveloppe fiscale">
+                                <span data-tooltip="Enveloppe fiscale (PEA, PEA-PME, CTO, Spéculatif...)">Enveloppe</span>
+                                <span className="sort-icon">{bourseSortKey === 'envelope' ? (bourseSortDir === 'asc' ? '▲' : '▼') : '⇅'}</span>
+                              </th>
+                              <th className={`sortable ${bourseSortKey === 'price' ? 'active' : ''}`} onClick={() => handleBourseSort('price')} title="Trier par Prix unitaire">
+                                <span data-tooltip="Cours actuel du marché et PRU d'achat">Prix / Rendement</span>
+                                <span className="sort-icon">{bourseSortKey === 'price' ? (bourseSortDir === 'asc' ? '▲' : '▼') : '⇅'}</span>
+                              </th>
+                              <th className={`sortable ${bourseSortKey === 'value' ? 'active' : ''}`} onClick={() => handleBourseSort('value')} title="Trier par Valeur totale détenue">
+                                <span data-tooltip="Valeur totale détenue et nombre de parts">Valeur / Solde</span>
+                                <span className="sort-icon">{bourseSortKey === 'value' ? (bourseSortDir === 'asc' ? '▲' : '▼') : '⇅'}</span>
+                              </th>
+                              <th className={`sortable ${bourseSortKey === 'perf' ? 'active' : ''}`} onClick={() => handleBourseSort('perf')} title="Trier par Performance et Plus-value">
+                                <span data-tooltip="Plus ou Moins-value latente totale (% et montant €/$)">Gains &amp; Performance</span>
+                                <span className="sort-icon">{bourseSortKey === 'perf' ? (bourseSortDir === 'asc' ? '▲' : '▼') : '⇅'}</span>
+                              </th>
+                              <th className={`sortable ${bourseSortKey === 'dca' ? 'active' : ''}`} onClick={() => handleBourseSort('dca')} title="Trier par Versement DCA">
+                                <span data-tooltip="Budget mensuel ou annuel d'accumulation DCA">DCA</span>
+                                <span className="sort-icon">{bourseSortKey === 'dca' ? (bourseSortDir === 'asc' ? '▲' : '▼') : '⇅'}</span>
+                              </th>
+                              <th className={`sortable ${bourseSortKey === 'weight' ? 'active' : ''}`} onClick={() => handleBourseSort('weight')} title="Trier par Poids d'allocation">
+                                <span data-tooltip="Poids actuel comparé au Plafond d'Allocation Max de sécurité">Plafond &amp; Risque</span>
+                                <span className="sort-icon">{bourseSortKey === 'weight' ? (bourseSortDir === 'asc' ? '▲' : '▼') : '⇅'}</span>
+                              </th>
                               <th style={{ width: 80, textAlign: 'center' }}><span data-tooltip="Actions rapides : Historique, Édition, Suppression">Actions</span></th>
                             </tr>
                           </thead>
@@ -2039,7 +2071,51 @@ export default function HomePage() {
                                 return p.envelope === selectedEnvelopeFilter;
                               });
 
-                              if (filteredPositions.length === 0) {
+                              const sortedPositions = [...filteredPositions].sort((a, b) => {
+                                if (!bourseSortKey) return 0;
+                                const factor = bourseSortDir === 'asc' ? 1 : -1;
+
+                                if (bourseSortKey === 'name') {
+                                  return factor * a.name.localeCompare(b.name, 'fr');
+                                }
+                                if (bourseSortKey === 'envelope') {
+                                  return factor * a.envelope.localeCompare(b.envelope);
+                                }
+                                if (bourseSortKey === 'price') {
+                                  const priceA = (a.currentPrice || a.avgPrice || 0) * (fxRates[a.currency] || 1);
+                                  const priceB = (b.currentPrice || b.avgPrice || 0) * (fxRates[b.currency] || 1);
+                                  return factor * (priceA - priceB);
+                                }
+                                if (bourseSortKey === 'value') {
+                                  const valA = (a.quantity * (a.currentPrice || a.avgPrice || 0)) * (fxRates[a.currency] || 1);
+                                  const valB = (b.quantity * (b.currentPrice || b.avgPrice || 0)) * (fxRates[b.currency] || 1);
+                                  return factor * (valA - valB);
+                                }
+                                if (bourseSortKey === 'perf') {
+                                  const costA = (a.quantity * (a.avgPrice || 0)) * (fxRates[a.currency] || 1);
+                                  const valA = (a.quantity * (a.currentPrice || a.avgPrice || 0)) * (fxRates[a.currency] || 1);
+                                  const plA = costA > 0 ? (valA - costA) / costA : -999999;
+
+                                  const costB = (b.quantity * (b.avgPrice || 0)) * (fxRates[b.currency] || 1);
+                                  const valB = (b.quantity * (b.currentPrice || b.avgPrice || 0)) * (fxRates[b.currency] || 1);
+                                  const plB = costB > 0 ? (valB - costB) / costB : -999999;
+
+                                  return factor * (plA - plB);
+                                }
+                                if (bourseSortKey === 'dca') {
+                                  const dcaA = a.monthlyDCA || (a.annualBudget ? a.annualBudget / 12 : 0);
+                                  const dcaB = b.monthlyDCA || (b.annualBudget ? b.annualBudget / 12 : 0);
+                                  return factor * (dcaA - dcaB);
+                                }
+                                if (bourseSortKey === 'weight') {
+                                  const valA = (a.quantity * (a.currentPrice || a.avgPrice || 0)) * (fxRates[a.currency] || 1);
+                                  const valB = (b.quantity * (b.currentPrice || b.avgPrice || 0)) * (fxRates[b.currency] || 1);
+                                  return factor * (valA - valB);
+                                }
+                                return 0;
+                              });
+
+                              if (sortedPositions.length === 0) {
                                 return (
                                   <tr>
                                     <td colSpan={8} style={{ textAlign: 'center', padding: '24px 12px', color: 'var(--text-secondary)' }}>
@@ -2049,7 +2125,7 @@ export default function HomePage() {
                                 );
                               }
 
-                              return filteredPositions.map((pos) => {
+                              return sortedPositions.map((pos) => {
                                 const hasFilled = pos.quantity > 0 && pos.avgPrice > 0;
                                 const price = pos.currentPrice || pos.avgPrice;
                                 const value = pos.quantity * price;

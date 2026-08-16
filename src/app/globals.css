@@ -2133,3 +2133,27 @@ select.input option {
 }
 
 
+
+/* Sortable Table Column Headers */
+.portfolio-table th.sortable {
+  cursor: pointer;
+  user-select: none;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+
+.portfolio-table th.sortable:hover {
+  color: var(--accent-cyan);
+}
+
+.portfolio-table th.sortable.active {
+  color: var(--accent-cyan);
+}
+
+.sort-icon {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 5px;
+  font-size: 10px;
+  opacity: 0.85;
+  vertical-align: middle;
+}

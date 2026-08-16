@@ -26,6 +26,17 @@ export default function SavingsPortfolioTable({
   refreshing,
 }: SavingsPortfolioTableProps) {
   const [selectedSavingsEnvelope, setSelectedSavingsEnvelope] = useState<string>('ALL');
+  const [sortKey, setSortKey] = useState<'name' | 'envelope' | 'rate' | 'value' | 'perf' | 'dca' | 'cap' | null>(null);
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
+
+  const handleSort = (key: 'name' | 'envelope' | 'rate' | 'value' | 'perf' | 'dca' | 'cap') => {
+    if (sortKey === key) {
+      setSortDir((prev) => (prev === 'desc' ? 'asc' : 'desc'));
+    } else {
+      setSortKey(key);
+      setSortDir(key === 'name' || key === 'envelope' ? 'asc' : 'desc');
+    }
+  };
   const boursoLive = useBoursoLive();
 
   const savingsPositions = useMemo(() => {
@@ -181,25 +192,72 @@ export default function SavingsPortfolioTable({
         <table className="portfolio-table">
           <thead>
             <tr>
-              <th><span data-tooltip="Nom complet du compte et établissement teneur">Actif</span></th>
-              <th><span data-tooltip="Enveloppe fiscale (Livret, PEE, Assurance-Vie, PER, SCPI...)">Enveloppe</span></th>
-              <th><span data-tooltip="Taux de rendement net ou projeté annuel">Prix / Rendement</span></th>
-              <th><span data-tooltip="Solde total actuel valorisé">Valeur / Solde</span></th>
-              <th><span data-tooltip="Intérêts acquis depuis l'ouverture (calcul par quinzaine ou journalier)">Gains &amp; Performance</span></th>
-              <th><span data-tooltip="Budget mensuel ou annuel programmé de versement">DCA</span></th>
-              <th><span data-tooltip="Utilisation du plafond légal de dépôt réglementé">Plafond &amp; Risque</span></th>
+              <th className={`sortable ${sortKey === 'name' ? 'active' : ''}`} onClick={() => handleSort('name')} title="Trier par Nom de compte">
+                <span data-tooltip="Nom complet du compte et établissement teneur">Actif</span>
+                <span className="sort-icon">{sortKey === 'name' ? (sortDir === 'asc' ? '▲' : '▼') : '⇅'}</span>
+              </th>
+              <th className={`sortable ${sortKey === 'envelope' ? 'active' : ''}`} onClick={() => handleSort('envelope')} title="Trier par Enveloppe d'épargne">
+                <span data-tooltip="Enveloppe fiscale (Livret, PEE, Assurance-Vie, PER, SCPI...)">Enveloppe</span>
+                <span className="sort-icon">{sortKey === 'envelope' ? (sortDir === 'asc' ? '▲' : '▼') : '⇅'}</span>
+              </th>
+              <th className={`sortable ${sortKey === 'rate' ? 'active' : ''}`} onClick={() => handleSort('rate')} title="Trier par Taux de rendement">
+                <span data-tooltip="Taux de rendement net ou projeté annuel">Prix / Rendement</span>
+                <span className="sort-icon">{sortKey === 'rate' ? (sortDir === 'asc' ? '▲' : '▼') : '⇅'}</span>
+              </th>
+              <th className={`sortable ${sortKey === 'value' ? 'active' : ''}`} onClick={() => handleSort('value')} title="Trier par Solde valorisé">
+                <span data-tooltip="Solde total actuel valorisé">Valeur / Solde</span>
+                <span className="sort-icon">{sortKey === 'value' ? (sortDir === 'asc' ? '▲' : '▼') : '⇅'}</span>
+              </th>
+              <th className={`sortable ${sortKey === 'perf' ? 'active' : ''}`} onClick={() => handleSort('perf')} title="Trier par Intérêts acquis">
+                <span data-tooltip="Intérêts acquis depuis l'ouverture (calcul par quinzaine ou journalier)">Gains &amp; Performance</span>
+                <span className="sort-icon">{sortKey === 'perf' ? (sortDir === 'asc' ? '▲' : '▼') : '⇅'}</span>
+              </th>
+              <th className={`sortable ${sortKey === 'dca' ? 'active' : ''}`} onClick={() => handleSort('dca')} title="Trier par Épargne DCA">
+                <span data-tooltip="Budget mensuel ou annuel programmé de versement">DCA</span>
+                <span className="sort-icon">{sortKey === 'dca' ? (sortDir === 'asc' ? '▲' : '▼') : '⇅'}</span>
+              </th>
+              <th className={`sortable ${sortKey === 'cap' ? 'active' : ''}`} onClick={() => handleSort('cap')} title="Trier par Taux de remplissage du plafond">
+                <span data-tooltip="Utilisation du plafond légal de dépôt réglementé">Plafond &amp; Risque</span>
+                <span className="sort-icon">{sortKey === 'cap' ? (sortDir === 'asc' ? '▲' : '▼') : '⇅'}</span>
+              </th>
               <th style={{ width: 64, textAlign: 'center' }}><span data-tooltip="Actions rapides : Édition et Suppression">Actions</span></th>
             </tr>
           </thead>
           <tbody>
-            {filteredCalculations.length === 0 ? (
-              <tr>
-                <td colSpan={8} style={{ textAlign: 'center', padding: '24px 12px', color: 'var(--text-secondary)' }}>
-                  🔍 Aucun compte épargne ne correspond au filtre sélectionné.
-                </td>
-              </tr>
-            ) : (
-              filteredCalculations.map(({ position, interest }) => {
+            {(() => {
+              const sortedCalculations = [...filteredCalculations].sort((a, b) => {
+                if (!sortKey) return 0;
+                const factor = sortDir === 'asc' ? 1 : -1;
+
+                if (sortKey === 'name') return factor * a.position.name.localeCompare(b.position.name, 'fr');
+                if (sortKey === 'envelope') return factor * a.position.envelope.localeCompare(b.position.envelope);
+                if (sortKey === 'rate') return factor * ((a.interest.effectiveRatePercent || 0) - (b.interest.effectiveRatePercent || 0));
+                if (sortKey === 'value') return factor * ((a.interest.currentBalance || 0) - (b.interest.currentBalance || 0));
+                if (sortKey === 'perf') return factor * ((a.interest.interestEarnedToDate || 0) - (b.interest.interestEarnedToDate || 0));
+                if (sortKey === 'dca') {
+                  const dcaA = a.position.monthlyDCA || (a.position.annualBudget ? a.position.annualBudget / 12 : 0);
+                  const dcaB = b.position.monthlyDCA || (b.position.annualBudget ? b.position.annualBudget / 12 : 0);
+                  return factor * (dcaA - dcaB);
+                }
+                if (sortKey === 'cap') {
+                  const capA = a.interest.capUtilizationPercent ?? ((a.interest.currentBalance || 0) / (a.interest.legalCap || a.position.customCap || 999999) * 100);
+                  const capB = b.interest.capUtilizationPercent ?? ((b.interest.currentBalance || 0) / (b.interest.legalCap || b.position.customCap || 999999) * 100);
+                  return factor * (capA - capB);
+                }
+                return 0;
+              });
+
+              if (sortedCalculations.length === 0) {
+                return (
+                  <tr>
+                    <td colSpan={8} style={{ textAlign: 'center', padding: '24px 12px', color: 'var(--text-secondary)' }}>
+                      🔍 Aucun compte épargne ne correspond au filtre sélectionné.
+                    </td>
+                  </tr>
+                );
+              }
+
+              return sortedCalculations.map(({ position, interest }) => {
               const envClass = position.envelope.toLowerCase();
               const activeTranche = position.dcaHistory && position.dcaHistory.length > 0
                 ? getActiveDCATranche(position.dcaHistory)
@@ -415,8 +473,9 @@ export default function SavingsPortfolioTable({
                   </td>
                 </tr>
               );
-            }))}
-          </tbody>
+            });
+          })()}
+        </tbody>
         </table>
       </div>
     </div>

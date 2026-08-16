@@ -37,6 +37,17 @@ export default function CryptoPortfolioTable({
   const [selectedWalletFilter, setSelectedWalletFilter] = useState<string>('ALL');
   const [selectedPositionForLot, setSelectedPositionForLot] = useState<Position | null>(null);
   const [showOnChainImportModal, setShowOnChainImportModal] = useState(false);
+  const [sortKey, setSortKey] = useState<'name' | 'envelope' | 'price' | 'value' | 'perf' | 'dca' | 'weight' | null>(null);
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
+
+  const handleSort = (key: 'name' | 'envelope' | 'price' | 'value' | 'perf' | 'dca' | 'weight') => {
+    if (sortKey === key) {
+      setSortDir((prev) => (prev === 'desc' ? 'asc' : 'desc'));
+    } else {
+      setSortKey(key);
+      setSortDir(key === 'name' || key === 'envelope' ? 'asc' : 'desc');
+    }
+  };
 
   // Filter positions to retain only Crypto assets
   const cryptoPositions = useMemo(() => {
@@ -350,25 +361,90 @@ export default function CryptoPortfolioTable({
         <table className="portfolio-table">
           <thead>
             <tr>
-              <th><span data-tooltip="Nom complet du crypto-actif, ticker et wallets détenteurs">Actif</span></th>
-              <th><span data-tooltip="Enveloppe fiscale (CRYPTO / Déclaratif 2086)">Enveloppe</span></th>
-              <th><span data-tooltip="Cours en temps réel 24/7 et Prix de Revient Unitaire moyen (PRU)">Prix / Rendement</span></th>
-              <th><span data-tooltip="Valeur totale détenue et solde en jetons">Valeur / Solde</span></th>
-              <th><span data-tooltip="Plus ou Moins-value latente totale et nette après PFU 30%">Gains &amp; Performance</span></th>
-              <th><span data-tooltip="Budget mensuel programmé d'accumulation DCA">DCA</span></th>
-              <th><span data-tooltip="Poids de la crypto dans votre patrimoine total comparé au seuil max de 10%">Plafond &amp; Risque</span></th>
+              <th className={`sortable ${sortKey === 'name' ? 'active' : ''}`} onClick={() => handleSort('name')} title="Trier par Nom / Symbole">
+                <span data-tooltip="Nom complet du crypto-actif, ticker et wallets détenteurs">Actif</span>
+                <span className="sort-icon">{sortKey === 'name' ? (sortDir === 'asc' ? '▲' : '▼') : '⇅'}</span>
+              </th>
+              <th className={`sortable ${sortKey === 'envelope' ? 'active' : ''}`} onClick={() => handleSort('envelope')} title="Trier par Enveloppe fiscale">
+                <span data-tooltip="Enveloppe fiscale (CRYPTO / Déclaratif 2086)">Enveloppe</span>
+                <span className="sort-icon">{sortKey === 'envelope' ? (sortDir === 'asc' ? '▲' : '▼') : '⇅'}</span>
+              </th>
+              <th className={`sortable ${sortKey === 'price' ? 'active' : ''}`} onClick={() => handleSort('price')} title="Trier par Prix unitaire">
+                <span data-tooltip="Cours en temps réel 24/7 et Prix de Revient Unitaire moyen (PRU)">Prix / Rendement</span>
+                <span className="sort-icon">{sortKey === 'price' ? (sortDir === 'asc' ? '▲' : '▼') : '⇅'}</span>
+              </th>
+              <th className={`sortable ${sortKey === 'value' ? 'active' : ''}`} onClick={() => handleSort('value')} title="Trier par Valeur totale détenue">
+                <span data-tooltip="Valeur totale détenue et solde en jetons">Valeur / Solde</span>
+                <span className="sort-icon">{sortKey === 'value' ? (sortDir === 'asc' ? '▲' : '▼') : '⇅'}</span>
+              </th>
+              <th className={`sortable ${sortKey === 'perf' ? 'active' : ''}`} onClick={() => handleSort('perf')} title="Trier par Performance et Plus-value">
+                <span data-tooltip="Plus ou Moins-value latente totale et nette après PFU 30%">Gains &amp; Performance</span>
+                <span className="sort-icon">{sortKey === 'perf' ? (sortDir === 'asc' ? '▲' : '▼') : '⇅'}</span>
+              </th>
+              <th className={`sortable ${sortKey === 'dca' ? 'active' : ''}`} onClick={() => handleSort('dca')} title="Trier par Versement DCA">
+                <span data-tooltip="Budget mensuel programmé d'accumulation DCA">DCA</span>
+                <span className="sort-icon">{sortKey === 'dca' ? (sortDir === 'asc' ? '▲' : '▼') : '⇅'}</span>
+              </th>
+              <th className={`sortable ${sortKey === 'weight' ? 'active' : ''}`} onClick={() => handleSort('weight')} title="Trier par Poids d'allocation">
+                <span data-tooltip="Poids de la crypto dans votre patrimoine total comparé au seuil max de 10%">Plafond &amp; Risque</span>
+                <span className="sort-icon">{sortKey === 'weight' ? (sortDir === 'asc' ? '▲' : '▼') : '⇅'}</span>
+              </th>
               <th style={{ width: 90, textAlign: 'center' }}><span data-tooltip="Actions : Gérer les lots par wallet, Éditer, Supprimer">Actions</span></th>
             </tr>
           </thead>
           <tbody>
-            {filteredCryptoPositions.length === 0 ? (
-              <tr>
-                <td colSpan={8} style={{ textAlign: 'center', padding: '24px 12px', color: 'var(--text-secondary)' }}>
-                  🔍 Aucun crypto-actif ne correspond au filtre sélectionné.
-                </td>
-              </tr>
-            ) : (
-              filteredCryptoPositions.map((pos) => {
+            {(() => {
+              const sortedPositions = [...filteredCryptoPositions].sort((a, b) => {
+                if (!sortKey) return 0;
+                const factor = sortDir === 'asc' ? 1 : -1;
+
+                if (sortKey === 'name') return factor * a.name.localeCompare(b.name, 'fr');
+                if (sortKey === 'envelope') return factor * a.envelope.localeCompare(b.envelope);
+                if (sortKey === 'price') {
+                  const priceA = (a.currentPrice || a.avgPrice || 0) * (fxRates[a.currency] || 1);
+                  const priceB = (b.currentPrice || b.avgPrice || 0) * (fxRates[b.currency] || 1);
+                  return factor * (priceA - priceB);
+                }
+                if (sortKey === 'value') {
+                  const valA = (a.quantity * (a.currentPrice || a.avgPrice || 0)) * (fxRates[a.currency] || 1);
+                  const valB = (b.quantity * (b.currentPrice || b.avgPrice || 0)) * (fxRates[b.currency] || 1);
+                  return factor * (valA - valB);
+                }
+                if (sortKey === 'perf') {
+                  const costA = ((a.quantity * (a.avgPrice || 0)) + (a.totalFeesEUR || 0)) * (fxRates[a.currency] || 1);
+                  const valA = (a.quantity * (a.currentPrice || a.avgPrice || 0)) * (fxRates[a.currency] || 1);
+                  const plA = costA > 0 ? (valA - costA) / costA : -999999;
+
+                  const costB = ((b.quantity * (b.avgPrice || 0)) + (b.totalFeesEUR || 0)) * (fxRates[b.currency] || 1);
+                  const valB = (b.quantity * (b.currentPrice || b.avgPrice || 0)) * (fxRates[b.currency] || 1);
+                  const plB = costB > 0 ? (valB - costB) / costB : -999999;
+
+                  return factor * (plA - plB);
+                }
+                if (sortKey === 'dca') {
+                  const dcaA = a.monthlyDCA || (a.annualBudget ? a.annualBudget / 12 : 0);
+                  const dcaB = b.monthlyDCA || (b.annualBudget ? b.annualBudget / 12 : 0);
+                  return factor * (dcaA - dcaB);
+                }
+                if (sortKey === 'weight') {
+                  const valA = (a.quantity * (a.currentPrice || a.avgPrice || 0)) * (fxRates[a.currency] || 1);
+                  const valB = (b.quantity * (b.currentPrice || b.avgPrice || 0)) * (fxRates[b.currency] || 1);
+                  return factor * (valA - valB);
+                }
+                return 0;
+              });
+
+              if (sortedPositions.length === 0) {
+                return (
+                  <tr>
+                    <td colSpan={8} style={{ textAlign: 'center', padding: '24px 12px', color: 'var(--text-secondary)' }}>
+                      🔍 Aucun crypto-actif ne correspond au filtre sélectionné.
+                    </td>
+                  </tr>
+                );
+              }
+
+              return sortedPositions.map((pos) => {
                 const price = pos.currentPrice || pos.avgPrice;
                 const value = pos.quantity * price;
                 const cost = (pos.quantity * pos.avgPrice) + (pos.totalFeesEUR || 0);
@@ -586,8 +662,8 @@ export default function CryptoPortfolioTable({
                     </td>
                   </tr>
                 );
-              })
-            )}
+              });
+            })()}
           </tbody>
         </table>
       </div>

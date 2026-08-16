@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { resolveAssetLogo } from '@/utils/logoDirectory';
 
 interface AssetLogoProps {
@@ -22,8 +22,12 @@ export default function AssetLogo({
   className,
   style,
 }: AssetLogoProps) {
-  const [imageError, setImageError] = useState(false);
   const logoInfo = resolveAssetLogo(ticker, name, envelope, institutionName);
+  const [imageError, setImageError] = useState(false);
+
+  useEffect(() => {
+    setImageError(false);
+  }, [logoInfo.url]);
 
   const borderRadius = Math.round(size * 0.25);
   const fontSize = Math.max(10, Math.round(size * 0.42));

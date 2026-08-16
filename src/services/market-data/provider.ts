@@ -9,35 +9,68 @@ import { alphaVantageProvider } from './alphaVantage';
 import { finnhubProvider } from './finnhub';
 import { getCached, setCache, CACHE_TTL } from './cache';
 
+const CRYPTO_TICKER_MAP: Record<string, string> = {
+  BTC: 'BTC-EUR',
+  BITCOIN: 'BTC-EUR',
+  ETH: 'ETH-EUR',
+  ETHEREUM: 'ETH-EUR',
+  SOL: 'SOL-EUR',
+  SOLANA: 'SOL-EUR',
+  ADA: 'ADA-EUR',
+  CARDANO: 'ADA-EUR',
+  XRP: 'XRP-EUR',
+  RIPPLE: 'XRP-EUR',
+  DOT: 'DOT-EUR',
+  POLKADOT: 'DOT-EUR',
+  AVAX: 'AVAX-EUR',
+  AVALANCHE: 'AVAX-EUR',
+  DOGE: 'DOGE-EUR',
+  BNB: 'BNB-EUR',
+  LINK: 'LINK-EUR',
+  POL: 'POL-EUR',
+  MATIC: 'MATIC-EUR',
+};
+
+export function normalizeMarketTicker(ticker: string): string {
+  if (!ticker) return ticker;
+  const clean = ticker.trim().toUpperCase();
+  if (CRYPTO_TICKER_MAP[clean]) {
+    return CRYPTO_TICKER_MAP[clean];
+  }
+  return ticker;
+}
+
 /**
  * Get a real-time quote — Yahoo Finance first (gratuit), then Finnhub, then Alpha Vantage
  */
 export async function getQuote(ticker: string): Promise<QuoteData> {
-  const cacheKey = `quote_${ticker}`;
+  const normalizedTicker = normalizeMarketTicker(ticker);
+  const cacheKey = `quote_${normalizedTicker}`;
   const cached = getCached<QuoteData>(cacheKey);
   if (cached) return cached;
 
   // Try Yahoo Finance first (free, no API key needed)
   try {
-    const quote = await yahooFinanceProvider.getQuote(ticker);
+    const quote = await yahooFinanceProvider.getQuote(normalizedTicker);
     if (quote.price > 0) {
-      setCache(cacheKey, quote, CACHE_TTL.QUOTE);
-      return quote;
+      const resultQuote = { ...quote, ticker };
+      setCache(cacheKey, resultQuote, CACHE_TTL.QUOTE);
+      return resultQuote;
     }
   } catch (err) {
-    console.warn(`[MarketData] Yahoo Finance failed for ${ticker}:`, err);
+    console.warn(`[MarketData] Yahoo Finance failed for ${normalizedTicker}:`, err);
   }
 
   // Fallback: Finnhub
   try {
-    const quote = await finnhubProvider.getQuote(ticker);
+    const quote = await finnhubProvider.getQuote(normalizedTicker);
     setCache(cacheKey, quote, CACHE_TTL.QUOTE);
     return quote;
   } catch {
     // Last resort: Alpha Vantage
   }
 
-  const quote = await alphaVantageProvider.getQuote(ticker);
+  const quote = await alphaVantageProvider.getQuote(normalizedTicker);
   setCache(cacheKey, quote, CACHE_TTL.QUOTE);
   return quote;
 }

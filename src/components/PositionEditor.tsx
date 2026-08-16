@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import type { Position, SavingsDeposit, DCATranche } from '@/types/portfolio';
 import { THEMES } from '@/data/themes';
 import { simulatePositionDCA, type DCASimulationResult } from '@/engines/dcaSimulation';
-import { searchAssets, ASSET_REGISTRY, type RegisteredAsset } from '@/data/assetRegistry';
+import { searchAssets, ASSET_REGISTRY, isCryptoAsset, type RegisteredAsset } from '@/data/assetRegistry';
 import { getQuote, getCompanyProfile, searchYahooFinance } from '@/services/market-data/provider';
 import { computeSavingsPositionInterest } from '@/engines/savingsInterestEngine';
 import { getActiveDCATranche, updateChainedTranches, deleteChainedTranche, addContinuousTranche } from '@/utils/dcaHistoryHelper';
@@ -14,6 +14,7 @@ import ConfirmationModal from '@/components/ConfirmationModal';
 interface PositionEditorProps {
   position?: Position | null;
   initialEnvelope?: Position['envelope'];
+  existingPositions?: Position[];
   onSave: (position: Position) => void;
   onClose: () => void;
   onDelete?: (id: string) => void;
@@ -23,12 +24,13 @@ const ENVELOPE_OPTIONS: { value: Position['envelope']; label: string; icon: stri
   { value: 'PEA', label: 'PEA (Plan d\'Épargne en Actions)', icon: '📈', isSavings: false },
   { value: 'PEA-PME', label: 'PEA-PME', icon: '🟣', isSavings: false },
   { value: 'CTO', label: 'CTO (Compte-Titres Ordinaire)', icon: '🟢', isSavings: false },
+  { value: 'CRYPTO', label: 'Portefeuille Crypto-Actifs', icon: '🪙', isSavings: false },
   { value: 'LIVRET', label: 'Livret & Épargne (Livret A, LDDS, Cash)', icon: '🛡️', isSavings: true },
   { value: 'ASSURANCE_VIE', label: 'Assurance-Vie', icon: '📜', isSavings: true },
   { value: 'PER', label: 'PER (Plan Épargne Retraite)', icon: '🏛️', isSavings: true },
   { value: 'PEE', label: 'PEE / PERCO (Épargne Salariale)', icon: '🏢', isSavings: true },
   { value: 'IMMOBILIER', label: 'Immobilier & SCPI', icon: '🧱', isSavings: true },
-  { value: 'SPECULATIVE', label: 'Spéculatif & Crypto', icon: '🚀', isSavings: false },
+  { value: 'SPECULATIVE', label: 'Spéculatif & Opportuniste', icon: '🚀', isSavings: false },
   { value: 'OPPORTUNISTIC', label: 'Réserve Opportuniste', icon: '⚖️', isSavings: false },
 ];
 
@@ -163,8 +165,9 @@ function CustomSelect<T extends string>({
   );
 }
 
-export default function PositionEditor({ position, initialEnvelope, onSave, onClose, onDelete }: PositionEditorProps) {
+export default function PositionEditor({ position, initialEnvelope, existingPositions, onSave, onClose, onDelete }: PositionEditorProps) {
   const isNew = !position;
+  const [allowDuplicateLine, setAllowDuplicateLine] = useState(false);
 
   const defaultEnv = position?.envelope || initialEnvelope || 'PEA';
   const isSavingsDefault = defaultEnv === 'LIVRET' || defaultEnv === 'ASSURANCE_VIE' || defaultEnv === 'PER' || defaultEnv === 'PEE' || defaultEnv === 'IMMOBILIER';
@@ -175,7 +178,7 @@ export default function PositionEditor({ position, initialEnvelope, onSave, onCl
     ticker: position?.ticker || '',
     name: position?.name || '',
     envelope: defaultEnv,
-    assetType: position?.assetType || (isSavingsDefault ? 'SAVINGS' : 'ETF'),
+    assetType: position?.assetType || (defaultEnv === 'CRYPTO' ? 'CRYPTO' : isSavingsDefault ? 'SAVINGS' : 'ETF'),
     currency: position?.currency || 'EUR',
     quantity: position?.quantity || 0,
     avgPrice: position?.avgPrice || 0,
@@ -199,13 +202,113 @@ export default function PositionEditor({ position, initialEnvelope, onSave, onCl
     updatedAt: Date.now(),
   });
 
+  // Controlled string inputs for fluid decimal typing (avoids decimal point/comma reset on keystrokes)
+  const [quantityInput, setQuantityInput] = useState<string>(() => {
+    if (position?.quantity !== undefined && position?.quantity !== null && position?.quantity !== 0) {
+      return String(position.quantity);
+    }
+    return '';
+  });
+
+  const [avgPriceInput, setAvgPriceInput] = useState<string>(() => {
+    if (position?.avgPrice !== undefined && position?.avgPrice !== null && position?.avgPrice !== 0) {
+      return String(position.avgPrice);
+    }
+    return '';
+  });
+
+  const [currentPriceInput, setCurrentPriceInput] = useState<string>(() => {
+    if (position?.currentPrice !== undefined && position?.currentPrice !== null && position?.currentPrice !== 0) {
+      return String(position.currentPrice);
+    }
+    return '';
+  });
+
+  // Sync string inputs when position prop updates
+  useEffect(() => {
+    if (position) {
+      if (position.quantity !== undefined && position.quantity !== null && position.quantity !== 0) {
+        setQuantityInput(String(position.quantity));
+      }
+      if (position.avgPrice !== undefined && position.avgPrice !== null && position.avgPrice !== 0) {
+        setAvgPriceInput(String(position.avgPrice));
+      }
+      if (position.currentPrice !== undefined && position.currentPrice !== null && position.currentPrice !== 0) {
+        setCurrentPriceInput(String(position.currentPrice));
+      }
+    }
+  }, [position]);
+
   // Autocomplete & Verification States
   const [tickerSearchInput, setTickerSearchInput] = useState<string>(position?.ticker || '');
   const [searchResults, setSearchResults] = useState<RegisteredAsset[]>([]);
   const [showDropdown, setShowDropdown] = useState<boolean>(false);
   const [isVerifyingTicker, setIsVerifyingTicker] = useState<boolean>(false);
+  const [isSearchingLive, setIsSearchingLive] = useState<boolean>(false);
   const [verifiedQuoteText, setVerifiedQuoteText] = useState<string | null>(position?.currentPrice ? `✓ Prix en direct : ${position.currentPrice} ${position.currency}` : null);
   const [tickerError, setTickerError] = useState<string | null>(null);
+  const [didYouMeanAsset, setDidYouMeanAsset] = useState<RegisteredAsset | null>(null);
+
+  // Duplicate Guard State & Calculations
+  const duplicatePosition = useMemo(() => {
+    if (!existingPositions || existingPositions.length === 0 || allowDuplicateLine) return null;
+    const currentTicker = (form.ticker || '').trim().toUpperCase();
+    if (!currentTicker) return null;
+    return existingPositions.find((p) => {
+      if (p.id === form.id) return false;
+      const sameTicker = p.ticker && p.ticker.trim().toUpperCase() === currentTicker;
+      const sameName = isSavingsDefault && form.name && p.name.trim().toLowerCase() === form.name.trim().toLowerCase();
+      return sameTicker || sameName;
+    }) || null;
+  }, [existingPositions, form.id, form.ticker, form.name, isSavingsDefault, allowDuplicateLine]);
+
+  const handleSwitchToExisting = (existingPos: Position) => {
+    setForm({ ...existingPos });
+    if (existingPos.quantity !== undefined && existingPos.quantity !== null && existingPos.quantity !== 0) {
+      setQuantityInput(String(existingPos.quantity));
+    }
+    if (existingPos.avgPrice !== undefined && existingPos.avgPrice !== null && existingPos.avgPrice !== 0) {
+      setAvgPriceInput(String(existingPos.avgPrice));
+    }
+    if (existingPos.currentPrice !== undefined && existingPos.currentPrice !== null && existingPos.currentPrice !== 0) {
+      setCurrentPriceInput(String(existingPos.currentPrice));
+    }
+    setTickerSearchInput(`${existingPos.name} (${existingPos.ticker})`);
+    setVerifiedQuoteText(`✓ Position existante chargée (${existingPos.quantity} parts à ${existingPos.avgPrice} ${existingPos.currency})`);
+    setAllowDuplicateLine(true);
+  };
+
+  const parsedQty = parseFloat(quantityInput.replace(',', '.')) || (form.quantity || 0);
+  const parsedPrice = parseFloat(avgPriceInput.replace(',', '.')) || (form.avgPrice || form.currentPrice || (duplicatePosition ? duplicatePosition.avgPrice : 0));
+
+  const reinforcementCalc = useMemo(() => {
+    if (!duplicatePosition || parsedQty <= 0) return null;
+    const oldQty = duplicatePosition.quantity || 0;
+    const oldPru = duplicatePosition.avgPrice || 0;
+    const newTotalQty = oldQty + parsedQty;
+    const newWeightedPRU = newTotalQty > 0 ? (oldQty * oldPru + parsedQty * parsedPrice) / newTotalQty : oldPru;
+    return {
+      oldQty,
+      oldPru,
+      addedQty: parsedQty,
+      buyPrice: parsedPrice,
+      newTotalQty,
+      newWeightedPRU,
+    };
+  }, [duplicatePosition, parsedQty, parsedPrice]);
+
+  const handleApplyReinforcement = () => {
+    if (!duplicatePosition || !reinforcementCalc) return;
+    const updated: Position = {
+      ...duplicatePosition,
+      quantity: reinforcementCalc.newTotalQty,
+      avgPrice: reinforcementCalc.newWeightedPRU,
+      currentPrice: form.currentPrice || duplicatePosition.currentPrice,
+      updatedAt: Date.now(),
+    };
+    onSave(updated);
+    onClose();
+  };
 
   const [themeInput, setThemeInput] = useState('');
 
@@ -335,6 +438,9 @@ export default function PositionEditor({ position, initialEnvelope, onSave, onCl
     setDcaHistory((prev) => deleteChainedTranche(prev, id));
   };
 
+  const [simMode, setSimMode] = useState<'DCA_FIXED' | 'ONE_SHOT' | 'MULTI_TIER'>('DCA_FIXED');
+  const [oneShotAmount, setOneShotAmount] = useState<number>(1000);
+  const [oneShotDate, setOneShotDate] = useState<string>('2012-01-01');
   const [isCalculatingDCA, setIsCalculatingDCA] = useState<boolean>(false);
   const [dcaResult, setDcaResult] = useState<DCASimulationResult | null>(null);
   const [isFutureDca, setIsFutureDca] = useState<boolean>(false);
@@ -364,18 +470,59 @@ export default function PositionEditor({ position, initialEnvelope, onSave, onCl
     setForm((prev) => ({ ...prev, [field]: value }));
   };
 
+  const handleQuantityChange = (val: string) => {
+    setQuantityInput(val);
+    const normalized = val.replace(',', '.').trim();
+    if (normalized === '' || normalized === '.' || normalized === '-') {
+      setForm((prev) => ({ ...prev, quantity: 0 }));
+    } else {
+      const num = parseFloat(normalized);
+      if (!isNaN(num) && num >= 0) {
+        setForm((prev) => ({ ...prev, quantity: num }));
+      }
+    }
+  };
+
+  const handleAvgPriceChange = (val: string) => {
+    setAvgPriceInput(val);
+    const normalized = val.replace(',', '.').trim();
+    if (normalized === '' || normalized === '.' || normalized === '-') {
+      setForm((prev) => ({ ...prev, avgPrice: 0 }));
+    } else {
+      const num = parseFloat(normalized);
+      if (!isNaN(num) && num >= 0) {
+        setForm((prev) => ({ ...prev, avgPrice: num }));
+      }
+    }
+  };
+
+  const handleCurrentPriceChange = (val: string) => {
+    setCurrentPriceInput(val);
+    const normalized = val.replace(',', '.').trim();
+    if (normalized === '' || normalized === '.' || normalized === '-') {
+      setForm((prev) => ({ ...prev, currentPrice: undefined }));
+    } else {
+      const num = parseFloat(normalized);
+      if (!isNaN(num) && num >= 0) {
+        setForm((prev) => ({ ...prev, currentPrice: num }));
+      }
+    }
+  };
+
   const handleNumberChange = (field: keyof Position, value: string) => {
-    const num = value === '' ? 0 : parseFloat(value);
+    const normalized = value.replace(',', '.').trim();
+    const num = normalized === '' ? 0 : parseFloat(normalized);
     if (!isNaN(num)) {
       handleChange(field, num);
     }
   };
 
   const handleOptionalNumber = (field: keyof Position, value: string) => {
-    if (value === '') {
+    const normalized = value.replace(',', '.').trim();
+    if (normalized === '') {
       handleChange(field, undefined);
     } else {
-      const num = parseFloat(value);
+      const num = parseFloat(normalized);
       if (!isNaN(num)) handleChange(field, num);
     }
   };
@@ -484,15 +631,20 @@ function autoGenerateThemes(
     setShowDropdown(false);
     setTickerSearchInput(`${asset.name} (${asset.ticker})`);
     setTickerError(null);
+    setDidYouMeanAsset(null);
     setIsVerifyingTicker(true);
     saveToAssetCache(asset);
+
+    const isCrypto = isCryptoAsset(asset.ticker, asset.name) || asset.assetType === 'CRYPTO' || asset.envelope === 'CRYPTO' || initialEnvelope === 'CRYPTO';
+    const finalEnvelope = isCrypto ? 'CRYPTO' : (asset.envelope || initialEnvelope);
+    const finalAssetType = isCrypto ? 'CRYPTO' : (asset.assetType || 'ETF');
 
     setForm((prev) => ({
       ...prev,
       ticker: asset.ticker,
       name: asset.name,
-      envelope: asset.envelope,
-      assetType: asset.assetType,
+      envelope: finalEnvelope,
+      assetType: finalAssetType,
       currency: asset.currency,
       themes: asset.themes,
       quantity: prev.quantity || 0,
@@ -510,6 +662,8 @@ function autoGenerateThemes(
         return {
           ...prev,
           name: profile?.name || asset.name || prev.name,
+          envelope: finalEnvelope,
+          assetType: finalAssetType,
           currentPrice: price,
           avgPrice: prev.avgPrice > 0 ? prev.avgPrice : (price || 100),
           currency: (profile?.currency as any) || (quote?.currency as any) || prev.currency,
@@ -519,12 +673,15 @@ function autoGenerateThemes(
       });
 
       if (quote && quote.price > 0) {
-        setVerifiedQuoteText(`✓ Actif officiel vérifié : ${profile?.name || asset.name} (${profile?.sector || asset.exchange || 'Bourse'}) — Prix : ${quote.price.toFixed(2)} ${quote.currency || asset.currency}`);
+        const formattedPrice = quote.price < 1 ? quote.price.toFixed(6) : quote.price.toFixed(2);
+        setCurrentPriceInput(formattedPrice);
+        setAvgPriceInput((prev) => (!prev || prev === '0' || prev === '0.00' ? formattedPrice : prev));
+        setVerifiedQuoteText(`✓ Actif officiel vérifié : ${profile?.name || asset.name} (${profile?.sector || asset.exchange || (isCrypto ? 'Marché Crypto 24/7' : 'Bourse')}) — Prix en direct : ${quote.price.toFixed(2)} ${quote.currency || asset.currency}`);
       } else {
-        setVerifiedQuoteText(`✓ Actif répertorié (${asset.exchange})`);
+        setVerifiedQuoteText(`✓ Actif répertorié officiel (${asset.exchange || (isCrypto ? 'Marché Crypto 24/7' : 'Euronext Paris')})`);
       }
     } catch {
-      setVerifiedQuoteText(`✓ Actif répertorié (${asset.exchange})`);
+      setVerifiedQuoteText(`✓ Actif répertorié officiel (${asset.exchange || (isCrypto ? 'Marché Crypto 24/7' : 'Euronext Paris')})`);
     } finally {
       setIsVerifyingTicker(false);
     }
@@ -534,23 +691,72 @@ function autoGenerateThemes(
     setTickerSearchInput(value);
     setVerifiedQuoteText(null);
     setTickerError(null);
+    setDidYouMeanAsset(null);
 
     const matches = searchAssets(value);
     setSearchResults(matches);
-    setShowDropdown(matches.length > 0);
+    setShowDropdown(matches.length > 0 || value.trim().length >= 2);
 
-    const exactMatch = ASSET_REGISTRY.find((a) => a.ticker.toLowerCase() === value.trim().toLowerCase());
+    const exactMatch = ASSET_REGISTRY.find(
+      (a) =>
+        a.ticker.toLowerCase() === value.trim().toLowerCase() ||
+        (a.isin && a.isin.toLowerCase() === value.trim().toLowerCase())
+    );
     if (exactMatch) {
       handleSelectRegisteredAsset(exactMatch);
     } else {
-      setForm((prev) => ({ ...prev, ticker: value.toUpperCase() }));
+      const isCrypto = isCryptoAsset(value);
+      setForm((prev) => ({
+        ...prev,
+        ticker: value.toUpperCase(),
+        ...(isCrypto ? { envelope: 'CRYPTO' as const, assetType: 'CRYPTO' as const } : {})
+      }));
     }
   };
 
-  const [didYouMeanAsset, setDidYouMeanAsset] = useState<RegisteredAsset | null>(null);
+  // Debounced live Yahoo Finance search for international & unlisted assets
+  useEffect(() => {
+    const query = tickerSearchInput.trim();
+    if (!query || query.length < 2) return;
+
+    const timer = setTimeout(async () => {
+      setIsSearchingLive(true);
+      try {
+        const localMatches = searchAssets(query);
+        const yahooMatches = await searchYahooFinance(query);
+        const combined: RegisteredAsset[] = [...localMatches];
+
+        yahooMatches.forEach((ym) => {
+          if (!combined.some((c) => c.ticker.toUpperCase() === ym.ticker.toUpperCase())) {
+            const isFrench = ym.ticker.endsWith('.PA');
+            const isCrypto = (ym.assetType as string) === 'CRYPTO' || isCryptoAsset(ym.ticker, ym.name) || initialEnvelope === 'CRYPTO';
+            combined.push({
+              ticker: ym.ticker,
+              name: ym.name,
+              assetType: isCrypto ? 'CRYPTO' : ym.assetType,
+              envelope: isCrypto ? 'CRYPTO' : isFrench ? (ym.ticker.startsWith('AL') ? 'PEA-PME' : 'PEA') : 'CTO',
+              currency: ym.currency,
+              themes: ['general'],
+              exchange: isCrypto ? 'Crypto Market 24/7' : ym.exchange,
+              searchTerms: [query.toLowerCase()],
+            });
+          }
+        });
+
+        setSearchResults(combined);
+        if (combined.length > 0) setShowDropdown(true);
+      } catch {
+        // ignore
+      } finally {
+        setIsSearchingLive(false);
+      }
+    }, 250);
+
+    return () => clearTimeout(timer);
+  }, [tickerSearchInput]);
 
   const handleVerifyManualTicker = async () => {
-    const rawQuery = (tickerSearchInput || form.ticker).trim();
+    const rawQuery = (form.ticker || tickerSearchInput).trim();
     if (!rawQuery) return;
 
     setIsVerifyingTicker(true);
@@ -558,7 +764,19 @@ function autoGenerateThemes(
     setVerifiedQuoteText(null);
     setDidYouMeanAsset(null);
 
-    // 1. Try exact quote fetch for raw ticker
+    // 1. Check local registry first
+    const localMatch = ASSET_REGISTRY.find(
+      (a) =>
+        a.ticker.toLowerCase() === rawQuery.toLowerCase() ||
+        (a.isin && a.isin.toLowerCase() === rawQuery.toLowerCase())
+    );
+    if (localMatch) {
+      await handleSelectRegisteredAsset(localMatch);
+      setIsVerifyingTicker(false);
+      return;
+    }
+
+    // 2. Try exact quote fetch for raw ticker
     try {
       const [quote, profile] = await Promise.all([
         getQuote(rawQuery.toUpperCase()).catch(() => null),
@@ -566,20 +784,25 @@ function autoGenerateThemes(
       ]);
 
       if (quote && quote.price > 0) {
-        setForm((prev) => {
-          const autoThemes = autoGenerateThemes(rawQuery.toUpperCase(), profile?.name || prev.name, profile?.sector, profile?.industry);
-          return {
-            ...prev,
-            ticker: rawQuery.toUpperCase(),
-            name: profile?.name || prev.name || rawQuery.toUpperCase(),
-            currentPrice: quote.price,
-            avgPrice: prev.avgPrice > 0 ? prev.avgPrice : (quote.price || 100),
-            currency: (profile?.currency as any) || (quote.currency as any) || prev.currency,
-            themes: autoThemes.length > 0 ? autoThemes : prev.themes,
-            quantity: prev.quantity || 0,
-          };
-        });
-        setVerifiedQuoteText(`✓ Actif officiel vérifié : ${profile?.name || rawQuery.toUpperCase()} (${profile?.sector || 'Marché Direct'}) — Prix : ${quote.price.toFixed(2)} ${quote.currency}`);
+        const isCrypto = isCryptoAsset(rawQuery, profile?.name || form.name) || initialEnvelope === 'CRYPTO';
+        const isFrench = rawQuery.toUpperCase().endsWith('.PA');
+        const autoThemes = autoGenerateThemes(rawQuery.toUpperCase(), profile?.name || form.name, profile?.sector, profile?.industry);
+        setForm((prev) => ({
+          ...prev,
+          ticker: rawQuery.toUpperCase(),
+          name: profile?.name || prev.name || rawQuery.toUpperCase(),
+          envelope: isCrypto ? 'CRYPTO' : prev.envelope,
+          assetType: isCrypto ? 'CRYPTO' : prev.assetType,
+          currentPrice: quote.price,
+          avgPrice: prev.avgPrice > 0 ? prev.avgPrice : (quote.price || 100),
+          currency: (profile?.currency as any) || (quote.currency as any) || prev.currency,
+          themes: autoThemes.length > 0 ? autoThemes : prev.themes,
+          quantity: prev.quantity || 0,
+        }));
+        const formattedPrice = quote.price < 1 ? quote.price.toFixed(6) : quote.price.toFixed(2);
+        setCurrentPriceInput(formattedPrice);
+        setAvgPriceInput((prev) => (!prev || prev === '0' || prev === '0.00' ? formattedPrice : prev));
+        setVerifiedQuoteText(`✓ Actif officiel vérifié : ${profile?.name || rawQuery.toUpperCase()} (${profile?.sector || (isCrypto ? 'Marché Crypto 24/7' : isFrench ? 'Euronext Paris' : 'Marché Direct')}) — Prix : ${quote.price.toFixed(2)} ${quote.currency}`);
         setIsVerifyingTicker(false);
         return;
       }
@@ -587,30 +810,31 @@ function autoGenerateThemes(
       // Direct quote failed, fallback to Yahoo Finance Search API
     }
 
-    // 2. Query Yahoo Finance Search API for fuzzy company/brand match (ex: "kalray")
+    // 3. Query Yahoo Finance Search API for fuzzy company/brand match (ex: "kalray", "amundi", ISIN)
     try {
       const yahooMatches = await searchYahooFinance(rawQuery);
       if (yahooMatches.length > 0) {
         const topMatch = yahooMatches[0];
+        const isCrypto = (topMatch.assetType as string) === 'CRYPTO' || isCryptoAsset(topMatch.ticker, topMatch.name) || initialEnvelope === 'CRYPTO';
         const isFrench = topMatch.ticker.endsWith('.PA');
         const candidate: RegisteredAsset = {
           ticker: topMatch.ticker,
           name: topMatch.name,
-          assetType: topMatch.assetType,
-          envelope: isFrench ? (topMatch.ticker.startsWith('AL') ? 'PEA-PME' : 'PEA') : 'CTO',
+          assetType: isCrypto ? 'CRYPTO' : topMatch.assetType,
+          envelope: isCrypto ? 'CRYPTO' : isFrench ? (topMatch.ticker.startsWith('AL') ? 'PEA-PME' : 'PEA') : 'CTO',
           currency: topMatch.currency,
           themes: ['general'],
-          exchange: topMatch.exchange,
+          exchange: isCrypto ? 'Crypto Market 24/7' : topMatch.exchange,
           searchTerms: [rawQuery.toLowerCase()],
         };
 
         setDidYouMeanAsset(candidate);
         setTickerError(`💡 Intention détectée : '${rawQuery}' correspond à l'actif officiel ${candidate.name} (${candidate.ticker}).`);
       } else {
-        setTickerError(`❌ Impossible de trouver '${rawQuery}' sur les marchés boursiers.`);
+        setTickerError(`❌ Impossible de vérifier '${rawQuery}' sur les marchés. Seuls les actifs officiels reconnus peuvent être suivis.`);
       }
     } catch {
-      setTickerError(`❌ Ticker ou entreprise '${rawQuery}' non trouvé.`);
+      setTickerError(`❌ Ticker ou actif '${rawQuery}' non trouvé.`);
     } finally {
       setIsVerifyingTicker(false);
     }
@@ -618,13 +842,35 @@ function autoGenerateThemes(
 
   const handleRunDCASimulation = async () => {
     if (!form.ticker) return;
-    const monthlyAmount = form.monthlyDCA || (form.annualBudget ? form.annualBudget / 12 : 100);
     setIsCalculatingDCA(true);
     try {
       const todayStr = new Date().toISOString().slice(0, 7);
+      const isIntegerOnly = (form.envelope === 'PEA' || form.envelope === 'PEA-PME') && form.assetType !== 'CRYPTO';
+
+      if (simMode === 'ONE_SHOT') {
+        setIsFutureDca(false);
+        const result = await simulatePositionDCA(
+          form.ticker,
+          0,
+          oneShotDate || '2012-01-01',
+          form.currentPrice || form.avgPrice || 100,
+          isIntegerOnly,
+          'monthly',
+          1,
+          1,
+          undefined,
+          undefined,
+          'lump_sum',
+          oneShotAmount || 1000
+        );
+        setDcaResult(result);
+        return;
+      }
+
+      const monthlyAmount = form.monthlyDCA || (form.annualBudget ? form.annualBudget / 12 : 100);
       const startMonthStr = (dcaStartDate || todayStr).slice(0, 7);
 
-      if (!isMultiTierDCA && startMonthStr >= todayStr) {
+      if (simMode === 'DCA_FIXED' && startMonthStr >= todayStr) {
         // Future / Current month DCA Strategy — no historical backtest, 0 past months
         setIsFutureDca(true);
         setDcaResult(null);
@@ -632,7 +878,6 @@ function autoGenerateThemes(
       }
 
       setIsFutureDca(false);
-      const isIntegerOnly = form.envelope === 'PEA' || form.envelope === 'PEA-PME' || form.envelope === 'CTO';
       const depositDay = dcaStartDate ? parseInt(dcaStartDate.slice(8, 10)) : 5;
       const result = await simulatePositionDCA(
         form.ticker,
@@ -643,14 +888,14 @@ function autoGenerateThemes(
         form.dcaFrequency || 'monthly',
         form.dcaDepositMonth || 1,
         depositDay,
-        isMultiTierDCA && dcaHistory.length > 0 ? dcaHistory : undefined,
-        depositsHistory.length > 0 ? depositsHistory : undefined
+        simMode === 'MULTI_TIER' && dcaHistory.length > 0 ? dcaHistory : undefined,
+        depositsHistory.length > 0 ? depositsHistory : undefined,
+        'dca',
+        0
       );
       setDcaResult(result);
-      // DO NOT automatically overwrite form.quantity or form.avgPrice!
-      // The user's actual current holdings are preserved intact.
     } catch (err) {
-      console.error('DCA Simulation failed:', err);
+      console.error('Simulation failed:', err);
     } finally {
       setIsCalculatingDCA(false);
     }
@@ -658,12 +903,17 @@ function autoGenerateThemes(
 
   const handleApplyDCAResult = () => {
     if (!dcaResult || dcaResult.totalShares <= 0) return;
+    const finalQty = dcaResult.totalShares;
+    const finalQtyStr = finalQty < 1 ? finalQty.toFixed(8).replace(/\.?0+$/, '') : String(finalQty);
+    const finalAvgPriceStr = dcaResult.avgPrice > 0 ? dcaResult.avgPrice.toFixed(2) : '';
+    setQuantityInput(finalQtyStr);
+    setAvgPriceInput(finalAvgPriceStr);
     const updated: Position = {
       ...form,
-      quantity: dcaResult.totalShares,
+      quantity: finalQty,
       avgPrice: dcaResult.avgPrice,
-      dcaStartDate,
-      dcaHistory: isMultiTierDCA && dcaHistory.length > 0 ? dcaHistory : undefined,
+      dcaStartDate: simMode === 'ONE_SHOT' ? oneShotDate : dcaStartDate,
+      dcaHistory: simMode === 'MULTI_TIER' && dcaHistory.length > 0 ? dcaHistory : undefined,
       depositsHistory: depositsHistory.length > 0 ? depositsHistory : undefined,
       updatedAt: Date.now(),
     };
@@ -675,7 +925,7 @@ function autoGenerateThemes(
     if (isSavingsTabContext) {
       return ['LIVRET', 'ASSURANCE_VIE', 'PER', 'PEE', 'IMMOBILIER'].includes(opt.value);
     } else {
-      return ['PEA', 'PEA-PME', 'CTO', 'SPECULATIVE', 'OPPORTUNISTIC'].includes(opt.value);
+      return ['PEA', 'PEA-PME', 'CTO', 'CRYPTO', 'SPECULATIVE', 'OPPORTUNISTIC'].includes(opt.value);
     }
   });
 
@@ -742,6 +992,13 @@ function autoGenerateThemes(
       }
     }
 
+    if (!isSavingsEnvelope) {
+      if (!finalTicker || !finalName) {
+        setTickerError('❌ Veuillez renseigner un ticker officiel et un nom d\'actif reconnus.');
+        return;
+      }
+    }
+
     if (!finalTicker || !finalName) return;
 
     const finalQuantity = isSavingsEnvelope ? 1 : (typeof form.quantity === 'number' && !isNaN(form.quantity) ? form.quantity : 0);
@@ -789,12 +1046,17 @@ function autoGenerateThemes(
       }
     }
 
-    const hasActiveDCA = Boolean((finalMonthlyDCA && finalMonthlyDCA > 0) || (finalAnnualBudget && finalAnnualBudget > 0) || (isMultiTierDCA && dcaHistory.length > 0));
+    const hasActiveDCA = (finalMonthlyDCA !== undefined && finalMonthlyDCA > 0) || (finalAnnualBudget !== undefined && finalAnnualBudget > 0) || (isMultiTierDCA && dcaHistory.length > 0);
+    const isCrypto = isCryptoAsset(finalTicker, finalName) || form.assetType === 'CRYPTO' || form.envelope === 'CRYPTO' || initialEnvelope === 'CRYPTO';
+    const finalEnvelope = isCrypto ? 'CRYPTO' : form.envelope;
+    const finalAssetType = isCrypto ? 'CRYPTO' : form.assetType;
 
     onSave({
       ...form,
       ticker: finalTicker,
       name: finalName,
+      envelope: finalEnvelope,
+      assetType: finalAssetType,
       quantity: finalQuantity,
       avgPrice: finalAvgPrice,
       currentPrice: finalCurrentPrice,
@@ -862,6 +1124,50 @@ function autoGenerateThemes(
                   Indiquez le nom de votre compte (ex: Livret A Bourso, PEE Entreprise, Fonds Euro Linxea, SCPI Primopierre) et gérez vos apports initiaux, versements libres (primes PEE/intéressement) et versements réguliers (DCA).
                 </p>
               </div>
+
+              {/* 🛡️ Garde-Fou Anti-Doublon Livrets/Épargne */}
+              {duplicatePosition && (
+                <div
+                  style={{
+                    background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.12) 0%, rgba(239, 68, 68, 0.08) 100%)',
+                    border: '1px solid rgba(245, 158, 11, 0.4)',
+                    borderRadius: 'var(--radius-md)',
+                    padding: '12px 14px',
+                    marginBottom: 16,
+                  }}
+                  id="duplicate-guard-alert-savings"
+                >
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+                    <span style={{ fontSize: 20 }}>🛡️</span>
+                    <div style={{ flex: 1 }}>
+                      <strong style={{ fontSize: 13, color: 'var(--accent-amber)', display: 'block', marginBottom: 2 }}>
+                        Compte/Livret déjà existant : {duplicatePosition.name}
+                      </strong>
+                      <p style={{ fontSize: 12, color: 'var(--text-secondary)', margin: '0 0 8px 0' }}>
+                        Un compte portant le même nom est déjà présent dans votre patrimoine (Solde : {duplicatePosition.avgPrice.toLocaleString('fr-FR')} {duplicatePosition.currency}).
+                      </p>
+                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                        <button
+                          type="button"
+                          className="btn btn-primary"
+                          onClick={() => handleSwitchToExisting(duplicatePosition)}
+                          style={{ fontSize: 11, padding: '4px 10px' }}
+                        >
+                          🔁 Modifier le compte existant
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-ghost"
+                          onClick={() => setAllowDuplicateLine(true)}
+                          style={{ fontSize: 11, padding: '4px 8px', color: 'var(--text-muted)' }}
+                        >
+                          🔀 Conserver 2 comptes séparés
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Compte & Organisme */}
               <div className="form-row" style={{ marginBottom: 16 }}>
@@ -1469,87 +1775,582 @@ function autoGenerateThemes(
             </>
           ) : (
             <>
+              {/* Autocomplete Search & Ticker Verification Bar */}
+              <div className="form-group" style={{ position: 'relative', marginBottom: 20 }}>
+                <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                  <span style={{ fontWeight: 600, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span>🔍</span> Recherche &amp; Autocomplétion d&apos;Actif (Nom, Ticker, Code ISIN) *
+                  </span>
+                  {(isVerifyingTicker || isSearchingLive) && (
+                    <span style={{ fontSize: 12, color: 'var(--accent-cyan)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span className="loading-spinner" style={{ width: 12, height: 12 }} />
+                      {isVerifyingTicker ? 'Vérification du cours en direct...' : 'Recherche de l\'actif...'}
+                    </span>
+                  )}
+                </label>
 
-          {/* Row 1: Ticker + Name */}
-          <div className="form-row">
-            <div className="form-group">
-              <label className="form-label">Ticker Officiel *</label>
-              <input
-                className="input mono"
-                value={form.ticker}
-                onChange={(e) => handleChange('ticker', e.target.value.toUpperCase())}
-                placeholder="CW8.PA, PUST.PA, MSFT..."
-                required
-                id="input-ticker"
-              />
-            </div>
-            <div className="form-group" style={{ flex: 2 }}>
-              <label className="form-label">Nom Complet *</label>
-              <input
-                className="input"
-                value={form.name}
-                onChange={(e) => handleChange('name', e.target.value)}
-                placeholder="Amundi PEA Global MSCI ACWI..."
-                required
-                id="input-name"
-              />
-            </div>
-          </div>
+                {/* Quick popular chips */}
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
+                  <span style={{ fontSize: 11, color: 'var(--text-muted)', alignSelf: 'center', marginRight: 2 }}>Populaires :</span>
+                  {(form.envelope === 'CRYPTO'
+                    ? [
+                        { label: '₿ Bitcoin (BTC)', ticker: 'BTC-EUR' },
+                        { label: 'Ξ Ethereum (ETH)', ticker: 'ETH-EUR' },
+                        { label: '◎ Solana (SOL)', ticker: 'SOL-EUR' },
+                        { label: '🟡 Binance Coin (BNB)', ticker: 'BNB-EUR' },
+                        { label: '✕ Ripple (XRP)', ticker: 'XRP-EUR' },
+                        { label: '₳ Cardano (ADA)', ticker: 'ADA-EUR' },
+                        { label: '🔺 Avalanche (AVAX)', ticker: 'AVAX-EUR' },
+                      ]
+                    : [
+                        { label: 'CW8 (MSCI World)', ticker: 'CW8.PA' },
+                        { label: 'PUST (Nasdaq-100)', ticker: 'PUST.PA' },
+                        { label: 'GPEA (MSCI ACWI)', ticker: 'GPEA.PA' },
+                        { label: 'LVMH', ticker: 'MC.PA' },
+                        { label: 'Air Liquide', ticker: 'AI.PA' },
+                        { label: 'Kalray (PEA-PME)', ticker: 'ALKAL.PA' },
+                        { label: 'Microsoft', ticker: 'MSFT' },
+                        { label: 'NVIDIA', ticker: 'NVDA' },
+                        { label: 'Bitcoin (BTC)', ticker: 'BTC-EUR' },
+                      ]
+                  ).map((chip) => (
+                    <button
+                      key={chip.ticker}
+                      type="button"
+                      onClick={() => {
+                        const match = ASSET_REGISTRY.find((a) => a.ticker === chip.ticker);
+                        if (match) {
+                          handleSelectRegisteredAsset(match);
+                        } else {
+                          handleChange('ticker', chip.ticker);
+                          handleVerifyManualTicker();
+                        }
+                      }}
+                      className="badge"
+                      style={{
+                        cursor: 'pointer',
+                        fontSize: 11,
+                        padding: '3px 8px',
+                        background: 'var(--bg-tertiary)',
+                        border: '1px solid var(--border-subtle)',
+                        color: 'var(--text-secondary)',
+                        borderRadius: 'var(--radius-sm)',
+                        transition: 'all 0.15s ease',
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.borderColor = 'var(--accent-cyan)';
+                        e.currentTarget.style.color = 'var(--accent-cyan)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.borderColor = 'var(--border-subtle)';
+                        e.currentTarget.style.color = 'var(--text-secondary)';
+                      }}
+                    >
+                      {chip.label}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Main Search Input + Verification Button */}
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <div style={{ position: 'relative', flex: 1 }}>
+                    <input
+                      className="input"
+                      value={tickerSearchInput}
+                      onChange={(e) => handleSearchInputChange(e.target.value)}
+                      onFocus={() => setShowDropdown(searchResults.length > 0)}
+                      placeholder="Tapez un Nom (ex: LVMH, Amundi World), Ticker (ex: CW8, PUST, MSFT, BTC) ou code ISIN (ex: FR0010315770)..."
+                      id="input-asset-search"
+                      style={{ width: '100%', paddingRight: tickerSearchInput ? 32 : 12 }}
+                    />
+                    {tickerSearchInput && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setTickerSearchInput('');
+                          setSearchResults([]);
+                          setShowDropdown(false);
+                          setVerifiedQuoteText(null);
+                          setTickerError(null);
+                          setDidYouMeanAsset(null);
+                        }}
+                        style={{
+                          position: 'absolute',
+                          right: 8,
+                          top: '50%',
+                          transform: 'translateY(-50%)',
+                          background: 'none',
+                          border: 'none',
+                          color: 'var(--text-muted)',
+                          cursor: 'pointer',
+                          fontSize: 14,
+                        }}
+                        aria-label="Effacer la recherche"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    onClick={handleVerifyManualTicker}
+                    disabled={isVerifyingTicker || (!form.ticker && !tickerSearchInput)}
+                    style={{ whiteSpace: 'nowrap', fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}
+                    id="btn-verify-ticker"
+                  >
+                    {isVerifyingTicker ? (
+                      <>
+                        <span className="loading-spinner" style={{ width: 12, height: 12 }} />
+                        <span>Vérification...</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>⚡</span>
+                        <span>Vérifier cours direct</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                {/* Dropdown Suggestions */}
+                {showDropdown && searchResults.length > 0 && (
+                  <div
+                    style={{
+                      position: 'absolute',
+                      top: '100%',
+                      left: 0,
+                      right: 0,
+                      zIndex: 200,
+                      background: 'var(--bg-secondary)',
+                      border: '1px solid var(--border-accent)',
+                      borderRadius: 'var(--radius-md)',
+                      boxShadow: '0 12px 32px rgba(0,0,0,0.5)',
+                      maxHeight: 260,
+                      overflowY: 'auto',
+                      marginTop: 6,
+                    }}
+                  >
+                    <div style={{ padding: '6px 12px', borderBottom: '1px solid var(--border-subtle)', fontSize: 11, color: 'var(--text-muted)', display: 'flex', justifyContent: 'space-between' }}>
+                      <span>{searchResults.length} actif{searchResults.length > 1 ? 's' : ''} trouvé{searchResults.length > 1 ? 's' : ''} (Cliquez pour autocompléter)</span>
+                      <button
+                        type="button"
+                        onClick={() => setShowDropdown(false)}
+                        style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 11 }}
+                      >
+                        Fermer ✕
+                      </button>
+                    </div>
+                    {searchResults.map((asset) => (
+                      <div
+                        key={`${asset.ticker}-${asset.isin || ''}`}
+                        onClick={() => handleSelectRegisteredAsset(asset)}
+                        style={{
+                          padding: '10px 14px',
+                          borderBottom: '1px solid var(--border-subtle)',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          transition: 'background 0.15s ease',
+                        }}
+                        onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--bg-tertiary)')}
+                        onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                      >
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <strong style={{ color: 'var(--accent-cyan)', fontSize: 14 }} className="mono">{asset.ticker}</strong>
+                            <span style={{ fontSize: 13, color: 'var(--text-primary)', fontWeight: 500 }}>{asset.name}</span>
+                          </div>
+                          {asset.isin && (
+                            <span style={{ fontSize: 11, color: 'var(--text-muted)' }} className="mono">
+                              ISIN: {asset.isin}
+                            </span>
+                          )}
+                        </div>
+                        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                          <span className="badge badge-purple" style={{ fontSize: 10 }}>{asset.assetType}</span>
+                          <span className="badge badge-cyan" style={{ fontSize: 10 }}>{asset.envelope}</span>
+                          <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{asset.exchange}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Status Feedback / Verified Badge / Error Card / Suggestion */}
+                {verifiedQuoteText && (
+                  <div
+                    style={{
+                      fontSize: 12,
+                      color: 'var(--accent-emerald)',
+                      background: 'rgba(16, 185, 129, 0.08)',
+                      border: '1px solid rgba(16, 185, 129, 0.25)',
+                      borderRadius: 'var(--radius-sm)',
+                      padding: '8px 12px',
+                      marginTop: 8,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 8,
+                    }}
+                  >
+                    <span style={{ fontSize: 14 }}>✓</span>
+                    <span style={{ fontWeight: 600 }}>{verifiedQuoteText}</span>
+                  </div>
+                )}
+
+                {didYouMeanAsset && (
+                  <div
+                    style={{
+                      fontSize: 12,
+                      color: 'var(--accent-cyan)',
+                      background: 'rgba(6, 182, 212, 0.08)',
+                      border: '1px solid rgba(6, 182, 212, 0.3)',
+                      borderRadius: 'var(--radius-sm)',
+                      padding: '10px 12px',
+                      marginTop: 8,
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      gap: 10,
+                    }}
+                  >
+                    <div>
+                      <strong>💡 Actif officiel détecté :</strong> {didYouMeanAsset.name} ({didYouMeanAsset.ticker}) — {didYouMeanAsset.exchange}
+                    </div>
+                    <button
+                      type="button"
+                      className="btn btn-primary"
+                      onClick={() => handleSelectRegisteredAsset(didYouMeanAsset)}
+                      style={{ fontSize: 11, padding: '4px 10px', whiteSpace: 'nowrap' }}
+                    >
+                      Sélectionner cet actif
+                    </button>
+                  </div>
+                )}
+
+                {tickerError && (
+                  <div
+                    style={{
+                      fontSize: 12,
+                      color: 'var(--accent-rose)',
+                      background: 'rgba(244, 63, 94, 0.08)',
+                      border: '1px solid rgba(244, 63, 94, 0.25)',
+                      borderRadius: 'var(--radius-sm)',
+                      padding: '8px 12px',
+                      marginTop: 8,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 8,
+                    }}
+                  >
+                    <span style={{ fontSize: 14 }}>⚠️</span>
+                    <span style={{ fontWeight: 600 }}>{tickerError}</span>
+                  </div>
+                )}
+              </div>
+
+              {/* 🛡️ Garde-Fou Anti-Doublon & Anti-Addition */}
+              {duplicatePosition && (
+                <div
+                  style={{
+                    background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.12) 0%, rgba(239, 68, 68, 0.08) 100%)',
+                    border: '1px solid rgba(245, 158, 11, 0.4)',
+                    borderRadius: 'var(--radius-md)',
+                    padding: '14px 16px',
+                    marginBottom: 16,
+                    boxShadow: '0 4px 16px rgba(245, 158, 11, 0.1)',
+                  }}
+                  id="duplicate-guard-alert"
+                >
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+                    <span style={{ fontSize: 22, flexShrink: 0 }}>🛡️</span>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 6, marginBottom: 4 }}>
+                        <strong style={{ fontSize: 13, color: 'var(--accent-amber)', fontWeight: 800 }}>
+                          GARDE-FOU ANTI-DOUBLON : Code déjà enregistré dans votre portefeuille !
+                        </strong>
+                        <span className="badge" style={{ fontSize: 11, background: 'rgba(245, 158, 11, 0.2)', color: 'var(--accent-amber)', fontWeight: 700 }}>
+                          {duplicatePosition.envelope}
+                        </span>
+                      </div>
+                      <p style={{ fontSize: 12, color: 'var(--text-secondary)', margin: '0 0 10px 0', lineHeight: 1.45 }}>
+                        L&apos;actif <strong>{duplicatePosition.name}</strong> (<code style={{ color: 'var(--accent-cyan)' }}>{duplicatePosition.ticker}</code>) est déjà enregistré avec <strong>{duplicatePosition.quantity} part{duplicatePosition.quantity > 1 ? 's' : ''}</strong> à un PRU de <strong>{duplicatePosition.avgPrice.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} {duplicatePosition.currency}</strong>.
+                      </p>
+
+                      {reinforcementCalc && reinforcementCalc.addedQty > 0 && (
+                        <div style={{ background: 'var(--bg-secondary)', padding: '10px 12px', borderRadius: 8, border: '1px solid var(--border-subtle)', marginBottom: 12, fontSize: 12 }}>
+                          <div style={{ fontWeight: 700, color: 'var(--text-primary)', marginBottom: 4 }}>
+                            📊 Simulation de Renfort automatique (PRU Pondéré) :
+                          </div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)' }}>
+                            <span>Actuel : {reinforcementCalc.oldQty} parts @ {reinforcementCalc.oldPru.toFixed(2)} €</span>
+                            <span>+ Achat : {reinforcementCalc.addedQty} parts @ {reinforcementCalc.buyPrice.toFixed(2)} €</span>
+                          </div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4, fontWeight: 700, color: 'var(--accent-emerald)' }}>
+                            <span>Nouveau Solde : {reinforcementCalc.newTotalQty.toFixed(4)} parts</span>
+                            <span>Nouveau PRU Pondéré : {reinforcementCalc.newWeightedPRU.toFixed(2)} €</span>
+                          </div>
+                        </div>
+                      )}
+
+                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                        <button
+                          type="button"
+                          className="btn btn-primary"
+                          onClick={() => handleSwitchToExisting(duplicatePosition)}
+                          style={{ fontSize: 12, padding: '6px 12px', background: 'var(--accent-cyan)', borderColor: 'var(--accent-cyan)' }}
+                        >
+                          🔁 Modifier la ligne existante
+                        </button>
+                        {reinforcementCalc && reinforcementCalc.addedQty > 0 && (
+                          <button
+                            type="button"
+                            className="btn btn-secondary"
+                            onClick={handleApplyReinforcement}
+                            style={{ fontSize: 12, padding: '6px 12px', borderColor: 'var(--accent-emerald)', color: 'var(--accent-emerald)' }}
+                          >
+                            ➕ Fusionner &amp; Appliquer le renfort
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          className="btn btn-ghost"
+                          onClick={() => setAllowDuplicateLine(true)}
+                          style={{ fontSize: 11, padding: '6px 10px', color: 'var(--text-muted)' }}
+                          title="Conserver une ligne séparée (ex: même actif sur un autre compte/banque)"
+                        >
+                          🔀 Conserver 2 lignes distinctes
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Row 1: Ticker + Name */}
+              <div className="form-row">
+                <div className="form-group">
+                  <label className="form-label">Ticker Officiel *</label>
+                  <input
+                    className="input mono"
+                    value={form.ticker}
+                    onChange={(e) => handleChange('ticker', e.target.value.toUpperCase())}
+                    placeholder="CW8.PA, PUST.PA, MSFT..."
+                    required
+                    id="input-ticker"
+                  />
+                </div>
+                <div className="form-group" style={{ flex: 2 }}>
+                  <label className="form-label">Nom Complet *</label>
+                  <input
+                    className="input"
+                    value={form.name}
+                    onChange={(e) => handleChange('name', e.target.value)}
+                    placeholder="Amundi PEA Global MSCI ACWI..."
+                    required
+                    id="input-name"
+                  />
+                </div>
+              </div>
 
           {/* Row 3: Quantity + Avg Price + Current Price */}
           <div className="form-row" style={{ marginTop: 16, marginBottom: 16 }}>
-            <div className="form-group">
-              <label className="form-label">Quantité ({form.assetType === 'STOCK' ? 'Actions' : 'Parts'})</label>
+            <div className="form-group" style={{ flex: 1.2 }}>
+              <label className="form-label">
+                Quantité {form.envelope === 'CRYPTO' || form.assetType === 'CRYPTO' 
+                  ? '(Tokens / Fractions)' 
+                  : form.assetType === 'STOCK' 
+                    ? '(Actions)' 
+                    : '(Parts)'} *
+              </label>
+
+              {/* Quick fraction chips for Crypto positions */}
+              {(form.envelope === 'CRYPTO' || form.assetType === 'CRYPTO') && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 6 }}>
+                  <span style={{ fontSize: 10.5, color: 'var(--text-muted)', alignSelf: 'center', marginRight: 2 }}>Fractions rapides :</span>
+                  {['0.001', '0.005', '0.01', '0.05', '0.1', '0.5', '1'].map((val) => (
+                    <button
+                      key={val}
+                      type="button"
+                      onClick={() => handleQuantityChange(val)}
+                      style={{
+                        padding: '2px 6px',
+                        fontSize: 10.5,
+                        borderRadius: 4,
+                        border: '1px solid var(--border-subtle)',
+                        background: quantityInput === val ? 'rgba(245, 158, 11, 0.2)' : 'var(--bg-tertiary)',
+                        color: quantityInput === val ? 'var(--accent-amber)' : 'var(--text-secondary)',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      {val}
+                    </button>
+                  ))}
+                </div>
+              )}
+
               <input
                 className="input mono"
-                type="number"
-                step="any"
-                min="0"
-                value={form.quantity || ''}
-                onChange={(e) => handleNumberChange('quantity', e.target.value)}
-                placeholder="0"
+                type="text"
+                inputMode="decimal"
+                value={quantityInput}
+                onChange={(e) => handleQuantityChange(e.target.value)}
+                placeholder={form.envelope === 'CRYPTO' ? 'ex: 0.001' : 'ex: 10'}
                 id="input-quantity"
               />
             </div>
-            <div className="form-group">
+
+            <div className="form-group" style={{ flex: 1 }}>
               <label className="form-label">PRU d&apos;Achat ({form.currency === 'USD' ? '$' : form.currency === 'GBP' ? '£' : '€'})</label>
               <input
                 className="input mono"
-                type="number"
-                step="any"
-                min="0"
-                value={form.avgPrice || ''}
-                onChange={(e) => handleNumberChange('avgPrice', e.target.value)}
+                type="text"
+                inputMode="decimal"
+                value={avgPriceInput}
+                onChange={(e) => handleAvgPriceChange(e.target.value)}
                 placeholder="0.00"
                 id="input-avg-price"
               />
+              <span style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4, display: 'block' }}>
+                Prix de revient unitaire moyen.
+              </span>
             </div>
-            <div className="form-group">
+
+            <div className="form-group" style={{ flex: 1 }}>
               <label className="form-label">Prix actuel ({form.currency === 'USD' ? '$' : form.currency === 'GBP' ? '£' : '€'})</label>
               <input
                 className="input mono"
-                type="number"
-                step="any"
-                min="0"
-                value={form.currentPrice || ''}
-                onChange={(e) => handleOptionalNumber('currentPrice', e.target.value)}
+                type="text"
+                inputMode="decimal"
+                value={currentPriceInput}
+                onChange={(e) => handleCurrentPriceChange(e.target.value)}
                 placeholder="Auto-refresh"
                 id="input-current-price"
               />
+              <span style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4, display: 'block' }}>
+                Cotation marché en direct.
+              </span>
             </div>
           </div>
 
-          {/* Value display */}
-          {totalValue > 0 && (
-            <div style={{ padding: '12px 16px', background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-md)', marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ color: 'var(--text-secondary)', fontSize: 13 }}>Valeur actuelle</span>
-              <span className="mono" style={{ fontSize: 18, fontWeight: 700, color: 'var(--accent-cyan)' }}>
-                {totalValue.toLocaleString('fr-FR', { style: 'currency', currency: form.currency })}
-              </span>
+          {/* Dynamic real-time calculation breakdown & Crypto Options */}
+          {(form.envelope === 'CRYPTO' || form.assetType === 'CRYPTO') && (
+            <div
+              style={{
+                padding: '12px 14px',
+                background: 'rgba(245, 158, 11, 0.08)',
+                border: '1px solid rgba(245, 158, 11, 0.3)',
+                borderRadius: 'var(--radius-md)',
+                marginBottom: 16,
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, flexWrap: 'wrap', gap: 6 }}>
+                <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent-amber)', display: 'flex', alignItems: 'center', gap: 5 }}>
+                  <span>🪙</span> Plateforme / Wallet de Détention :
+                </span>
+                <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Multi-wallets &amp; Frais de réseau</span>
+              </div>
+
+              {/* Institution Quick Chips */}
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
+                {[
+                  { label: '⚡ Revolut X', value: 'Revolut X' },
+                  { label: '🛡️ Trust Wallet', value: 'Trust Wallet' },
+                  { label: '🔒 Ledger (Cold Storage)', value: 'Ledger' },
+                  { label: '🟡 Binance', value: 'Binance' },
+                  { label: '🐙 Kraken', value: 'Kraken' },
+                  { label: '🔵 Coinbase', value: 'Coinbase' },
+                ].map((inst) => (
+                  <button
+                    key={inst.value}
+                    type="button"
+                    onClick={() => handleChange('institutionName', inst.value)}
+                    style={{
+                      padding: '3px 8px',
+                      fontSize: 11,
+                      borderRadius: 4,
+                      border: '1px solid var(--border-subtle)',
+                      background: form.institutionName === inst.value ? 'var(--accent-amber)' : 'var(--bg-secondary)',
+                      color: form.institutionName === inst.value ? '#000' : 'var(--text-secondary)',
+                      fontWeight: form.institutionName === inst.value ? 700 : 500,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {inst.label}
+                  </button>
+                ))}
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10 }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: 11, color: 'var(--text-secondary)', marginBottom: 2 }}>
+                    Frais totaux / Gaz (€)
+                  </label>
+                  <input
+                    className="input mono"
+                    type="number"
+                    step="0.1"
+                    min="0"
+                    style={{ fontSize: 12, padding: '4px 8px' }}
+                    value={form.totalFeesEUR || ''}
+                    onChange={(e) => handleChange('totalFeesEUR', parseFloat(e.target.value) || 0)}
+                    placeholder="0.00 €"
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: 11, color: 'var(--text-secondary)', marginBottom: 2 }}>
+                    Flat Tax PFU 30% estimée
+                  </label>
+                  <div className="mono" style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent-rose)', paddingTop: 5 }}>
+                    {(() => {
+                      const cost = (form.quantity || 0) * (form.avgPrice || 0) + (form.totalFeesEUR || 0);
+                      const val = (form.quantity || 0) * (form.currentPrice || form.avgPrice || 0);
+                      const gain = val - cost;
+                      if (gain > 305) {
+                        return `-${(gain * 0.3).toFixed(2)} € (30%)`;
+                      }
+                      return '0.00 € (Exonéré)';
+                    })()}
+                  </div>
+                </div>
+              </div>
             </div>
           )}
 
-          {/* Row 2.5: Auto-Calculateur DCA */}
+          {/* Dynamic real-time calculation breakdown */}
+          {(form.quantity > 0 || totalValue > 0) && (
+            <div style={{
+              padding: '12px 16px',
+              background: 'var(--bg-tertiary)',
+              border: '1px solid var(--border-subtle)',
+              borderRadius: 'var(--radius-md)',
+              marginBottom: 16,
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              flexWrap: 'wrap',
+              gap: 8
+            }}>
+              <div>
+                <span style={{ color: 'var(--text-secondary)', fontSize: 12, display: 'block' }}>
+                  Valorisation calculée : {form.quantity < 1 ? form.quantity.toFixed(8).replace(/\.?0+$/, '') : form.quantity.toLocaleString('fr-FR')} {form.envelope === 'CRYPTO' ? 'token(s)' : 'part(s)'} × {((form.currentPrice || form.avgPrice) || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {form.currency === 'USD' ? '$' : '€'}
+                </span>
+                <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                  Coût total investi : {((form.quantity || 0) * (form.avgPrice || 0) + (form.totalFeesEUR || 0)).toLocaleString('fr-FR', { style: 'currency', currency: form.currency })}
+                </span>
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                <span style={{ fontSize: 11, color: 'var(--text-secondary)', display: 'block' }}>Valeur actuelle</span>
+                <span className="mono" style={{ fontSize: 18, fontWeight: 700, color: 'var(--accent-cyan)' }}>
+                  {totalValue.toLocaleString('fr-FR', { style: 'currency', currency: form.currency })}
+                </span>
+              </div>
+            </div>
+          )}
+
+          {/* Row 2.5: Auto-Calculateur DCA & One-Shot (Lump Sum) */}
           <div style={{
             background: 'var(--bg-tertiary)',
             border: '1px solid var(--border-accent)',
@@ -1557,9 +2358,10 @@ function autoGenerateThemes(
             padding: 16,
             marginBottom: 20
           }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginBottom: 6 }}>
-              <span style={{ fontWeight: 600, fontSize: 14, color: 'var(--accent-cyan)' }}>
-                ⚡ Auto-Calculateur DCA ({form.envelope === 'PEA' || form.envelope === 'PEA-PME' || form.envelope === 'CTO' ? 'Actions entières' : 'Parts décimales'})
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginBottom: 8 }}>
+              <span style={{ fontWeight: 700, fontSize: 13.5, color: 'var(--accent-cyan)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span>⚡</span>
+                <span>Simulateur d'Investissement ({form.envelope === 'PEA' || form.envelope === 'PEA-PME' ? 'Actions entières' : 'Parts décimales'})</span>
               </span>
 
               {/* Mode Selector Toggle */}
@@ -1575,49 +2377,102 @@ function autoGenerateThemes(
                   type="button"
                   style={{
                     fontSize: 11,
-                    padding: '3px 8px',
+                    padding: '4px 10px',
                     borderRadius: 4,
                     border: 'none',
-                    background: !isMultiTierDCA ? 'var(--accent-cyan)' : 'transparent',
-                    color: !isMultiTierDCA ? '#000' : 'var(--text-secondary)',
+                    background: simMode === 'DCA_FIXED' ? 'var(--accent-cyan)' : 'transparent',
+                    color: simMode === 'DCA_FIXED' ? '#000' : 'var(--text-secondary)',
                     fontWeight: 700,
                     cursor: 'pointer',
                   }}
-                  onClick={() => setIsMultiTierDCA(false)}
+                  onClick={() => {
+                    setSimMode('DCA_FIXED');
+                    setIsMultiTierDCA(false);
+                  }}
                 >
-                  Montant Constant
+                  ⚡ DCA Régulier
                 </button>
                 <button
                   type="button"
                   style={{
                     fontSize: 11,
-                    padding: '3px 8px',
+                    padding: '4px 10px',
                     borderRadius: 4,
                     border: 'none',
-                    background: isMultiTierDCA ? 'var(--accent-cyan)' : 'transparent',
-                    color: isMultiTierDCA ? '#000' : 'var(--text-secondary)',
+                    background: simMode === 'ONE_SHOT' ? 'var(--accent-cyan)' : 'transparent',
+                    color: simMode === 'ONE_SHOT' ? '#000' : 'var(--text-secondary)',
                     fontWeight: 700,
                     cursor: 'pointer',
                   }}
                   onClick={() => {
+                    setSimMode('ONE_SHOT');
+                    setIsMultiTierDCA(false);
+                  }}
+                >
+                  🎯 Versement Unique (One-Shot)
+                </button>
+                <button
+                  type="button"
+                  style={{
+                    fontSize: 11,
+                    padding: '4px 10px',
+                    borderRadius: 4,
+                    border: 'none',
+                    background: simMode === 'MULTI_TIER' ? 'var(--accent-cyan)' : 'transparent',
+                    color: simMode === 'MULTI_TIER' ? '#000' : 'var(--text-secondary)',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                  }}
+                  onClick={() => {
+                    setSimMode('MULTI_TIER');
                     setIsMultiTierDCA(true);
                     if (dcaHistory.length === 0) {
                       handleAddTranche();
                     }
                   }}
                 >
-                  📈 Paliers Historiques ({dcaHistory.length})
+                  📈 Paliers ({dcaHistory.length})
                 </button>
               </div>
             </div>
 
             <p style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 14 }}>
-              {!isMultiTierDCA
+              {simMode === 'ONE_SHOT'
+                ? 'Simulez un investissement ponctuel unique dans le passé (ex: Si en 2012 j\'avais mis 1 000 € sur cet actif, quelle serait sa valeur aujourd\'hui ?).'
+                : simMode === 'DCA_FIXED'
                 ? 'Indiquez la date d\'entrée DCA, le montant et le jour de virement. L\'application simule l\'accumulation réelle (cours boursiers historiques réels + reliquats de liquidité).'
                 : 'Configurez vos différents paliers de budget DCA dans le temps. L\'application applique précisément chaque budget sur chaque période historique.'}
             </p>
 
-            {!isMultiTierDCA ? (
+            {simMode === 'ONE_SHOT' ? (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12, marginBottom: 14 }}>
+                <div className="form-group">
+                  <label className="form-label" style={{ fontSize: 'var(--text-xs)', textTransform: 'uppercase', letterSpacing: '0.4px', fontWeight: 600 }}>
+                    Montant One-Shot ({form.currency === 'USD' ? '$' : form.currency === 'GBP' ? '£' : '€'})
+                  </label>
+                  <input
+                    className="input mono"
+                    type="number"
+                    step="50"
+                    min="1"
+                    style={{ fontSize: 13, padding: '8px 10px' }}
+                    value={oneShotAmount || ''}
+                    onChange={(e) => setOneShotAmount(parseFloat(e.target.value) || 0)}
+                    placeholder="1000"
+                  />
+                </div>
+
+                <div className="form-group" style={{ minWidth: 160, flex: 1.2 }}>
+                  <label className="form-label" style={{ fontSize: 'var(--text-xs)', textTransform: 'uppercase', letterSpacing: '0.4px', fontWeight: 600 }}>
+                    Date d'investissement One-Shot
+                  </label>
+                  <CustomDatePicker
+                    value={oneShotDate}
+                    onChange={setOneShotDate}
+                  />
+                </div>
+              </div>
+            ) : simMode === 'DCA_FIXED' ? (
               <>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 12, marginBottom: 14 }}>
                   <div className="form-group" style={{ minWidth: 115 }}>
@@ -1864,7 +2719,13 @@ function autoGenerateThemes(
               onClick={handleRunDCASimulation}
               disabled={isCalculatingDCA || !form.ticker}
             >
-              {isCalculatingDCA ? <span className="loading-spinner" /> : '⚡ Simuler / Vérifier la Stratégie DCA'}
+              {isCalculatingDCA ? (
+                <span className="loading-spinner" />
+              ) : simMode === 'ONE_SHOT' ? (
+                `🎯 Simuler le Versement One-Shot de ${oneShotAmount.toLocaleString('fr-FR')} ${form.currency === 'USD' ? '$' : '€'}`
+              ) : (
+                '⚡ Simuler / Vérifier la Stratégie DCA'
+              )}
             </button>
 
             {isFutureDca && (
@@ -1886,15 +2747,18 @@ function autoGenerateThemes(
               const sym = form.currency === 'USD' ? '$' : form.currency === 'GBP' ? '£' : '€';
               const latestPrice = form.currentPrice || (dcaResult.logs.length > 0 ? dcaResult.logs[dcaResult.logs.length - 1].sharePrice : dcaResult.avgPrice);
               const currentValue = dcaResult.totalShares * latestPrice;
-              const totalProfitLoss = currentValue - dcaResult.totalInvested;
-              const profitLossPercent = dcaResult.totalInvested > 0 ? (totalProfitLoss / dcaResult.totalInvested) * 100 : 0;
+              const totalProfitLoss = dcaResult.totalProfitLoss ?? (currentValue - dcaResult.totalInvested);
+              const profitLossPercent = dcaResult.profitLossPercent ?? (dcaResult.totalInvested > 0 ? (totalProfitLoss / dcaResult.totalInvested) * 100 : 0);
               const totalCapitalWithCash = currentValue + dcaResult.uninvestedCash;
+              const isOneShot = dcaResult.simulationMode === 'lump_sum';
 
               return (
                 <div style={{ background: 'var(--bg-secondary)', padding: 14, borderRadius: 10, border: '1px solid var(--border-subtle)', marginTop: 14 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
                     <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--accent-emerald)' }}>
-                      📊 Résultats Simulation Historique ({dcaResult.monthsCount} mois passés) :
+                      {isOneShot
+                        ? `🎯 Résultats Versement Unique One-Shot (${dcaResult.monthsCount} mois écoulés) :`
+                        : `📊 Résultats Simulation DCA (${dcaResult.monthsCount} mois passés) :`}
                     </span>
                     <button
                       type="button"
@@ -1911,52 +2775,67 @@ function autoGenerateThemes(
                     background: totalProfitLoss >= 0 ? 'rgba(16, 185, 129, 0.12)' : 'rgba(244, 63, 94, 0.12)',
                     border: `1px solid ${totalProfitLoss >= 0 ? 'var(--accent-emerald)' : 'var(--accent-rose)'}`,
                     borderRadius: 8,
-                    padding: '10px 14px',
+                    padding: '12px 14px',
                     display: 'flex',
                     justifyContent: 'space-between',
                     alignItems: 'center',
+                    flexWrap: 'wrap',
+                    gap: 12,
                     marginBottom: 12,
                   }}>
                     <div>
                       <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.4px', fontWeight: 600 }}>
-                        Gain / Perte Réalisé(e) du DCA
+                        {isOneShot ? 'Gain Total de l\'Investissement' : 'Gain / Perte Réalisé(e) du DCA'}
                       </span>
-                      <div style={{ fontSize: 18, fontWeight: 800, color: totalProfitLoss >= 0 ? 'var(--accent-emerald)' : 'var(--accent-rose)', margin: '2px 0' }}>
-                        {totalProfitLoss >= 0 ? '+' : ''}{totalProfitLoss.toFixed(2)} {sym} ({totalProfitLoss >= 0 ? '+' : ''}{profitLossPercent.toFixed(2)} %)
+                      <div style={{ fontSize: 19, fontWeight: 800, color: totalProfitLoss >= 0 ? 'var(--accent-emerald)' : 'var(--accent-rose)', margin: '2px 0' }}>
+                        {totalProfitLoss >= 0 ? '+' : ''}{totalProfitLoss.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {sym} ({totalProfitLoss >= 0 ? '+' : ''}{profitLossPercent.toFixed(2)} %)
                       </div>
+                      {dcaResult.multiplier > 0 && (
+                        <div style={{ fontSize: 11.5, color: 'var(--text-secondary)', display: 'flex', gap: 12, marginTop: 4 }}>
+                          <span>Multiple : <strong style={{ color: 'var(--accent-cyan)' }}>x{dcaResult.multiplier.toFixed(2)}</strong></span>
+                          {dcaResult.annualizedReturn !== 0 && (
+                            <span>TRI / CAGR : <strong style={{ color: dcaResult.annualizedReturn >= 0 ? 'var(--accent-emerald)' : 'var(--accent-rose)' }}>{dcaResult.annualizedReturn >= 0 ? '+' : ''}{dcaResult.annualizedReturn.toFixed(2)} % / an</strong></span>
+                          )}
+                        </div>
+                      )}
                     </div>
                     <div style={{ textAlign: 'right' }}>
                       <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', display: 'block' }}>Valeur Portefeuille Actuelle</span>
-                      <strong style={{ fontSize: 16, color: 'var(--accent-cyan)' }}>{currentValue.toFixed(2)} {sym}</strong>
+                      <strong style={{ fontSize: 18, color: 'var(--accent-cyan)', fontWeight: 900 }}>{currentValue.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {sym}</strong>
+                      {dcaResult.initialSharePrice && dcaResult.initialSharePrice > 0 && (
+                        <span style={{ fontSize: 11, color: 'var(--text-tertiary)', display: 'block', marginTop: 2 }}>
+                          Cours initial : {dcaResult.initialSharePrice.toFixed(2)} {sym}
+                        </span>
+                      )}
                     </div>
                   </div>
 
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 10, textAlign: 'center', marginBottom: 14 }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: 8, textAlign: 'center', marginBottom: 14 }}>
                     <div style={{ background: 'var(--bg-tertiary)', padding: 10, borderRadius: 8, border: '1px solid var(--border-subtle)' }}>
-                      <span style={{ display: 'block', fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600 }}>Parts/Actions</span>
-                      <strong style={{ fontSize: 16, color: 'var(--accent-cyan)', fontWeight: 800 }}>{dcaResult.totalShares}</strong>
+                      <span style={{ display: 'block', fontSize: 11.5, color: 'var(--text-secondary)', fontWeight: 600 }}>Parts/Actions</span>
+                      <strong style={{ fontSize: 15, color: 'var(--accent-cyan)', fontWeight: 800 }}>{dcaResult.totalShares}</strong>
                     </div>
                     <div style={{ background: 'var(--bg-tertiary)', padding: 10, borderRadius: 8, border: '1px solid var(--border-subtle)' }}>
-                      <span style={{ display: 'block', fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600 }}>PRU Moyen</span>
-                      <strong style={{ fontSize: 16, color: 'var(--text-primary)', fontWeight: 800 }}>{dcaResult.avgPrice.toFixed(2)} {sym}</strong>
+                      <span style={{ display: 'block', fontSize: 11.5, color: 'var(--text-secondary)', fontWeight: 600 }}>PRU Moyen</span>
+                      <strong style={{ fontSize: 15, color: 'var(--text-primary)', fontWeight: 800 }}>{dcaResult.avgPrice.toFixed(2)} {sym}</strong>
                     </div>
                     <div style={{ background: 'var(--bg-tertiary)', padding: 10, borderRadius: 8, border: '1px solid var(--border-subtle)' }}>
-                      <span style={{ display: 'block', fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600 }}>Total Investi</span>
-                      <strong style={{ fontSize: 16, color: 'var(--text-primary)', fontWeight: 800 }}>{dcaResult.totalInvested.toFixed(0)} {sym}</strong>
+                      <span style={{ display: 'block', fontSize: 11.5, color: 'var(--text-secondary)', fontWeight: 600 }}>Total Investi</span>
+                      <strong style={{ fontSize: 15, color: 'var(--text-primary)', fontWeight: 800 }}>{dcaResult.totalInvested.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} {sym}</strong>
                     </div>
                     <div style={{ background: 'var(--bg-tertiary)', padding: 10, borderRadius: 8, border: '1px solid var(--border-subtle)' }}>
-                      <span style={{ display: 'block', fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600 }}>Total + Reliquat</span>
-                      <strong style={{ fontSize: 16, color: 'var(--accent-amber)', fontWeight: 800 }}>{totalCapitalWithCash.toFixed(2)} {sym}</strong>
+                      <span style={{ display: 'block', fontSize: 11.5, color: 'var(--text-secondary)', fontWeight: 600 }}>Total + Trésorerie</span>
+                      <strong style={{ fontSize: 15, color: 'var(--accent-amber)', fontWeight: 800 }}>{totalCapitalWithCash.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {sym}</strong>
                     </div>
                   </div>
 
                 <button
                   type="button"
                   className="btn btn-secondary"
-                  style={{ width: '100%', fontSize: 13, padding: '10px 14px', borderColor: 'var(--accent-amber)', color: 'var(--accent-amber)', fontWeight: 700 }}
+                  style={{ width: '100%', fontSize: 12.5, padding: '9px 14px', borderColor: 'var(--accent-amber)', color: 'var(--accent-amber)', fontWeight: 700 }}
                   onClick={handleApplyDCAResult}
                 >
-                  📋 Importer cette simulation historique dans mon portefeuille actuel ({dcaResult.totalShares} actions @ {dcaResult.avgPrice.toFixed(2)} {form.currency === 'USD' ? '$' : '€'})
+                  📋 Importer ce résultat dans mon portefeuille actuel ({dcaResult.totalShares} parts @ {dcaResult.avgPrice.toFixed(2)} {form.currency === 'USD' ? '$' : '€'})
                 </button>
 
                 {showDCAHistory && (

@@ -31,6 +31,7 @@ import AssetLogo from '@/components/AssetLogo';
 import { AnalysisChatView } from '@/components/AnalysisChatView';
 import { getCleanAssetName } from '@/utils/assetMetadata';
 import SavingsPortfolioTable from '@/components/SavingsPortfolioTable';
+import CryptoPortfolioTable from '@/components/CryptoPortfolioTable';
 import CoreSatelliteView from '@/components/CoreSatelliteView';
 import InfoTooltip from '@/components/InfoTooltip';
 import { computeSavingsPositionInterest, REGULATED_SAVINGS_METADATA } from '@/engines/savingsInterestEngine';
@@ -170,7 +171,7 @@ export default function HomePage() {
   const [queryInput, setQueryInput] = useState('');
   const [selectedStressResult, setSelectedStressResult] = useState<StressTestResult | null>(null);
   const [selectedEnvelopeFilter, setSelectedEnvelopeFilter] = useState<string>('ALL');
-  const [editingPosition, setEditingPosition] = useState<Position | null | 'new' | 'new_savings'>(null);
+  const [editingPosition, setEditingPosition] = useState<Position | null | 'new' | 'new_savings' | 'new_crypto'>(null);
   const [showConfigEditor, setShowConfigEditor] = useState(false);
   const [showFlowRebalanceModal, setShowFlowRebalanceModal] = useState(false);
   const [showConfirmExecuteFlowRebalance, setShowConfirmExecuteFlowRebalance] = useState(false);
@@ -201,6 +202,8 @@ export default function HomePage() {
         const params = new URLSearchParams(window.location.search);
         const tlStatus = params.get('truelayer_status');
         const tlToken = params.get('token');
+        const openWizardParam = params.get('open_wizard');
+
         if (tlToken) {
           try {
             localStorage.setItem('truelayer_access_token', tlToken);
@@ -215,6 +218,12 @@ export default function HomePage() {
         const viewParam = params.get('view') as PageView | null;
         if (viewParam && ['dashboard', 'envelopes', 'revenue', 'analysis', 'risk', 'audit', 'reports'].includes(viewParam)) {
           setCurrentView(viewParam);
+        } else if (tlStatus === 'success' || openWizardParam === 'true') {
+          setCurrentView('revenue');
+        }
+
+        if (openWizardParam === 'true' || tlStatus === 'success') {
+          setAutoOpenBudgetWizard(true);
         }
 
         // Clean the URL query params to prevent reopening or re-triggering on refresh
@@ -227,6 +236,7 @@ export default function HomePage() {
     }
   }, []);
 
+  const [autoOpenBudgetWizard, setAutoOpenBudgetWizard] = useState<boolean>(false);
   const [adjustInflation, setAdjustInflation] = useState<boolean>(false);
   const [inflationRate, setInflationRate] = useState<number>(0.021); // 2.1% annual CPI inflation default
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
@@ -254,7 +264,8 @@ export default function HomePage() {
     netLiquidationDetails, peaSeniority, setPeaSeniority,
     monthlyDCATotal, saving, pendingCount, filledPositions, fxRates, lastPricesUpdated, marketStatusLabel,
     canUndo, undoLastAction, canRedo, redoLastAction, transactions, recordTransaction,
-    addPosition, updatePosition, removePosition, updateConfig, updateInvestorProfile, refreshPrices, resetPortfolio,
+    addPosition, updatePosition, removePosition, updateConfig, updateInvestorProfile,
+    refreshing, refreshPrices, refreshAllPortfolios, refreshMarketPrices, refreshCryptoPrices, refreshSavingsPrices, resetPortfolio,
   } = usePortfolio();
   const {
     records: salaryRecords, revenueConfig, allocations: reserveAllocations,
@@ -532,12 +543,13 @@ export default function HomePage() {
   };
 
   const handleSavePosition = async (pos: Position) => {
-    if (editingPosition === 'new' || editingPosition === 'new_savings') {
+    const isExisting = positions.some((p) => p.id === pos.id);
+    if (isExisting) {
+      await updatePosition(pos);
+      showToast(`${pos.name} mis à jour avec succès`);
+    } else {
       await addPosition(pos);
       showToast(`${pos.name} ajouté au portefeuille`);
-    } else {
-      await updatePosition(pos);
-      showToast(`${pos.name} mis à jour`);
     }
     setEditingPosition(null);
     refreshPrices();
@@ -656,7 +668,7 @@ export default function HomePage() {
           <span className="nav-icon">🏛️</span> Enveloppes & Fiscalité
         </button>
         <button className={`sidebar-nav-item ${currentView === 'revenue' ? 'active' : ''}`} onClick={() => setCurrentView('revenue')} id="nav-revenue">
-          <span className="nav-icon">💰</span> Revenu & Budget
+          <span className="nav-icon">💼</span> Aura Budget Pro
         </button>
         <button className={`sidebar-nav-item ${currentView === 'analysis' ? 'active' : ''}`} onClick={() => setCurrentView('analysis')} id="nav-analysis">
           <span className="nav-icon">🔬</span> Analyse
@@ -708,7 +720,7 @@ export default function HomePage() {
         <header className="page-header">
           <h1 className="page-title">
             {currentView === 'dashboard' && '📊 Tableau de Bord'}
-            {currentView === 'revenue' && '💰 Revenu & Budget'}
+            {currentView === 'revenue' && '💼 Aura Budget Pro & Trésorerie'}
             {currentView === 'envelopes' && '🏛️ Enveloppes & Fiscalité'}
             {currentView === 'analysis' && '🔬 Analyse à la Demande'}
             {currentView === 'valuation' && '📐 Prix ≠ Valeur (20 Valeurs)'}
@@ -827,6 +839,46 @@ export default function HomePage() {
                   display: 'inline-block',
                 }}
               />
+            </button>
+
+            {/* ⚡ Actualiser Tout Button (Global Synchronisation) */}
+            <button
+              type="button"
+              className="btn btn-sm"
+              id="global-refresh-all-btn"
+              disabled={refreshingPrices || refreshing}
+              style={{
+                color: 'white',
+                fontSize: 12,
+                fontWeight: 700,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+                background: (refreshingPrices || refreshing) ? 'var(--bg-tertiary)' : 'linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)',
+                border: '1px solid rgba(59, 130, 246, 0.5)',
+                padding: '6px 14px',
+                borderRadius: 10,
+                boxShadow: '0 2px 10px rgba(59, 130, 246, 0.25)',
+                cursor: (refreshingPrices || refreshing) ? 'not-allowed' : 'pointer',
+              }}
+              onClick={async () => {
+                setRefreshingPrices(true);
+                try {
+                  const res = await refreshAllPortfolios({ forceOnChain: true });
+                  showToast(
+                    `⚡ Actualisation globale réussie : ${res.totalUpdated} actifs mis à jour (${res.marketCount} Bourse, ${res.cryptoCount} Cryptos & On-Chain, ${res.savingsCount} Épargne)`,
+                    'success'
+                  );
+                } catch {
+                  showToast('Erreur lors de l\'actualisation globale', 'error');
+                } finally {
+                  setRefreshingPrices(false);
+                }
+              }}
+              title="Actualiser instantanément tous les cours (Bourse + Crypto + Forex) et re-scanner les balances de vos adresses On-Chain"
+            >
+              <span className={(refreshingPrices || refreshing) ? 'spin' : ''}>⚡</span>
+              {(refreshingPrices || refreshing) ? 'Actualisation...' : 'Actualiser Tout'}
             </button>
 
             {/* Global Inflation Toggle Switch */}
@@ -1595,11 +1647,23 @@ export default function HomePage() {
                 onEditPosition={(pos) => setEditingPosition(pos)}
                 onDeletePosition={(id) => handleDeletePosition(id)}
                 onAddSavingsPosition={() => setEditingPosition('new_savings')}
+                onRefreshSavings={async () => {
+                  setRefreshingPrices(true);
+                  try {
+                    const res = await refreshSavingsPrices();
+                    showToast(`🛡️ ${res.count} livrets & calculs d'intérêts actualisés`);
+                  } catch {
+                    showToast('Erreur actualisation épargne', 'error');
+                  } finally {
+                    setRefreshingPrices(false);
+                  }
+                }}
+                refreshing={refreshingPrices}
               />
 
               {/* Stock Market Portfolio Card (Listed Assets) */}
               {(() => {
-                const marketPositionsAll = positions.filter(p => ['PEA', 'PEA-PME', 'CTO', 'SPECULATIVE', 'OPPORTUNISTIC'].includes(p.envelope));
+                const marketPositionsAll = positions.filter(p => ['PEA', 'PEA-PME', 'CTO', 'SPECULATIVE', 'OPPORTUNISTIC'].includes(p.envelope) && p.assetType !== 'CRYPTO' && p.envelope !== 'CRYPTO');
                 const totalMarketValEUR = marketPositionsAll.reduce((sum, p) => {
                   const pr = p.currentPrice || p.avgPrice;
                   const rate = (fxRates as any)[p.currency] || 1.0;
@@ -1625,7 +1689,7 @@ export default function HomePage() {
                         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
                           <span style={{ fontSize: 24 }}>📈</span>
                           <h3 style={{ fontSize: 18, margin: 0, fontWeight: 800, color: 'var(--text-primary)' }}>
-                            Portefeuille Boursier &amp; Cryptos ({marketPositionsAll.length})
+                            Portefeuille Boursier (Actions &amp; ETF) ({marketPositionsAll.length})
                           </h3>
                           <span className="badge badge-cyan" style={{ fontSize: 12, padding: '4px 10px', fontWeight: 600 }}>Marchés Financiers &amp; Cours en direct</span>
                         </div>
@@ -1640,8 +1704,8 @@ export default function HomePage() {
                           onClick={async () => {
                             setRefreshingPrices(true);
                             try {
-                              await refreshPrices();
-                              showToast('Cours mis à jour (Yahoo Finance)');
+                              const res = await refreshMarketPrices();
+                              showToast(`📈 ${res.count} cours boursiers actualisés (Yahoo Finance)`);
                             } catch {
                               showToast('Impossible de récupérer les cours', 'error');
                             } finally {
@@ -1652,7 +1716,7 @@ export default function HomePage() {
                           data-tooltip="Actualiser les cours du marché en direct (Yahoo Finance)"
                           id="refresh-prices-btn"
                         >
-                          {refreshingPrices ? <span className="loading-spinner" /> : '📈'} Cours actuels
+                          {refreshingPrices ? <span className="loading-spinner" /> : '📈'} Actualiser Bourse
                         </button>
                         <button
                           className="btn btn-secondary"
@@ -1867,7 +1931,7 @@ export default function HomePage() {
                           <tbody>
                             {(() => {
                               const filteredPositions = positions.filter((p) => {
-                                const isMarket = ['PEA', 'PEA-PME', 'CTO', 'SPECULATIVE', 'OPPORTUNISTIC'].includes(p.envelope);
+                                const isMarket = ['PEA', 'PEA-PME', 'CTO', 'SPECULATIVE', 'OPPORTUNISTIC'].includes(p.envelope) && p.assetType !== 'CRYPTO' && p.envelope !== 'CRYPTO';
                                 if (!isMarket) return false;
                                 
                                 if (selectedEnvelopeFilter === 'ALL') return true;
@@ -2150,6 +2214,29 @@ export default function HomePage() {
                 );
               })()}
 
+              {/* Dedicated Crypto-Assets Table (24/7 Live Pricing) */}
+              <CryptoPortfolioTable
+                positions={positions}
+                fxRates={fxRates as any}
+                totalNetWorthEUR={totalValue}
+                refreshingPrices={refreshingPrices}
+                onRefreshPrices={async () => {
+                  setRefreshingPrices(true);
+                  try {
+                    const res = await refreshCryptoPrices(true);
+                    showToast(`🪙 ${res.count} cryptos & soldes on-chain actualisés en direct`);
+                  } catch {
+                    showToast('Impossible de récupérer les cours cryptos', 'error');
+                  } finally {
+                    setRefreshingPrices(false);
+                  }
+                }}
+                onEditPosition={(pos) => setEditingPosition(pos)}
+                onDeletePosition={(id) => handleDeletePosition(id)}
+                onAddCryptoPosition={() => setEditingPosition('new_crypto')}
+                onSavePosition={handleSavePosition}
+              />
+
               {/* Strategic Core vs Satellite View (CDC V4) */}
               <CoreSatelliteView
                 positions={positions}
@@ -2182,6 +2269,7 @@ export default function HomePage() {
               }}
               onOpenIntegrationsHub={() => setShowIntegrationsModal(true)}
               onShowToast={showToast}
+              autoOpenWizard={autoOpenBudgetWizard}
             />
           )}
 
@@ -2694,11 +2782,12 @@ export default function HomePage() {
       {/* ═══ MODALS ═══ */}
       {editingPosition && (
         <PositionEditor
-          position={(editingPosition === 'new' || editingPosition === 'new_savings') ? null : editingPosition}
-          initialEnvelope={editingPosition === 'new_savings' ? 'LIVRET' : 'PEA'}
+          position={(editingPosition === 'new' || editingPosition === 'new_savings' || editingPosition === 'new_crypto') ? null : editingPosition}
+          initialEnvelope={editingPosition === 'new_crypto' ? 'CRYPTO' : editingPosition === 'new_savings' ? 'LIVRET' : 'PEA'}
+          existingPositions={positions}
           onSave={handleSavePosition}
           onClose={() => setEditingPosition(null)}
-          onDelete={(editingPosition !== 'new' && editingPosition !== 'new_savings') ? handleDeletePosition : undefined}
+          onDelete={(editingPosition !== 'new' && editingPosition !== 'new_savings' && editingPosition !== 'new_crypto') ? handleDeletePosition : undefined}
         />
       )}
 

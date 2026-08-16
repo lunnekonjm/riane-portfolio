@@ -7,8 +7,13 @@ export async function GET(request: Request) {
   try {
     const { origin, searchParams } = new URL(request.url);
     const format = searchParams.get("format");
+    const view = searchParams.get("view") || "revenue";
+    const openWizard = searchParams.get("open_wizard") !== "false";
+    const customState = searchParams.get("state");
+    const state = customState || JSON.stringify({ view, open_wizard: openWizard });
+
     const redirectUri = `${origin}/api/integrations/truelayer/callback`;
-    const authUrl = getTrueLayerAuthUrl(redirectUri);
+    const authUrl = getTrueLayerAuthUrl(redirectUri, state);
 
     if (!authUrl) {
       return NextResponse.json(
@@ -19,7 +24,7 @@ export async function GET(request: Request) {
 
     // If API client requests JSON specifically
     if (format === "json") {
-      return NextResponse.json({ authUrl, redirectUri });
+      return NextResponse.json({ authUrl, redirectUri, state });
     }
 
     // Direct browser navigation redirects directly to TrueLayer OAuth dialog

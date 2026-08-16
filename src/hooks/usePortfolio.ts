@@ -18,8 +18,10 @@ import { getMultipleQuotes, getFxRates } from '@/services/market-data/provider';
 import type { Position, PortfolioConfig, TransactionRecord, InvestorProfile } from '@/types/portfolio';
 import type { User } from 'firebase/auth';
 import { clearAnalysisCache } from '@/utils/analysisCache';
+import { clearMarketCache } from '@/services/market-data/cache';
 import { computeSavingsPositionInterest, REGULATED_SAVINGS_METADATA } from '@/engines/savingsInterestEngine';
 import { getActiveDCATranche } from '@/utils/dcaHistoryHelper';
+import { sanitizeCryptoPosition } from '@/utils/cryptoWalletEngine';
 
 export function usePortfolio() {
   const [user, setUser] = useState<User | null>(null);
@@ -30,7 +32,7 @@ export function usePortfolio() {
         const saved = localStorage.getItem('riane_local_positions');
         if (saved) {
           const parsed = JSON.parse(saved);
-          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed.map(sanitizeCryptoPosition);
         }
       } catch (e) {
         console.warn('[usePortfolio] Failed to load local positions:', e);
@@ -112,7 +114,7 @@ export function usePortfolio() {
             }
           });
 
-          const mergedPos = Array.from(posMap.values());
+          const mergedPos = Array.from(posMap.values()).map(sanitizeCryptoPosition);
           if (mergedPos.length > 0) {
             setPositions(mergedPos);
             try { localStorage.setItem('riane_local_positions', JSON.stringify(mergedPos)); } catch {}
@@ -152,9 +154,87 @@ export function usePortfolio() {
 
   const [lastPricesUpdated, setLastPricesUpdated] = useState<number | null>(null);
   const [marketStatusLabel, setMarketStatusLabel] = useState<string>('🔒 Cours de Clôture Officielle (Marché Fermé)');
+  const [refreshing, setRefreshing] = useState<boolean>(false);
 
-  const refreshPricesInternal = async (currentPositions: Position[]) => {
-    const tickers = currentPositions.map((p) => p.ticker);
+  const syncOnChainWallets = async (currentPositions: Position[]): Promise<Position[]> => {
+    const cryptoPositions = currentPositions.filter(
+      (p) => (p.assetType === 'CRYPTO' || p.envelope === 'CRYPTO') && p.cryptoWallets && p.cryptoWallets.length > 0
+    );
+    if (cryptoPositions.length === 0) return currentPositions;
+
+    const updatedPositions = [...currentPositions];
+
+    for (let i = 0; i < updatedPositions.length; i++) {
+      const pos = updatedPositions[i];
+      if ((pos.assetType === 'CRYPTO' || pos.envelope === 'CRYPTO') && pos.cryptoWallets && pos.cryptoWallets.length > 0) {
+        let hasChanges = false;
+        const newWallets = [...pos.cryptoWallets];
+
+        for (let j = 0; j < newWallets.length; j++) {
+          const wallet = newWallets[j];
+          if (wallet.publicAddress && wallet.publicAddress.trim()) {
+            try {
+              const res = await fetch('/api/integrations/crypto-onchain/sync', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  address: wallet.publicAddress.trim(),
+                  institution: wallet.institution || wallet.walletName,
+                }),
+              });
+              if (res.ok) {
+                const data = await res.json();
+                if (data.success && Array.isArray(data.assets)) {
+                  const cleanTicker = pos.ticker.toUpperCase().replace('-EUR', '').replace('-USD', '');
+                  const matchingAsset = data.assets.find(
+                    (a: any) =>
+                      a.ticker.toUpperCase() === pos.ticker.toUpperCase() ||
+                      a.ticker.toUpperCase() === cleanTicker ||
+                      a.symbol?.toUpperCase() === cleanTicker
+                  );
+                  if (matchingAsset && typeof matchingAsset.balance === 'number') {
+                    newWallets[j] = {
+                      ...wallet,
+                      quantity: matchingAsset.balance,
+                      lastSyncedAt: Date.now(),
+                    };
+                    hasChanges = true;
+                  }
+                }
+              }
+            } catch (err) {
+              console.warn(`[usePortfolio] On-chain sync failed for ${wallet.publicAddress}:`, err);
+            }
+          }
+        }
+
+        if (hasChanges) {
+          const newTotalQty = newWallets.reduce((sum, w) => sum + w.quantity, 0);
+          updatedPositions[i] = {
+            ...pos,
+            quantity: newTotalQty,
+            cryptoWallets: newWallets,
+            updatedAt: Date.now(),
+          };
+        }
+      }
+    }
+
+    return updatedPositions;
+  };
+
+  const refreshPricesInternal = async (currentPositions: Position[], force = false, rescanOnChain = false): Promise<Position[]> => {
+    if (force) {
+      clearMarketCache();
+      clearAnalysisCache();
+    }
+
+    let workingPositions = currentPositions;
+    if (rescanOnChain) {
+      workingPositions = await syncOnChainWallets(workingPositions);
+    }
+
+    const tickers = workingPositions.map((p) => p.ticker);
     try {
       const [quotes, rates] = await Promise.all([
         getMultipleQuotes(tickers),
@@ -165,25 +245,41 @@ export function usePortfolio() {
         setFxRates((prev) => ({ ...prev, ...rates }));
       }
 
+      let updatedList = workingPositions;
       if (quotes.size > 0) {
         const firstQuote = Array.from(quotes.values())[0];
         if (firstQuote?.quoteTypeLabel) {
           setMarketStatusLabel(firstQuote.quoteTypeLabel);
         }
 
-        setPositions((prev) =>
-          prev.map((p) => {
-            const quote = quotes.get(p.ticker);
-            if (quote && quote.price > 0) {
-              return { ...p, currentPrice: quote.price };
-            }
-            return p;
-          })
-        );
+        updatedList = workingPositions.map((p) => {
+          const quote = quotes.get(p.ticker);
+          if (quote && quote.price > 0) {
+            return { ...p, currentPrice: quote.price };
+          }
+          return p;
+        });
       }
+
+      setPositions(updatedList);
       setLastPricesUpdated(Date.now());
+
+      try {
+        localStorage.setItem('riane_local_positions', JSON.stringify(updatedList));
+      } catch {}
+
+      if (user) {
+        try {
+          await saveAllPositions(user.uid, updatedList);
+        } catch (err) {
+          console.warn('[Portfolio] Firestore update failed during price refresh:', err);
+        }
+      }
+
+      return updatedList;
     } catch (err) {
       console.warn('[Portfolio] Price refresh failed:', err);
+      return workingPositions;
     }
   };
 
@@ -287,12 +383,12 @@ export function usePortfolio() {
     setSaving(true);
     clearAnalysisCache();
     // Guarantee quantity >= 1 and valid PRU
-    const validPos: Position = {
+    const validPos: Position = sanitizeCryptoPosition({
       ...pos,
       quantity: pos.quantity || 0,
       avgPrice: pos.avgPrice || 0,
       updatedAt: Date.now(),
-    };
+    });
 
     if (validPos.quantity > 0) {
       recordTransaction({
@@ -334,10 +430,10 @@ export function usePortfolio() {
     setSaving(true);
     clearAnalysisCache();
 
-    const updatedPos: Position = {
+    const updatedPos: Position = sanitizeCryptoPosition({
       ...pos,
       updatedAt: Date.now(),
-    };
+    });
 
     // Log transaction automatically if quantity or PRU changed
     const existing = positions.find((p) => p.id === updatedPos.id || p.ticker === updatedPos.ticker);
@@ -437,6 +533,102 @@ export function usePortfolio() {
     }
     setSaving(false);
   }, [user]);
+
+  const refreshAllPortfolios = useCallback(async (options?: { forceOnChain?: boolean }) => {
+    setRefreshing(true);
+    try {
+      const updatedList = await refreshPricesInternal(positions, true, options?.forceOnChain !== false);
+      return {
+        success: true,
+        marketCount: updatedList.filter((p) => !['LIVRET', 'ASSURANCE_VIE', 'PER', 'PEE', 'IMMOBILIER', 'CRYPTO'].includes(p.envelope) && p.assetType !== 'CRYPTO').length,
+        cryptoCount: updatedList.filter((p) => p.envelope === 'CRYPTO' || p.assetType === 'CRYPTO').length,
+        savingsCount: updatedList.filter((p) => ['LIVRET', 'ASSURANCE_VIE', 'PER', 'PEE', 'IMMOBILIER'].includes(p.envelope)).length,
+        totalUpdated: updatedList.length,
+      };
+    } finally {
+      setRefreshing(false);
+    }
+  }, [positions, user]);
+
+  const refreshMarketPrices = useCallback(async () => {
+    setRefreshing(true);
+    clearMarketCache();
+    clearAnalysisCache();
+    try {
+      const marketPositions = positions.filter((p) => !['LIVRET', 'ASSURANCE_VIE', 'PER', 'PEE', 'IMMOBILIER', 'CRYPTO'].includes(p.envelope) && p.assetType !== 'CRYPTO');
+      const tickers = marketPositions.map((p) => p.ticker);
+      const [quotes, rates] = await Promise.all([
+        getMultipleQuotes(tickers),
+        getFxRates(),
+      ]);
+
+      if (rates) {
+        setFxRates((prev) => ({ ...prev, ...rates }));
+      }
+
+      const updated = positions.map((p) => {
+        const quote = quotes.get(p.ticker);
+        if (quote && quote.price > 0) {
+          return { ...p, currentPrice: quote.price };
+        }
+        return p;
+      });
+
+      setPositions(updated);
+      setLastPricesUpdated(Date.now());
+      try {
+        localStorage.setItem('riane_local_positions', JSON.stringify(updated));
+      } catch {}
+      if (user) {
+        saveAllPositions(user.uid, updated).catch(() => {});
+      }
+      return { success: true, count: marketPositions.length };
+    } finally {
+      setRefreshing(false);
+    }
+  }, [positions, user]);
+
+  const refreshCryptoPrices = useCallback(async (forceOnChain: boolean = true) => {
+    setRefreshing(true);
+    clearMarketCache();
+    clearAnalysisCache();
+    try {
+      let currentPos = positions;
+      if (forceOnChain) {
+        currentPos = await syncOnChainWallets(currentPos);
+      }
+
+      const cryptoPositions = currentPos.filter((p) => p.envelope === 'CRYPTO' || p.assetType === 'CRYPTO');
+      const tickers = cryptoPositions.map((p) => p.ticker);
+      const quotes = await getMultipleQuotes(tickers);
+
+      const updated = currentPos.map((p) => {
+        const quote = quotes.get(p.ticker);
+        if (quote && quote.price > 0) {
+          return { ...p, currentPrice: quote.price };
+        }
+        return p;
+      });
+
+      setPositions(updated);
+      setLastPricesUpdated(Date.now());
+      try {
+        localStorage.setItem('riane_local_positions', JSON.stringify(updated));
+      } catch {}
+      if (user) {
+        saveAllPositions(user.uid, updated).catch(() => {});
+      }
+      return { success: true, count: cryptoPositions.length };
+    } finally {
+      setRefreshing(false);
+    }
+  }, [positions, user]);
+
+  const refreshSavingsPrices = useCallback(async () => {
+    setLastPricesUpdated(Date.now());
+    const savingsCount = positions.filter((p) => ['LIVRET', 'ASSURANCE_VIE', 'PER', 'PEE', 'IMMOBILIER'].includes(p.envelope)).length;
+    return { success: true, count: savingsCount };
+  }, [positions]);
 
   const refreshPrices = useCallback(async () => {
     await refreshPricesInternal(positions);
@@ -691,7 +883,12 @@ export function usePortfolio() {
     removePosition,
     updateConfig,
     updateInvestorProfile,
+    refreshing,
     refreshPrices,
+    refreshAllPortfolios,
+    refreshMarketPrices,
+    refreshCryptoPrices,
+    refreshSavingsPrices,
     resetPortfolio,
   };
 }

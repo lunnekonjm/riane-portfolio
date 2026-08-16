@@ -3,7 +3,7 @@
  * Conformes au cahier des charges V4
  */
 
-export type Envelope = 'PEA' | 'PEA-PME' | 'CTO' | 'LIVRET' | 'ASSURANCE_VIE' | 'PER' | 'PEE' | 'IMMOBILIER' | 'SPECULATIVE' | 'OPPORTUNISTIC';
+export type Envelope = 'PEA' | 'PEA-PME' | 'CTO' | 'CRYPTO' | 'LIVRET' | 'ASSURANCE_VIE' | 'PER' | 'PEE' | 'IMMOBILIER' | 'SPECULATIVE' | 'OPPORTUNISTIC';
 
 export type AssetType = 'ETF' | 'STOCK' | 'FUND' | 'BOND' | 'CRYPTO' | 'CASH' | 'REAL_ESTATE' | 'SAVINGS';
 
@@ -26,6 +26,40 @@ export interface DCATranche {
   depositDay?: number;
   depositMonth?: number;
   label?: string;    // e.g. "Phase 1 : 500€/m", "Changement de budget : 300€/m"
+}
+
+export interface CryptoWalletPocket {
+  id: string;
+  walletName: 'Trust Wallet' | 'Revolut X' | 'Ledger' | 'Binance' | 'Phantom' | 'Kraken' | 'Coinbase' | 'Autre' | string;
+  quantity: number;
+  avgPrice?: number; // Specific PRU for this wallet if known
+  feesPaidEUR?: number; // Total trading + gas fees in EUR
+  feesEUR?: number;
+  publicAddress?: string; // On-chain public address (0x... or Solana or BTC) for Trust Wallet / cold wallet
+  chain?: 'ETH' | 'BSC' | 'POLYGON' | 'ARBITRUM' | 'OPTIMISM' | 'BASE' | 'SOLANA' | 'BITCOIN' | string;
+  network?: string;
+  institution?: string;
+  walletType?: 'COLD_WALLET' | 'HOT_WALLET' | string;
+  purchaseDate?: string;
+  lastSyncedAt?: number;
+  notes?: string;
+}
+
+export type CryptoWalletEntry = CryptoWalletPocket;
+
+export interface CryptoLotTransaction {
+  id: string;
+  date: string; // YYYY-MM-DD
+  type: 'BUY' | 'TRANSFER' | 'FEE' | 'AIRDROP' | 'STAKING_REWARD';
+  walletName: string;
+  toWalletName?: string; // For transfers
+  quantity: number;
+  pricePerUnit: number;
+  totalCostEUR: number;
+  feesEUR: number; // Trading fee or Gas fee in EUR
+  gasFeeCrypto?: number; // e.g. 0.001 ETH
+  txHash?: string;
+  notes?: string;
 }
 
 export interface Position {
@@ -71,6 +105,12 @@ export interface Position {
   interestRateOverride?: number;
   /** Regulated legal deposit ceiling (e.g. 22950 for Livret A, 12000 for LDDS) */
   customCap?: number;
+  /** Crypto-specific: Pocket breakdown per wallet (Trust Wallet, Revolut X, Ledger...) */
+  cryptoWallets?: CryptoWalletPocket[];
+  /** Crypto-specific: Detailed transaction history of buys, transfers, gas fees */
+  cryptoLots?: CryptoLotTransaction[];
+  /** Total fees & gas fees paid in EUR for this position */
+  totalFeesEUR?: number;
   /** Last update timestamp */
   updatedAt?: number;
 }

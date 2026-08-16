@@ -77,13 +77,39 @@ const TICKER_DOMAIN_MAP: Record<string, { domain?: string; directUrl?: string; e
   'VUSA.AS': { domain: 'vanguard.com' },
   'ESE.PA': { domain: 'bnpparibas.com' },
 
-  // Cryptomonnaies (CoinGecko HD)
-  'BTC-USD': { directUrl: 'https://assets.coingecko.com/coins/images/1/small/bitcoin.png', emoji: '₿' },
-  'BTC': { directUrl: 'https://assets.coingecko.com/coins/images/1/small/bitcoin.png', emoji: '₿' },
-  'ETH-USD': { directUrl: 'https://assets.coingecko.com/coins/images/279/small/ethereum.png', emoji: 'Ξ' },
-  'ETH': { directUrl: 'https://assets.coingecko.com/coins/images/279/small/ethereum.png', emoji: 'Ξ' },
-  'SOL-USD': { directUrl: 'https://assets.coingecko.com/coins/images/4128/small/solana.png', emoji: '◎' },
-  'SOL': { directUrl: 'https://assets.coingecko.com/coins/images/4128/small/solana.png', emoji: '◎' },
+  // Cryptomonnaies (CoinGecko HD & Direct)
+  'BTC': { directUrl: 'https://assets.coingecko.com/coins/images/1/large/bitcoin.png', emoji: '₿' },
+  'BTC-EUR': { directUrl: 'https://assets.coingecko.com/coins/images/1/large/bitcoin.png', emoji: '₿' },
+  'BTC-USD': { directUrl: 'https://assets.coingecko.com/coins/images/1/large/bitcoin.png', emoji: '₿' },
+  'ETH': { directUrl: 'https://assets.coingecko.com/coins/images/279/large/ethereum.png', emoji: 'Ξ' },
+  'ETH-EUR': { directUrl: 'https://assets.coingecko.com/coins/images/279/large/ethereum.png', emoji: 'Ξ' },
+  'ETH-USD': { directUrl: 'https://assets.coingecko.com/coins/images/279/large/ethereum.png', emoji: 'Ξ' },
+  'BNB': { directUrl: 'https://assets.coingecko.com/coins/images/825/large/bnb-icon2_2x.png', emoji: '🟡' },
+  'BNB-EUR': { directUrl: 'https://assets.coingecko.com/coins/images/825/large/bnb-icon2_2x.png', emoji: '🟡' },
+  'BNB-USD': { directUrl: 'https://assets.coingecko.com/coins/images/825/large/bnb-icon2_2x.png', emoji: '🟡' },
+  'SOL': { directUrl: 'https://assets.coingecko.com/coins/images/4128/large/solana.png', emoji: '◎' },
+  'SOL-EUR': { directUrl: 'https://assets.coingecko.com/coins/images/4128/large/solana.png', emoji: '◎' },
+  'SOL-USD': { directUrl: 'https://assets.coingecko.com/coins/images/4128/large/solana.png', emoji: '◎' },
+  'USDT': { directUrl: 'https://assets.coingecko.com/coins/images/325/large/Tether.png', emoji: '₮' },
+  'USDT-EUR': { directUrl: 'https://assets.coingecko.com/coins/images/325/large/Tether.png', emoji: '₮' },
+  'USDT-USD': { directUrl: 'https://assets.coingecko.com/coins/images/325/large/Tether.png', emoji: '₮' },
+  'USDC': { directUrl: 'https://assets.coingecko.com/coins/images/6319/large/usdc.png', emoji: '💲' },
+  'USDC-EUR': { directUrl: 'https://assets.coingecko.com/coins/images/6319/large/usdc.png', emoji: '💲' },
+  'USDC-USD': { directUrl: 'https://assets.coingecko.com/coins/images/6319/large/usdc.png', emoji: '💲' },
+  'XRP': { directUrl: 'https://assets.coingecko.com/coins/images/44/large/xrp-symbol-white-128.png', emoji: '✕' },
+  'XRP-EUR': { directUrl: 'https://assets.coingecko.com/coins/images/44/large/xrp-symbol-white-128.png', emoji: '✕' },
+  'ADA': { directUrl: 'https://assets.coingecko.com/coins/images/975/large/cardano.png', emoji: '₳' },
+  'ADA-EUR': { directUrl: 'https://assets.coingecko.com/coins/images/975/large/cardano.png', emoji: '₳' },
+  'AVAX': { directUrl: 'https://assets.coingecko.com/coins/images/12559/large/Avalanche_Circle_RedWhite_Trans.png', emoji: '🔺' },
+  'AVAX-EUR': { directUrl: 'https://assets.coingecko.com/coins/images/12559/large/Avalanche_Circle_RedWhite_Trans.png', emoji: '🔺' },
+  'DOT': { directUrl: 'https://assets.coingecko.com/coins/images/12171/large/polkadot.png', emoji: '●' },
+  'LINK': { directUrl: 'https://assets.coingecko.com/coins/images/877/large/chainlink-new-logo.png', emoji: '⬡' },
+  'MATIC': { directUrl: 'https://assets.coingecko.com/coins/images/4713/large/polygon.png', emoji: '💜' },
+  'POL': { directUrl: 'https://assets.coingecko.com/coins/images/4713/large/polygon.png', emoji: '💜' },
+  'DOGE': { directUrl: 'https://assets.coingecko.com/coins/images/5/large/dogecoin.png', emoji: '🐕' },
+  'NEAR': { directUrl: 'https://assets.coingecko.com/coins/images/10365/large/near.png', emoji: 'Ⓝ' },
+  'SUI': { directUrl: 'https://assets.coingecko.com/coins/images/26375/large/sui-ocean-square.png', emoji: '💧' },
+  'APT': { directUrl: 'https://assets.coingecko.com/coins/images/26455/large/aptos_round.png', emoji: '▲' }
 };
 
 // Mapping Établissements Bancaires & Teneurs de Compte
@@ -144,7 +170,8 @@ export function resolveAssetLogo(
   const lowerInst = normInst.toLowerCase();
 
   const fallbackKey = normTicker || normName || 'ACTIF';
-  const fallbackLetters = getInitials(cleanTicker || normName);
+  const baseTicker = cleanTicker.replace(/-(EUR|USD|USDT)$/i, '');
+  const fallbackLetters = getInitials(baseTicker || cleanTicker || normName);
   const fallbackColor = getDeterministicColor(fallbackKey);
 
   // 1. Recherche prioritaire par Organisme Bancaire associé (ex: Livret A chez BoursoBank, PEE chez Natixis)
@@ -200,6 +227,22 @@ export function resolveAssetLogo(
   // 5. Recherche par Ticker sans extension
   if (cleanTicker && TICKER_DOMAIN_MAP[cleanTicker]) {
     const entry = TICKER_DOMAIN_MAP[cleanTicker];
+    if (entry.directUrl) {
+      return { url: entry.directUrl, fallbackLetters, fallbackColor, fallbackEmoji: entry.emoji };
+    }
+    if (entry.domain) {
+      return {
+        url: buildFaviconUrl(entry.domain),
+        fallbackLetters,
+        fallbackColor,
+        fallbackEmoji: entry.emoji,
+      };
+    }
+  }
+
+  // 5b. Recherche par Ticker de base (sans suffixe de devise -EUR, -USD, -USDT)
+  if (baseTicker && TICKER_DOMAIN_MAP[baseTicker]) {
+    const entry = TICKER_DOMAIN_MAP[baseTicker];
     if (entry.directUrl) {
       return { url: entry.directUrl, fallbackLetters, fallbackColor, fallbackEmoji: entry.emoji };
     }

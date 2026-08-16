@@ -12,6 +12,8 @@ interface SavingsPortfolioTableProps {
   onEditPosition: (position: Position) => void;
   onDeletePosition?: (id: string) => void;
   onAddSavingsPosition: () => void;
+  onRefreshSavings?: () => void;
+  refreshing?: boolean;
 }
 
 export default function SavingsPortfolioTable({
@@ -19,6 +21,8 @@ export default function SavingsPortfolioTable({
   onEditPosition,
   onDeletePosition,
   onAddSavingsPosition,
+  onRefreshSavings,
+  refreshing,
 }: SavingsPortfolioTableProps) {
   const [selectedSavingsEnvelope, setSelectedSavingsEnvelope] = useState<string>('ALL');
   const boursoLive = useBoursoLive();
@@ -114,9 +118,24 @@ export default function SavingsPortfolioTable({
             Suivi des livrets réglementés (Art. R221-3 CMF), fonds d&apos;épargne salariale et assurance-vie.
           </p>
         </div>
-        <button className="btn btn-primary btn-sm" onClick={onAddSavingsPosition} style={{ fontSize: 13, padding: '8px 14px' }}>
-          ➕ Ajouter un compte épargne
-        </button>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+          {onRefreshSavings && (
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm"
+              onClick={onRefreshSavings}
+              disabled={refreshing}
+              style={{ fontSize: 13, padding: '8px 14px' }}
+              title="Recalculer les intérêts quinzaines et actualiser les livrets"
+              id="refresh-savings-btn"
+            >
+              {refreshing ? <span className="loading-spinner" /> : '🛡️'} Actualiser Épargne
+            </button>
+          )}
+          <button className="btn btn-primary btn-sm" onClick={onAddSavingsPosition} style={{ fontSize: 13, padding: '8px 14px' }}>
+            ➕ Ajouter un compte épargne
+          </button>
+        </div>
       </div>
 
       {/* KPI Cards Bar */}

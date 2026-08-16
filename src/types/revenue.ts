@@ -108,14 +108,18 @@ export interface SalaryRecord {
    * dérivé du seul salaire de base, JAMAIS des primes/rachats.
    */
   regularInvestableAmount: number;
-  /**
-   * Part nette des primes/rachats de ce bulletin qui vient s'ajouter à la réserve
-   */
-  bonusReserveContribution: number;
-  /** Taux d'épargne régulier = regularInvestableAmount / (netSalary - bonusNet - congesRachatNet) (%) */
-  savingsRate: number;
+  /** Part nette des primes/rachats de ce bulletin qui vient s'ajouter à la réserve */
+  bonusReserveContribution?: number;
+  /** Taux d'épargne régulier (%) */
+  savingsRate?: number;
+  /** Titres restaurant (négatif) */
+  mealTickets?: number;
+  /** Indemnité télétravail / frais professionnels */
+  teleworkAllowance?: number;
+  /** Nom de l'employeur */
+  employerName?: string;
   /** Source d'origine */
-  source: 'manual' | 'pdf-import';
+  source: 'manual' | 'pdf-import' | 'ocr_payslip';
   /** Nom du fichier PDF source, si applicable */
   documentName?: string;
   /** Notes libres */

@@ -7,9 +7,28 @@ export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
   const error = searchParams.get("error");
+  const stateRaw = searchParams.get("state");
+
+  let targetView = "revenue";
+  let openWizard = true;
+  if (stateRaw) {
+    try {
+      if (stateRaw.startsWith("{")) {
+        const parsed = JSON.parse(stateRaw);
+        if (parsed.view) targetView = parsed.view;
+        if (parsed.open_wizard !== undefined) openWizard = !!parsed.open_wizard;
+      } else if (stateRaw.includes("view=")) {
+        const sp = new URLSearchParams(stateRaw);
+        if (sp.get("view")) targetView = sp.get("view")!;
+        if (sp.get("open_wizard") !== null) openWizard = sp.get("open_wizard") === "true";
+      }
+    } catch {}
+  }
+
+  const baseRedirectParams = `view=${encodeURIComponent(targetView)}&open_wizard=${openWizard ? "true" : "false"}`;
 
   if (error || !code) {
-    return NextResponse.redirect(`${origin}/?truelayer_status=error&msg=${encodeURIComponent(error || "No code returned")}`);
+    return NextResponse.redirect(`${origin}/?${baseRedirectParams}&truelayer_status=error&msg=${encodeURIComponent(error || "No code returned")}`);
   }
 
   const clientId = process.env.TRUELAYER_CLIENT_ID;
@@ -18,7 +37,7 @@ export async function GET(request: Request) {
 
   if (!clientSecret) {
     // If client secret is not yet set in environment, redirect with code so client can use or store it
-    return NextResponse.redirect(`${origin}/?truelayer_status=code_received&code=${encodeURIComponent(code)}`);
+    return NextResponse.redirect(`${origin}/?${baseRedirectParams}&truelayer_status=code_received&code=${encodeURIComponent(code)}`);
   }
 
   try {
@@ -39,7 +58,7 @@ export async function GET(request: Request) {
 
     if (!tokenRes.ok) {
       const errBody = await tokenRes.text();
-      return NextResponse.redirect(`${origin}/?truelayer_status=token_error&msg=${encodeURIComponent(errBody)}`);
+      return NextResponse.redirect(`${origin}/?${baseRedirectParams}&truelayer_status=token_error&msg=${encodeURIComponent(errBody)}`);
     }
 
     const tokenData = await tokenRes.json();
@@ -47,7 +66,7 @@ export async function GET(request: Request) {
 
     // Success redirect with token in param AND in cookie
     const response = NextResponse.redirect(
-      `${origin}/?truelayer_status=success&token=${encodeURIComponent(accessToken)}`
+      `${origin}/?${baseRedirectParams}&truelayer_status=success&token=${encodeURIComponent(accessToken)}`
     );
 
     response.cookies.set("truelayer_access_token", accessToken, {
@@ -71,7 +90,7 @@ export async function GET(request: Request) {
     return response;
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
-    return NextResponse.redirect(`${origin}/?truelayer_status=exchange_failed&msg=${encodeURIComponent(msg)}`);
+    return NextResponse.redirect(`${origin}/?${baseRedirectParams}&truelayer_status=exchange_failed&msg=${encodeURIComponent(msg)}`);
   }
 }
 

@@ -384,6 +384,13 @@ export default function CryptoPortfolioTable({
                 const walletBadges = (() => {
                   const seen = new Set<string>();
                   const list: string[] = [];
+                  if (pos.institutionName) {
+                    const raw = cleanWalletProviderName(pos.institutionName);
+                    if (raw && !seen.has(raw.toLowerCase())) {
+                      seen.add(raw.toLowerCase());
+                      list.push(raw);
+                    }
+                  }
                   if (pos.cryptoWallets && pos.cryptoWallets.length > 0) {
                     pos.cryptoWallets.forEach((w) => {
                       const raw = cleanWalletProviderName(w.institution || w.walletName);
@@ -392,9 +399,6 @@ export default function CryptoPortfolioTable({
                         list.push(raw);
                       }
                     });
-                  } else if (pos.institutionName) {
-                    const raw = cleanWalletProviderName(pos.institutionName);
-                    if (raw) list.push(raw);
                   }
                   return list;
                 })();

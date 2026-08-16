@@ -197,7 +197,7 @@ export default function PositionEditor({ position, initialEnvelope, existingPosi
     dcaDepositDay: position?.dcaDepositDay || 5,
     targetWeight: position?.targetWeight,
     maxWeight: position?.maxWeight,
-    institutionName: position?.institutionName || '',
+    institutionName: position?.institutionName || position?.cryptoWallets?.[0]?.institution || position?.cryptoWallets?.[0]?.walletName || '',
     interestRateOverride: position?.interestRateOverride,
     updatedAt: Date.now(),
   });
@@ -468,6 +468,32 @@ export default function PositionEditor({ position, initialEnvelope, existingPosi
 
   const handleChange = (field: keyof Position, value: any) => {
     setForm((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleInstitutionChange = (inst: string) => {
+    setForm((prev) => {
+      let updatedWallets = prev.cryptoWallets ? [...prev.cryptoWallets] : undefined;
+      if (updatedWallets && updatedWallets.length > 0) {
+        updatedWallets = updatedWallets.map((w) => ({
+          ...w,
+          institution: inst,
+          walletName: inst,
+        }));
+      } else if (inst) {
+        updatedWallets = [{
+          id: `w-${Date.now()}`,
+          walletName: inst,
+          institution: inst,
+          balance: prev.quantity || 0,
+          isManual: true,
+        }];
+      }
+      return {
+        ...prev,
+        institutionName: inst,
+        cryptoWallets: updatedWallets,
+      };
+    });
   };
 
   const handleQuantityChange = (val: string) => {
@@ -2259,28 +2285,57 @@ function autoGenerateThemes(
                   { label: '⚡ Revolut X', value: 'Revolut X' },
                   { label: '🛡️ Trust Wallet', value: 'Trust Wallet' },
                   { label: '🔒 Ledger (Cold Storage)', value: 'Ledger' },
+                  { label: '🟣 Phantom', value: 'Phantom' },
+                  { label: '🦊 MetaMask', value: 'MetaMask' },
                   { label: '🟡 Binance', value: 'Binance' },
                   { label: '🐙 Kraken', value: 'Kraken' },
                   { label: '🔵 Coinbase', value: 'Coinbase' },
-                ].map((inst) => (
-                  <button
-                    key={inst.value}
-                    type="button"
-                    onClick={() => handleChange('institutionName', inst.value)}
-                    style={{
-                      padding: '3px 8px',
-                      fontSize: 11,
-                      borderRadius: 4,
-                      border: '1px solid var(--border-subtle)',
-                      background: form.institutionName === inst.value ? 'var(--accent-amber)' : 'var(--bg-secondary)',
-                      color: form.institutionName === inst.value ? '#000' : 'var(--text-secondary)',
-                      fontWeight: form.institutionName === inst.value ? 700 : 500,
-                      cursor: 'pointer',
-                    }}
-                  >
-                    {inst.label}
-                  </button>
-                ))}
+                  { label: '🟢 OKX', value: 'OKX' },
+                  { label: '🟠 Bybit', value: 'Bybit' },
+                ].map((inst) => {
+                  const isSelected = (form.institutionName || '').toLowerCase() === inst.value.toLowerCase() ||
+                    (form.cryptoWallets?.[0]?.institution || '').toLowerCase() === inst.value.toLowerCase() ||
+                    (form.cryptoWallets?.[0]?.walletName || '').toLowerCase() === inst.value.toLowerCase();
+                  return (
+                    <button
+                      key={inst.value}
+                      type="button"
+                      onClick={() => handleInstitutionChange(inst.value)}
+                      style={{
+                        padding: '6px 12px',
+                        fontSize: 12,
+                        borderRadius: 6,
+                        border: isSelected ? '2px solid #f59e0b' : '1px solid var(--border-subtle)',
+                        background: isSelected ? 'rgba(245, 158, 11, 0.25)' : 'var(--bg-secondary)',
+                        color: isSelected ? '#fbbf24' : 'var(--text-secondary)',
+                        fontWeight: isSelected ? 700 : 500,
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 4,
+                        transition: 'all 0.15s ease-in-out',
+                        boxShadow: isSelected ? '0 0 10px rgba(245, 158, 11, 0.35)' : 'none',
+                      }}
+                    >
+                      {isSelected ? `✓ ${inst.label}` : inst.label}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Editable custom input for platform */}
+              <div style={{ marginBottom: 12 }}>
+                <label style={{ display: 'block', fontSize: 11, color: 'var(--text-secondary)', marginBottom: 3 }}>
+                  Établissement / Plateforme sélectionnée
+                </label>
+                <input
+                  className="input"
+                  type="text"
+                  value={form.institutionName || ''}
+                  onChange={(e) => handleInstitutionChange(e.target.value)}
+                  placeholder="ex: Revolut X, Binance, Ledger, Trust Wallet, Kraken..."
+                  style={{ fontSize: 12, padding: '6px 10px' }}
+                />
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10 }}>

@@ -127,4 +127,33 @@ describe('Crypto Deduplication, Normalization and Logos', () => {
     expect(result.totalCostEUR).toBe(2200);
     expect(result.avgPrice).toBeCloseTo(525.965, 2);
   });
+
+  it('resolveAssetLogo returns official company/fund logos for stocks/ETFs even when a broker is assigned', () => {
+    // 1. Amundi ETF held on Trade Republic
+    const pust = resolveAssetLogo('PUST.PA', 'Amundi Nasdaq-100', 'PEA', 'Trade Republic');
+    expect(pust.url).toContain('amundi.com');
+
+    // 2. Microsoft held on IBKR
+    const msft = resolveAssetLogo('MSFT', 'Microsoft Corporation', 'CTO', 'IBKR');
+    expect(msft.url).toContain('microsoft.com');
+
+    // 3. ServiceNow held on IBKR
+    const now = resolveAssetLogo('NOW', 'ServiceNow, Inc.', 'CTO', 'IBKR');
+    expect(now.url).toContain('servicenow.com');
+
+    // 4. Indépendance Europe Small held on BoursoBank
+    const ies = resolveAssetLogo('0P0001DKPM.F', 'Indépendance Europe Small', 'PEA-PME', 'BoursoBank');
+    expect(ies.url).toContain('independance-am.com');
+
+    // 5. Memscap & Riber
+    const mems = resolveAssetLogo('MEMS.PA', 'Memscap', 'PEA-PME');
+    expect(mems.url).toContain('memscap.com');
+
+    const riber = resolveAssetLogo('ALRIB.PA', 'Riber', 'PEA-PME');
+    expect(riber.url).toContain('riber.com');
+
+    // 6. Savings account (Livret A) held on BoursoBank -> uses BoursoBank
+    const livret = resolveAssetLogo(undefined, 'Livret A', 'LIVRET', 'BoursoBank');
+    expect(livret.url).toContain('boursobank.com');
+  });
 });

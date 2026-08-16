@@ -52,11 +52,12 @@ const TICKER_DOMAIN_MAP: Record<string, { domain?: string; directUrl?: string; e
   'ALERS.PA': { domain: 'eurobio-scientific.com' },
   'ALERS': { domain: 'eurobio-scientific.com' },
 
-  // Tech & Mega-Caps US
+  // Tech & Mega-Caps US & Global Stocks
+  'NOW': { domain: 'servicenow.com' },
+  'MSFT': { domain: 'microsoft.com' },
   'NVDA': { domain: 'nvidia.com' },
   'PLTR': { domain: 'palantir.com' },
   'AAPL': { domain: 'apple.com' },
-  'MSFT': { domain: 'microsoft.com' },
   'GOOGL': { domain: 'google.com' },
   'GOOG': { domain: 'google.com' },
   'AMZN': { domain: 'amazon.com' },
@@ -66,6 +67,29 @@ const TICKER_DOMAIN_MAP: Record<string, { domain?: string; directUrl?: string; e
   'INTC': { domain: 'intel.com' },
   'ASML': { domain: 'asml.com' },
   'AVGO': { domain: 'broadcom.com' },
+  'CRM': { domain: 'salesforce.com' },
+  'ORCL': { domain: 'oracle.com' },
+  'ADBE': { domain: 'adobe.com' },
+  'SNOW': { domain: 'snowflake.com' },
+  'CRWD': { domain: 'crowdstrike.com' },
+  'PANW': { domain: 'paloaltonetworks.com' },
+  'UBER': { domain: 'uber.com' },
+  'ABNB': { domain: 'airbnb.com' },
+  'NFLX': { domain: 'netflix.com' },
+
+  // CAC 40 & Europe
+  'MC.PA': { domain: 'lvmh.com' },
+  'OR.PA': { domain: 'loreal.com' },
+  'RMS.PA': { domain: 'hermes.com' },
+  'TTE.PA': { domain: 'totalenergies.com' },
+  'AIR.PA': { domain: 'airbus.com' },
+  'SAN.PA': { domain: 'sanofi.com' },
+  'AI.PA': { domain: 'airliquide.com' },
+  'BN.PA': { domain: 'danone.com' },
+  'SU.PA': { domain: 'se.com' },
+  'CAP.PA': { domain: 'capgemini.com' },
+  'DSY.PA': { domain: '3ds.com' },
+  'HO.PA': { domain: 'thalesgroup.com' },
 
   // Autres ETF & Émetteurs
   'WPEA.PA': { domain: 'ishares.com' },
@@ -191,105 +215,51 @@ export function resolveAssetLogo(
   const normInst = (institutionName || '').trim();
   const lowerInst = normInst.toLowerCase();
 
+  const isSavingsEnv = ['LIVRET', 'ASSURANCE_VIE', 'PER', 'PEE', 'IMMOBILIER'].includes(envelope || '');
+
   const fallbackKey = normTicker || normName || 'ACTIF';
   const baseTicker = cleanTicker.replace(/-(EUR|USD|USDT)$/i, '');
   const fallbackLetters = getInitials(baseTicker || cleanTicker || normName);
   const fallbackColor = getDeterministicColor(fallbackKey);
 
-  // 1. Recherche prioritaire par Organisme Bancaire associé (ex: Livret A chez BoursoBank, PEE chez Natixis)
-  // Ne s'applique pas aux cryptomonnaies où l'on veut le logo du jeton (BTC, ETH, DMTR, etc.) et non le logo du wallet
-  if (envelope !== 'CRYPTO' && normInst && INSTITUTION_DOMAIN_MAP[normInst]) {
-    const entry = INSTITUTION_DOMAIN_MAP[normInst];
-    if (entry.directUrl) {
-      return { url: entry.directUrl, fallbackLetters, fallbackColor, fallbackEmoji: entry.emoji };
-    }
-    if (entry.domain) {
-      return {
-        url: buildFaviconUrl(entry.domain),
-        fallbackLetters,
-        fallbackColor,
-        fallbackEmoji: entry.emoji,
-      };
-    }
-  }
-
-  // 2. Livret A / LDDS / Épargne détenue chez BoursoBank par défaut
-  if (lowerName.includes('livret a') || lowerName.includes('ldds') || lowerName.includes('bourso') || lowerInst.includes('bourso')) {
-    return {
-      url: buildFaviconUrl('boursobank.com'),
-      fallbackLetters: 'BB',
-      fallbackColor,
-    };
-  }
-
-  // 3. Fonds PEE Natixis / Mirova (ex: MF ACTIONS INTERNATIONALES P)
-  if (lowerName.includes('mf action') || lowerName.includes('natixis') || lowerInst.includes('natixis')) {
-    return {
-      url: buildFaviconUrl('interepargne.natixis.com'),
-      fallbackLetters: 'NX',
-      fallbackColor,
-    };
-  }
-
-  // 4. Recherche par Ticker exact
+  // 1. Recherche par Ticker exact (ex: NOW, MSFT, PUST.PA, 0P0001DKPM.F, MEMS.PA, ALRIB.PA...)
   if (normTicker && TICKER_DOMAIN_MAP[normTicker]) {
     const entry = TICKER_DOMAIN_MAP[normTicker];
-    if (entry.directUrl) {
-      return { url: entry.directUrl, fallbackLetters, fallbackColor, fallbackEmoji: entry.emoji };
-    }
-    if (entry.domain) {
-      return {
-        url: buildFaviconUrl(entry.domain),
-        fallbackLetters,
-        fallbackColor,
-        fallbackEmoji: entry.emoji,
-      };
-    }
+    if (entry.directUrl) return { url: entry.directUrl, fallbackLetters, fallbackColor, fallbackEmoji: entry.emoji };
+    if (entry.domain) return { url: buildFaviconUrl(entry.domain), fallbackLetters, fallbackColor, fallbackEmoji: entry.emoji };
   }
 
-  // 5. Recherche par Ticker sans extension
+  // 2. Recherche par Ticker sans extension de place (ex: NOW, MSFT, PUST, DCAM, MEMS, ALRIB, COHR, CEG, SYM)
   if (cleanTicker && TICKER_DOMAIN_MAP[cleanTicker]) {
     const entry = TICKER_DOMAIN_MAP[cleanTicker];
-    if (entry.directUrl) {
-      return { url: entry.directUrl, fallbackLetters, fallbackColor, fallbackEmoji: entry.emoji };
-    }
-    if (entry.domain) {
-      return {
-        url: buildFaviconUrl(entry.domain),
-        fallbackLetters,
-        fallbackColor,
-        fallbackEmoji: entry.emoji,
-      };
-    }
+    if (entry.directUrl) return { url: entry.directUrl, fallbackLetters, fallbackColor, fallbackEmoji: entry.emoji };
+    if (entry.domain) return { url: buildFaviconUrl(entry.domain), fallbackLetters, fallbackColor, fallbackEmoji: entry.emoji };
   }
 
-  // 5b. Recherche par Ticker de base (sans suffixe de devise -EUR, -USD, -USDT)
+  // 3. Recherche par Ticker de base sans suffixe de devise (-EUR, -USD, -USDT)
   if (baseTicker && TICKER_DOMAIN_MAP[baseTicker]) {
     const entry = TICKER_DOMAIN_MAP[baseTicker];
-    if (entry.directUrl) {
-      return { url: entry.directUrl, fallbackLetters, fallbackColor, fallbackEmoji: entry.emoji };
-    }
-    if (entry.domain) {
-      return {
-        url: buildFaviconUrl(entry.domain),
-        fallbackLetters,
-        fallbackColor,
-        fallbackEmoji: entry.emoji,
-      };
-    }
+    if (entry.directUrl) return { url: entry.directUrl, fallbackLetters, fallbackColor, fallbackEmoji: entry.emoji };
+    if (entry.domain) return { url: buildFaviconUrl(entry.domain), fallbackLetters, fallbackColor, fallbackEmoji: entry.emoji };
   }
 
-  // 6. Recherche par mots-clés de nom d'actif
-  if (lowerName.includes('coherent')) {
+  // 4. Recherche par mots-clés du nom d'entreprise ou du produit financier
+  if (lowerName.includes('servicenow') || normTicker === 'NOW') {
+    return { url: buildFaviconUrl('servicenow.com'), fallbackLetters: 'NOW', fallbackColor };
+  }
+  if (lowerName.includes('microsoft') || normTicker === 'MSFT') {
+    return { url: buildFaviconUrl('microsoft.com'), fallbackLetters: 'MS', fallbackColor };
+  }
+  if (lowerName.includes('coherent') || normTicker.includes('COHR')) {
     return { url: buildFaviconUrl('coherent.com'), fallbackLetters: 'CO', fallbackColor };
   }
-  if (lowerName.includes('constellation')) {
+  if (lowerName.includes('constellation') || normTicker.includes('CEG')) {
     return { url: buildFaviconUrl('constellationenergy.com'), fallbackLetters: 'CE', fallbackColor };
   }
-  if (lowerName.includes('symbotic')) {
+  if (lowerName.includes('symbotic') || lowerName.includes('symbiotic') || normTicker.includes('SYM')) {
     return { url: buildFaviconUrl('symbotic.com'), fallbackLetters: 'SY', fallbackColor };
   }
-  if (lowerName.includes('independance') || lowerName.includes('indépendance') || normTicker.includes('0P0001DKPM')) {
+  if (lowerName.includes('independance') || lowerName.includes('indépendance') || normTicker.includes('0P0001DKPM') || lowerName.includes('europe small')) {
     return { url: buildFaviconUrl('independance-am.com'), fallbackLetters: 'IA', fallbackColor };
   }
   if (lowerName.includes('riber') || normTicker.includes('ALRIB')) {
@@ -298,7 +268,7 @@ export function resolveAssetLogo(
   if (lowerName.includes('memscap') || normTicker.includes('MEMS')) {
     return { url: buildFaviconUrl('memscap.com'), fallbackLetters: 'ME', fallbackColor };
   }
-  if (lowerName.includes('amundi') || lowerName.includes('cw8') || lowerName.includes('pust') || lowerName.includes('dcam') || lowerName.includes('gpea')) {
+  if (lowerName.includes('amundi') || lowerName.includes('cw8') || lowerName.includes('pust') || lowerName.includes('dcam') || lowerName.includes('gpea') || lowerName.includes('nasdaq')) {
     return { url: buildFaviconUrl('amundi.com'), fallbackLetters: 'AM', fallbackColor };
   }
   if (lowerName.includes('alan allman') || normTicker.includes('ALALM')) {
@@ -307,11 +277,53 @@ export function resolveAssetLogo(
   if (lowerName.includes('eurobio') || normTicker.includes('ALERS')) {
     return { url: buildFaviconUrl('eurobio-scientific.com'), fallbackLetters: 'EB', fallbackColor };
   }
-  if (lowerName.includes('linxea')) {
-    return { url: buildFaviconUrl('linxea.com'), fallbackLetters: 'LX', fallbackColor };
+  if (lowerName.includes('nvidia') || normTicker.includes('NVDA')) {
+    return { url: buildFaviconUrl('nvidia.com'), fallbackLetters: 'NV', fallbackColor };
+  }
+  if (lowerName.includes('palantir') || normTicker.includes('PLTR')) {
+    return { url: buildFaviconUrl('palantir.com'), fallbackLetters: 'PL', fallbackColor };
+  }
+  if (lowerName.includes('apple') || normTicker.includes('AAPL')) {
+    return { url: buildFaviconUrl('apple.com'), fallbackLetters: 'AP', fallbackColor };
+  }
+  if (lowerName.includes('google') || lowerName.includes('alphabet') || normTicker.includes('GOOG')) {
+    return { url: buildFaviconUrl('google.com'), fallbackLetters: 'GO', fallbackColor };
+  }
+  if (lowerName.includes('amazon') || normTicker.includes('AMZN')) {
+    return { url: buildFaviconUrl('amazon.com'), fallbackLetters: 'AZ', fallbackColor };
+  }
+  if (lowerName.includes('meta ') || lowerName.includes('facebook') || normTicker.includes('META')) {
+    return { url: buildFaviconUrl('meta.com'), fallbackLetters: 'ME', fallbackColor };
+  }
+  if (lowerName.includes('tesla') || normTicker.includes('TSLA')) {
+    return { url: buildFaviconUrl('tesla.com'), fallbackLetters: 'TS', fallbackColor };
+  }
+  if (lowerName.includes('ishares') || normTicker.includes('WPEA')) {
+    return { url: buildFaviconUrl('ishares.com'), fallbackLetters: 'IS', fallbackColor };
+  }
+  if (lowerName.includes('vanguard') || normTicker.includes('VWCE')) {
+    return { url: buildFaviconUrl('vanguard.com'), fallbackLetters: 'VG', fallbackColor };
   }
 
-  // 7. Fallback par enveloppe fiscale
+  // 5. UNIQUEMENT pour les comptes d'ÉPARGNE (Livrets, PEE, Assurance-Vie...) : Résoudre par Établissement Bancaire
+  if (isSavingsEnv) {
+    if (normInst && INSTITUTION_DOMAIN_MAP[normInst]) {
+      const entry = INSTITUTION_DOMAIN_MAP[normInst];
+      if (entry.directUrl) return { url: entry.directUrl, fallbackLetters, fallbackColor, fallbackEmoji: entry.emoji };
+      if (entry.domain) return { url: buildFaviconUrl(entry.domain), fallbackLetters, fallbackColor, fallbackEmoji: entry.emoji };
+    }
+    if (lowerName.includes('livret a') || lowerName.includes('ldds') || lowerName.includes('bourso') || lowerInst.includes('bourso')) {
+      return { url: buildFaviconUrl('boursobank.com'), fallbackLetters: 'BB', fallbackColor };
+    }
+    if (lowerName.includes('mf action') || lowerName.includes('natixis') || lowerInst.includes('natixis')) {
+      return { url: buildFaviconUrl('interepargne.natixis.com'), fallbackLetters: 'NX', fallbackColor };
+    }
+    if (lowerName.includes('linxea') || lowerInst.includes('linxea')) {
+      return { url: buildFaviconUrl('linxea.com'), fallbackLetters: 'LX', fallbackColor };
+    }
+  }
+
+  // 6. Fallback par enveloppe fiscale
   let fallbackEmoji: string | undefined;
   if (envelope === 'PEE') fallbackEmoji = '🏢';
   else if (envelope === 'ASSURANCE_VIE' || envelope === 'PER') fallbackEmoji = '📜';

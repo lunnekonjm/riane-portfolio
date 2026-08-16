@@ -2260,6 +2260,80 @@ function autoGenerateThemes(
             </div>
           </div>
 
+                    {/* Broker / Courtier Section for Bourse (PEA, PEA-PME, CTO) */}
+          {(form.envelope === 'PEA' || form.envelope === 'PEA-PME' || form.envelope === 'CTO' || form.assetType === 'STOCK' || form.assetType === 'ETF') && (
+            <div
+              style={{
+                padding: '12px 14px',
+                background: 'rgba(6, 182, 212, 0.06)',
+                border: '1px solid rgba(6, 182, 212, 0.25)',
+                borderRadius: 'var(--radius-md)',
+                marginBottom: 16,
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, flexWrap: 'wrap', gap: 6 }}>
+                <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent-cyan)', display: 'flex', alignItems: 'center', gap: 5 }}>
+                  <span>🏦</span> Courtier / Teneur de Compte ({form.envelope}) :
+                </span>
+                <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Badge d'établissement</span>
+              </div>
+
+              {/* Broker Quick Chips */}
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
+                {[
+                  { label: '🧭 BoursoBank', value: 'BoursoBank' },
+                  { label: '📱 Trade Republic', value: 'Trade Republic' },
+                  { label: '📊 Interactive Brokers', value: 'Interactive Brokers' },
+                  { label: '🍀 Fortuneo', value: 'Fortuneo' },
+                  { label: '🌐 DEGIRO', value: 'DEGIRO' },
+                  { label: '⚡ Revolut', value: 'Revolut' },
+                  { label: '🏛️ Amundi ESR', value: 'Amundi' },
+                ].map((inst) => {
+                  const isSelected = (form.institutionName || '').toLowerCase() === inst.value.toLowerCase();
+                  return (
+                    <button
+                      key={inst.value}
+                      type="button"
+                      onClick={() => handleInstitutionChange(inst.value)}
+                      style={{
+                        padding: '6px 12px',
+                        fontSize: 12,
+                        borderRadius: 6,
+                        border: isSelected ? '2px solid var(--accent-cyan)' : '1px solid var(--border-subtle)',
+                        background: isSelected ? 'rgba(6, 182, 212, 0.25)' : 'var(--bg-secondary)',
+                        color: isSelected ? '#67e8f9' : 'var(--text-secondary)',
+                        fontWeight: isSelected ? 700 : 500,
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 4,
+                        transition: 'all 0.15s ease-in-out',
+                        boxShadow: isSelected ? '0 0 10px rgba(6, 182, 212, 0.35)' : 'none',
+                      }}
+                    >
+                      {isSelected ? `✓ ${inst.label}` : inst.label}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Custom Broker input */}
+              <div>
+                <label style={{ display: 'block', fontSize: 11, color: 'var(--text-secondary)', marginBottom: 3 }}>
+                  Courtier / Établissement personnalisé
+                </label>
+                <input
+                  className="input"
+                  type="text"
+                  value={form.institutionName || ''}
+                  onChange={(e) => handleInstitutionChange(e.target.value)}
+                  placeholder="ex: BoursoBank, Trade Republic, Interactive Brokers, Fortuneo..."
+                  style={{ fontSize: 12, padding: '6px 10px' }}
+                />
+              </div>
+            </div>
+          )}
+
           {/* Dynamic real-time calculation breakdown & Crypto Options */}
           {(form.envelope === 'CRYPTO' || form.assetType === 'CRYPTO') && (
             <div

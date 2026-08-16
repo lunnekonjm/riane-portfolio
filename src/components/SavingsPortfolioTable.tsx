@@ -1,4 +1,5 @@
 'use client';
+import PlatformBadge from '@/components/PlatformBadge';
 
 import { useState, useMemo } from 'react';
 import type { Position } from '@/types/portfolio';
@@ -224,9 +225,7 @@ export default function SavingsPortfolioTable({
                         </strong>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2, flexWrap: 'wrap' }}>
                           {position.institutionName && (
-                            <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
-                              🏦 {position.institutionName}
-                            </span>
+                            <PlatformBadge name={position.institutionName} />
                           )}
                           {depositsCount > 0 && (
                             <span style={{

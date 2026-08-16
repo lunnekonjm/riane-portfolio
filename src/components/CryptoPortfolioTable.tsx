@@ -1,4 +1,5 @@
 'use client';
+import PlatformBadge from '@/components/PlatformBadge';
 
 import React, { useState, useMemo } from 'react';
 import type { Position } from '@/types/portfolio';
@@ -433,25 +434,9 @@ export default function CryptoPortfolioTable({
                             <span className="mono" style={{ fontSize: 11, color: 'var(--accent-cyan)', fontWeight: 600 }}>
                               🏷️ {pos.ticker}
                             </span>
-                            {walletBadges.map((badge, idx) => {
-                              const icon = badge.toLowerCase().includes('trust') ? '🛡️' : badge.toLowerCase().includes('revolut') ? '⚡' : badge.toLowerCase().includes('ledger') ? '🔒' : '🪙';
-                              return (
-                                <span
-                                  key={idx}
-                                  style={{
-                                    fontSize: 10,
-                                    padding: '1px 6px',
-                                    borderRadius: 4,
-                                    background: 'rgba(245, 158, 11, 0.12)',
-                                    color: 'var(--accent-amber)',
-                                    border: '1px solid rgba(245, 158, 11, 0.25)',
-                                    fontWeight: 600,
-                                  }}
-                                >
-                                  {icon} {badge}
-                                </span>
-                              );
-                            })}
+                            {walletBadges.map((badge, idx) => (
+                              <PlatformBadge key={idx} name={badge} />
+                            ))}
                           </div>
                         </div>
                       </div>

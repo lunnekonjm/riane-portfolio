@@ -1,4 +1,5 @@
 'use client';
+import PlatformBadge from '@/components/PlatformBadge';
 
 import { useState, useEffect, useCallback } from 'react';
 import { onAuthChange, signInWithGoogle, signOut } from '@/services/firebase/auth';

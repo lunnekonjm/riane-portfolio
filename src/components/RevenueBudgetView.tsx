@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useMemo, useEffect } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import type {
   SalaryRecord,
   RevenueConfig,
@@ -24,11 +24,12 @@ import { useBoursoLive } from '@/hooks/useBoursoLive';
 import ConfirmationModal from '@/components/ConfirmationModal';
 import { LiquidTankWidget } from '@/components/LiquidTankWidget';
 import { CrisisModeModal } from '@/components/CrisisModeModal';
+import { SalaryTrendChart } from '@/components/SalaryTrendChart';
+import { PocketsRulesView } from '@/components/PocketsRulesView';
 import { computeCrisisRunwayMetrics } from '@/engines/crisisRunwayEngine';
 import { computeDetailedSalaryAnalytics, formatSalaryPeriodLabel } from '@/engines/salaryAnalyticsEngine';
 
 interface RevenueBudgetViewProps {
-
   records: SalaryRecord[];
   revenueConfig: RevenueConfig;
   allocations: ReserveAllocation[];
@@ -80,6 +81,8 @@ const BANK_CATEGORY_OPTIONS: Array<{ value: BankReconciliationCategory; label: s
 
 const CATEGORY_MAP = new Map(BANK_CATEGORY_OPTIONS.map((c) => [c.value, c]));
 
+type AuraSubTab = 'AUDIT' | 'CRISIS' | 'POCKETS' | 'RECONCILIATION';
+
 export default function RevenueBudgetView({
   records,
   revenueConfig,
@@ -92,26 +95,35 @@ export default function RevenueBudgetView({
   onOpenIntegrationsHub,
   onShowToast,
 }: RevenueBudgetViewProps) {
+  // Navigation par sous-onglets Aura Pro
+  const [activeTab, setActiveTab] = useState<AuraSubTab>('AUDIT');
+
   // Real transactions from TrueLayer cache
   const [allBankTransactions, setAllBankTransactions] = useState<RawBankTransaction[]>([]);
   const [isSyncingTrueLayer, setIsSyncingTrueLayer] = useState(false);
   const [lastSyncTs, setLastSyncTs] = useState<number | null>(null);
   const [needsReauth, setNeedsReauth] = useState(false);
 
-  // Active month
+  // Active month for bank reconciliation
   const [selectedMonth, setSelectedMonth] = useState<string>(() => currentPeriod().period);
 
-  // Review Modal & Undo/Redo State
+  // Modals state
   const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
   const [reviewMatches, setReviewMatches] = useState<BankTransactionMatch[]>([]);
   const [matchesHistory, setMatchesHistory] = useState<BankTransactionMatch[][]>([]);
   const [matchesRedo, setMatchesRedo] = useState<BankTransactionMatch[][]>([]);
-
-  // Confirmation & Crisis Modals State
   const [isResetMonthModalOpen, setIsResetMonthModalOpen] = useState(false);
   const [isClearCacheModalOpen, setIsClearCacheModalOpen] = useState(false);
   const [isCrisisModalOpen, setIsCrisisModalOpen] = useState(false);
   const [vitalExpenses, setVitalExpenses] = useState<number>(1150);
+
+  // Formulaire d'ajout manuel de bulletin
+  const [isAddSalaryOpen, setIsAddSalaryOpen] = useState(false);
+  const [newSalaryPeriod, setNewSalaryPeriod] = useState(() => currentPeriod().period);
+  const [newSalaryNet, setNewSalaryNet] = useState<number>(2861.26);
+  const [newSalaryGross, setNewSalaryGross] = useState<number>(3800);
+  const [newSalaryBonus, setNewSalaryBonus] = useState<number>(0);
+  const [newSalaryTaxRate, setNewSalaryTaxRate] = useState<number>(8.5);
 
   const boursoLive = useBoursoLive();
   const targetMonthlyBudget = portfolioConfig?.monthlyBudget || 400;
@@ -128,7 +140,7 @@ export default function RevenueBudgetView({
   const emergencySavings = useMemo(() => {
     const liveAvailable = (boursoLive.tamponEUR || 0) + (boursoLive.livretAEUR || 0);
     if (liveAvailable > 0) return liveAvailable;
-    return detailedSalaryAnalytics.totalReserveBalanceAvailable || 1500;
+    return detailedSalaryAnalytics.totalReserveBalanceAvailable || 1600;
   }, [boursoLive.tamponEUR, boursoLive.livretAEUR, detailedSalaryAnalytics.totalReserveBalanceAvailable]);
 
   const crisisMetrics = useMemo(() => {
@@ -138,7 +150,6 @@ export default function RevenueBudgetView({
       targetMonths: 6,
     });
   }, [emergencySavings, vitalExpenses]);
-
 
   // Read cached TrueLayer transactions on mount — NO FAKE SEEDING
   useEffect(() => {
@@ -263,7 +274,6 @@ export default function RevenueBudgetView({
     setIsReviewModalOpen(true);
   }, [selectedMonth, currentRecord, allBankTransactions]);
 
-  // 🔄 Mettre à jour une ligne dans le modal de revue avec historique Undo/Redo
   const handleUpdateReviewMatch = useCallback((id: string, updates: Partial<BankTransactionMatch>) => {
     setReviewMatches((prev) => {
       setMatchesHistory((h) => [JSON.parse(JSON.stringify(prev)), ...h].slice(0, 20));
@@ -290,7 +300,6 @@ export default function RevenueBudgetView({
     setReviewMatches(next);
   }, [matchesRedo, reviewMatches]);
 
-  // 🔄 Réinitialiser les flux du mois courant d'après les données bancaires
   const handleConfirmResetMonth = useCallback(async () => {
     if (currentRecord?.id) {
       await onDeleteRecord(currentRecord.id);
@@ -302,7 +311,6 @@ export default function RevenueBudgetView({
     onShowToast(`🔄 Flux du mois de ${getPeriodLabel(selectedMonth)} réinitialisés d'après les données bancaires !`, 'success');
   }, [currentRecord, onDeleteRecord, selectedMonth, onShowToast]);
 
-  // 🗑️ Effacer le cache des transactions bancaires
   const handleConfirmClearCache = useCallback(() => {
     if (typeof window !== 'undefined') {
       localStorage.removeItem('riane_bank_raw_transactions_cache');
@@ -314,7 +322,6 @@ export default function RevenueBudgetView({
     onShowToast('🗑️ Cache bancaire local vidé avec succès.', 'success');
   }, [onShowToast]);
 
-  // 💾 Enregistrer la validation du modal
   const handleSaveReviewModal = useCallback(async () => {
     let computedSalary = 0;
     let computedPEA = 0;
@@ -385,7 +392,29 @@ export default function RevenueBudgetView({
     onShowToast(`✅ Rapprochement validé pour ${getPeriodLabel(selectedMonth)} !`, 'success');
   }, [reviewMatches, selectedMonth, currentRecord, targetMonthlyBudget, onSaveRecord, onShowToast]);
 
-  // Modal Computed Totals for instant feedback
+  const handleAddNewSalaryRecord = async () => {
+    const record: SalaryRecord = {
+      id: `sal-${Date.now()}`,
+      period: newSalaryPeriod,
+      periodLabel: formatSalaryPeriodLabel(newSalaryPeriod),
+      netSalary: newSalaryNet,
+      grossSalary: newSalaryGross,
+      bonusAmount: newSalaryBonus,
+      bonusNet: newSalaryBonus > 0 ? newSalaryBonus * 0.79 : 0,
+      incomeTaxRatePercent: newSalaryTaxRate,
+      regularInvestableAmount: targetMonthlyBudget,
+      bonusReserveContribution: newSalaryBonus > 0 ? newSalaryBonus * 0.5 : 0,
+      savingsRate: newSalaryNet > 0 ? Math.round((targetMonthlyBudget / newSalaryNet) * 100) : 0,
+      source: 'manual',
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    };
+
+    await onSaveRecord(record);
+    setIsAddSalaryOpen(false);
+    onShowToast(`💼 Bulletin de salaire pour ${record.periodLabel} ajouté avec succès !`, 'success');
+  };
+
   const modalSummary = useMemo(() => {
     let salary = 0;
     let pea = 0;
@@ -402,502 +431,579 @@ export default function RevenueBudgetView({
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-      {/* 🏦 1. EN-TÊTE & CONTRÔLE BOURSOBANK */}
+      {/* 🧭 NAVIGATION SUPÉRIEURE PAR ONGLETS AURA PRO */}
       <div
         className="card"
         style={{
+          background: 'linear-gradient(135deg, rgba(17, 24, 39, 0.95) 0%, rgba(10, 14, 25, 0.98) 100%)',
           border: '1px solid var(--border-subtle)',
-          background: 'var(--bg-secondary)',
-          padding: '16px 20px',
-          borderRadius: 12,
+          borderRadius: 14,
+          padding: 8,
+          display: 'flex',
+          gap: 8,
+          overflowX: 'auto',
         }}
       >
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 14 }}>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <h3 style={{ fontSize: 17, margin: 0, fontWeight: 800, color: 'var(--text-primary)' }}>
-                💼 Revenu &amp; Budget Réel
-              </h3>
-              <span
-                style={{
-                  fontSize: 11,
-                  fontWeight: 700,
-                  padding: '3px 8px',
-                  borderRadius: 12,
-                  background: boursoLive.isConnected && !needsReauth ? 'rgba(16, 185, 129, 0.15)' : 'rgba(245, 158, 11, 0.15)',
-                  color: boursoLive.isConnected && !needsReauth ? 'var(--accent-emerald)' : 'var(--accent-amber)',
-                  border: `1px solid ${boursoLive.isConnected && !needsReauth ? 'var(--accent-emerald)' : 'var(--accent-amber)'}`,
-                }}
-              >
-                {boursoLive.isConnected && !needsReauth ? '🟢 BoursoBank Connecté' : '🟡 BoursoBank Non connecté'}
+        <button
+          type="button"
+          onClick={() => setActiveTab('AUDIT')}
+          style={{
+            flex: 1,
+            minWidth: 160,
+            padding: '10px 16px',
+            borderRadius: 10,
+            fontSize: 13,
+            fontWeight: activeTab === 'AUDIT' ? 800 : 600,
+            border: activeTab === 'AUDIT' ? '1px solid var(--accent-cyan)' : '1px solid transparent',
+            background: activeTab === 'AUDIT' ? 'rgba(6, 182, 212, 0.15)' : 'transparent',
+            color: activeTab === 'AUDIT' ? 'var(--accent-cyan)' : 'var(--text-secondary)',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 8,
+            transition: 'all 0.2s',
+          }}
+        >
+          <span>💼 Audit Salarial &amp; Fiches</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('CRISIS')}
+          style={{
+            flex: 1,
+            minWidth: 160,
+            padding: '10px 16px',
+            borderRadius: 10,
+            fontSize: 13,
+            fontWeight: activeTab === 'CRISIS' ? 800 : 600,
+            border: activeTab === 'CRISIS' ? '1px solid var(--accent-amber)' : '1px solid transparent',
+            background: activeTab === 'CRISIS' ? 'rgba(245, 158, 11, 0.15)' : 'transparent',
+            color: activeTab === 'CRISIS' ? 'var(--accent-amber)' : 'var(--text-secondary)',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 8,
+            transition: 'all 0.2s',
+          }}
+        >
+          <span>🛡️ Filet Sécurité &amp; Crise</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('POCKETS')}
+          style={{
+            flex: 1,
+            minWidth: 160,
+            padding: '10px 16px',
+            borderRadius: 10,
+            fontSize: 13,
+            fontWeight: activeTab === 'POCKETS' ? 800 : 600,
+            border: activeTab === 'POCKETS' ? '1px solid var(--accent-emerald)' : '1px solid transparent',
+            background: activeTab === 'POCKETS' ? 'rgba(16, 185, 129, 0.15)' : 'transparent',
+            color: activeTab === 'POCKETS' ? 'var(--accent-emerald)' : 'var(--text-secondary)',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 8,
+            transition: 'all 0.2s',
+          }}
+        >
+          <span>🎯 Pockets &amp; Cascade</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('RECONCILIATION')}
+          style={{
+            flex: 1,
+            minWidth: 160,
+            padding: '10px 16px',
+            borderRadius: 10,
+            fontSize: 13,
+            fontWeight: activeTab === 'RECONCILIATION' ? 800 : 600,
+            border: activeTab === 'RECONCILIATION' ? '1px solid #818cf8' : '1px solid transparent',
+            background: activeTab === 'RECONCILIATION' ? 'rgba(129, 140, 248, 0.15)' : 'transparent',
+            color: activeTab === 'RECONCILIATION' ? '#818cf8' : 'var(--text-secondary)',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 8,
+            transition: 'all 0.2s',
+          }}
+        >
+          <span>🏦 Banque BoursoBank</span>
+        </button>
+      </div>
+
+      {/* 💼 ONGLET 1 : AUDIT SALARIAL, BULLETINS & GRAPHIQUE DE TENDANCE */}
+      {activeTab === 'AUDIT' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+          {/* Cartes KPI Salariaux Pro */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
+            <div className="card" style={{ padding: 16, border: '1px solid rgba(6, 182, 212, 0.3)', background: 'rgba(6, 182, 212, 0.06)' }}>
+              <span style={{ fontSize: 11, fontWeight: 800, color: 'var(--accent-cyan)', textTransform: 'uppercase' }}>
+                💼 Salaire Net Moyen
               </span>
+              <div style={{ fontSize: 24, fontWeight: 800, color: 'var(--accent-cyan)', fontFamily: 'var(--font-mono)', marginTop: 6 }}>
+                {Math.round(detailedSalaryAnalytics.overallAverageNet).toLocaleString('fr-FR')} €
+              </div>
+              <span style={{ fontSize: 11.5, color: 'var(--text-secondary)' }}>Moyenne lissée sur l'historique</span>
             </div>
-            <p style={{ margin: '4px 0 0 0', fontSize: 13, color: 'var(--text-secondary)' }}>
-              Analysez vos flux bancaires réels : salaire net encaissé vs versements réellement envoyés vers le PEA.
-            </p>
+
+            <div className="card" style={{ padding: 16, border: '1px solid rgba(16, 185, 129, 0.3)', background: 'rgba(16, 185, 129, 0.06)' }}>
+              <span style={{ fontSize: 11, fontWeight: 800, color: 'var(--accent-emerald)', textTransform: 'uppercase' }}>
+                📈 Tendance de Croissance
+              </span>
+              <div style={{ fontSize: 24, fontWeight: 800, color: 'var(--accent-emerald)', fontFamily: 'var(--font-mono)', marginTop: 6 }}>
+                {detailedSalaryAnalytics.growthTrendPercent >= 0 ? `+${detailedSalaryAnalytics.growthTrendPercent.toFixed(1)}%` : `${detailedSalaryAnalytics.growthTrendPercent.toFixed(1)}%`}
+              </div>
+              <span style={{ fontSize: 11.5, color: 'var(--text-secondary)' }}>Évolution depuis le 1er bulletin</span>
+            </div>
+
+            <div className="card" style={{ padding: 16, border: '1px solid rgba(245, 158, 11, 0.3)', background: 'rgba(245, 158, 11, 0.06)' }}>
+              <span style={{ fontSize: 11, fontWeight: 800, color: 'var(--accent-amber)', textTransform: 'uppercase' }}>
+                🛡️ Réserve Primes Accrue
+              </span>
+              <div style={{ fontSize: 24, fontWeight: 800, color: 'var(--accent-amber)', fontFamily: 'var(--font-mono)', marginTop: 6 }}>
+                {Math.round(detailedSalaryAnalytics.totalReserveBalanceAvailable).toLocaleString('fr-FR')} €
+              </div>
+              <span style={{ fontSize: 11.5, color: 'var(--text-secondary)' }}>Surplus sécurisé non alloué</span>
+            </div>
+
+            <div className="card" style={{ padding: 16, border: '1px solid rgba(129, 140, 248, 0.3)', background: 'rgba(129, 140, 248, 0.06)' }}>
+              <span style={{ fontSize: 11, fontWeight: 800, color: '#818cf8', textTransform: 'uppercase' }}>
+                ⚖️ Taux Prélèvement Source
+              </span>
+              <div style={{ fontSize: 24, fontWeight: 800, color: '#818cf8', fontFamily: 'var(--font-mono)', marginTop: 6 }}>
+                {detailedSalaryAnalytics.averageEffectiveTaxRate.toFixed(1)}%
+              </div>
+              <span style={{ fontSize: 11.5, color: 'var(--text-secondary)' }}>Taux effectif moyen d'imposition</span>
+            </div>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-            {boursoLive.tamponEUR > 0 && onOpenRebalancerWithBudget && (
+          {/* Graphique d'évolution salariale interactif */}
+          <SalaryTrendChart records={cleanRecords} />
+
+          {/* Tableau détaillé des fiches de paie */}
+          <div className="card" style={{ padding: 22 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12, marginBottom: 16 }}>
+              <div>
+                <h4 style={{ fontSize: 16, margin: 0, fontWeight: 800, color: 'var(--text-primary)' }}>
+                  📄 Bulletins de Salaire Enregistrés ({cleanRecords.length})
+                </h4>
+                <p style={{ margin: '2px 0 0 0', fontSize: 12.5, color: 'var(--text-secondary)' }}>
+                  Historique détaillé avec ventilation par composante (Salaire de base, Primes, RTT, PAS).
+                </p>
+              </div>
+
               <button
                 type="button"
                 className="btn btn-primary btn-sm"
-                style={{
-                  background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                  fontWeight: 700,
-                }}
-                onClick={() => onOpenRebalancerWithBudget(boursoLive.tamponEUR)}
+                onClick={() => setIsAddSalaryOpen(!isAddSalaryOpen)}
+                style={{ fontWeight: 700 }}
               >
-                ⚡ Rééquilibrer avec le Tampon ({boursoLive.tamponEUR.toLocaleString('fr-FR')} €)
+                {isAddSalaryOpen ? '✕ Fermer formulaire' : '➕ Ajouter un bulletin'}
               </button>
+            </div>
+
+            {/* Formulaire d'ajout rapide */}
+            {isAddSalaryOpen && (
+              <div style={{ background: 'var(--bg-secondary)', padding: 16, borderRadius: 12, border: '1px solid var(--border-subtle)', marginBottom: 16 }}>
+                <span style={{ fontSize: 11, fontWeight: 800, color: 'var(--accent-cyan)', textTransform: 'uppercase', display: 'block', marginBottom: 10 }}>
+                  Nouveau Bulletin de Salaire
+                </span>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10, marginBottom: 12 }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: 11, color: 'var(--text-secondary)', marginBottom: 4 }}>Période (YYYY-MM)</label>
+                    <input
+                      type="month"
+                      className="input"
+                      value={newSalaryPeriod}
+                      onChange={(e) => setNewSalaryPeriod(e.target.value)}
+                      style={{ width: '100%' }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: 11, color: 'var(--text-secondary)', marginBottom: 4 }}>Net à payer (€)</label>
+                    <input
+                      type="number"
+                      className="input"
+                      value={newSalaryNet}
+                      onChange={(e) => setNewSalaryNet(Number(e.target.value))}
+                      style={{ width: '100%' }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: 11, color: 'var(--text-secondary)', marginBottom: 4 }}>Salaire Brut (€)</label>
+                    <input
+                      type="number"
+                      className="input"
+                      value={newSalaryGross}
+                      onChange={(e) => setNewSalaryGross(Number(e.target.value))}
+                      style={{ width: '100%' }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: 11, color: 'var(--text-secondary)', marginBottom: 4 }}>Prime éventuelle (€)</label>
+                    <input
+                      type="number"
+                      className="input"
+                      value={newSalaryBonus}
+                      onChange={(e) => setNewSalaryBonus(Number(e.target.value))}
+                      style={{ width: '100%' }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: 11, color: 'var(--text-secondary)', marginBottom: 4 }}>Taux PAS (%)</label>
+                    <input
+                      type="number"
+                      step="0.1"
+                      className="input"
+                      value={newSalaryTaxRate}
+                      onChange={(e) => setNewSalaryTaxRate(Number(e.target.value))}
+                      style={{ width: '100%' }}
+                    />
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="btn btn-primary btn-sm"
+                  onClick={handleAddNewSalaryRecord}
+                  style={{ background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', fontWeight: 700 }}
+                >
+                  💾 Enregistrer ce bulletin
+                </button>
+              </div>
             )}
 
-            {(!boursoLive.isConnected || needsReauth) ? (
-              <button
-                type="button"
-                className="btn btn-secondary btn-sm"
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 6,
-                  padding: '6px 12px',
-                  borderRadius: 8,
-                  background: 'rgba(129, 140, 248, 0.12)',
-                  border: '1px solid rgba(129, 140, 248, 0.4)',
-                  fontSize: 12,
-                  color: 'var(--accent-indigo, #818cf8)',
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                }}
-                onClick={onOpenIntegrationsHub}
-                title="Ouvrir le menu Comptes & Sync API pour connecter ou reconnecter BoursoBank"
-              >
-                🔗 Comptes &amp; Sync API
-              </button>
+            {cleanRecords.length === 0 ? (
+              <div style={{ padding: 24, textAlign: 'center', color: 'var(--text-secondary)', background: 'var(--bg-secondary)', borderRadius: 8 }}>
+                Aucun bulletin de paie enregistré. Cliquez sur « ➕ Ajouter un bulletin » pour renseigner votre rémunération.
+              </div>
             ) : (
-              <button
-                type="button"
-                className="btn btn-primary"
-                style={{ background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)', fontWeight: 700, fontSize: 13 }}
-                disabled={isSyncingTrueLayer}
-                onClick={handleSyncBoursoBank}
-                title="Interroger TrueLayer pour récupérer les transactions réelles des 3 derniers mois"
-              >
-                {isSyncingTrueLayer ? '⏳ Synchronisation...' : '🔄 Synchroniser (3 mois)'}
-              </button>
-            )}
-
-            {allBankTransactions.length > 0 && (
-              <button
-                type="button"
-                className="btn btn-ghost btn-sm"
-                style={{ color: 'var(--text-tertiary)', fontSize: 12, padding: '6px 10px' }}
-                onClick={() => setIsClearCacheModalOpen(true)}
-                title="Vider le cache local des transactions bancaires"
-              >
-                🗑️ Vider le cache ({allBankTransactions.length})
-              </button>
+              <div style={{ overflowX: 'auto', border: '1px solid var(--border-subtle)', borderRadius: 8 }}>
+                <table className="table" style={{ width: '100%', margin: 0 }}>
+                  <thead>
+                    <tr>
+                      <th>Période</th>
+                      <th>Net à Payer</th>
+                      <th>Brut</th>
+                      <th>Primes</th>
+                      <th>Taux PAS</th>
+                      <th>Investi PEA</th>
+                      <th style={{ width: 60 }}>Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {cleanRecords.map((r) => (
+                      <tr key={r.id}>
+                        <td><strong>{r.periodLabel || formatSalaryPeriodLabel(r.period)}</strong></td>
+                        <td style={{ fontFamily: 'var(--font-mono)', fontWeight: 800, color: 'var(--accent-cyan)' }}>
+                          +{r.netSalary.toLocaleString('fr-FR')} €
+                        </td>
+                        <td style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-secondary)' }}>
+                          {r.grossSalary ? `${r.grossSalary.toLocaleString('fr-FR')} €` : '—'}
+                        </td>
+                        <td style={{ fontFamily: 'var(--font-mono)', color: r.bonusAmount ? 'var(--accent-amber)' : 'var(--text-muted)' }}>
+                          {r.bonusAmount ? `+${r.bonusAmount.toLocaleString('fr-FR')} €` : '0 €'}
+                        </td>
+                        <td style={{ fontFamily: 'var(--font-mono)', color: '#818cf8' }}>
+                          {r.incomeTaxRatePercent ? `${r.incomeTaxRatePercent}%` : '—'}
+                        </td>
+                        <td style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--accent-emerald)' }}>
+                          {r.regularInvestableAmount ? `${r.regularInvestableAmount.toLocaleString('fr-FR')} €` : '—'}
+                        </td>
+                        <td>
+                          <button
+                            type="button"
+                            className="btn-ghost"
+                            onClick={() => onDeleteRecord(r.id)}
+                            title="Supprimer ce bulletin"
+                          >
+                            🗑️
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             )}
           </div>
         </div>
+      )}
 
-        {/* Mini Soldes Rapides si connectés */}
-        {boursoLive.isConnected && (
-          <div style={{ display: 'flex', gap: 16, marginTop: 14, paddingTop: 12, borderTop: '1px solid var(--border-subtle)', flexWrap: 'wrap' }}>
-            <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
-              💳 Compte Courant : <strong style={{ color: 'var(--text-primary)' }}>{boursoLive.checkingEUR.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}</strong>
-            </span>
-            <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
-              ⚡ Compte Tampon : <strong style={{ color: 'var(--accent-emerald)' }}>{boursoLive.tamponEUR.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}</strong>
-            </span>
-            <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
-              🛡️ Livret A : <strong style={{ color: 'var(--text-primary)' }}>{boursoLive.livretAEUR.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}</strong>
-            </span>
-            {lastSyncTs && (
-              <span style={{ fontSize: 11, color: 'var(--text-muted)', marginLeft: 'auto' }}>
-                Dernière synchro : {new Date(lastSyncTs).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
-              </span>
-            )}
-          </div>
-        )}
-      </div>
+      {/* 🛡️ ONGLET 2 : FILET DE SÉCURITÉ, LIQUID TANK & MODE CRISE */}
+      {activeTab === 'CRISIS' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+          {/* Liquid Tank Capsule Widget Haute Fidélité */}
+          <LiquidTankWidget
+            metrics={crisisMetrics}
+            onOpenCrisisModal={() => setIsCrisisModalOpen(true)}
+            onTargetChange={(months) => onShowToast(`Cible d'urgence ajustée à ${months} mois`, 'success')}
+          />
 
-      {/* 🛡️ 1.5. WIDGET DU RÉSERVOIR LIQUIDE & RÉSILIENCE FINANCIÈRE (AURA PRO ENGINE) */}
-      <LiquidTankWidget
-        metrics={crisisMetrics}
-        onOpenCrisisModal={() => setIsCrisisModalOpen(true)}
-      />
-
-      {/* 📊 2. SECTION CENTRALE : ANALYSE DU MOIS ÉCOULÉ (THÉORIE VS RÉALITÉ) */}
-      <div
-        className="card"
-        style={{
-          border: '1px solid rgba(99, 102, 241, 0.3)',
-          background: 'linear-gradient(135deg, rgba(30, 27, 75, 0.25) 0%, rgba(15, 23, 42, 0.9) 100%)',
-          padding: 22,
-          borderRadius: 12,
-        }}
-      >
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 14, marginBottom: 18 }}>
-          <div>
-            <h4 style={{ fontSize: 16, margin: 0, fontWeight: 800, color: 'var(--text-primary)' }}>
-              Analyse Mensuelle : {getPeriodLabel(selectedMonth)}
+          {/* Diagnostic & Conseils de Résilience */}
+          <div className="card" style={{ padding: 22, border: '1px solid rgba(245, 158, 11, 0.3)', background: 'linear-gradient(135deg, rgba(30, 27, 75, 0.2) 0%, rgba(15, 23, 42, 0.95) 100%)' }}>
+            <h4 style={{ fontSize: 16, margin: '0 0 12px 0', fontWeight: 800, color: 'var(--text-primary)' }}>
+              🛡️ Analyse de Résilience Financière (Aura Crisis Engine)
             </h4>
-            <p style={{ margin: '3px 0 0 0', fontSize: 13, color: 'var(--text-secondary)' }}>
-
-              Confrontation directe des montants constatés en banque avec votre budget cible.
-            </p>
-          </div>
-
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <button
-              type="button"
-              className="btn btn-secondary btn-sm"
-              style={{ fontWeight: 600, fontSize: 12 }}
-              onClick={handleOpenReviewModal}
-            >
-              ✏️ Revoir &amp; Modifier les flux
-            </button>
-            <button
-              type="button"
-              className="btn btn-ghost btn-sm"
-              style={{ fontWeight: 600, fontSize: 12, color: 'var(--accent-amber)' }}
-              onClick={() => setIsResetMonthModalOpen(true)}
-              title="Réinitialiser les flux de ce mois d'après les transactions réelles"
-            >
-              🔄 Réinitialiser ce mois
-            </button>
-            <button
-              type="button"
-              className="btn btn-primary btn-sm"
-              style={{ background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', fontWeight: 700, fontSize: 12 }}
-              onClick={handleSaveReviewModal}
-            >
-              ✅ Valider ce mois
-            </button>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {crisisMetrics.recommendations.map((rec, idx) => (
+                <div key={idx} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, fontSize: 13, color: 'var(--text-secondary)' }}>
+                  <span style={{ color: 'var(--accent-amber)', fontSize: 14 }}>👉</span>
+                  <span>{rec}</span>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
+      )}
 
-        {/* Sélecteur de mois horizontal */}
-        <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 6, marginBottom: 18 }}>
-          {availableMonths.map((m) => {
-            const isSelected = m === selectedMonth;
-            const rec = cleanRecords.find((r) => r.period === m);
-            const isReconciled = rec?.bankReality?.reconciled;
-            return (
-              <button
-                key={m}
-                type="button"
-                onClick={() => setSelectedMonth(m)}
-                style={{
-                  padding: '7px 14px',
-                  borderRadius: 8,
-                  fontSize: 13,
-                  fontWeight: isSelected ? 800 : 600,
-                  cursor: 'pointer',
-                  border: isSelected ? '1px solid var(--accent-cyan)' : '1px solid var(--border-subtle)',
-                  background: isSelected ? 'rgba(6, 182, 212, 0.15)' : 'var(--bg-secondary)',
-                  color: isSelected ? 'var(--accent-cyan)' : 'var(--text-secondary)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 6,
-                  whiteSpace: 'nowrap',
-                  transition: 'all 0.15s ease',
-                }}
-              >
-                <span>📅 {getPeriodLabel(m)}</span>
-                {isReconciled ? (
-                  <span style={{ fontSize: 10, color: 'var(--accent-emerald)', fontWeight: 700 }}>✅ Validé</span>
-                ) : (
-                  <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>⏳ En attente</span>
+      {/* 🎯 ONGLET 3 : POCKETS D'ÉPARGNE & RÈGLES DE CASCADE */}
+      {activeTab === 'POCKETS' && (
+        <PocketsRulesView
+          monthlySalary={detailedSalaryAnalytics.overallAverageNet || 2861}
+          onSyncMonthlyBudget={onSyncMonthlyBudget}
+          onShowToast={onShowToast}
+        />
+      )}
+
+      {/* 🏦 ONGLET 4 : BANQUE BOURSOBANK & RAPPROCHEMENT BANCAIRE RÉEL */}
+      {activeTab === 'RECONCILIATION' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+          {/* Contrôle BoursoBank Header */}
+          <div className="card" style={{ padding: '16px 20px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 14 }}>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <h3 style={{ fontSize: 17, margin: 0, fontWeight: 800, color: 'var(--text-primary)' }}>
+                    💼 Flux Bancaires BoursoBank
+                  </h3>
+                  <span
+                    style={{
+                      fontSize: 11,
+                      fontWeight: 700,
+                      padding: '3px 8px',
+                      borderRadius: 12,
+                      background: boursoLive.isConnected && !needsReauth ? 'rgba(16, 185, 129, 0.15)' : 'rgba(245, 158, 11, 0.15)',
+                      color: boursoLive.isConnected && !needsReauth ? 'var(--accent-emerald)' : 'var(--accent-amber)',
+                      border: `1px solid ${boursoLive.isConnected && !needsReauth ? 'var(--accent-emerald)' : 'var(--accent-amber)'}`,
+                    }}
+                  >
+                    {boursoLive.isConnected && !needsReauth ? '🟢 BoursoBank Connecté' : '🟡 BoursoBank Non connecté'}
+                  </span>
+                </div>
+                <p style={{ margin: '4px 0 0 0', fontSize: 13, color: 'var(--text-secondary)' }}>
+                  Rapprochement transparent des flux réels encaissés et des versements vers le PEA.
+                </p>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                {boursoLive.tamponEUR > 0 && onOpenRebalancerWithBudget && (
+                  <button
+                    type="button"
+                    className="btn btn-primary btn-sm"
+                    style={{ background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', fontWeight: 700 }}
+                    onClick={() => onOpenRebalancerWithBudget(boursoLive.tamponEUR)}
+                  >
+                    ⚡ Rééquilibrer avec le Tampon ({boursoLive.tamponEUR.toLocaleString('fr-FR')} €)
+                  </button>
                 )}
-              </button>
-            );
-          })}
-        </div>
 
-        {/* 3 Cartes Clés du Mois Écoulé */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 14, marginBottom: 20 }}>
-          {/* 1. Salaire net reçu */}
-          <div style={{ padding: 16, borderRadius: 10, background: 'rgba(6, 182, 212, 0.08)', border: '1px solid rgba(6, 182, 212, 0.25)' }}>
-            <span style={{ fontSize: 11, fontWeight: 800, color: 'var(--accent-cyan)', textTransform: 'uppercase' }}>
-              💼 Salaire Net Encaissé
-            </span>
-            <div style={{ fontSize: 24, fontWeight: 800, fontFamily: 'var(--font-mono)', marginTop: 6, color: 'var(--accent-cyan)' }}>
-              +{actualSalary.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €
+                {(!boursoLive.isConnected || needsReauth) ? (
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    style={{ background: 'rgba(129, 140, 248, 0.12)', border: '1px solid rgba(129, 140, 248, 0.4)', color: '#818cf8', fontWeight: 700 }}
+                    onClick={onOpenIntegrationsHub}
+                  >
+                    🔗 Comptes &amp; Sync API
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    style={{ background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)', fontWeight: 700, fontSize: 13 }}
+                    disabled={isSyncingTrueLayer}
+                    onClick={handleSyncBoursoBank}
+                  >
+                    {isSyncingTrueLayer ? '⏳ Synchronisation...' : '🔄 Synchroniser (3 mois)'}
+                  </button>
+                )}
+
+                {allBankTransactions.length > 0 && (
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-sm"
+                    onClick={() => setIsClearCacheModalOpen(true)}
+                  >
+                    🗑️ Vider cache ({allBankTransactions.length})
+                  </button>
+                )}
+              </div>
             </div>
-            <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
-              {actualSalary > 0 ? 'Constaté d\'après les virements employeur' : 'Aucun virement salaire détecté'}
-            </span>
+
+            {boursoLive.isConnected && (
+              <div style={{ display: 'flex', gap: 16, marginTop: 14, paddingTop: 12, borderTop: '1px solid var(--border-subtle)', flexWrap: 'wrap' }}>
+                <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
+                  💳 Compte Courant : <strong style={{ color: 'var(--text-primary)' }}>{boursoLive.checkingEUR.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}</strong>
+                </span>
+                <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
+                  ⚡ Compte Tampon : <strong style={{ color: 'var(--accent-emerald)' }}>{boursoLive.tamponEUR.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}</strong>
+                </span>
+                <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
+                  🛡️ Livret A : <strong style={{ color: 'var(--text-primary)' }}>{boursoLive.livretAEUR.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}</strong>
+                </span>
+              </div>
+            )}
           </div>
 
-          {/* 2. Investi PEA Réel */}
-          <div style={{ padding: 16, borderRadius: 10, background: 'rgba(16, 185, 129, 0.08)', border: '1px solid rgba(16, 185, 129, 0.25)' }}>
-            <span style={{ fontSize: 11, fontWeight: 800, color: 'var(--accent-emerald)', textTransform: 'uppercase' }}>
-              📈 Envoyé vers le PEA
-            </span>
-            <div style={{ fontSize: 24, fontWeight: 800, fontFamily: 'var(--font-mono)', marginTop: 6, color: 'var(--accent-emerald)' }}>
-              -{actualPEA.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €
-            </div>
-            <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
-              Budget cible prévu : <strong>{targetMonthlyBudget.toLocaleString('fr-FR')} €</strong>
-            </span>
-          </div>
+          {/* Analyse du mois sélectionné */}
+          <div className="card" style={{ padding: 22, border: '1px solid rgba(99, 102, 241, 0.3)', background: 'linear-gradient(135deg, rgba(30, 27, 75, 0.25) 0%, rgba(15, 23, 42, 0.9) 100%)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12, marginBottom: 16 }}>
+              <div>
+                <h4 style={{ fontSize: 16, margin: 0, fontWeight: 800, color: 'var(--text-primary)' }}>
+                  Analyse Mensuelle : {getPeriodLabel(selectedMonth)}
+                </h4>
+                <p style={{ margin: '3px 0 0 0', fontSize: 12.5, color: 'var(--text-secondary)' }}>
+                  Confrontation directe des montants constatés en banque avec votre budget cible.
+                </p>
+              </div>
 
-          {/* 3. Bilan & Conformité */}
-          <div style={{ padding: 16, borderRadius: 10, background: 'rgba(129, 140, 248, 0.08)', border: '1px solid rgba(129, 140, 248, 0.25)' }}>
-            <span style={{ fontSize: 11, fontWeight: 800, color: '#818cf8', textTransform: 'uppercase' }}>
-              🎯 Exécution &amp; Écart
-            </span>
-            <div style={{ fontSize: 24, fontWeight: 800, fontFamily: 'var(--font-mono)', marginTop: 6, color: deltaVsTarget >= 0 ? 'var(--accent-emerald)' : 'var(--accent-amber)' }}>
-              {deltaVsTarget >= 0 ? `+${deltaVsTarget.toLocaleString('fr-FR')} €` : `${deltaVsTarget.toLocaleString('fr-FR')} €`}
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  onClick={handleOpenReviewModal}
+                >
+                  ✏️ Revoir les flux
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-primary btn-sm"
+                  style={{ background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', fontWeight: 700 }}
+                  onClick={handleSaveReviewModal}
+                >
+                  ✅ Valider ce mois
+                </button>
+              </div>
             </div>
-            <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
-              {actualSalary > 0 ? `Taux d'effort réel : ${savingsRate}% du salaire` : 'Prêt pour validation'}
-            </span>
-          </div>
-        </div>
 
-        {/* Tableau des Flux Retenus pour ce mois */}
-        <div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-            <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>
-              Transactions bancaires retenues pour {getPeriodLabel(selectedMonth)} ({activeMatches.filter((m) => m.included).length})
-            </span>
-            <button
-              type="button"
-              className="btn btn-ghost btn-sm"
-              style={{ fontSize: 12, color: 'var(--accent-cyan)' }}
-              onClick={handleOpenReviewModal}
-            >
-              Modifier la sélection
-            </button>
-          </div>
-
-          {activeMatches.filter((m) => m.included).length === 0 ? (
-            <div style={{ padding: 24, textAlign: 'center', background: 'var(--bg-secondary)', borderRadius: 8, color: 'var(--text-secondary)', fontSize: 13 }}>
-              Aucune transaction bancaire associée à ce mois.{' '}
-              {boursoLive.isConnected ? (
-                <span>Cliquez sur <strong>« 🔄 Synchroniser »</strong> ou <strong>« ✏️ Revoir &amp; Modifier les flux »</strong> pour attribuer des transactions.</span>
-              ) : (
-                <span>Connectez votre compte BoursoBank pour importer automatiquement vos relevés.</span>
-              )}
+            {/* Sélecteur de mois horizontal */}
+            <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 6, marginBottom: 18 }}>
+              {availableMonths.map((m) => {
+                const isSelected = m === selectedMonth;
+                const rec = cleanRecords.find((r) => r.period === m);
+                const isReconciled = rec?.bankReality?.reconciled;
+                return (
+                  <button
+                    key={m}
+                    type="button"
+                    onClick={() => setSelectedMonth(m)}
+                    style={{
+                      padding: '7px 14px',
+                      borderRadius: 8,
+                      fontSize: 13,
+                      fontWeight: isSelected ? 800 : 600,
+                      cursor: 'pointer',
+                      border: isSelected ? '1px solid var(--accent-cyan)' : '1px solid var(--border-subtle)',
+                      background: isSelected ? 'rgba(6, 182, 212, 0.15)' : 'var(--bg-secondary)',
+                      color: isSelected ? 'var(--accent-cyan)' : 'var(--text-secondary)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 6,
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    <span>📅 {getPeriodLabel(m)}</span>
+                    {isReconciled && <span style={{ fontSize: 10, color: 'var(--accent-emerald)', fontWeight: 700 }}>✅ Validé</span>}
+                  </button>
+                );
+              })}
             </div>
-          ) : (
-            <div style={{ border: '1px solid var(--border-subtle)', borderRadius: 8, background: 'var(--bg-primary)', overflow: 'hidden' }}>
-              <table className="table" style={{ width: '100%', margin: 0 }}>
-                <thead>
-                  <tr>
-                    <th style={{ width: 100 }}>Date</th>
-                    <th>Libellé Transaction</th>
-                    <th style={{ width: 130, textAlign: 'right' }}>Montant</th>
-                    <th style={{ width: 230 }}>Catégorie Retenue</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {activeMatches
-                    .filter((tx) => tx.included)
-                    .map((tx) => {
+
+            {/* 3 Cartes Clés du Mois Écoulé */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14, marginBottom: 18 }}>
+              <div style={{ padding: 16, borderRadius: 10, background: 'rgba(6, 182, 212, 0.08)', border: '1px solid rgba(6, 182, 212, 0.25)' }}>
+                <span style={{ fontSize: 11, fontWeight: 800, color: 'var(--accent-cyan)', textTransform: 'uppercase' }}>
+                  💼 Salaire Net Encaissé
+                </span>
+                <div style={{ fontSize: 24, fontWeight: 800, fontFamily: 'var(--font-mono)', marginTop: 6, color: 'var(--accent-cyan)' }}>
+                  +{actualSalary.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €
+                </div>
+              </div>
+
+              <div style={{ padding: 16, borderRadius: 10, background: 'rgba(16, 185, 129, 0.08)', border: '1px solid rgba(16, 185, 129, 0.25)' }}>
+                <span style={{ fontSize: 11, fontWeight: 800, color: 'var(--accent-emerald)', textTransform: 'uppercase' }}>
+                  📈 Envoyé vers le PEA
+                </span>
+                <div style={{ fontSize: 24, fontWeight: 800, fontFamily: 'var(--font-mono)', marginTop: 6, color: 'var(--accent-emerald)' }}>
+                  -{actualPEA.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €
+                </div>
+              </div>
+
+              <div style={{ padding: 16, borderRadius: 10, background: 'rgba(129, 140, 248, 0.08)', border: '1px solid rgba(129, 140, 248, 0.25)' }}>
+                <span style={{ fontSize: 11, fontWeight: 800, color: '#818cf8', textTransform: 'uppercase' }}>
+                  🎯 Écart vs Cible ({targetMonthlyBudget} €)
+                </span>
+                <div style={{ fontSize: 24, fontWeight: 800, fontFamily: 'var(--font-mono)', marginTop: 6, color: deltaVsTarget >= 0 ? 'var(--accent-emerald)' : 'var(--accent-amber)' }}>
+                  {deltaVsTarget >= 0 ? `+${deltaVsTarget.toLocaleString('fr-FR')} €` : `${deltaVsTarget.toLocaleString('fr-FR')} €`}
+                </div>
+              </div>
+            </div>
+
+            {/* Tableau des Flux Retenus pour ce mois */}
+            {activeMatches.filter((m) => m.included).length > 0 && (
+              <div style={{ border: '1px solid var(--border-subtle)', borderRadius: 8, overflow: 'hidden' }}>
+                <table className="table" style={{ width: '100%', margin: 0 }}>
+                  <thead>
+                    <tr>
+                      <th style={{ width: 100 }}>Date</th>
+                      <th>Libellé Transaction</th>
+                      <th style={{ width: 130, textAlign: 'right' }}>Montant</th>
+                      <th style={{ width: 230 }}>Catégorie</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {activeMatches.filter((tx) => tx.included).map((tx) => {
                       const cat = CATEGORY_MAP.get(tx.category) || CATEGORY_MAP.get('OTHER_TRANSFER')!;
                       const isCredit = tx.category === 'SALARY_INCOME';
                       return (
                         <tr key={tx.id}>
                           <td style={{ fontSize: 12, fontFamily: 'var(--font-mono)' }}>{tx.date}</td>
-                          <td style={{ fontSize: 12 }}>
-                            <strong>{tx.rawDescription}</strong>
-                          </td>
-                          <td
-                            style={{
-                              fontFamily: 'var(--font-mono)',
-                              fontWeight: 700,
-                              textAlign: 'right',
-                              fontSize: 13,
-                              color: isCredit ? 'var(--accent-cyan)' : 'var(--accent-emerald)',
-                            }}
-                          >
+                          <td style={{ fontSize: 12 }}><strong>{tx.rawDescription}</strong></td>
+                          <td style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, textAlign: 'right', color: isCredit ? 'var(--accent-cyan)' : 'var(--accent-emerald)' }}>
                             {isCredit ? '+' : '-'}{tx.amount.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €
                           </td>
                           <td>
-                            <span style={{ fontSize: 12, fontWeight: 600, color: cat.color }}>
-                              {cat.icon} {cat.label}
-                            </span>
+                            <span style={{ fontSize: 12, fontWeight: 600, color: cat.color }}>{cat.icon} {cat.label}</span>
                           </td>
                         </tr>
                       );
                     })}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* 📈 3. HISTORIQUE MULTI-MOIS SIMPLIFIÉ */}
-      {cleanRecords.length > 0 && (
-        <div className="card">
-          <div className="card-header">
-            <div>
-              <span className="card-title">📈 Historique Mensuel des Flux Clôturés</span>
-              <p style={{ margin: '3px 0 0 0', fontSize: 13, color: 'var(--text-secondary)' }}>
-                Historique factuel du salaire encaissé et des versements réellement envoyés vers le PEA.
-              </p>
-            </div>
-          </div>
-
-          <div style={{ marginTop: 12 }}>
-            <table className="table" style={{ width: '100%' }}>
-              <thead>
-                <tr>
-                  <th>Mois</th>
-                  <th>Salaire Net Réel</th>
-                  <th>Investi PEA Réel</th>
-                  <th>Objectif Prévu</th>
-                  <th>Écart (Delta)</th>
-                  <th>Statut</th>
-                  <th style={{ width: 60 }}>Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {cleanRecords.map((r) => {
-                  const reality = r.bankReality;
-                  const salary = reality?.actualNetSalaryReceived ?? r.netSalary ?? 0;
-                  const invested = reality?.actualInvestedPEA ?? reality?.totalActualInvested ?? r.regularInvestableAmount ?? 0;
-                  const delta = invested - targetMonthlyBudget;
-                  const isOk = delta >= -20; // marge de tolérance
-
-                  return (
-                    <tr key={r.id || `r-${r.period}`}>
-                      <td>
-                        <strong>{r.periodLabel || getPeriodLabel(r.period)}</strong>
-                      </td>
-                      <td style={{ fontFamily: 'var(--font-mono)', fontWeight: 600, color: 'var(--accent-cyan)' }}>
-                        +{salary.toLocaleString('fr-FR')} €
-                      </td>
-                      <td style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--accent-emerald)' }}>
-                        {invested.toLocaleString('fr-FR')} €
-                      </td>
-                      <td style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
-                        {targetMonthlyBudget.toLocaleString('fr-FR')} €
-                      </td>
-                      <td>
-                        <span
-                          style={{
-                            fontSize: 11,
-                            fontWeight: 700,
-                            padding: '2px 6px',
-                            borderRadius: 4,
-                            background: delta >= 0 ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
-                            color: delta >= 0 ? 'var(--accent-emerald)' : '#ef4444',
-                          }}
-                        >
-                          {delta >= 0 ? `+${delta.toLocaleString('fr-FR')} €` : `${delta.toLocaleString('fr-FR')} €`}
-                        </span>
-                      </td>
-                      <td>
-                        <span style={{ fontSize: 11, fontWeight: 700, color: isOk ? 'var(--accent-emerald)' : 'var(--accent-amber)' }}>
-                          {isOk ? '🟢 Conforme' : '🟡 Écart constaté'}
-                        </span>
-                      </td>
-                      <td>
-                        <button
-                          type="button"
-                          className="btn-ghost"
-                          onClick={() => onDeleteRecord(r.id)}
-                          title="Supprimer cette ligne"
-                        >
-                          🗑️
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {/* 💼 3.5. ANALYTIQUE SALARIALE & TENDANCE MULTI-ANNUELLE (AURA BUDGET PRO ENGINE) */}
-      {detailedSalaryAnalytics.totalRecordsCount > 0 && (
-        <div
-          className="card"
-          style={{
-            border: '1px solid rgba(245, 158, 11, 0.3)',
-            background: 'linear-gradient(135deg, rgba(30, 27, 75, 0.2) 0%, rgba(15, 23, 42, 0.95) 100%)',
-            padding: 20,
-            borderRadius: 12,
-          }}
-        >
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12, marginBottom: 16 }}>
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ fontSize: 16 }}>💼</span>
-                <h4 style={{ fontSize: 15, margin: 0, fontWeight: 800, color: 'var(--text-primary)' }}>
-                  Analytique &amp; Croissance Salariale Multi-Annuelle (Moteur Aura)
-                </h4>
+                  </tbody>
+                </table>
               </div>
-              <p style={{ margin: '3px 0 0 0', fontSize: 12, color: 'var(--text-secondary)' }}>
-                Agrégation continue de vos bulletins de paie : moyenne lissée, pouvoir d'achat réel et taux d'effort.
-              </p>
-            </div>
-
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-              <span
-                style={{
-                  fontSize: 11,
-                  fontWeight: 700,
-                  padding: '3px 8px',
-                  borderRadius: 12,
-                  background: detailedSalaryAnalytics.growthTrendPercent >= 0 ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
-                  color: detailedSalaryAnalytics.growthTrendPercent >= 0 ? 'var(--accent-emerald)' : '#ef4444',
-                  border: `1px solid ${detailedSalaryAnalytics.growthTrendPercent >= 0 ? 'var(--accent-emerald)' : '#ef4444'}`,
-                }}
-              >
-                {detailedSalaryAnalytics.growthTrendPercent >= 0 ? `📈 +${detailedSalaryAnalytics.growthTrendPercent.toFixed(1)}%` : `📉 ${detailedSalaryAnalytics.growthTrendPercent.toFixed(1)}%`} Évolution
-              </span>
-            </div>
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
-            <div style={{ padding: 12, borderRadius: 8, background: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)' }}>
-              <span style={{ fontSize: 11, color: 'var(--text-secondary)', display: 'block' }}>Moyenne Net Mensuel</span>
-              <span style={{ fontSize: 18, fontWeight: 800, color: 'var(--accent-cyan)', fontFamily: 'var(--font-mono)' }}>
-                {Math.round(detailedSalaryAnalytics.overallAverageNet).toLocaleString('fr-FR')} €
-              </span>
-            </div>
-
-            <div style={{ padding: 12, borderRadius: 8, background: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)' }}>
-              <span style={{ fontSize: 11, color: 'var(--text-secondary)', display: 'block' }}>Taux d'Épargne Global</span>
-              <span style={{ fontSize: 18, fontWeight: 800, color: 'var(--accent-emerald)', fontFamily: 'var(--font-mono)' }}>
-                {detailedSalaryAnalytics.overallSavingsRate.toFixed(1)}%
-              </span>
-            </div>
-
-            <div style={{ padding: 12, borderRadius: 8, background: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)' }}>
-              <span style={{ fontSize: 11, color: 'var(--text-secondary)', display: 'block' }}>Solde Réserve Disponible</span>
-              <span style={{ fontSize: 18, fontWeight: 800, color: '#f59e0b', fontFamily: 'var(--font-mono)' }}>
-                {Math.round(detailedSalaryAnalytics.totalReserveBalanceAvailable).toLocaleString('fr-FR')} €
-              </span>
-            </div>
-
-            <div style={{ padding: 12, borderRadius: 8, background: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)' }}>
-              <span style={{ fontSize: 11, color: 'var(--text-secondary)', display: 'block' }}>Taux Prélèvement Source Moy.</span>
-              <span style={{ fontSize: 18, fontWeight: 800, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>
-                {detailedSalaryAnalytics.averageEffectiveTaxRate.toFixed(1)}%
-              </span>
-            </div>
+            )}
           </div>
         </div>
       )}
 
-      {/* 🔍 4. MODAL DE REVUE & VALIDATION TRANSPARENTE DES TRANSACTIONS */}
+      {/* 🔍 MODAL DE REVUE DES TRANSACTIONS */}
       {isReviewModalOpen && (
         <div
           style={{
             position: 'fixed',
             inset: 0,
-            background: 'rgba(0, 0, 0, 0.75)',
-            backdropFilter: 'blur(4px)',
+            background: 'rgba(0, 0, 0, 0.8)',
+            backdropFilter: 'blur(6px)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -917,161 +1023,71 @@ export default function RevenueBudgetView({
               borderRadius: 14,
               border: '1px solid var(--accent-cyan)',
               background: 'var(--bg-primary)',
-              boxShadow: '0 20px 40px rgba(0, 0, 0, 0.5)',
+              boxShadow: '0 20px 40px rgba(0, 0, 0, 0.6)',
             }}
           >
-            {/* Header Modal */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
-              <div>
-                <h3 style={{ fontSize: 18, margin: 0, fontWeight: 800, color: 'var(--text-primary)' }}>
-                  🔍 Revue des transactions bancaires &mdash; {getPeriodLabel(selectedMonth)}
-                </h3>
-                <p style={{ margin: '4px 0 0 0', fontSize: 13, color: 'var(--text-secondary)' }}>
-                  Cochez ou décochez les lignes et ajustez la catégorie pour chaque virement avant d&apos;enregistrer.
-                </p>
-              </div>
-              <button
-                type="button"
-                className="btn-ghost"
-                style={{ fontSize: 18, cursor: 'pointer' }}
-                onClick={() => setIsReviewModalOpen(false)}
-              >
-                ✕
-              </button>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <h3 style={{ fontSize: 18, margin: 0, fontWeight: 800, color: 'var(--text-primary)' }}>
+                🔍 Revue des transactions bancaires &mdash; {getPeriodLabel(selectedMonth)}
+              </h3>
+              <button type="button" className="btn-ghost" onClick={() => setIsReviewModalOpen(false)}>✕</button>
             </div>
 
-            {/* Content Table Scrollable */}
             <div style={{ flex: 1, overflowY: 'auto', marginBottom: 18, border: '1px solid var(--border-subtle)', borderRadius: 8 }}>
-              {reviewMatches.length === 0 ? (
-                <div style={{ padding: 30, textAlign: 'center', color: 'var(--text-secondary)' }}>
-                  Aucune transaction brute trouvée pour ce mois.
-                </div>
-              ) : (
-                <table className="table" style={{ width: '100%', margin: 0 }}>
-                  <thead>
-                    <tr>
-                      <th style={{ width: 45, textAlign: 'center' }}>Actif</th>
-                      <th style={{ width: 95 }}>Date</th>
-                      <th>Libellé Exact de la Banque</th>
-                      <th style={{ width: 110, textAlign: 'right' }}>Montant</th>
-                      <th style={{ width: 220 }}>Catégorie Assignée</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {reviewMatches.map((m) => (
-                      <tr key={m.id} style={{ opacity: m.included ? 1 : 0.45 }}>
-                        <td style={{ textAlign: 'center' }}>
-                          <input
-                            type="checkbox"
-                            checked={m.included}
-                            onChange={(e) => handleUpdateReviewMatch(m.id, { included: e.target.checked })}
-                            style={{ cursor: 'pointer', width: 16, height: 16 }}
-                          />
-                        </td>
-                        <td style={{ fontSize: 12, fontFamily: 'var(--font-mono)' }}>{m.date}</td>
-                        <td style={{ fontSize: 12 }}>
-                          <strong>{m.rawDescription}</strong>
-                        </td>
-                        <td
-                          style={{
-                            fontFamily: 'var(--font-mono)',
-                            fontWeight: 700,
-                            textAlign: 'right',
-                            fontSize: 13,
-                            color: m.category === 'SALARY_INCOME' ? 'var(--accent-cyan)' : 'var(--accent-emerald)',
-                          }}
+              <table className="table" style={{ width: '100%', margin: 0 }}>
+                <thead>
+                  <tr>
+                    <th style={{ width: 45, textAlign: 'center' }}>Actif</th>
+                    <th style={{ width: 95 }}>Date</th>
+                    <th>Libellé Exact de la Banque</th>
+                    <th style={{ width: 110, textAlign: 'right' }}>Montant</th>
+                    <th style={{ width: 220 }}>Catégorie Assignée</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {reviewMatches.map((m) => (
+                    <tr key={m.id} style={{ opacity: m.included ? 1 : 0.45 }}>
+                      <td style={{ textAlign: 'center' }}>
+                        <input
+                          type="checkbox"
+                          checked={m.included}
+                          onChange={(e) => handleUpdateReviewMatch(m.id, { included: e.target.checked })}
+                          style={{ cursor: 'pointer', width: 16, height: 16 }}
+                        />
+                      </td>
+                      <td style={{ fontSize: 12, fontFamily: 'var(--font-mono)' }}>{m.date}</td>
+                      <td style={{ fontSize: 12 }}><strong>{m.rawDescription}</strong></td>
+                      <td style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, textAlign: 'right', color: m.category === 'SALARY_INCOME' ? 'var(--accent-cyan)' : 'var(--accent-emerald)' }}>
+                        {m.amount.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €
+                      </td>
+                      <td>
+                        <select
+                          className="input"
+                          style={{ fontSize: 12, padding: '4px 8px', height: 32 }}
+                          value={m.category}
+                          onChange={(e) => handleUpdateReviewMatch(m.id, { category: e.target.value as BankReconciliationCategory })}
                         >
-                          {m.amount.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €
-                        </td>
-                        <td>
-                          <select
-                            className="input"
-                            style={{ fontSize: 12, padding: '4px 8px', height: 32 }}
-                            value={m.category}
-                            onChange={(e) =>
-                              handleUpdateReviewMatch(m.id, {
-                                category: e.target.value as BankReconciliationCategory,
-                              })
-                            }
-                          >
-                            {BANK_CATEGORY_OPTIONS.map((opt) => (
-                              <option key={opt.value} value={opt.value}>
-                                {opt.icon} {opt.label}
-                              </option>
-                            ))}
-                          </select>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
+                          {BANK_CATEGORY_OPTIONS.map((opt) => (
+                            <option key={opt.value} value={opt.value}>{opt.icon} {opt.label}</option>
+                          ))}
+                        </select>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
 
-            {/* Bottom Summary Bar */}
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                flexWrap: 'wrap',
-                gap: 12,
-                padding: '12px 16px',
-                background: 'var(--bg-secondary)',
-                borderRadius: 8,
-                border: '1px solid var(--border-subtle)',
-              }}
-            >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12, padding: '12px 16px', background: 'var(--bg-secondary)', borderRadius: 8 }}>
               <div style={{ display: 'flex', gap: 20 }}>
-                <span style={{ fontSize: 13 }}>
-                  💼 Total Salaire :{' '}
-                  <strong style={{ color: 'var(--accent-cyan)' }}>
-                    +{modalSummary.salary.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €
-                  </strong>
-                </span>
-                <span style={{ fontSize: 13 }}>
-                  📈 Total PEA :{' '}
-                  <strong style={{ color: 'var(--accent-emerald)' }}>
-                    -{modalSummary.pea.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €
-                  </strong>
-                </span>
+                <span>💼 Salaire : <strong style={{ color: 'var(--accent-cyan)' }}>+{modalSummary.salary.toLocaleString('fr-FR')} €</strong></span>
+                <span>📈 PEA : <strong style={{ color: 'var(--accent-emerald)' }}>-{modalSummary.pea.toLocaleString('fr-FR')} €</strong></span>
               </div>
-
-              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                <button
-                  type="button"
-                  className="btn btn-secondary btn-sm"
-                  onClick={handleUndoMatches}
-                  disabled={matchesHistory.length === 0}
-                  style={{ opacity: matchesHistory.length > 0 ? 1 : 0.4, padding: '6px 10px', fontSize: 13 }}
-                  title="Annuler la dernière modification dans ce tableau"
-                >
-                  ↩️ Annuler
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-secondary btn-sm"
-                  onClick={handleRedoMatches}
-                  disabled={matchesRedo.length === 0}
-                  style={{ opacity: matchesRedo.length > 0 ? 1 : 0.4, padding: '6px 10px', fontSize: 13 }}
-                  title="Rétablir la dernière modification annulée"
-                >
-                  ↪️ Rétablir
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-ghost"
-                  onClick={() => setIsReviewModalOpen(false)}
-                >
-                  Fermer
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-primary"
-                  style={{ background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', fontWeight: 700 }}
-                  onClick={handleSaveReviewModal}
-                >
-                  💾 Valider &amp; Enregistrer ce mois
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button type="button" className="btn btn-secondary btn-sm" onClick={handleUndoMatches} disabled={matchesHistory.length === 0}>↩️ Annuler</button>
+                <button type="button" className="btn btn-secondary btn-sm" onClick={handleRedoMatches} disabled={matchesRedo.length === 0}>↪️ Rétablir</button>
+                <button type="button" className="btn btn-primary" onClick={handleSaveReviewModal} style={{ background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', fontWeight: 700 }}>
+                  💾 Valider ce mois
                 </button>
               </div>
             </div>
@@ -1079,7 +1095,7 @@ export default function RevenueBudgetView({
         </div>
       )}
 
-      {/* ⚠️ 5. MODAL DE CONFIRMATION : RÉINITIALISATION DU MOIS */}
+      {/* ⚠️ MODALS DE CONFIRMATION */}
       <ConfirmationModal
         isOpen={isResetMonthModalOpen}
         title={`Réinitialiser les flux de ${getPeriodLabel(selectedMonth)}`}
@@ -1087,21 +1103,11 @@ export default function RevenueBudgetView({
         icon="🔄"
         confirmText="Réinitialiser d'après la banque"
         cancelText="Annuler"
-        message={
-          <div>
-            <p style={{ margin: '0 0 10px 0' }}>
-              Êtes-vous sûr de vouloir réinitialiser les données de <strong>{getPeriodLabel(selectedMonth)}</strong> ?
-            </p>
-            <p style={{ margin: 0, fontSize: 12.5, color: 'var(--text-secondary)' }}>
-              Cette action effacera toute validation ou modification manuelle enregistrée pour ce mois. Les montants (salaire encaissé, PEA, etc.) seront automatiquement recalculés à partir des transactions bancaires brutes.
-            </p>
-          </div>
-        }
+        message={<p>Effacer toute validation manuelle pour recalculer depuis les transactions bancaires brutes ?</p>}
         onConfirm={handleConfirmResetMonth}
         onCancel={() => setIsResetMonthModalOpen(false)}
       />
 
-      {/* ⚠️ 6. MODAL DE CONFIRMATION : VIDER LE CACHE DES TRANSACTIONS */}
       <ConfirmationModal
         isOpen={isClearCacheModalOpen}
         title="Vider le cache des transactions bancaires"
@@ -1109,21 +1115,12 @@ export default function RevenueBudgetView({
         icon="🗑️"
         confirmText="Vider le cache local"
         cancelText="Conserver"
-        message={
-          <div>
-            <p style={{ margin: '0 0 10px 0' }}>
-              Voulez-vous supprimer les <strong>{allBankTransactions.length} transactions bancaires</strong> actuellement stockées en cache local ?
-            </p>
-            <p style={{ margin: 0, fontSize: 12.5, color: 'var(--text-secondary)' }}>
-              Vous pourrez relancer une synchronisation avec BoursoBank via le bouton « Synchroniser » ou le menu <strong>« Comptes &amp; Sync API »</strong> pour récupérer à nouveau vos transactions.
-            </p>
-          </div>
-        }
+        message={<p>Supprimer les {allBankTransactions.length} transactions stockées en cache local ?</p>}
         onConfirm={handleConfirmClearCache}
         onCancel={() => setIsClearCacheModalOpen(false)}
       />
 
-      {/* 🚨 7. MODAL DE CRISE & COMPARATEUR CLIC (AURA PRO ENGINE) */}
+      {/* 🚨 MODAL DE CRISE & COMPARATEUR CLIC */}
       <CrisisModeModal
         isOpen={isCrisisModalOpen}
         onClose={() => setIsCrisisModalOpen(false)}
@@ -1141,4 +1138,3 @@ export default function RevenueBudgetView({
     </div>
   );
 }
-

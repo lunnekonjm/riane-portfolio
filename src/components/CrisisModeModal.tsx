@@ -2,16 +2,6 @@
 
 import React, { useState } from 'react';
 import {
-  X,
-  AlertOctagon,
-  CreditCard,
-  Layers,
-  ArrowRight,
-  Sparkles,
-  ShieldCheck,
-  Zap,
-} from 'lucide-react';
-import {
   simulateLifeAccident,
   compareFinancingOptions,
 } from '../engines/crisisRunwayEngine';
@@ -68,145 +58,209 @@ export const CrisisModeModal: React.FC<CrisisModeModalProps> = ({
   });
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
-      <div className="bg-slate-900 border border-slate-800 w-full max-w-2xl rounded-3xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
-        {/* Modal Header */}
-        <div className="p-5 bg-gradient-to-r from-rose-950/40 via-slate-900 to-amber-950/40 border-b border-slate-800 flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-2xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-400">
-              <AlertOctagon className="w-5 h-5" />
-            </div>
+    <div
+      style={{
+        position: 'fixed',
+        inset: 0,
+        background: 'rgba(0, 0, 0, 0.8)',
+        backdropFilter: 'blur(8px)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 9999,
+        padding: 20,
+      }}
+    >
+      <div
+        className="card"
+        style={{
+          width: '100%',
+          maxWidth: 760,
+          maxHeight: '90vh',
+          display: 'flex',
+          flexDirection: 'column',
+          padding: 0,
+          borderRadius: 16,
+          border: '1px solid rgba(244, 63, 94, 0.4)',
+          background: 'var(--bg-primary, #0a0e17)',
+          boxShadow: '0 25px 50px rgba(0, 0, 0, 0.6)',
+          overflow: 'hidden',
+        }}
+      >
+        {/* Header Modal */}
+        <div
+          style={{
+            padding: '18px 24px',
+            background: 'linear-gradient(135deg, rgba(244, 63, 94, 0.15) 0%, rgba(15, 23, 42, 0.9) 100%)',
+            borderBottom: '1px solid var(--border-subtle)',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <span style={{ fontSize: 24 }}>🚨</span>
             <div>
-              <h3 className="text-lg font-bold text-white">Simulateur de Crise & Résilience</h3>
-              <p className="text-xs text-slate-400">
-                Stress-testez vos liquidités et arbitrez vos modes de financement sans compromettre votre avenir.
+              <h3 style={{ fontSize: 17, margin: 0, fontWeight: 800, color: 'var(--text-primary)' }}>
+                Simulateur de Crise &amp; Financement CLIC (Aura Pro)
+              </h3>
+              <p style={{ margin: '2px 0 0 0', fontSize: 12, color: 'var(--text-secondary)' }}>
+                Stress-testez vos liquidités face aux aléas de la vie ou optimisez un financement sans fragiliser votre DCA.
               </p>
             </div>
           </div>
           <button
+            type="button"
+            className="btn-ghost"
+            style={{ fontSize: 18, cursor: 'pointer', padding: 6 }}
             onClick={onClose}
-            className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
           >
-            <X className="w-5 h-5" />
+            ✕
           </button>
         </div>
 
         {/* Tab Navigation */}
-        <div className="flex border-b border-slate-800 bg-slate-950/50">
+        <div style={{ display: 'flex', borderBottom: '1px solid var(--border-subtle)', background: 'var(--bg-secondary)' }}>
           <button
+            type="button"
             onClick={() => setActiveTab('ACCIDENT')}
-            className={`flex-1 py-3 px-4 text-xs font-bold border-b-2 flex items-center justify-center space-x-2 transition-all ${
-              activeTab === 'ACCIDENT'
-                ? 'border-rose-500 text-rose-400 bg-rose-500/5'
-                : 'border-transparent text-slate-400 hover:text-slate-200'
-            }`}
+            style={{
+              flex: 1,
+              padding: '12px 16px',
+              fontSize: 13,
+              fontWeight: activeTab === 'ACCIDENT' ? 800 : 600,
+              color: activeTab === 'ACCIDENT' ? 'var(--accent-rose, #f43f5e)' : 'var(--text-secondary)',
+              background: activeTab === 'ACCIDENT' ? 'rgba(244, 63, 94, 0.1)' : 'transparent',
+              border: 'none',
+              borderBottom: activeTab === 'ACCIDENT' ? '2px solid var(--accent-rose, #f43f5e)' : '2px solid transparent',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 8,
+              transition: 'all 0.2s',
+            }}
           >
-            <AlertOctagon className="w-3.5 h-3.5" />
-            <span>Accident de la vie / Choc Imprévu</span>
+            <span>⚠️ Accident de la vie / Choc Imprévu</span>
           </button>
           <button
+            type="button"
             onClick={() => setActiveTab('CLIC')}
-            className={`flex-1 py-3 px-4 text-xs font-bold border-b-2 flex items-center justify-center space-x-2 transition-all ${
-              activeTab === 'CLIC'
-                ? 'border-cyan-500 text-cyan-400 bg-cyan-500/5'
-                : 'border-transparent text-slate-400 hover:text-slate-200'
-            }`}
+            style={{
+              flex: 1,
+              padding: '12px 16px',
+              fontSize: 13,
+              fontWeight: activeTab === 'CLIC' ? 800 : 600,
+              color: activeTab === 'CLIC' ? 'var(--accent-cyan, #06b6d4)' : 'var(--text-secondary)',
+              background: activeTab === 'CLIC' ? 'rgba(6, 182, 212, 0.1)' : 'transparent',
+              border: 'none',
+              borderBottom: activeTab === 'CLIC' ? '2px solid var(--accent-cyan, #06b6d4)' : '2px solid transparent',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 8,
+              transition: 'all 0.2s',
+            }}
           >
-            <CreditCard className="w-3.5 h-3.5" />
-            <span>Financement CLIC & Crédit</span>
+            <span>💳 Financement CLIC &amp; Crédit</span>
           </button>
         </div>
 
         {/* Scrollable Content */}
-        <div className="p-6 overflow-y-auto space-y-6 flex-1 text-slate-200 text-sm">
+        <div style={{ flex: 1, overflowY: 'auto', padding: 24, display: 'flex', flexDirection: 'column', gap: 20 }}>
           {activeTab === 'ACCIDENT' ? (
             /* Tab 0 : Accident de la vie */
-            <div className="space-y-6">
-              <div className="bg-slate-950/60 p-4 rounded-2xl border border-slate-800 space-y-4">
-                <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-                  1. Configurer l'urgence financière
-                </h4>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+              <div style={{ background: 'var(--bg-secondary)', padding: 16, borderRadius: 12, border: '1px solid var(--border-subtle)' }}>
+                <span style={{ fontSize: 11, fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', display: 'block', marginBottom: 12 }}>
+                  1. Paramètres de l'urgence financière
+                </span>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
                   <div>
-                    <label className="block text-[11px] text-slate-400 mb-1">Dépense totale d'urgence</label>
-                    <div className="relative">
-                      <input
-                        type="number"
-                        value={emergencyExpense}
-                        onChange={(e) => setEmergencyExpense(Math.max(0, Number(e.target.value)))}
-                        className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-white font-bold text-sm focus:outline-none focus:border-rose-500"
-                      />
-                      <span className="absolute right-3 top-2 text-slate-400 text-xs">€</span>
-                    </div>
+                    <label style={{ display: 'block', fontSize: 11, color: 'var(--text-secondary)', marginBottom: 4 }}>Dépense totale d'urgence</label>
+                    <input
+                      type="number"
+                      className="input"
+                      value={emergencyExpense}
+                      onChange={(e) => setEmergencyExpense(Math.max(0, Number(e.target.value)))}
+                      style={{ width: '100%', fontFamily: 'var(--font-mono)', fontWeight: 700 }}
+                    />
                   </div>
 
                   <div>
-                    <label className="block text-[11px] text-slate-400 mb-1">Paiement comptant initial</label>
-                    <div className="relative">
-                      <input
-                        type="number"
-                        value={cashPayment}
-                        onChange={(e) => setCashPayment(Math.max(0, Number(e.target.value)))}
-                        className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-white font-bold text-sm focus:outline-none focus:border-rose-500"
-                      />
-                      <span className="absolute right-3 top-2 text-slate-400 text-xs">€</span>
-                    </div>
+                    <label style={{ display: 'block', fontSize: 11, color: 'var(--text-secondary)', marginBottom: 4 }}>Paiement comptant initial</label>
+                    <input
+                      type="number"
+                      className="input"
+                      value={cashPayment}
+                      onChange={(e) => setCashPayment(Math.max(0, Number(e.target.value)))}
+                      style={{ width: '100%', fontFamily: 'var(--font-mono)', fontWeight: 700 }}
+                    />
                   </div>
 
                   <div>
-                    <label className="block text-[11px] text-slate-400 mb-1">Durée du crédit</label>
-                    <div className="relative">
-                      <input
-                        type="number"
-                        value={creditDurationMonths}
-                        onChange={(e) => setCreditDurationMonths(Math.max(1, Number(e.target.value)))}
-                        className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-white font-bold text-sm focus:outline-none focus:border-rose-500"
-                      />
-                      <span className="absolute right-3 top-2 text-slate-400 text-xs">mois</span>
-                    </div>
+                    <label style={{ display: 'block', fontSize: 11, color: 'var(--text-secondary)', marginBottom: 4 }}>Durée crédit reste à charge</label>
+                    <input
+                      type="number"
+                      className="input"
+                      value={creditDurationMonths}
+                      onChange={(e) => setCreditDurationMonths(Math.max(1, Number(e.target.value)))}
+                      style={{ width: '100%', fontFamily: 'var(--font-mono)', fontWeight: 700 }}
+                    />
                   </div>
                 </div>
               </div>
 
-              {/* Diagnostic Card */}
-              <div className="p-5 rounded-2xl bg-gradient-to-br from-slate-950 to-slate-900 border border-slate-800 space-y-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-                    2. Impact sur votre résilience
+              {/* Résultat du stress test */}
+              <div
+                style={{
+                  background: accidentSim.isReserveExhausted ? 'rgba(244, 63, 94, 0.08)' : 'rgba(16, 185, 129, 0.08)',
+                  border: `1px solid ${accidentSim.isReserveExhausted ? 'rgba(244, 63, 94, 0.3)' : 'rgba(16, 185, 129, 0.3)'}`,
+                  borderRadius: 12,
+                  padding: 18,
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+                  <span style={{ fontSize: 12, fontWeight: 800, color: 'var(--text-primary)', textTransform: 'uppercase' }}>
+                    2. Bilan de Résilience Post-Choc
                   </span>
-                  <div
-                    className={`px-3 py-1 rounded-full text-xs font-bold ${
-                      accidentSim.isReserveExhausted
-                        ? 'bg-rose-500/20 text-rose-400 border border-rose-500/40'
-                        : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40'
-                    }`}
+                  <span
+                    style={{
+                      fontSize: 11,
+                      fontWeight: 700,
+                      padding: '3px 8px',
+                      borderRadius: 12,
+                      background: accidentSim.isReserveExhausted ? 'rgba(244, 63, 94, 0.2)' : 'rgba(16, 185, 129, 0.2)',
+                      color: accidentSim.isReserveExhausted ? 'var(--accent-rose)' : 'var(--accent-emerald)',
+                    }}
                   >
                     {accidentSim.isReserveExhausted ? '⚠️ Réserve en Rupture' : '🛡️ Filet Préservé'}
-                  </div>
+                  </span>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="bg-slate-900/80 p-3.5 rounded-xl border border-slate-800">
-                    <span className="text-[11px] text-slate-400 block mb-1">Épargne restante</span>
-                    <span className="text-lg font-bold text-white">
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12, marginBottom: 16 }}>
+                  <div style={{ background: 'var(--bg-secondary)', padding: 12, borderRadius: 8 }}>
+                    <span style={{ fontSize: 11, color: 'var(--text-secondary)', display: 'block' }}>Épargne Restante</span>
+                    <span style={{ fontSize: 18, fontWeight: 800, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>
                       {Math.round(accidentSim.postAccidentAvailableSavings).toLocaleString('fr-FR')} €
                     </span>
                   </div>
 
-                  <div className="bg-slate-900/80 p-3.5 rounded-xl border border-slate-800">
-                    <span className="text-[11px] text-slate-400 block mb-1">Autonomie restante (Runway)</span>
-                    <span className="text-lg font-bold text-amber-400">
+                  <div style={{ background: 'var(--bg-secondary)', padding: 12, borderRadius: 8 }}>
+                    <span style={{ fontSize: 11, color: 'var(--text-secondary)', display: 'block' }}>Autonomie Restante</span>
+                    <span style={{ fontSize: 18, fontWeight: 800, color: 'var(--accent-amber)', fontFamily: 'var(--font-mono)' }}>
                       {accidentSim.postAccidentRunwayMonths} mois
                     </span>
                   </div>
                 </div>
 
-                <div className="space-y-2 pt-2">
-                  <span className="text-xs font-bold text-slate-300">Plan d'action immédiat recommandé :</span>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)' }}>Plan d'action d'urgence recommandé :</span>
                   {accidentSim.actionPlan.map((step, idx) => (
-                    <div key={idx} className="flex items-start space-x-2 text-xs text-slate-300">
-                      <ArrowRight className="w-3.5 h-3.5 text-rose-400 mt-0.5 shrink-0" />
+                    <div key={idx} style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span>👉</span>
                       <span>{step}</span>
                     </div>
                   ))}
@@ -214,59 +268,53 @@ export const CrisisModeModal: React.FC<CrisisModeModalProps> = ({
               </div>
             </div>
           ) : (
-            /* Tab 1 : Financement CLIC & Optimiseur */
-            <div className="space-y-6">
-              <div className="bg-slate-950/60 p-4 rounded-2xl border border-slate-800 space-y-4">
-                <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-                  Dépense à optimiser
-                </h4>
+            /* Tab 1 : Financement CLIC */
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+              <div style={{ background: 'var(--bg-secondary)', padding: 16, borderRadius: 12, border: '1px solid var(--border-subtle)' }}>
+                <span style={{ fontSize: 11, fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', display: 'block', marginBottom: 12 }}>
+                  Dépense à financer
+                </span>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, marginBottom: 12 }}>
                   <div>
-                    <label className="block text-[11px] text-slate-400 mb-1">Coût total</label>
-                    <div className="relative">
-                      <input
-                        type="number"
-                        value={clicTotalCost}
-                        onChange={(e) => setClicTotalCost(Math.max(0, Number(e.target.value)))}
-                        className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-white font-bold text-sm focus:outline-none focus:border-cyan-500"
-                      />
-                      <span className="absolute right-3 top-2 text-slate-400 text-xs">€</span>
-                    </div>
+                    <label style={{ display: 'block', fontSize: 11, color: 'var(--text-secondary)', marginBottom: 4 }}>Coût total</label>
+                    <input
+                      type="number"
+                      className="input"
+                      value={clicTotalCost}
+                      onChange={(e) => setClicTotalCost(Math.max(0, Number(e.target.value)))}
+                      style={{ width: '100%', fontFamily: 'var(--font-mono)', fontWeight: 700 }}
+                    />
                   </div>
 
                   <div>
-                    <label className="block text-[11px] text-slate-400 mb-1">Comptant initial</label>
-                    <div className="relative">
-                      <input
-                        type="number"
-                        value={clicInitialCash}
-                        onChange={(e) => setClicInitialCash(Math.max(0, Number(e.target.value)))}
-                        className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-white font-bold text-sm focus:outline-none focus:border-cyan-500"
-                      />
-                      <span className="absolute right-3 top-2 text-slate-400 text-xs">€</span>
-                    </div>
+                    <label style={{ display: 'block', fontSize: 11, color: 'var(--text-secondary)', marginBottom: 4 }}>Comptant initial</label>
+                    <input
+                      type="number"
+                      className="input"
+                      value={clicInitialCash}
+                      onChange={(e) => setClicInitialCash(Math.max(0, Number(e.target.value)))}
+                      style={{ width: '100%', fontFamily: 'var(--font-mono)', fontWeight: 700 }}
+                    />
                   </div>
 
                   <div>
-                    <label className="block text-[11px] text-slate-400 mb-1">TAEG Crédit (%)</label>
-                    <div className="relative">
-                      <input
-                        type="number"
-                        step="0.1"
-                        value={clicTaeg}
-                        onChange={(e) => setClicTaeg(Math.max(0, Number(e.target.value)))}
-                        className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-white font-bold text-sm focus:outline-none focus:border-cyan-500"
-                      />
-                      <span className="absolute right-3 top-2 text-slate-400 text-xs">%</span>
-                    </div>
+                    <label style={{ display: 'block', fontSize: 11, color: 'var(--text-secondary)', marginBottom: 4 }}>TAEG Crédit (%)</label>
+                    <input
+                      type="number"
+                      step="0.1"
+                      className="input"
+                      value={clicTaeg}
+                      onChange={(e) => setClicTaeg(Math.max(0, Number(e.target.value)))}
+                      style={{ width: '100%', fontFamily: 'var(--font-mono)', fontWeight: 700 }}
+                    />
                   </div>
                 </div>
 
                 <div>
-                  <div className="flex justify-between text-xs text-slate-400 mb-1">
-                    <span>Durée de remboursement :</span>
-                    <span className="font-bold text-white">{clicDurationMonths} mois</span>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 6 }}>
+                    <span style={{ color: 'var(--text-secondary)' }}>Durée de remboursement :</span>
+                    <strong style={{ color: 'var(--accent-cyan)' }}>{clicDurationMonths} mois</strong>
                   </div>
                   <input
                     type="range"
@@ -275,105 +323,106 @@ export const CrisisModeModal: React.FC<CrisisModeModalProps> = ({
                     step={1}
                     value={clicDurationMonths}
                     onChange={(e) => setClicDurationMonths(Number(e.target.value))}
-                    className="w-full accent-cyan-400 bg-slate-800 rounded-lg cursor-pointer"
+                    style={{ width: '100%', accentColor: 'var(--accent-cyan)' }}
                   />
                 </div>
               </div>
 
-              {/* Smart Advice Box */}
-              <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-start space-x-3">
-                <Sparkles className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
-                <div className="space-y-1">
-                  <h5 className="text-xs font-bold text-amber-400 uppercase tracking-wide">
+              {/* Conseil intelligent */}
+              <div
+                style={{
+                  background: 'rgba(245, 158, 11, 0.1)',
+                  border: '1px solid rgba(245, 158, 11, 0.3)',
+                  borderRadius: 10,
+                  padding: 14,
+                  display: 'flex',
+                  gap: 10,
+                  alignItems: 'flex-start',
+                }}
+              >
+                <span style={{ fontSize: 18 }}>💡</span>
+                <div>
+                  <span style={{ fontSize: 12, fontWeight: 800, color: 'var(--accent-amber)', display: 'block', marginBottom: 2 }}>
                     {financingSim.adviceTitle}
-                  </h5>
-                  <p className="text-xs text-slate-300 leading-relaxed">
+                  </span>
+                  <p style={{ margin: 0, fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.4 }}>
                     {financingSim.adviceMessage}
                   </p>
                 </div>
               </div>
 
-              {/* Option Selector Cards */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {/* Option 1: 0% Fractionné */}
-                <button
-                  type="button"
+              {/* Cartes d'arbitrage */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
+                <div
                   onClick={() => setSelectedFundingOption(1)}
-                  className={`p-4 rounded-2xl border text-left transition-all relative ${
-                    selectedFundingOption === 1
-                      ? 'bg-cyan-500/10 border-cyan-500 shadow-md shadow-cyan-500/10'
-                      : 'bg-slate-950/40 border-slate-800 hover:border-slate-700'
-                  }`}
+                  style={{
+                    padding: 16,
+                    borderRadius: 12,
+                    background: selectedFundingOption === 1 ? 'rgba(6, 182, 212, 0.12)' : 'var(--bg-secondary)',
+                    border: selectedFundingOption === 1 ? '2px solid var(--accent-cyan)' : '1px solid var(--border-subtle)',
+                    cursor: 'pointer',
+                  }}
                 >
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs font-bold text-white">Fractionné sans frais</span>
-                    <span className="text-[10px] bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-full font-bold border border-emerald-500/30">
-                      0% INTÉRÊTS
-                    </span>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                    <strong style={{ fontSize: 13, color: 'var(--text-primary)' }}>Fractionné 0%</strong>
+                    <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 6px', borderRadius: 10, background: 'rgba(16, 185, 129, 0.2)', color: 'var(--accent-emerald)' }}>0% INTÉRÊTS</span>
                   </div>
-                  <div className="text-xl font-extrabold text-cyan-400 mb-1">
-                    {financingSim.noFeeOption.monthlyPayment} €{' '}
-                    <span className="text-xs font-normal text-slate-400">/ mois</span>
+                  <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--accent-cyan)', fontFamily: 'var(--font-mono)' }}>
+                    {financingSim.noFeeOption.monthlyPayment} € <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-secondary)' }}>/ mois</span>
                   </div>
-                  <p className="text-[11px] text-slate-400">
-                    Coût total : {financingSim.remainingAmount} € (0 € d'intérêts sur {clicDurationMonths} mois)
-                  </p>
-                </button>
+                  <span style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 4, display: 'block' }}>
+                    0 € de surcoût sur {clicDurationMonths} mois
+                  </span>
+                </div>
 
-                {/* Option 2: Crédit Personnel */}
-                <button
-                  type="button"
+                <div
                   onClick={() => setSelectedFundingOption(2)}
-                  className={`p-4 rounded-2xl border text-left transition-all relative ${
-                    selectedFundingOption === 2
-                      ? 'bg-cyan-500/10 border-cyan-500 shadow-md shadow-cyan-500/10'
-                      : 'bg-slate-950/40 border-slate-800 hover:border-slate-700'
-                  }`}
+                  style={{
+                    padding: 16,
+                    borderRadius: 12,
+                    background: selectedFundingOption === 2 ? 'rgba(99, 102, 241, 0.12)' : 'var(--bg-secondary)',
+                    border: selectedFundingOption === 2 ? '2px solid #818cf8' : '1px solid var(--border-subtle)',
+                    cursor: 'pointer',
+                  }}
                 >
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs font-bold text-white">Crédit Amortissable</span>
-                    <span className="text-[10px] bg-blue-500/20 text-blue-400 px-2 py-0.5 rounded-full font-bold border border-blue-500/30">
-                      TAEG {clicTaeg}%
-                    </span>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                    <strong style={{ fontSize: 13, color: 'var(--text-primary)' }}>Prêt Personnel</strong>
+                    <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 6px', borderRadius: 10, background: 'rgba(99, 102, 241, 0.2)', color: '#818cf8' }}>TAEG {clicTaeg}%</span>
                   </div>
-                  <div className="text-xl font-extrabold text-white mb-1">
-                    {financingSim.personalCreditOption.monthlyPayment} €{' '}
-                    <span className="text-xs font-normal text-slate-400">/ mois</span>
+                  <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>
+                    {financingSim.personalCreditOption.monthlyPayment} € <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-secondary)' }}>/ mois</span>
                   </div>
-                  <p className="text-[11px] text-slate-400">
-                    Intérêts totaux :{' '}
-                    <span className="text-amber-400 font-semibold">
-                      +{financingSim.personalCreditOption.totalInterest} €
-                    </span>
-                  </p>
-                </button>
+                  <span style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 4, display: 'block' }}>
+                    Intérêts totaux : +{financingSim.personalCreditOption.totalInterest} €
+                  </span>
+                </div>
               </div>
 
-              {/* Action Button */}
+              {/* Bouton d'action */}
               {onApplyAdjustment && (
                 <button
                   type="button"
+                  className="btn btn-primary"
                   onClick={() => {
                     const monthly =
                       selectedFundingOption === 1
                         ? financingSim.noFeeOption.monthlyPayment
                         : financingSim.personalCreditOption.monthlyPayment;
-                    onApplyAdjustment(
-                      monthly,
-                      `Échéance financement CLIC (${clicDurationMonths} mois)`
-                    );
+                    onApplyAdjustment(monthly, `Échéance financement (${clicDurationMonths} mois)`);
                     onClose();
                   }}
-                  className="w-full py-3 px-4 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white font-bold text-xs rounded-xl shadow-lg shadow-cyan-500/20 transition-all flex items-center justify-center space-x-2"
+                  style={{
+                    background: 'linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%)',
+                    fontWeight: 700,
+                    padding: 12,
+                    fontSize: 13,
+                  }}
                 >
-                  <Zap className="w-4 h-4" />
-                  <span>
-                    Appliquer cette mensualité (-
-                    {selectedFundingOption === 1
-                      ? financingSim.noFeeOption.monthlyPayment
-                      : financingSim.personalCreditOption.monthlyPayment}{' '}
-                    €/m) au budget mensuel
-                  </span>
+                  ⚡ Appliquer cette mensualité (-
+                  {selectedFundingOption === 1
+                    ? financingSim.noFeeOption.monthlyPayment
+                    : financingSim.personalCreditOption.monthlyPayment}{' '}
+                  €/m) au budget mensuel
                 </button>
               )}
             </div>

@@ -93,18 +93,18 @@ const CATEGORY_LABELS: Record<ExtraCashCategory, { label: string; icon: string; 
 
 const BANK_CATEGORY_LABELS: Record<BankReconciliationCategory, { label: string; icon: string; color: string }> = {
   SALARY_INCOME: { label: 'Salaire & Revenus (Employeur)', icon: '💼', color: 'var(--accent-cyan)' },
-  RENT_HOUSING: { label: 'Loyer & Logement', icon: '🏠', color: '#f97316' },
-  SUBSCRIPTIONS: { label: 'Abonnements (Bouygues, Spotify, EDF...)', icon: '📱', color: '#eab308' },
-  INVEST_PEA: { label: 'Virement PEA (Investissement)', icon: '📈', color: 'var(--accent-emerald)' },
+  INVEST_PEA: { label: 'Versement PEA (Investissement)', icon: '📈', color: 'var(--accent-emerald)' },
   INVEST_TONTINE: { label: 'Virement Tontine (Épargne)', icon: '🤝', color: '#818cf8' },
-  SUPPORT_WAVE: { label: 'Soutien familial (Wave)', icon: '🌍', color: '#38bdf8' },
-  REVOLUT_TRANSFER: { label: 'Virement Revolut', icon: '💳', color: '#a855f7' },
-  INVEST_LIVRET_A: { label: 'Livret A (Précaution)', icon: '🛡️', color: '#06b6d4' },
   INVEST_TAMPON: { label: 'Compte Tampon (Sas de réserve)', icon: '⚡', color: '#f59e0b' },
+  INVEST_LIVRET_A: { label: 'Livret A (Précaution)', icon: '🛡️', color: '#06b6d4' },
   INVEST_CTO: { label: 'Compte Titres (CTO)', icon: '🌐', color: '#6366f1' },
-  DAILY_EXPENSE: { label: 'Dépense courante (CB / Quotidien)', icon: '🛒', color: 'var(--text-secondary)' },
-  OTHER_TRANSFER: { label: 'Autre virement bancaire', icon: '🔄', color: 'var(--text-secondary)' },
-  IGNORED: { label: 'Ignorer (Non comptabilisé)', icon: '❌', color: 'var(--text-muted)' },
+  RENT_HOUSING: { label: 'Loyer & Logement', icon: '🏠', color: 'var(--text-secondary)' },
+  SUBSCRIPTIONS: { label: 'Abonnements', icon: '📱', color: 'var(--text-secondary)' },
+  SUPPORT_WAVE: { label: 'Soutien familial', icon: '🌍', color: 'var(--text-secondary)' },
+  REVOLUT_TRANSFER: { label: 'Revolut', icon: '💳', color: 'var(--text-secondary)' },
+  DAILY_EXPENSE: { label: 'Dépense courante', icon: '🛒', color: 'var(--text-secondary)' },
+  OTHER_TRANSFER: { label: 'Autre virement', icon: '🔄', color: 'var(--text-secondary)' },
+  IGNORED: { label: 'Ignorer', icon: '❌', color: 'var(--text-muted)' },
 };
 
 export default function RevenueBudgetView({
@@ -142,23 +142,10 @@ export default function RevenueBudgetView({
   const [lastSyncTs, setLastSyncTs] = useState<number | null>(null);
 
   // Selected Month for Bank Analysis
-  const [selectedMonth, setSelectedMonth] = useState<string>(() => {
-    // Par défaut, le mois en cours ou le dernier mois disponible
-    return currentPeriod().period;
-  });
-
-  // Reconciliation draft for the selected month
+  const [selectedMonth, setSelectedMonth] = useState<string>(() => currentPeriod().period);
   const [monthDraft, setMonthDraft] = useState<BankReconciliationRecord | null>(null);
-  const [filterCategory, setFilterCategory] = useState<string>('ALL');
-  const [searchTerm, setSearchTerm] = useState('');
 
-  // Allocations de réserve
-  const [showAllocForm, setShowAllocForm] = useState(false);
-  const [allocAmount, setAllocAmount] = useState<number>(0);
-  const [allocEnvelope, setAllocEnvelope] = useState<'PEA' | 'PEA-PME' | 'CTO'>('CTO');
-  const [allocTicker, setAllocTicker] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
-
   const boursoLive = useBoursoLive();
 
   const safeConfigProp: RevenueConfig = useMemo(() => ({
@@ -184,7 +171,7 @@ export default function RevenueBudgetView({
 
   const grandTotalAvailableExtra = availableExtraCashTotal + (reserveBalance || 0);
 
-  // 1. Initial Load: Read cached TrueLayer transactions on mount
+  // Read cached TrueLayer transactions on mount
   useEffect(() => {
     const cached = getCachedTrueLayerTransactions();
     if (cached && cached.transactions.length > 0) {
@@ -194,22 +181,18 @@ export default function RevenueBudgetView({
         setSelectedMonth(cached.months[0]);
       }
     }
-  }, []); // Run once on mount
+  }, []);
 
-  // Compute available months list dynamically
+  // Compute available months list
   const availableMonths = useMemo(() => {
     const set = new Set<string>();
-    // Mois des transactions
     allBankTransactions.forEach((t) => {
       if (t.date && t.date.length >= 7) set.add(t.date.slice(0, 7));
     });
-    // Mois des fiches enregistrées
     records.forEach((r) => {
       if (r.period) set.add(r.period);
     });
-    // Mois en cours
     set.add(currentPeriod().period);
-
     return Array.from(set).sort().reverse();
   }, [allBankTransactions, records]);
 
@@ -229,7 +212,7 @@ export default function RevenueBudgetView({
       setLastSyncTs(Date.now());
 
       if (transactions.length > 0) {
-        onShowToast(`✅ ${transactions.length} transactions BoursoBank synchronisées sur 3 mois !`, 'success');
+        onShowToast(`✅ ${transactions.length} transactions BoursoBank synchronisées !`, 'success');
         if (months.length > 0 && !months.includes(selectedMonth)) {
           setSelectedMonth(months[0]);
         }
@@ -369,47 +352,32 @@ export default function RevenueBudgetView({
     }
   }, [draft, onSaveRecord, onShowToast]);
 
-  // ✅ Confirm & Save Bank Reconciliation for the Selected Month
+  // ✅ Confirm & Save Bank Reconciliation for the Selected Month (PEA + Salaire focus)
   const handleConfirmMonthReconciliation = useCallback(async () => {
     if (!monthDraft) return;
 
     const matches = monthDraft.detectedTransactions || [];
     let actualNetSalaryReceived = 0;
-    let actualRent = 0;
-    let actualSubscriptions = 0;
     let actualInvestedPEA = 0;
     let actualInvestedTontine = 0;
-    let actualSupportWave = 0;
-    let actualRevolut = 0;
     let actualInvestedTampon = 0;
     let actualInvestedLivretA = 0;
     let actualInvestedCTO = 0;
-    let actualDailyExpenses = 0;
 
     for (const m of matches) {
       if (!m.included) continue;
       const amt = Number(m.amount) || 0;
       switch (m.category) {
         case 'SALARY_INCOME': actualNetSalaryReceived += amt; break;
-        case 'RENT_HOUSING': actualRent += amt; break;
-        case 'SUBSCRIPTIONS': actualSubscriptions += amt; break;
         case 'INVEST_PEA': actualInvestedPEA += amt; break;
         case 'INVEST_TONTINE': actualInvestedTontine += amt; break;
-        case 'SUPPORT_WAVE': actualSupportWave += amt; break;
-        case 'REVOLUT_TRANSFER': actualRevolut += amt; break;
         case 'INVEST_TAMPON': actualInvestedTampon += amt; break;
         case 'INVEST_LIVRET_A': actualInvestedLivretA += amt; break;
         case 'INVEST_CTO': actualInvestedCTO += amt; break;
-        case 'DAILY_EXPENSE':
-        case 'OTHER_TRANSFER':
-          actualDailyExpenses += amt;
-          break;
       }
     }
 
     const totalActualInvested = Math.round((actualInvestedPEA + actualInvestedTontine + actualInvestedTampon + actualInvestedLivretA + actualInvestedCTO) * 100) / 100;
-    const totalActualFixedExpenses = Math.round((actualRent + actualSubscriptions) * 100) / 100;
-    const totalActualLivingTransfers = Math.round((actualSupportWave + actualRevolut) * 100) / 100;
     const actualSavingsRate = actualNetSalaryReceived > 0 ? Math.round(((totalActualInvested / actualNetSalaryReceived) * 100) * 10) / 10 : 0;
 
     const existingRecord = records.find((r) => r.period === monthDraft.period);
@@ -429,19 +397,12 @@ export default function RevenueBudgetView({
       reconciled: true,
       reconciledAt: Date.now(),
       actualNetSalaryReceived,
-      actualRent: Math.round(actualRent * 100) / 100,
-      actualSubscriptions: Math.round(actualSubscriptions * 100) / 100,
       actualInvestedPEA,
       actualInvestedTontine,
-      actualSupportWave: Math.round(actualSupportWave * 100) / 100,
-      actualRevolut: Math.round(actualRevolut * 100) / 100,
       actualInvestedTampon,
       actualInvestedLivretA,
       actualInvestedCTO,
-      actualDailyExpenses: Math.round(actualDailyExpenses * 100) / 100,
       totalActualInvested,
-      totalActualFixedExpenses,
-      totalActualLivingTransfers,
       actualSavingsRate,
       deltaVsPlan,
       executionRatePercent,
@@ -515,23 +476,21 @@ export default function RevenueBudgetView({
     onShowToast(`Statut mis à jour (${!entry.isAvailable ? 'Disponible' : 'Marqué comme investi'})`, 'success');
   }, [onSaveExtraCashEntry, onShowToast]);
 
-  // Filtered transactions for the selected month table
-  const displayedTransactions = useMemo(() => {
+  // Investment-focused transactions for the selected month table (Salary & Investments)
+  const investmentTransactions = useMemo(() => {
     if (!monthDraft || !monthDraft.detectedTransactions) return [];
-    return monthDraft.detectedTransactions.filter((tx) => {
-      const matchCat = filterCategory === 'ALL' || tx.category === filterCategory;
-      const matchSearch = !searchTerm || tx.rawDescription.toLowerCase().includes(searchTerm.toLowerCase());
-      return matchCat && matchSearch;
-    });
-  }, [monthDraft, filterCategory, searchTerm]);
+    return monthDraft.detectedTransactions.filter((tx) =>
+      ['SALARY_INCOME', 'INVEST_PEA', 'INVEST_TONTINE', 'INVEST_TAMPON', 'INVEST_LIVRET_A', 'INVEST_CTO'].includes(tx.category)
+    );
+  }, [monthDraft]);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-      {/* 📊 1. SYNTHÈSE DES MÉTRIQUES RÉELLES */}
+      {/* 📊 1. SYNTHÈSE DES MÉTRIQUES CLÉS PORTFOLIO */}
       <div className="grid-4">
         <div className="card" style={{ borderTop: '3px solid var(--accent-cyan)' }}>
           <div className="card-header">
-            <span className="card-title">Net Moyen Mensuel</span>
+            <span className="card-title">Net Moyen Reçu</span>
             {analytics.reconciledMonthsCount > 0 && (
               <span style={{ fontSize: 10, color: 'var(--accent-emerald)', fontWeight: 700 }}>🟢 Réel</span>
             )}
@@ -548,7 +507,7 @@ export default function RevenueBudgetView({
 
         <div className="card" style={{ borderTop: '3px solid var(--accent-emerald)' }}>
           <div className="card-header">
-            <span className="card-title">Investi Mensuel Réel</span>
+            <span className="card-title">Investi PEA / Mois</span>
             {analytics.reconciledMonthsCount > 0 && (
               <span style={{ fontSize: 10, color: 'var(--accent-emerald)', fontWeight: 700 }}>🟢 Réel</span>
             )}
@@ -557,13 +516,13 @@ export default function RevenueBudgetView({
             {(analytics.reconciledMonthsCount > 0 ? analytics.averageActualInvested : analytics.averageRegularInvestable).toLocaleString('fr-FR', { maximumFractionDigits: 0 })} €
           </div>
           <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
-            {analytics.reconciledMonthsCount > 0 ? 'Virements constatés (PEA + Tontine)' : 'Capacité régulière théorique'}
+            {analytics.reconciledMonthsCount > 0 ? 'Virements constatés sur le PEA' : 'Capacité régulière cible'}
           </span>
         </div>
 
         <div className="card" style={{ borderTop: '3px solid #818cf8' }}>
           <div className="card-header">
-            <span className="card-title">Taux d&apos;Épargne Effectif</span>
+            <span className="card-title">Taux d&apos;Épargne Portefeuille</span>
           </div>
           <div className="card-value" style={{ color: '#818cf8' }}>
             {(analytics.reconciledMonthsCount > 0 ? analytics.averageActualSavingsRate : analytics.averageSavingsRate).toFixed(1)} %
@@ -575,13 +534,13 @@ export default function RevenueBudgetView({
 
         <div className="card" style={{ borderTop: '3px solid #f59e0b', background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.04) 0%, rgba(16, 185, 129, 0.04) 100%)' }}>
           <div className="card-header">
-            <span className="card-title">💎 Total Réserve &amp; Extras</span>
+            <span className="card-title">💎 Réserve &amp; Extras Disponibles</span>
           </div>
           <div className="card-value" style={{ color: '#f59e0b' }}>
             +{grandTotalAvailableExtra.toLocaleString('fr-FR')} €
           </div>
           <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
-            Réserve (+{reserveBalance.toLocaleString('fr-FR')} €) + Windfalls (+{availableExtraCashTotal.toLocaleString('fr-FR')} €)
+            Réserve (+{reserveBalance.toLocaleString('fr-FR')} €) + Extras (+{availableExtraCashTotal.toLocaleString('fr-FR')} €)
           </span>
         </div>
       </div>
@@ -602,7 +561,7 @@ export default function RevenueBudgetView({
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <h4 style={{ fontSize: 15, margin: 0, fontWeight: 800, color: 'var(--text-primary)' }}>
-                  Comptes Bancaires en Direct (BoursoBank Open Banking)
+                  Comptes &amp; Trésorerie d&apos;Investissement (BoursoBank)
                 </h4>
                 <span
                   style={{
@@ -619,7 +578,7 @@ export default function RevenueBudgetView({
                 </span>
               </div>
               <p style={{ margin: '2px 0 0 0', fontSize: 12, color: 'var(--text-secondary)' }}>
-                Soldes réels synchronisés &mdash; Utilisez le Compte Tampon comme sas de dispatching
+                Soldes réels synchronisés &mdash; Utilisez le Compte Tampon comme sas d&apos;injection vers le PEA
               </p>
             </div>
           </div>
@@ -643,7 +602,7 @@ export default function RevenueBudgetView({
           </div>
         </div>
 
-        {/* Real Accounts 4-Grid */}
+        {/* Real Accounts 3-Grid */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 10 }}>
           <div style={{ padding: '10px 14px', borderRadius: 8, background: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)' }}>
             <span style={{ fontSize: 11, color: 'var(--accent-cyan)', fontWeight: 700, textTransform: 'uppercase' }}>💳 Compte Courant</span>
@@ -653,7 +612,7 @@ export default function RevenueBudgetView({
           </div>
 
           <div style={{ padding: '10px 14px', borderRadius: 8, background: 'rgba(16, 185, 129, 0.08)', border: '1px solid rgba(16, 185, 129, 0.3)' }}>
-            <span style={{ fontSize: 11, color: 'var(--accent-emerald)', fontWeight: 800, textTransform: 'uppercase' }}>⚡ Compte Tampon (Sas)</span>
+            <span style={{ fontSize: 11, color: 'var(--accent-emerald)', fontWeight: 800, textTransform: 'uppercase' }}>⚡ Compte Tampon (Sas PEA)</span>
             <div style={{ fontSize: 17, fontWeight: 800, fontFamily: 'var(--font-mono)', marginTop: 4, color: 'var(--accent-emerald)' }}>
               {boursoLive.tamponEUR.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
             </div>
@@ -665,19 +624,10 @@ export default function RevenueBudgetView({
               {boursoLive.livretAEUR > 0 ? boursoLive.livretAEUR.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' }) : '0,00 €'}
             </div>
           </div>
-
-          {boursoLive.tontineEUR > 0 && (
-            <div style={{ padding: '10px 14px', borderRadius: 8, background: 'rgba(129, 140, 248, 0.08)', border: '1px solid rgba(129, 140, 248, 0.3)' }}>
-              <span style={{ fontSize: 11, color: '#818cf8', fontWeight: 800, textTransform: 'uppercase' }}>🤝 Tontine (Tour)</span>
-              <div style={{ fontSize: 17, fontWeight: 800, fontFamily: 'var(--font-mono)', marginTop: 4, color: '#818cf8' }}>
-                {boursoLive.tontineEUR.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
-              </div>
-            </div>
-          )}
         </div>
       </div>
 
-      {/* 🔍 3. CENTRE D'ANALYSE BANCAIRE (TRUELAYER 3 MOIS SANS FILTRE) */}
+      {/* 🔍 3. RAPPROCHEMENT BANCAIRE MENSUEL (SALAIRE & VERSEMENT PEA RÉEL) */}
       <div
         className="card"
         style={{
@@ -687,17 +637,16 @@ export default function RevenueBudgetView({
           borderRadius: 12,
         }}
       >
-        {/* Header & Synchronization Actions */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 14, marginBottom: 16 }}>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <span style={{ fontSize: 20 }}>📊</span>
               <h3 style={{ fontSize: 17, margin: 0, fontWeight: 800, color: 'var(--text-primary)' }}>
-                Analyse &amp; Rapprochement Factuel BoursoBank (3 Derniers Mois)
+                Rapprochement Bancaire (Salaire Reçu &amp; Versement PEA)
               </h3>
             </div>
             <p style={{ margin: '4px 0 0 0', fontSize: 13, color: 'var(--text-secondary)' }}>
-              Reconnaissance exhaustive de tous vos flux réels (Salaire, Loyer, Abonnements, PEA, Livret A, Tontine, Soutien Wave, Revolut).
+              Vérification des flux réels crédités et investis sur le PEA via BoursoBank.
             </p>
           </div>
 
@@ -714,7 +663,7 @@ export default function RevenueBudgetView({
               disabled={isSyncingTrueLayer}
               onClick={handleSyncBoursoBank}
             >
-              {isSyncingTrueLayer ? '⏳ Synchronisation 3 mois...' : '🔄 Synchroniser BoursoBank (3 mois)'}
+              {isSyncingTrueLayer ? '⏳ Synchronisation...' : '🔄 Synchroniser BoursoBank'}
             </button>
           </div>
         </div>
@@ -757,216 +706,101 @@ export default function RevenueBudgetView({
           })}
         </div>
 
-        {/* 4 Key Pillars for Selected Month */}
+        {/* 2 Focused Pillars for Portfolio: Salaire Reçu & Versement PEA */}
         {monthDraft && (
           <div>
             <div
               style={{
                 display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
                 gap: 12,
                 marginBottom: 20,
               }}
             >
-              {/* 1. Salaire net encaissé */}
-              <div style={{ padding: '12px 14px', borderRadius: 10, background: 'rgba(6, 182, 212, 0.08)', border: '1px solid rgba(6, 182, 212, 0.3)' }}>
+              {/* 1. Salaire net reçu */}
+              <div style={{ padding: '14px 16px', borderRadius: 10, background: 'rgba(6, 182, 212, 0.08)', border: '1px solid rgba(6, 182, 212, 0.3)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span style={{ fontSize: 11, fontWeight: 800, color: 'var(--accent-cyan)', textTransform: 'uppercase' }}>
-                    💼 Salaire Reçu
+                    💼 Salaire Reçu (Banque)
                   </span>
                   <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>Crédit</span>
                 </div>
-                <div style={{ fontSize: 18, fontWeight: 800, fontFamily: 'var(--font-mono)', marginTop: 4, color: 'var(--accent-cyan)' }}>
+                <div style={{ fontSize: 20, fontWeight: 800, fontFamily: 'var(--font-mono)', marginTop: 4, color: 'var(--accent-cyan)' }}>
                   +{monthDraft.actualNetSalaryReceived.toLocaleString('fr-FR')} €
                 </div>
                 <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
                   {records.find((r) => r.period === selectedMonth)?.netSalary
-                    ? `Fiche : ${records.find((r) => r.period === selectedMonth)?.netSalary?.toLocaleString('fr-FR')} €`
+                    ? `Fiche de paie : ${records.find((r) => r.period === selectedMonth)?.netSalary?.toLocaleString('fr-FR')} €`
                     : 'Aucun bulletin associé'}
                 </span>
               </div>
 
-              {/* 2. Charges fixes (Loyer + Abonnements) */}
-              <div style={{ padding: '12px 14px', borderRadius: 10, background: 'rgba(249, 115, 22, 0.08)', border: '1px solid rgba(249, 115, 22, 0.3)' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontSize: 11, fontWeight: 800, color: '#f97316', textTransform: 'uppercase' }}>
-                    🏠 Charges Fixes
-                  </span>
-                  <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>Loyer &amp; Box</span>
-                </div>
-                <div style={{ fontSize: 18, fontWeight: 800, fontFamily: 'var(--font-mono)', marginTop: 4, color: '#f97316' }}>
-                  -{(monthDraft.totalActualFixedExpenses || 0).toLocaleString('fr-FR')} €
-                </div>
-                <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
-                  Loyer: {(monthDraft.actualRent || 0).toLocaleString('fr-FR')} € • Abos: {(monthDraft.actualSubscriptions || 0).toLocaleString('fr-FR')} €
-                </span>
-              </div>
-
-              {/* 3. Épargne & Investissements (PEA + Tontine + Tampon + Livret A) */}
-              <div style={{ padding: '12px 14px', borderRadius: 10, background: 'rgba(16, 185, 129, 0.08)', border: '1px solid rgba(16, 185, 129, 0.3)' }}>
+              {/* 2. Versement PEA Réel */}
+              <div style={{ padding: '14px 16px', borderRadius: 10, background: 'rgba(16, 185, 129, 0.08)', border: '1px solid rgba(16, 185, 129, 0.3)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span style={{ fontSize: 11, fontWeight: 800, color: 'var(--accent-emerald)', textTransform: 'uppercase' }}>
-                    📈 Investi &amp; Épargné
+                    📈 Versement PEA Réel
                   </span>
                   <span style={{ fontSize: 10, color: 'var(--accent-emerald)', fontWeight: 700 }}>
                     {monthDraft.actualSavingsRate.toFixed(1)} % épargne
                   </span>
                 </div>
-                <div style={{ fontSize: 18, fontWeight: 800, fontFamily: 'var(--font-mono)', marginTop: 4, color: 'var(--accent-emerald)' }}>
-                  -{(monthDraft.totalActualInvested || 0).toLocaleString('fr-FR')} €
+                <div style={{ fontSize: 20, fontWeight: 800, fontFamily: 'var(--font-mono)', marginTop: 4, color: 'var(--accent-emerald)' }}>
+                  -{(monthDraft.actualInvestedPEA || monthDraft.totalActualInvested || 0).toLocaleString('fr-FR')} €
                 </div>
                 <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
-                  PEA: {monthDraft.actualInvestedPEA.toLocaleString('fr-FR')} € • Tontine: {monthDraft.actualInvestedTontine.toLocaleString('fr-FR')} € • Livret A: {monthDraft.actualInvestedLivretA.toLocaleString('fr-FR')} €
-                </span>
-              </div>
-
-              {/* 4. Transferts de Vie & Soutien (Revolut + Wave) */}
-              <div style={{ padding: '12px 14px', borderRadius: 10, background: 'rgba(56, 189, 248, 0.08)', border: '1px solid rgba(56, 189, 248, 0.3)' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontSize: 11, fontWeight: 800, color: '#38bdf8', textTransform: 'uppercase' }}>
-                    🌍 Soutien &amp; Revolut
-                  </span>
-                  <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>Vie</span>
-                </div>
-                <div style={{ fontSize: 18, fontWeight: 800, fontFamily: 'var(--font-mono)', marginTop: 4, color: '#38bdf8' }}>
-                  -{(monthDraft.totalActualLivingTransfers || 0).toLocaleString('fr-FR')} €
-                </div>
-                <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
-                  Wave (Soutien): {(monthDraft.actualSupportWave || 0).toLocaleString('fr-FR')} € • Revolut: {(monthDraft.actualRevolut || 0).toLocaleString('fr-FR')} €
+                  {records.find((r) => r.period === selectedMonth)?.regularInvestableAmount
+                    ? `Objectif cible : ${records.find((r) => r.period === selectedMonth)?.regularInvestableAmount?.toLocaleString('fr-FR')} €`
+                    : 'Capacité régulière'}
                 </span>
               </div>
             </div>
 
-            {/* Transactions Management Sub-Bar */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10, marginBottom: 12 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                <input
-                  type="text"
-                  className="input"
-                  placeholder="🔍 Rechercher dans le libellé..."
-                  style={{ width: 220, fontSize: 12, padding: '5px 10px' }}
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
-
-                <select
-                  className="input"
-                  style={{ width: 'auto', fontSize: 12, padding: '5px 10px' }}
-                  value={filterCategory}
-                  onChange={(e) => setFilterCategory(e.target.value)}
-                >
-                  <option value="ALL">Toutes les catégories ({monthDraft.detectedTransactions?.length || 0})</option>
-                  {Object.entries(BANK_CATEGORY_LABELS).map(([catKey, info]) => (
-                    <option key={catKey} value={catKey}>
-                      {info.icon} {info.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div style={{ display: 'flex', gap: 8 }}>
-                <button
-                  type="button"
-                  className="btn btn-ghost btn-sm"
-                  style={{ fontSize: 12, border: '1px dashed var(--border-subtle)' }}
-                  onClick={() => {
-                    const newMatch: BankTransactionMatch = {
-                      id: `tx-manual-${Date.now()}`,
-                      date: `${selectedMonth}-05`,
-                      rawDescription: 'Virement / Opération manuelle',
-                      amount: 100,
-                      category: 'INVEST_PEA',
-                      suggestedCategory: 'INVEST_PEA',
-                      confidence: 1,
-                      included: true,
-                    };
-                    setMonthDraft({
-                      ...monthDraft,
-                      detectedTransactions: [...(monthDraft.detectedTransactions || []), newMatch],
-                    });
-                  }}
-                >
-                  ➕ Ajouter une ligne
-                </button>
-
-                <button
-                  type="button"
-                  className="btn btn-primary btn-sm"
-                  style={{ background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', fontWeight: 700 }}
-                  onClick={handleConfirmMonthReconciliation}
-                >
-                  ✅ Valider &amp; Enregistrer {getPeriodLabel(selectedMonth)}
-                </button>
-              </div>
+            {/* Reconciliation Actions & Transactions Table */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+              <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>
+                Flux d&apos;investissement détectés pour {getPeriodLabel(selectedMonth)}
+              </span>
+              <button
+                type="button"
+                className="btn btn-primary btn-sm"
+                style={{ background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', fontWeight: 700 }}
+                onClick={handleConfirmMonthReconciliation}
+              >
+                ✅ Valider {getPeriodLabel(selectedMonth)}
+              </button>
             </div>
 
-            {/* Transactions List Table */}
-            {displayedTransactions.length === 0 ? (
-              <div style={{ padding: 24, textAlign: 'center', background: 'var(--bg-secondary)', borderRadius: 8, color: 'var(--text-secondary)' }}>
-                Aucune transaction trouvée pour le mois de {getPeriodLabel(selectedMonth)}.
-                Cliquez sur <strong>« 🔄 Synchroniser BoursoBank »</strong> pour récupérer vos flux réels.
+            {investmentTransactions.length === 0 ? (
+              <div style={{ padding: 18, textAlign: 'center', background: 'var(--bg-secondary)', borderRadius: 8, color: 'var(--text-secondary)', fontSize: 13 }}>
+                Aucun virement PEA ou salaire détecté pour ce mois. Cliquez sur <strong>« 🔄 Synchroniser BoursoBank »</strong> pour rafraîchir.
               </div>
             ) : (
-              <div style={{ maxHeight: 340, overflowY: 'auto', border: '1px solid var(--border-subtle)', borderRadius: 8, background: 'var(--bg-primary)' }}>
+              <div style={{ border: '1px solid var(--border-subtle)', borderRadius: 8, background: 'var(--bg-primary)', overflow: 'hidden' }}>
                 <table className="table" style={{ width: '100%', margin: 0 }}>
                   <thead>
                     <tr>
-                      <th style={{ width: 40 }}>Actif</th>
                       <th style={{ width: 90 }}>Date</th>
-                      <th>Libellé Transaction</th>
-                      <th style={{ width: 110, textAlign: 'right' }}>Montant</th>
-                      <th style={{ width: 230 }}>Catégorie Assignée</th>
+                      <th>Libellé Virement</th>
+                      <th style={{ width: 120, textAlign: 'right' }}>Montant</th>
+                      <th style={{ width: 200 }}>Catégorie</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {displayedTransactions.map((tx) => {
-                      const idx = (monthDraft.detectedTransactions || []).findIndex((t) => t.id === tx.id);
-                      return (
-                        <tr key={tx.id} style={{ opacity: tx.included ? 1 : 0.4 }}>
-                          <td>
-                            <input
-                              type="checkbox"
-                              checked={tx.included}
-                              onChange={(e) => {
-                                const next = [...(monthDraft.detectedTransactions || [])];
-                                if (idx !== -1) {
-                                  next[idx] = { ...next[idx], included: e.target.checked };
-                                  setMonthDraft({ ...monthDraft, detectedTransactions: next });
-                                }
-                              }}
-                            />
-                          </td>
-                          <td style={{ fontSize: 12, fontFamily: 'var(--font-mono)' }}>{tx.date}</td>
-                          <td style={{ fontSize: 12 }}>
-                            <strong>{tx.rawDescription}</strong>
-                            {tx.accountName && <span style={{ fontSize: 10, color: 'var(--text-muted)', display: 'block' }}>{tx.accountName}</span>}
-                          </td>
-                          <td style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, textAlign: 'right', fontSize: 13, color: tx.category === 'SALARY_INCOME' ? 'var(--accent-cyan)' : 'var(--text-primary)' }}>
-                            {tx.category === 'SALARY_INCOME' ? '+' : '-'}{tx.amount.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €
-                          </td>
-                          <td>
-                            <select
-                              className="input"
-                              style={{ fontSize: 11, padding: '4px 6px', width: '100%' }}
-                              value={tx.category}
-                              onChange={(e) => {
-                                const next = [...(monthDraft.detectedTransactions || [])];
-                                if (idx !== -1) {
-                                  next[idx] = { ...next[idx], category: e.target.value as BankReconciliationCategory };
-                                  setMonthDraft({ ...monthDraft, detectedTransactions: next });
-                                }
-                              }}
-                            >
-                              {Object.entries(BANK_CATEGORY_LABELS).map(([catKey, info]) => (
-                                <option key={catKey} value={catKey}>
-                                  {info.icon} {info.label}
-                                </option>
-                              ))}
-                            </select>
-                          </td>
-                        </tr>
-                      );
-                    })}
+                    {investmentTransactions.map((tx) => (
+                      <tr key={tx.id}>
+                        <td style={{ fontSize: 12, fontFamily: 'var(--font-mono)' }}>{tx.date}</td>
+                        <td style={{ fontSize: 12 }}><strong>{tx.rawDescription}</strong></td>
+                        <td style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, textAlign: 'right', fontSize: 13, color: tx.category === 'SALARY_INCOME' ? 'var(--accent-cyan)' : 'var(--accent-emerald)' }}>
+                          {tx.category === 'SALARY_INCOME' ? '+' : '-'}{tx.amount.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €
+                        </td>
+                        <td>
+                          <span style={{ fontSize: 12, fontWeight: 600, color: BANK_CATEGORY_LABELS[tx.category]?.color || 'var(--text-primary)' }}>
+                            {BANK_CATEGORY_LABELS[tx.category]?.icon} {BANK_CATEGORY_LABELS[tx.category]?.label}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
               </div>
@@ -975,11 +809,11 @@ export default function RevenueBudgetView({
         )}
       </div>
 
-      {/* 📄 4. BULLETINS DE SALAIRE (THÉORIE & CAPACITÉ D'INVESTISSEMENT) */}
+      {/* 📄 4. BULLETINS DE SALAIRE (CAPACITÉ D'INVESTISSEMENT THÉORIQUE) */}
       <div className="card">
         <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
           <div>
-            <span className="card-title">📄 Bulletins de Salaire (Capacité d&apos;Investissement Théorique)</span>
+            <span className="card-title">📄 Bulletins de Salaire (Capacité d&apos;Investissement PEA)</span>
             <p style={{ margin: '4px 0 0 0', fontSize: 13, color: 'var(--text-secondary)' }}>
               Importez vos bulletins de paie PDF réels ou saisissez-les manuellement pour calibrer vos plans de versement.
             </p>
@@ -1042,7 +876,7 @@ export default function RevenueBudgetView({
                 />
               </div>
               <div className="form-group">
-                <label className="form-label">Montant régulier à investir ce mois (€)</label>
+                <label className="form-label">Montant régulier cible à investir (€)</label>
                 <input
                   type="number"
                   className="input"
@@ -1071,11 +905,10 @@ export default function RevenueBudgetView({
                 <tr>
                   <th>Période</th>
                   <th>Salaire Net (Fiche vs Banque)</th>
-                  <th>Investi (Plan vs Réel)</th>
+                  <th>Investi PEA (Plan vs Réel)</th>
                   <th>Taux d&apos;Épargne</th>
                   <th>Écart (Delta)</th>
-                  <th>Statut</th>
-                  <th></th>
+                  <th>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -1108,9 +941,6 @@ export default function RevenueBudgetView({
                         {isReconciled ? (
                           <div style={{ fontSize: 12, color: 'var(--accent-cyan)', fontWeight: 700 }}>
                             🟢 {reality.totalActualInvested.toLocaleString('fr-FR')} € (Réel)
-                            <span style={{ fontSize: 10, color: 'var(--text-muted)', display: 'block' }}>
-                              PEA: {reality.actualInvestedPEA.toLocaleString('fr-FR')} € • Tontine: {reality.actualInvestedTontine.toLocaleString('fr-FR')} €
-                            </span>
                           </div>
                         ) : (
                           <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Non rapproché</span>
@@ -1147,17 +977,6 @@ export default function RevenueBudgetView({
 
                       <td>
                         <button
-                          type="button"
-                          className="btn btn-ghost btn-sm"
-                          style={{ fontSize: 11, border: '1px solid var(--border-subtle)' }}
-                          onClick={() => setSelectedMonth(r.period)}
-                        >
-                          🔍 Analyser ce mois
-                        </button>
-                      </td>
-
-                      <td>
-                        <button
                           className="btn-ghost"
                           onClick={() => onDeleteRecord(r.id)}
                           title="Supprimer cette fiche"
@@ -1174,7 +993,7 @@ export default function RevenueBudgetView({
         </div>
       </div>
 
-      {/* 💎 5. PRIMES, TONTINES & EXTRAS DE TRÉSORERIE */}
+      {/* 💎 5. PRIMES & EXTRAS DE TRÉSORERIE (WINDFALLS POUR RÉÉQUILIBRAGE) */}
       <div className="card">
         <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
           <div>
@@ -1182,7 +1001,7 @@ export default function RevenueBudgetView({
               <span>💎</span> Primes, Tontines &amp; Rentrées Exceptionnelles (Windfalls)
             </span>
             <p style={{ margin: '4px 0 0 0', fontSize: 13, color: 'var(--text-secondary)' }}>
-              Ajoutez vos rentrées ponctuelles pour les mobiliser dans vos simulations et rééquilibrages de portefeuille.
+              Mobilisez vos rentrées ponctuelles pour rééquilibrer votre portefeuille d&apos;investissement.
             </p>
           </div>
 

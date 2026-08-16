@@ -3197,17 +3197,42 @@ function autoGenerateThemes(
                 id="input-max-weight"
               />
               <div style={{ display: 'flex', gap: 4, marginTop: 6, flexWrap: 'wrap' }}>
-                {[15, 25, 30, 40, 50].map((pct) => (
-                  <button
-                    key={pct}
-                    type="button"
-                    className="btn btn-secondary btn-sm"
-                    style={{ fontSize: 'var(--text-xs)', padding: '3px 8px', fontWeight: 600 }}
-                    onClick={() => handleChange('maxWeight', pct / 100)}
-                  >
-                    {pct}%
-                  </button>
-                ))}
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  style={{
+                    fontSize: 'var(--text-xs)',
+                    padding: '3px 8px',
+                    fontWeight: 600,
+                    background: form.maxWeight === undefined ? 'rgba(6, 182, 212, 0.2)' : undefined,
+                    color: form.maxWeight === undefined ? 'var(--accent-cyan)' : undefined,
+                    border: form.maxWeight === undefined ? '1px solid var(--accent-cyan)' : undefined,
+                  }}
+                  onClick={() => handleChange('maxWeight', undefined)}
+                >
+                  🚫 Sans plafond
+                </button>
+                {[5, 10, 15, 25, 30, 50].map((pct) => {
+                  const isCur = form.maxWeight !== undefined && Math.round(form.maxWeight * 100) === pct;
+                  return (
+                    <button
+                      key={pct}
+                      type="button"
+                      className="btn btn-secondary btn-sm"
+                      style={{
+                        fontSize: 'var(--text-xs)',
+                        padding: '3px 8px',
+                        fontWeight: 600,
+                        background: isCur ? 'rgba(245, 158, 11, 0.2)' : undefined,
+                        color: isCur ? 'var(--accent-amber)' : undefined,
+                        border: isCur ? '1px solid var(--accent-amber)' : undefined,
+                      }}
+                      onClick={() => handleChange('maxWeight', pct / 100)}
+                    >
+                      {pct}%
+                    </button>
+                  );
+                })}
               </div>
             </div>
           </div>

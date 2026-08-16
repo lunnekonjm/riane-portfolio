@@ -517,26 +517,38 @@ export default function CryptoPortfolioTable({
                     </td>
 
                     <td style={{ whiteSpace: 'nowrap' }} onClick={(e) => e.stopPropagation()}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <div style={{ width: 44, height: 5, borderRadius: 3, background: 'var(--border-subtle)', overflow: 'hidden' }}>
-                          <div
-                            style={{
-                              width: `${Math.min(100, (assetWeightPct / 10) * 100)}%`,
-                              height: '100%',
-                              background: assetWeightPct > 10 ? '#ef4444' : 'var(--accent-emerald)',
-                              borderRadius: 3,
-                            }}
-                          />
-                        </div>
-                        <div>
-                          <strong className="mono" style={{ fontSize: 11, color: 'var(--text-primary)', display: 'block' }}>
-                            {assetWeightPct.toFixed(1)}% <span style={{ fontSize: 9, color: 'var(--text-tertiary)' }}>/ 10% max</span>
-                          </strong>
-                          <span style={{ fontSize: 9, color: assetWeightPct > 10 ? '#f87171' : 'var(--accent-emerald)', fontWeight: 600 }}>
-                            {assetWeightPct > 10 ? '⚠️ Élevé' : '✔ OK'}
-                          </span>
-                        </div>
-                      </div>
+                      {(() => {
+                        const maxLimit = typeof pos.maxWeight === 'number' && pos.maxWeight > 0 ? pos.maxWeight * 100 : null;
+                        const isOver = maxLimit !== null ? assetWeightPct > maxLimit : false;
+                        const barMax = maxLimit || 100;
+                        const barFill = Math.min(100, (assetWeightPct / barMax) * 100);
+
+                        return (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <div style={{ width: 44, height: 5, borderRadius: 3, background: 'var(--border-subtle)', overflow: 'hidden' }}>
+                              <div
+                                style={{
+                                  width: `${barFill}%`,
+                                  height: '100%',
+                                  background: isOver ? '#ef4444' : maxLimit ? 'var(--accent-emerald)' : 'var(--accent-cyan)',
+                                  borderRadius: 3,
+                                }}
+                              />
+                            </div>
+                            <div>
+                              <strong className="mono" style={{ fontSize: 11, color: 'var(--text-primary)', display: 'block' }}>
+                                {assetWeightPct.toFixed(1)}%{' '}
+                                <span style={{ fontSize: 9, color: 'var(--text-tertiary)' }}>
+                                  {maxLimit !== null ? `/ ${maxLimit.toFixed(0)}% max` : '(sans plafond)'}
+                                </span>
+                              </strong>
+                              <span style={{ fontSize: 9, color: isOver ? '#f87171' : 'var(--accent-emerald)', fontWeight: 600 }}>
+                                {isOver ? '⚠️ Élevé' : '✔ OK'}
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })()}
                     </td>
 
                     <td onClick={(e) => e.stopPropagation()} style={{ width: 90, textAlign: 'center' }}>

@@ -12,7 +12,7 @@ interface CoreSatelliteViewProps {
 }
 
 interface PillarData {
-  id: 'core' | 'peapme' | 'satellite';
+  id: 'core' | 'peapme' | 'satellite' | 'crypto';
   title: string;
   subtitle: string;
   badge: string;
@@ -34,6 +34,7 @@ interface PillarData {
 }
 
 const MARKET_ENVELOPES = ['PEA', 'PEA-PME', 'CTO', 'SPECULATIVE', 'OPPORTUNISTIC'];
+const ALL_RISK_ENVELOPES = ['PEA', 'PEA-PME', 'CTO', 'SPECULATIVE', 'OPPORTUNISTIC', 'CRYPTO'];
 
 export default function CoreSatelliteView({
   positions,
@@ -42,10 +43,12 @@ export default function CoreSatelliteView({
   onOpenRebalance,
 }: CoreSatelliteViewProps) {
   const [expandedPillar, setExpandedPillar] = useState<string | null>(null);
+  const [scope, setScope] = useState<'BOURSE' | 'GLOBAL'>('BOURSE');
 
-  // 1. Filtrer strictement les positions Boursières (exclut PEE & Livrets)
+  // 1. Filtrer selon le périmètre (Bourse uniquement ou Patrimoine Bourse + Crypto)
+  const activeEnvelopes = scope === 'GLOBAL' ? ALL_RISK_ENVELOPES : MARKET_ENVELOPES;
   const filledMarketPositions = positions.filter((p) => {
-    const isMarket = MARKET_ENVELOPES.includes((p.envelope || '').toUpperCase());
+    const isMarket = activeEnvelopes.includes((p.envelope || '').toUpperCase()) || (scope === 'GLOBAL' && p.assetType === 'CRYPTO');
     const hasValue = (p.quantity || 0) > 0 && (p.avgPrice || 0) > 0;
     return isMarket && hasValue;
   });
@@ -60,6 +63,7 @@ export default function CoreSatelliteView({
   const corePositions: Position[] = [];
   const peaPmePositions: Position[] = [];
   const satellitePositions: Position[] = [];
+  const cryptoPositions: Position[] = [];
 
   filledMarketPositions.forEach((p) => {
     const t = p.ticker.toUpperCase();
@@ -80,7 +84,11 @@ export default function CoreSatelliteView({
       t.includes('MEMS') ||
       t.includes('XFAB');
 
-    if (isCore) {
+    const isCrypto = env === 'CRYPTO' || p.assetType === 'CRYPTO';
+
+    if (isCrypto) {
+      cryptoPositions.push(p);
+    } else if (isCore) {
       corePositions.push(p);
     } else if (isPeaPme) {
       peaPmePositions.push(p);
@@ -90,7 +98,7 @@ export default function CoreSatelliteView({
   });
 
   const formatPillar = (
-    id: 'core' | 'peapme' | 'satellite',
+    id: 'core' | 'peapme' | 'satellite' | 'crypto',
     title: string,
     subtitle: string,
     badge: string,
@@ -189,22 +197,46 @@ export default function CoreSatelliteView({
       {/* Header */}
       <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
         <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
             <span className="card-title" style={{ fontSize: 18, fontWeight: 800 }}>
               🏛️ Allocation Stratégique : Core vs Satellite (CDC V4)
             </span>
-            <span
-              style={{
-                fontSize: 11,
-                padding: '2px 8px',
-                borderRadius: 10,
-                background: 'rgba(6, 182, 212, 0.15)',
-                color: 'var(--accent-cyan)',
-                fontWeight: 700,
-              }}
-            >
-              Portefeuille Boursier
-            </span>
+            <div style={{ display: 'inline-flex', padding: 2, background: 'rgba(255, 255, 255, 0.06)', borderRadius: 8, border: '1px solid var(--border-subtle)' }}>
+              <button
+                type="button"
+                onClick={() => setScope('BOURSE')}
+                style={{
+                  padding: '3px 9px',
+                  fontSize: 11,
+                  fontWeight: scope === 'BOURSE' ? 700 : 500,
+                  borderRadius: 6,
+                  background: scope === 'BOURSE' ? 'rgba(6, 182, 212, 0.2)' : 'transparent',
+                  color: scope === 'BOURSE' ? 'var(--accent-cyan)' : 'var(--text-secondary)',
+                  border: scope === 'BOURSE' ? '1px solid var(--accent-cyan)' : '1px solid transparent',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                📈 Bourse Seule
+              </button>
+              <button
+                type="button"
+                onClick={() => setScope('GLOBAL')}
+                style={{
+                  padding: '3px 9px',
+                  fontSize: 11,
+                  fontWeight: scope === 'GLOBAL' ? 700 : 500,
+                  borderRadius: 6,
+                  background: scope === 'GLOBAL' ? 'rgba(245, 158, 11, 0.2)' : 'transparent',
+                  color: scope === 'GLOBAL' ? 'var(--accent-amber)' : 'var(--text-secondary)',
+                  border: scope === 'GLOBAL' ? '1px solid var(--accent-amber)' : '1px solid transparent',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                🌐 Global (+ Crypto)
+              </button>
+            </div>
           </div>
           <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 4 }}>
             Structure institutionnelle répartissant le capital entre fonds indiciels résilients et titres de conviction.

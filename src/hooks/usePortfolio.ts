@@ -743,26 +743,50 @@ export function usePortfolio() {
 
   const activePositions = positions.filter((p) => p.quantity > 0);
 
-  const marketPos = activePositions.filter((p) => !['LIVRET', 'ASSURANCE_VIE', 'PER', 'PEE', 'IMMOBILIER'].includes(p.envelope));
+  const boursePos = activePositions.filter((p) => !['LIVRET', 'ASSURANCE_VIE', 'PER', 'PEE', 'IMMOBILIER', 'CRYPTO'].includes(p.envelope) && p.assetType !== 'CRYPTO');
+  const cryptoPos = activePositions.filter((p) => p.envelope === 'CRYPTO' || p.assetType === 'CRYPTO');
   const savingsPos = activePositions.filter((p) => ['LIVRET', 'ASSURANCE_VIE', 'PER', 'PEE', 'IMMOBILIER'].includes(p.envelope));
 
-  const marketVal = marketPos.reduce((sum, p) => {
+  const bourseVal = boursePos.reduce((sum, p) => {
     const price = p.currentPrice || p.avgPrice || 0;
     const rate = fxRates[p.currency] || 1.0;
     return sum + p.quantity * price * rate;
   }, 0);
 
-  const marketCostVal = marketPos.reduce((sum, p) => {
+  const bourseCostVal = boursePos.reduce((sum, p) => {
     const rate = fxRates[p.currency] || 1.0;
     return sum + p.quantity * (p.avgPrice || 0) * rate;
   }, 0);
 
-  const marketGain = marketVal - marketCostVal;
-  const marketDCAVal = marketPos.reduce((sum, p) => {
+  const bourseGain = bourseVal - bourseCostVal;
+  const bourseDCAVal = boursePos.reduce((sum, p) => {
     const active = p.dcaHistory && p.dcaHistory.length > 0 ? getActiveDCATranche(p.dcaHistory) : null;
     const eff = active ? active.amount : (p.monthlyDCA || (p.annualBudget ? Math.round(p.annualBudget / 12) : 0));
     return sum + (eff || 0);
   }, 0);
+
+  const cryptoVal = cryptoPos.reduce((sum, p) => {
+    const price = p.currentPrice || p.avgPrice || 0;
+    const rate = fxRates[p.currency] || 1.0;
+    return sum + p.quantity * price * rate;
+  }, 0);
+
+  const cryptoCostVal = cryptoPos.reduce((sum, p) => {
+    const rate = fxRates[p.currency] || 1.0;
+    return sum + p.quantity * (p.avgPrice || 0) * rate;
+  }, 0);
+
+  const cryptoGain = cryptoVal - cryptoCostVal;
+  const cryptoDCAVal = cryptoPos.reduce((sum, p) => {
+    const active = p.dcaHistory && p.dcaHistory.length > 0 ? getActiveDCATranche(p.dcaHistory) : null;
+    const eff = active ? active.amount : (p.monthlyDCA || (p.annualBudget ? Math.round(p.annualBudget / 12) : 0));
+    return sum + (eff || 0);
+  }, 0);
+
+  const marketVal = bourseVal;
+  const marketCostVal = bourseCostVal;
+  const marketGain = bourseGain;
+  const marketDCAVal = bourseDCAVal;
 
   const savingsCalcs = savingsPos.map((p) => computeSavingsPositionInterest(p));
   const savingsVal = savingsCalcs.reduce((sum, c) => sum + c.currentBalance, 0);
@@ -775,8 +799,8 @@ export function usePortfolio() {
     return sum + (eff || 0);
   }, 0);
 
-  const totalValue = marketVal + savingsVal;
-  const totalCost = marketCostVal + savingsCostVal;
+  const totalValue = bourseVal + cryptoVal + savingsVal;
+  const totalCost = bourseCostVal + cryptoCostVal + savingsCostVal;
 
   const netLiquidationDetails = (() => {
     let totalGrossValue = 0;
@@ -915,6 +939,14 @@ export function usePortfolio() {
     totalCost,
     gainLoss: totalValue - totalCost,
     gainLossPercent: totalCost > 0 ? ((totalValue - totalCost) / totalCost) * 100 : 0,
+    bourseVal,
+    bourseCostVal,
+    bourseGain,
+    bourseDCAVal,
+    cryptoVal,
+    cryptoCostVal,
+    cryptoGain,
+    cryptoDCAVal,
     marketVal,
     marketCostVal,
     marketGain,

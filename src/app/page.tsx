@@ -260,6 +260,8 @@ export default function HomePage() {
   const {
     positions, config, investorProfile, isOnboardingPending,
     totalValue, totalCost, gainLoss, gainLossPercent,
+    bourseVal, bourseCostVal, bourseGain, bourseDCAVal,
+    cryptoVal, cryptoCostVal, cryptoGain, cryptoDCAVal,
     marketVal, marketCostVal, marketGain, marketDCAVal,
     savingsVal, savingsCostVal, savingsGain, savingsAnnualInt, savingsDCAVal,
     netLiquidationDetails, peaSeniority, setPeaSeniority,
@@ -1048,13 +1050,19 @@ export default function HomePage() {
                 const displayGainLossPercent = displayTotalCost > 0 ? (displayGainLoss / displayTotalCost) * 100 : 0;
 
                 const activePositions = positions.filter((p) => p.quantity > 0);
-                const marketPos = activePositions.filter((p) => !['LIVRET', 'ASSURANCE_VIE', 'PER', 'PEE', 'IMMOBILIER'].includes(p.envelope));
+                const boursePos = activePositions.filter((p) => !['LIVRET', 'ASSURANCE_VIE', 'PER', 'PEE', 'IMMOBILIER', 'CRYPTO'].includes(p.envelope) && p.assetType !== 'CRYPTO');
+                const cryptoPos = activePositions.filter((p) => p.envelope === 'CRYPTO' || p.assetType === 'CRYPTO');
                 const savingsPos = activePositions.filter((p) => ['LIVRET', 'ASSURANCE_VIE', 'PER', 'PEE', 'IMMOBILIER'].includes(p.envelope));
 
-                const displayMarketVal = marketVal / cumulativeInflationFactor;
-                const displayMarketCostVal = marketCostVal / cumulativeInflationFactor;
-                const displayMarketGain = displayMarketVal - displayMarketCostVal;
-                const displayMarketGainPct = displayMarketCostVal > 0 ? (displayMarketGain / displayMarketCostVal) * 100 : 0;
+                const displayBourseVal = bourseVal / cumulativeInflationFactor;
+                const displayBourseCostVal = bourseCostVal / cumulativeInflationFactor;
+                const displayBourseGain = displayBourseVal - displayBourseCostVal;
+                const displayBourseGainPct = displayBourseCostVal > 0 ? (displayBourseGain / displayBourseCostVal) * 100 : 0;
+
+                const displayCryptoVal = cryptoVal / cumulativeInflationFactor;
+                const displayCryptoCostVal = cryptoCostVal / cumulativeInflationFactor;
+                const displayCryptoGain = displayCryptoVal - displayCryptoCostVal;
+                const displayCryptoGainPct = displayCryptoCostVal > 0 ? (displayCryptoGain / displayCryptoCostVal) * 100 : 0;
                 
                 const displaySavingsVal = savingsVal / cumulativeInflationFactor;
                 const displaySavingsCostVal = savingsCostVal / cumulativeInflationFactor;
@@ -1118,8 +1126,12 @@ export default function HomePage() {
                                   <span>Répartition de la Valeur Totale</span>
                                 </div>
                                 <div className="popover-row">
-                                  <span className="text-secondary">📈 Bourse &amp; Cryptos</span>
-                                  <strong style={{ color: 'var(--accent-cyan)' }}>{displayMarketVal.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} €</strong>
+                                  <span className="text-secondary">📈 Bourse (Actions &amp; ETF)</span>
+                                  <strong style={{ color: 'var(--accent-cyan)' }}>{displayBourseVal.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} €</strong>
+                                </div>
+                                <div className="popover-row">
+                                  <span className="text-secondary">🪙 Cryptomonnaies</span>
+                                  <strong style={{ color: 'var(--accent-amber)' }}>{displayCryptoVal.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} €</strong>
                                 </div>
                                 <div className="popover-row">
                                   <span className="text-secondary">🛡️ Épargne &amp; Immo</span>
@@ -1193,8 +1205,12 @@ export default function HomePage() {
                                   <span>Apports Investis (PRU)</span>
                                 </div>
                                 <div className="popover-row">
-                                  <span className="text-secondary">📈 Bourse &amp; Cryptos</span>
-                                  <strong className="text-primary">{displayMarketCostVal.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} €</strong>
+                                  <span className="text-secondary">📈 Bourse (PRU)</span>
+                                  <strong className="text-primary">{displayBourseCostVal.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} €</strong>
+                                </div>
+                                <div className="popover-row">
+                                  <span className="text-secondary">🪙 Cryptos (PRU)</span>
+                                  <strong className="text-primary">{displayCryptoCostVal.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} €</strong>
                                 </div>
                                 <div className="popover-row">
                                   <span className="text-secondary">🛡️ Épargne &amp; Immo</span>
@@ -1277,8 +1293,12 @@ export default function HomePage() {
                                     <span>Plus-Values &amp; Intérêts Latents</span>
                                   </div>
                                   <div className="popover-row">
-                                    <span className="text-secondary">📈 Bourse &amp; Cryptos</span>
-                                    <strong style={{ color: displayMarketGain >= 0 ? 'var(--accent-emerald)' : 'var(--accent-rose)' }}>{displayMarketGain >= 0 ? '+' : ''}{displayMarketGain.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} €</strong>
+                                    <span className="text-secondary">📈 Plus-values Bourse</span>
+                                    <strong style={{ color: displayBourseGain >= 0 ? 'var(--accent-emerald)' : 'var(--accent-rose)' }}>{displayBourseGain >= 0 ? '+' : ''}{displayBourseGain.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} €</strong>
+                                  </div>
+                                  <div className="popover-row">
+                                    <span className="text-secondary">🪙 Plus-values Crypto</span>
+                                    <strong style={{ color: displayCryptoGain >= 0 ? 'var(--accent-emerald)' : 'var(--accent-rose)' }}>{displayCryptoGain >= 0 ? '+' : ''}{displayCryptoGain.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} €</strong>
                                   </div>
                                   <div className="popover-row">
                                     <span className="text-secondary">🛡️ Intérêts d&apos;Épargne</span>
@@ -1412,41 +1432,75 @@ export default function HomePage() {
                       </div>
                     </div>
 
-                    {/* 360° Wealth Breakdown Sub-Cards: Bourse vs Hors-Bourse */}
+                    {/* 360° Wealth Breakdown Sub-Cards: Bourse, Crypto, Hors-Bourse (3 distinct cards) */}
                     {(() => {
                       return (
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 14, marginTop: 14, marginBottom: 18 }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 14, marginTop: 14, marginBottom: 18 }}>
+                          {/* 1. Portefeuille Boursier (Actions & ETF) */}
                           <div className="card" style={{ borderLeft: '4px solid var(--accent-cyan)', background: 'linear-gradient(135deg, rgba(6, 182, 212, 0.08) 0%, rgba(15, 23, 42, 0.7) 100%)', padding: 16 }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
                               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                                 <span className="text-xl">📈</span>
-                                <strong className="text-md font-bold text-primary">Portefeuille Boursier &amp; Cryptos</strong>
+                                <strong className="text-md font-bold text-primary">Portefeuille Boursier (Actions &amp; ETF)</strong>
                               </div>
-                              <span className="badge text-xs font-semibold text-primary" style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', padding: '3px 8px' }}>{marketPos.length} positions</span>
+                              <span className="badge text-xs font-semibold text-primary" style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', padding: '3px 8px' }}>{boursePos.length} positions</span>
                             </div>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', margin: '6px 0 10px 0' }}>
                               <span className="mono font-extrabold text-3xl" style={{ color: 'var(--accent-cyan)' }}>
-                                {displayMarketVal.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
+                                {displayBourseVal.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
                               </span>
-                              {displayMarketCostVal > 0 ? (
+                              {displayBourseCostVal > 0 ? (
                                 <div style={{ textAlign: 'right' }}>
-                                  <div className="text-base font-bold" style={{ color: displayMarketGain >= 0 ? 'var(--accent-emerald)' : 'var(--accent-rose)' }}>
-                                    {displayMarketGain >= 0 ? '+' : ''}{displayMarketGain.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
+                                  <div className="text-base font-bold" style={{ color: displayBourseGain >= 0 ? 'var(--accent-emerald)' : 'var(--accent-rose)' }}>
+                                    {displayBourseGain >= 0 ? '+' : ''}{displayBourseGain.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
                                   </div>
-                                  <div className="text-xs font-bold" style={{ color: displayMarketGain >= 0 ? 'var(--accent-emerald)' : 'var(--accent-rose)' }}>
-                                    {displayMarketGainPct >= 0 ? '↑' : '↓'} {Math.abs(displayMarketGainPct).toFixed(2)} %
+                                  <div className="text-xs font-bold" style={{ color: displayBourseGain >= 0 ? 'var(--accent-emerald)' : 'var(--accent-rose)' }}>
+                                    {displayBourseGainPct >= 0 ? '↑' : '↓'} {Math.abs(displayBourseGainPct).toFixed(2)} %
                                   </div>
                                 </div>
                               ) : (
-                                <span className="text-sm text-muted">PEA, CTO, Crypto</span>
+                                <span className="text-sm text-muted">PEA, PEA-PME, CTO</span>
                               )}
                             </div>
                             <div className="card-footer-stats">
-                              <span>Coût PRU : <strong className="text-primary">{displayMarketCostVal.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €</strong></span>
-                              <span>DCA Bourse : <strong className="text-primary">{marketDCAVal.toLocaleString('fr-FR')} €/mois</strong></span>
+                              <span>Coût PRU : <strong className="text-primary">{displayBourseCostVal.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €</strong></span>
+                              <span>DCA Bourse : <strong className="text-primary">{bourseDCAVal.toLocaleString('fr-FR')} €/mois</strong></span>
                             </div>
                           </div>
 
+                          {/* 2. Portefeuille Cryptomonnaies */}
+                          <div className="card" style={{ borderLeft: '4px solid var(--accent-amber)', background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.08) 0%, rgba(15, 23, 42, 0.7) 100%)', padding: 16 }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <span className="text-xl">🪙</span>
+                                <strong className="text-md font-bold text-primary">Portefeuille Cryptomonnaies</strong>
+                              </div>
+                              <span className="badge text-xs font-semibold text-primary" style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', padding: '3px 8px' }}>{cryptoPos.length} positions</span>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', margin: '6px 0 10px 0' }}>
+                              <span className="mono font-extrabold text-3xl" style={{ color: 'var(--accent-amber)' }}>
+                                {displayCryptoVal.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
+                              </span>
+                              {displayCryptoCostVal > 0 ? (
+                                <div style={{ textAlign: 'right' }}>
+                                  <div className="text-base font-bold" style={{ color: displayCryptoGain >= 0 ? 'var(--accent-emerald)' : 'var(--accent-rose)' }}>
+                                    {displayCryptoGain >= 0 ? '+' : ''}{displayCryptoGain.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
+                                  </div>
+                                  <div className="text-xs font-bold" style={{ color: displayCryptoGain >= 0 ? 'var(--accent-emerald)' : 'var(--accent-rose)' }}>
+                                    {displayCryptoGainPct >= 0 ? '↑' : '↓'} {Math.abs(displayCryptoGainPct).toFixed(2)} %
+                                  </div>
+                                </div>
+                              ) : (
+                                <span className="text-sm text-muted">Wallets &amp; Exchanges</span>
+                              )}
+                            </div>
+                            <div className="card-footer-stats">
+                              <span>Coût PRU : <strong className="text-primary">{displayCryptoCostVal.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €</strong></span>
+                              <span>DCA Crypto : <strong className="text-primary">{cryptoDCAVal.toLocaleString('fr-FR')} €/mois</strong></span>
+                            </div>
+                          </div>
+
+                          {/* 3. Épargne & Patrimoine Hors-Bourse */}
                           <div className="card" style={{ borderLeft: '4px solid var(--accent-emerald)', background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.08) 0%, rgba(15, 23, 42, 0.7) 100%)', padding: 16 }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
                               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>

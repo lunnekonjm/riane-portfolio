@@ -976,9 +976,10 @@ button.card:hover {
   letter-spacing: 0.05em;
 }
 
-.envelope-tag.pea { background: rgba(6, 182, 212, 0.15); color: var(--accent-cyan); }
-.envelope-tag.pea-pme { background: rgba(139, 92, 246, 0.15); color: var(--accent-violet); }
-.envelope-tag.cto { background: rgba(16, 185, 129, 0.15); color: var(--accent-emerald); }
+.envelope-tag.pea { background: rgba(6, 182, 212, 0.15); color: var(--accent-cyan); border: 1px solid rgba(6, 182, 212, 0.25); }
+.envelope-tag.pea-pme { background: rgba(139, 92, 246, 0.15); color: var(--accent-violet); border: 1px solid rgba(139, 92, 246, 0.25); }
+.envelope-tag.cto { background: rgba(16, 185, 129, 0.15); color: var(--accent-emerald); border: 1px solid rgba(16, 185, 129, 0.25); }
+.envelope-tag.crypto { background: rgba(245, 158, 11, 0.16); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.35); }
 .envelope-tag.livret { background: rgba(59, 130, 246, 0.15); color: #3b82f6; }
 .envelope-tag.assurance_vie { background: rgba(236, 72, 153, 0.15); color: #ec4899; }
 .envelope-tag.per { background: rgba(168, 85, 247, 0.15); color: #a855f7; }

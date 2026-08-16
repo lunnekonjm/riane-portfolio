@@ -110,12 +110,13 @@ const TICKER_DOMAIN_MAP: Record<string, { domain?: string; directUrl?: string; e
   'NEAR': { directUrl: 'https://assets.coingecko.com/coins/images/10365/large/near.png', emoji: 'Ⓝ' },
   'SUI': { directUrl: 'https://assets.coingecko.com/coins/images/26375/large/sui-ocean-square.png', emoji: '💧' },
   'APT': { directUrl: 'https://assets.coingecko.com/coins/images/26455/large/aptos_round.png', emoji: '▲' },
-  'TRX': { directUrl: 'https://assets.coingecko.com/coins/images/1094/large/tron-logo.png', emoji: '🔴' },
-  'TRX-EUR': { directUrl: 'https://assets.coingecko.com/coins/images/1094/large/tron-logo.png', emoji: '🔴' },
-  'TRON': { directUrl: 'https://assets.coingecko.com/coins/images/1094/large/tron-logo.png', emoji: '🔴' },
-  'VELO': { directUrl: 'https://assets.coingecko.com/coins/images/12365/large/velo.png', emoji: '🚲' },
-  'VELO-EUR': { directUrl: 'https://assets.coingecko.com/coins/images/12365/large/velo.png', emoji: '🚲' },
-  'VELO-USD': { directUrl: 'https://assets.coingecko.com/coins/images/12365/large/velo.png', emoji: '🚲' },
+  'TRX': { directUrl: 'https://coin-images.coingecko.com/coins/images/1094/large/tron-logo.png', emoji: '🔴' },
+  'TRX-EUR': { directUrl: 'https://coin-images.coingecko.com/coins/images/1094/large/tron-logo.png', emoji: '🔴' },
+  'TRX-USD': { directUrl: 'https://coin-images.coingecko.com/coins/images/1094/large/tron-logo.png', emoji: '🔴' },
+  'TRON': { directUrl: 'https://coin-images.coingecko.com/coins/images/1094/large/tron-logo.png', emoji: '🔴' },
+  'VELO': { directUrl: 'https://coin-images.coingecko.com/coins/images/12538/large/Logo_200x_200.png?1696512350', emoji: '🚲' },
+  'VELO-EUR': { directUrl: 'https://coin-images.coingecko.com/coins/images/12538/large/Logo_200x_200.png?1696512350', emoji: '🚲' },
+  'VELO-USD': { directUrl: 'https://coin-images.coingecko.com/coins/images/12538/large/Logo_200x_200.png?1696512350', emoji: '🚲' },
   'DMTR': { directUrl: 'https://coin-images.coingecko.com/coins/images/18530/large/HqEiru32_400x400.jpg?1696518010', emoji: '🌾' },
   'DMTR-EUR': { directUrl: 'https://coin-images.coingecko.com/coins/images/18530/large/HqEiru32_400x400.jpg?1696518010', emoji: '🌾' },
   'WTK': { directUrl: 'https://coin-images.coingecko.com/coins/images/13019/large/wadzpay.png', emoji: '💳' },
@@ -196,7 +197,8 @@ export function resolveAssetLogo(
   const fallbackColor = getDeterministicColor(fallbackKey);
 
   // 1. Recherche prioritaire par Organisme Bancaire associé (ex: Livret A chez BoursoBank, PEE chez Natixis)
-  if (normInst && INSTITUTION_DOMAIN_MAP[normInst]) {
+  // Ne s'applique pas aux cryptomonnaies où l'on veut le logo du jeton (BTC, ETH, DMTR, etc.) et non le logo du wallet
+  if (envelope !== 'CRYPTO' && normInst && INSTITUTION_DOMAIN_MAP[normInst]) {
     const entry = INSTITUTION_DOMAIN_MAP[normInst];
     if (entry.directUrl) {
       return { url: entry.directUrl, fallbackLetters, fallbackColor, fallbackEmoji: entry.emoji };

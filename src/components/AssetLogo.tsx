@@ -61,6 +61,7 @@ export default function AssetLogo({
         <img
           src={logoInfo.url}
           alt={name || ticker || 'Logo'}
+          referrerPolicy="no-referrer"
           width={size}
           height={size}
           style={{

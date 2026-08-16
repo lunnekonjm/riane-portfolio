@@ -484,8 +484,7 @@ export default function PositionEditor({ position, initialEnvelope, existingPosi
           id: `w-${Date.now()}`,
           walletName: inst,
           institution: inst,
-          balance: prev.quantity || 0,
-          isManual: true,
+          quantity: prev.quantity || 0,
         }];
       }
       return {

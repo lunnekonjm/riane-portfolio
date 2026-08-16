@@ -22,7 +22,7 @@ export interface DiscoveredCryptoAsset {
 export interface OnChainScanResult {
   success: boolean;
   address: string;
-  detectedType: 'EVM' | 'SOLANA' | 'BITCOIN' | 'UNKNOWN';
+  detectedType: 'EVM' | 'SOLANA' | 'BITCOIN' | 'TRON' | 'UNKNOWN';
   assets: DiscoveredCryptoAsset[];
   totalValueEUR: number;
   error?: string;
@@ -185,6 +185,7 @@ const COMMON_TOKEN_CONTRACTS: TokenContractDef[] = [
   { symbol: 'SHIB', name: 'Shiba Inu', ticker: 'SHIB-EUR', decimals: 18, address: '0x95ad61b0a150d79219dcf64e1e6cc01f0b64c4ce', chain: 'ETH', fallbackPriceEUR: 0.000015 },
   
   // BSC BEP20
+  { symbol: 'VELO', name: 'Velo Protocol (BEP20)', ticker: 'VELO-EUR', decimals: 18, address: '0xf486ad071f3bee968384d2e39e2d8af0fcf6fd46', chain: 'BSC', fallbackPriceEUR: 0.0026 },
   { symbol: 'USDT', name: 'Tether USD (BEP20)', ticker: 'USDT-EUR', decimals: 18, address: '0x55d398326f99059ff775485246999027b3197955', chain: 'BSC', fallbackPriceEUR: 0.95 },
   { symbol: 'USDC', name: 'USD Coin (BEP20)', ticker: 'USDC-EUR', decimals: 18, address: '0x8ac76a51cc950d9822d68b83fe1ad97b32cd580d', chain: 'BSC', fallbackPriceEUR: 0.95 },
   { symbol: 'BTCB', name: 'Bitcoin BEP2', ticker: 'BTC-EUR', decimals: 18, address: '0x7130d2a12b9bcbfae4f2634d864a1ee1ce3ead9c', chain: 'BSC', fallbackPriceEUR: 85000 },
@@ -374,7 +375,78 @@ export async function scanWalletAllAssets(
     };
   }
 
-  // 2. Détection SOLANA (Native SOL + SPL Tokens GST, GMT, USDC, BONK, etc.)
+  // 2. Détection TRON (T...)
+  if (/^T[1-9A-HJ-NP-Za-km-z]{33}$/.test(address)) {
+    try {
+      const res = await fetch(`https://api.trongrid.io/v1/accounts/${address}`, {
+        headers: { 'Accept': 'application/json' },
+        signal: AbortSignal.timeout(6000),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const acc = data?.data?.[0];
+        const sun = acc?.balance ?? 0;
+        const trxBalance = sun / 1e6;
+        const trxPrice = await fetchPriceEUR('TRX-EUR', 0.28, 'tron');
+
+        if (trxBalance > 0.0001) {
+          discovered.push({
+            id: `trx-${address.slice(-6)}`,
+            ticker: 'TRX-EUR',
+            name: 'TRON',
+            symbol: 'TRX',
+            chain: 'TRON',
+            chainLabel: 'Réseau TRON (TRX)',
+            chainIcon: '🔴',
+            balance: trxBalance,
+            priceEUR: trxPrice,
+            valueEUR: trxBalance * trxPrice,
+            selected: true,
+          });
+        }
+
+        // Check TRC20 tokens from account if present
+        if (Array.isArray(acc?.trc20)) {
+          for (const item of acc.trc20) {
+            for (const [contractKey, rawAmount] of Object.entries(item)) {
+              const bal = Number(rawAmount) / 1e6; // standard USDT-TRC20 decimals = 6
+              if (bal > 0.0001) {
+                const isUSDT = contractKey.toLowerCase() === 'tr7nhqjekqxgtci8q8zy4pl8otszgjl6t6'.toLowerCase();
+                const sym = isUSDT ? 'USDT' : `TRC20-${contractKey.slice(0, 4)}`;
+                const name = isUSDT ? 'Tether USD (TRC20)' : `TRC-20 Token (${contractKey.slice(0, 6)}...)`;
+                const ticker = `${sym}-EUR`;
+                const price = isUSDT ? 0.95 : 0;
+                discovered.push({
+                  id: `trc20-${contractKey.slice(-6)}`,
+                  ticker,
+                  name,
+                  symbol: sym,
+                  chain: 'TRON',
+                  chainLabel: 'Réseau TRON (TRC-20)',
+                  chainIcon: '🔴',
+                  balance: bal,
+                  priceEUR: price,
+                  valueEUR: bal * price,
+                  contractAddress: contractKey,
+                  selected: price > 0,
+                });
+              }
+            }
+          }
+        }
+      }
+    } catch {}
+
+    return {
+      success: true,
+      address,
+      detectedType: 'TRON',
+      assets: discovered,
+      totalValueEUR: discovered.reduce((sum, a) => sum + (a.selected ? a.valueEUR : 0), 0),
+    };
+  }
+
+  // 3. Détection SOLANA (Native SOL + SPL Tokens GST, GMT, USDC, BONK, etc.)
   if (/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(address) && !address.startsWith('0x')) {
     // 2.1 Native SOL Balance
     try {
@@ -669,6 +741,6 @@ export async function scanWalletAllAssets(
     detectedType: 'UNKNOWN',
     assets: [],
     totalValueEUR: 0,
-    error: "Format d'adresse non reconnu. Formats supportés : EVM (0x...), Bitcoin (1..., 3..., bc1...), ou Solana.",
+    error: "Format d'adresse non reconnu. Formats supportés : EVM (0x...), Bitcoin (1..., 3..., bc1...), Solana ou TRON (T...).",
   };
 }

@@ -5,6 +5,9 @@ const DEXSCREENER_MINTS: Record<string, string> = {
   'GMT': '7i5KKDFALHgnWaPtKjdLVdvoJBnhRQuKAezGUrX1KDt2',
   'GMT-EUR': '7i5KKDFALHgnWaPtKjdLVdvoJBnhRQuKAezGUrX1KDt2',
   'GMT-USD': '7i5KKDFALHgnWaPtKjdLVdvoJBnhRQuKAezGUrX1KDt2',
+  'VELO': '0xf486ad071f3bee968384d2e39e2d8af0fcf6fd46',
+  'VELO-EUR': '0xf486ad071f3bee968384d2e39e2d8af0fcf6fd46',
+  'VELO-USD': '0xf486ad071f3bee968384d2e39e2d8af0fcf6fd46',
   'DMTR': '0x51cb253744189f11241becb29bedd3f1b5384fdb',
   'DMTR-EUR': '0x51cb253744189f11241becb29bedd3f1b5384fdb',
   'DMTR-USD': '0x51cb253744189f11241becb29bedd3f1b5384fdb',
@@ -16,6 +19,13 @@ const DEXSCREENER_MINTS: Record<string, string> = {
 import type { QuoteData } from './types';
 
 const COINGECKO_MAP: Record<string, string> = {
+  'VELO': 'velo',
+  'VELO-EUR': 'velo',
+  'VELO-USD': 'velo',
+  'TRX': 'tron',
+  'TRX-EUR': 'tron',
+  'TRX-USD': 'tron',
+  'TRON': 'tron',
   'DMTR': 'dimitra',
   'DMTR-EUR': 'dimitra',
   'DMTR-USD': 'dimitra',

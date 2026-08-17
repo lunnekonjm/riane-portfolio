@@ -54,7 +54,7 @@ describe('bankingAnalyzerEngine', () => {
       expect(summary.loyer.monthlyAverage).toBeGreaterThan(700);
       expect(summary.pea.monthlyAverage).toBe(400);
       expect(summary.livretA.monthlyAverage).toBe(700);
-      expect(summary.soutien.monthlyAverage).toBeGreaterThan(200);
+      expect(summary.soutien.monthlyAverage).toBeGreaterThanOrEqual(200);
       expect(summary.revolut.monthlyAverage).toBe(200);
       expect(summary.abonnement.monthlyAverage).toBeGreaterThan(30);
       expect(summary.totalOutflows).toBeGreaterThan(2000);

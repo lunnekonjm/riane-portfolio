@@ -2,6 +2,7 @@
 
 import React from 'react';
 import type { TargetFlowItem } from '@/engines/bankingAnalyzerEngine';
+import { CANDIDATE_CATEGORY_OPTIONS } from './AuraWizardExpandedTxs';
 
 interface AuraWizardUnclassifiedTabProps {
   unclassifiedTxs: TargetFlowItem[];
@@ -37,63 +38,71 @@ export function AuraWizardUnclassifiedTab({
           🎉 Aucune transaction non classée restante.
         </div>
       ) : (
-        unclassifiedTxs.map((tx) => (
-          <div
-            key={tx.id}
-            style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              padding: '12px 16px',
-              borderRadius: 12,
-              background: 'rgba(15, 23, 42, 0.9)',
-              border: '1px solid rgba(255, 255, 255, 0.08)',
-              flexWrap: 'wrap',
-              gap: 10,
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <span style={{ fontSize: 11, color: '#64748b' }}>{tx.date}</span>
-              <strong style={{ fontSize: 13, color: '#ffffff' }}>{tx.title}</strong>
-              <span style={{ fontSize: 13, fontWeight: 900, color: 'var(--accent-rose)' }}>
-                {fmtEur(Math.abs(tx.amount))}
-              </span>
-            </div>
+        unclassifiedTxs.map((tx) => {
+          const rawDesc = tx.rawTitle || tx.title;
+          return (
+            <div
+              key={tx.id}
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                padding: '12px 16px',
+                borderRadius: 12,
+                background: 'rgba(15, 23, 42, 0.9)',
+                border: '1px solid rgba(255, 255, 255, 0.08)',
+                flexWrap: 'wrap',
+                gap: 10,
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 240 }}>
+                <span style={{ fontSize: 11, color: '#64748b' }}>{tx.date}</span>
+                <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+                  <strong style={{ fontSize: 13, color: '#ffffff' }}>{tx.title}</strong>
+                  {rawDesc !== tx.title && (
+                    <span style={{ fontSize: 10, color: '#64748b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 300 }} title={rawDesc}>
+                      {rawDesc}
+                    </span>
+                  )}
+                </div>
+                <span style={{ fontSize: 13, fontWeight: 900, color: 'var(--accent-rose)', marginLeft: 'auto' }}>
+                  {fmtEur(Math.abs(tx.amount))}
+                </span>
+              </div>
 
-            {/* Quick Assign Dropdown */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <select
-                defaultValue=""
-                onChange={(e) => {
-                  if (e.target.value) {
-                    onAssignToCandidate(tx, e.target.value);
-                  }
-                }}
-                style={{
-                  padding: '6px 10px',
-                  borderRadius: 8,
-                  background: 'rgba(10, 14, 23, 0.95)',
-                  border: '1px solid rgba(6, 182, 212, 0.4)',
-                  color: 'var(--accent-cyan)',
-                  fontSize: 11.5,
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                }}
-              >
-                <option value="" disabled>
-                  ➕ Rattacher au poste...
-                </option>
-                <option value="flow-loyer">🏠 Loyer &amp; Logement</option>
-                <option value="flow-abonnement">📱 Abonnements &amp; Services</option>
-                <option value="flow-pea">📈 Cible PEA</option>
-                <option value="flow-livret_a">🛡️ Livret A</option>
-                <option value="flow-tontine">👥 Tontine</option>
-                <option value="flow-soutien">❤️ Soutien Familial</option>
-                <option value="flow-revolut">💳 Revolut (Quotidien)</option>
-              </select>
+              {/* Quick Assign Dropdown */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <select
+                  defaultValue=""
+                  onChange={(e) => {
+                    if (e.target.value) {
+                      onAssignToCandidate(tx, e.target.value);
+                    }
+                  }}
+                  style={{
+                    padding: '6px 10px',
+                    borderRadius: 8,
+                    background: 'rgba(10, 14, 23, 0.95)',
+                    border: '1px solid rgba(6, 182, 212, 0.4)',
+                    color: 'var(--accent-cyan)',
+                    fontSize: 11.5,
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                  }}
+                >
+                  <option value="" disabled>
+                    ➕ Rattacher au poste...
+                  </option>
+                  {CANDIDATE_CATEGORY_OPTIONS.filter((opt) => opt.id !== 'unclassified').map((opt) => (
+                    <option key={opt.id} value={opt.id}>
+                      {opt.icon} {opt.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
-          </div>
-        ))
+          );
+        })
       )}
     </div>
   );

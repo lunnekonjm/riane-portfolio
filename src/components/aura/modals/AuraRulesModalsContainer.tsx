@@ -39,6 +39,8 @@ interface AuraRulesModalsContainerProps {
   isFlowWizardOpen: boolean;
   setIsFlowWizardOpen: (open: boolean) => void;
   bankTransactions: TargetFlowItem[];
+  isSyncingTrueLayer?: boolean;
+  refreshTrueLayerTransactions?: () => Promise<any>;
   savingsCategories: RuleCategoryItem[];
   fixedCategories: RuleCategoryItem[];
   dailyCategories: RuleCategoryItem[];
@@ -86,6 +88,8 @@ export function AuraRulesModalsContainer({
   isFlowWizardOpen,
   setIsFlowWizardOpen,
   bankTransactions,
+  isSyncingTrueLayer,
+  refreshTrueLayerTransactions,
   savingsCategories,
   fixedCategories,
   dailyCategories,
@@ -268,6 +272,8 @@ export function AuraRulesModalsContainer({
         onClose={() => setIsFlowWizardOpen(false)}
         netSalary={netSalary}
         bankTransactions={bankTransactions}
+        isSyncing={isSyncingTrueLayer}
+        onRefreshTransactions={refreshTrueLayerTransactions}
         currentSavings={savingsCategories}
         currentFixed={fixedCategories}
         currentDaily={dailyCategories}

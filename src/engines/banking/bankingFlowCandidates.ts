@@ -1,5 +1,6 @@
 import type { TargetFlowItem, BankTargetAnalysisSummary } from './bankingTargetFlows';
 import type { TemporaryExpenseItem } from '@/utils/bankingSanitizer';
+import type { AuraWizardLearningMemory } from '@/services/banking/auraWizardMemoryService';
 
 export interface DetectedFlowCandidate {
   id: string;
@@ -24,11 +25,16 @@ export interface DetectedFlowCandidate {
 export function buildInteractiveFlowCandidates(
   summary: BankTargetAnalysisSummary,
   tempObligations: TemporaryExpenseItem[] = [],
-  netSalary: number = 2713.74
+  netSalary: number = 2713.74,
+  memory?: AuraWizardLearningMemory
 ): DetectedFlowCandidate[] {
   const candidates: DetectedFlowCandidate[] = [];
 
   const fmtEur = (n: number) => n.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
+
+  const isCandRejected = (candId: string) => {
+    return memory?.rejectedCandidateIds?.includes(candId) ?? false;
+  };
 
   // 1. Loyer CDC Habitat
   const hasLoyer = summary.loyer.transactions.length > 0 || summary.loyer.monthlyAverage > 0;
@@ -46,7 +52,7 @@ export function buildInteractiveFlowCandidates(
       ? `${summary.loyer.transactions.length} transaction(s) constatée(s) = ${fmtEur(summary.loyer.totalAmount)} (${summary.periodLabel})`
       : `0 transaction constatée sur ${summary.periodLabel}`,
     explanation: 'Prélèvement obligatoire de loyer et charges locatives.',
-    defaultSelected: hasLoyer,
+    defaultSelected: hasLoyer && !isCandRejected('flow-loyer'),
     icon: '🏠',
     color: '#f43f5e',
   });
@@ -67,7 +73,7 @@ export function buildInteractiveFlowCandidates(
       ? `${summary.abonnement.transactions.length} transaction(s) = ${fmtEur(summary.abonnement.totalAmount)} (${summary.periodLabel})`
       : `0 transaction constatée sur ${summary.periodLabel}`,
     explanation: 'Services numériques, télécoms et abonnements récurrents.',
-    defaultSelected: hasAbo,
+    defaultSelected: hasAbo && !isCandRejected('flow-abonnement'),
     icon: '📱',
     color: '#f43f5e',
   });
@@ -87,8 +93,8 @@ export function buildInteractiveFlowCandidates(
     calculationFormula: hasTontine
       ? `${summary.tontine.transactions.length} versement(s) = ${fmtEur(summary.tontine.totalAmount)} (${summary.periodLabel})`
       : `0 versement constaté sur ${summary.periodLabel}`,
-    explanation: 'Cotisation d\'épargne communautaire / tontine.',
-    defaultSelected: hasTontine,
+    explanation: "Cotisation d'épargne communautaire / tontine.",
+    defaultSelected: hasTontine && !isCandRejected('flow-tontine'),
     icon: '👥',
     color: '#8b5cf6',
   });
@@ -109,7 +115,7 @@ export function buildInteractiveFlowCandidates(
       ? `${summary.soutien.transactions.length} virement(s) = ${fmtEur(summary.soutien.totalAmount)} (${summary.periodLabel})`
       : `0 virement constaté sur ${summary.periodLabel}`,
     explanation: 'Aide et transferts financiers réguliers vers la famille.',
-    defaultSelected: hasSoutien,
+    defaultSelected: hasSoutien && !isCandRejected('flow-soutien'),
     icon: '❤️',
     color: '#f43f5e',
   });
@@ -130,9 +136,9 @@ export function buildInteractiveFlowCandidates(
     calculationFormula: hasPea
       ? `${summary.pea.transactions.length} virement(s) constatés vers PEA = ${fmtEur(summary.pea.totalAmount)} (${summary.periodLabel})`
       : `0 virement constaté sur ${summary.periodLabel}`,
-    explanation: 'Versements d\'épargne débités du compte courant vers le PEA (virement mensuel régulier et NON le solde du compte).',
+    explanation: "Versements d'épargne débités du compte courant vers le PEA (virement mensuel régulier et NON le solde du compte).",
     isVirementEpargne: true,
-    defaultSelected: hasPea,
+    defaultSelected: hasPea && !isCandRejected('flow-pea'),
     icon: '📈',
     color: '#06b6d4',
   });
@@ -153,9 +159,9 @@ export function buildInteractiveFlowCandidates(
     calculationFormula: hasLivret
       ? `${summary.livretA.transactions.length} virement(s) constatés vers Livret A = ${fmtEur(summary.livretA.totalAmount)} (${summary.periodLabel})`
       : `0 virement constaté sur ${summary.periodLabel}`,
-    explanation: 'Versements d\'épargne débités du compte courant vers le Livret A (virement mensuel régulier et NON le solde du compte).',
+    explanation: "Versements d'épargne débités du compte courant vers le Livret A (virement mensuel régulier et NON le solde du compte).",
     isVirementEpargne: true,
-    defaultSelected: hasLivret,
+    defaultSelected: hasLivret && !isCandRejected('flow-livret_a'),
     icon: '🛡️',
     color: '#3b82f6',
   });
@@ -177,15 +183,20 @@ export function buildInteractiveFlowCandidates(
       ? `${summary.revolut.transactions.length} recharge(s) Revolut = ${fmtEur(summary.revolut.totalAmount)} (${summary.periodLabel})`
       : `0 recharge constatée sur ${summary.periodLabel}`,
     explanation: 'Montant transféré pour vos dépenses du quotidien (alimentation, sorties, imprévus).',
-    defaultSelected: hasRevolut,
+    defaultSelected: hasRevolut && !isCandRejected('flow-revolut'),
     icon: '💳',
     color: '#06b6d4',
   });
 
   // 8. Temporary obligations detected
   for (const temp of tempObligations) {
+    const tempCandId = `flow-temp-${temp.id}`;
+    const isTempRejected =
+      isCandRejected(tempCandId) ||
+      (memory?.rejectedMerchantPatterns?.some((p) => temp.label.toUpperCase().includes(p.pattern.toUpperCase())) ?? false);
+
     candidates.push({
-      id: `flow-temp-${temp.id}`,
+      id: tempCandId,
       categoryKey: `temp_${temp.id}`,
       pillar: 'TEMPORARY',
       title: temp.label,
@@ -196,7 +207,7 @@ export function buildInteractiveFlowCandidates(
       transactions: [],
       calculationFormula: `Échéance mensuelle temporaire : ${fmtEur(temp.monthlyAmount)} / mois pendant ${temp.durationMonths} mois`,
       explanation: 'Dépense récurrente temporaire à durée déterminée (santé, étalement, crédit court terme).',
-      defaultSelected: true,
+      defaultSelected: !isTempRejected,
       icon: '⏳',
       color: '#f59e0b',
       durationMonths: temp.durationMonths,

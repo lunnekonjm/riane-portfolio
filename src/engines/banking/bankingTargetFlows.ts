@@ -1,9 +1,19 @@
+import { cleanTransactionTitle } from '@/services/reconciliation/transactionClassifier';
+import {
+  type AuraWizardLearningMemory,
+  isMerchantOrTxRejected,
+} from '@/services/banking/auraWizardMemoryService';
+
 export interface TargetFlowItem {
   id: string;
   date: string;
   title: string;
+  rawTitle?: string;
   amount: number;
   category?: string;
+  accountId?: string;
+  accountName?: string;
+  accountType?: string;
 }
 
 export interface TargetFlowCategory {
@@ -11,7 +21,7 @@ export interface TargetFlowCategory {
   label: string;
   totalAmount: number;
   monthlyAverage: number;
-  effectivePercent: number;
+  effectivePercent: number; // % of net salary
   transactions: TargetFlowItem[];
   iconType: string;
   color: string;
@@ -31,35 +41,56 @@ export interface BankTargetAnalysisSummary {
   unclassified: TargetFlowCategory;
 }
 
-// Sample fallback transactions matching BoursoBank statement reality from Aura Budget Pro
 export const SAMPLE_REAL_TRANSACTIONS: TargetFlowItem[] = [
-  { id: 'tx-1', date: '2026-08-05', title: 'PRLV SEPA CDC HABITAT REF 883920', amount: 757.09, category: 'Logement' },
-  { id: 'tx-2', date: '2026-08-04', title: 'VIR SEPA BOURSO PEA DCA ETF WORLD', amount: 400.0, category: 'Investissement' },
-  { id: 'tx-3', date: '2026-08-03', title: 'VIR SEPA LIVRET A BOURSOBANK', amount: 700.0, category: 'Épargne' },
-  { id: 'tx-4', date: '2026-08-02', title: 'PRLV SEPA SENDWAVE SOUTIEN FAMILLE', amount: 230.16, category: 'Soutien familial' },
-  { id: 'tx-5', date: '2026-08-02', title: 'TOPUP REVOLUT CARTE', amount: 200.0, category: 'Revolut' },
-  { id: 'tx-6', date: '2026-08-01', title: 'PRLV SEPA BOUYGUES TELECOM', amount: 35.99, category: 'Abonnements' },
+  { id: '1', date: '2026-08-05', title: 'PRLV SEPA CDC HABITAT REF 883920', amount: -757.09, category: 'Logement' },
+  { id: '2', date: '2026-08-06', title: 'VIR SEPA BOURSO PEA DCA ETF WORLD', amount: -400.0, category: 'Investissement' },
+  { id: '3', date: '2026-08-06', title: 'VIR SEPA LIVRET A BOURSOBANK', amount: -700.0, category: 'Épargne' },
+  { id: '4', date: '2026-08-08', title: 'PRLV SEPA BOUYGUES TELECOM', amount: -35.99, category: 'Abonnement' },
+  { id: '5', date: '2026-08-10', title: 'PRLV SEPA SENDWAVE SOUTIEN FAMILLE', amount: -200.0, category: 'Soutien' },
+  { id: '6', date: '2026-08-12', title: 'TOPUP REVOLUT CARTE', amount: -200.0, category: 'Dépenses' },
+  { id: '7', date: '2026-08-14', title: 'VIR SEPA PARTICIPATION EPARGNE COMMUNE TONTINE', amount: -150.0, category: 'Tontine' },
 ];
 
 /**
- * Analyse des 7 flux cibles : PEA, Livret A, Loyer, Abonnements, Tontine, Soutien Wave, Revolut
+ * Filter transactions by timeframe in days from the latest date in the dataset
+ */
+export function filterTransactionsByPeriod(
+  transactions: TargetFlowItem[],
+  days: number
+): TargetFlowItem[] {
+  if (!Array.isArray(transactions) || transactions.length === 0) return [];
+  if (days <= 0) return transactions; // 0 means all
+
+  // Find the most recent transaction date
+  let maxTimestamp = 0;
+  for (const t of transactions) {
+    if (t.date) {
+      const ts = new Date(t.date).getTime();
+      if (!isNaN(ts) && ts > maxTimestamp) maxTimestamp = ts;
+    }
+  }
+
+  if (maxTimestamp === 0) return transactions;
+
+  const minTimestamp = maxTimestamp - days * 24 * 60 * 60 * 1000;
+  return transactions.filter((t) => {
+    if (!t.date) return true;
+    const ts = new Date(t.date).getTime();
+    if (isNaN(ts)) return true; // Keep transactions with unparseable/invalid dates
+    return ts >= minTimestamp;
+  });
+}
+
+/**
+ * Analyze banking transactions to map them to the 7 core target budget flows
  */
 export function analyzeTargetFlows(
   transactions: TargetFlowItem[],
-  netSalary: number,
-  periodDays: number = 30
+  netSalary: number = 2713.74,
+  periodDays: number = 30,
+  memory?: AuraWizardLearningMemory
 ): BankTargetAnalysisSummary {
-  const txSource = Array.isArray(transactions) ? transactions : [];
-
-  const now = new Date();
-  const cutoffTime = periodDays > 0 ? now.getTime() - periodDays * 24 * 60 * 60 * 1000 : 0;
-
-  const filtered = txSource.filter((t) => {
-    if (!t) return false;
-    if (periodDays <= 0) return true;
-    const tTime = t.date ? new Date(t.date).getTime() : NaN;
-    return isNaN(tTime) || tTime >= cutoffTime;
-  });
+  const filtered = filterTransactionsByPeriod(transactions, periodDays);
 
   const peaTxs: TargetFlowItem[] = [];
   const livretATxs: TargetFlowItem[] = [];
@@ -70,82 +101,169 @@ export function analyzeTargetFlows(
   const revolutTxs: TargetFlowItem[] = [];
   const unclassifiedTxs: TargetFlowItem[] = [];
 
-  for (const tx of filtered) {
-    const upper = ((tx?.title || '') + ' ' + (tx?.category || '')).toUpperCase();
+  const hasNegativeAmounts = filtered.some((t) => typeof t.amount === 'number' && t.amount < 0);
 
+  for (const rawTx of filtered) {
+    const rawDesc = rawTx.rawTitle || rawTx.title || '';
+    const cleanTitle = cleanTransactionTitle(rawDesc);
+    const tx: TargetFlowItem = {
+      ...rawTx,
+      title: cleanTitle,
+      rawTitle: rawDesc,
+    };
+
+    const upper = (rawDesc + ' ' + (tx.category || '')).toUpperCase();
+
+    // Check if this is an inflow (credit received, salary, refund)
+    const isExplicitInflow =
+      upper.includes('VIR RECU') ||
+      upper.includes('VIREMENT RECU') ||
+      upper.includes('RECU DE') ||
+      upper.includes('SALAIRE') ||
+      upper.includes('PAYE') ||
+      upper.includes('PAIE') ||
+      upper.includes('REMBOURSEMENT') ||
+      upper.includes('AVOIR') ||
+      upper.includes('RESTITUTION');
+
+    // Only debits/outflows should be categorized into expense/budget flows
+    const isOutflow = hasNegativeAmounts
+      ? (typeof tx.amount === 'number' && tx.amount < 0)
+      : (!isExplicitInflow && typeof tx.amount === 'number' && Math.abs(tx.amount) > 0);
+
+    if (!isOutflow) {
+      unclassifiedTxs.push(tx);
+      continue;
+    }
+
+    // Check learned memory custom mappings first
+    if (memory?.customCategoryMappings) {
+      const customCand = memory.customCategoryMappings[cleanTitle] || memory.customCategoryMappings[rawDesc];
+      if (customCand) {
+        if (customCand === 'flow-loyer') { loyerTxs.push(tx); continue; }
+        if (customCand === 'flow-abonnement') { abonnementTxs.push(tx); continue; }
+        if (customCand === 'flow-tontine') { tontineTxs.push(tx); continue; }
+        if (customCand === 'flow-soutien') { soutienTxs.push(tx); continue; }
+        if (customCand === 'flow-pea') { peaTxs.push(tx); continue; }
+        if (customCand === 'flow-livret_a') { livretATxs.push(tx); continue; }
+        if (customCand === 'flow-revolut') { revolutTxs.push(tx); continue; }
+      }
+    }
+
+    // 1. Soutien familial (Wave, Remitly, Sendwave) - Exclude Monsieur Pene or non-family transfers
     if (
-      upper.includes('SENDWAVE') ||
-      upper.includes('WAVE') ||
-      upper.includes('REMITLY') ||
-      upper.includes('SOUTIEN') ||
-      upper.includes('FAMILLE')
+      (upper.includes('SENDWAVE') ||
+       upper.includes('WAVE') ||
+       upper.includes('REMITLY') ||
+       upper.includes('SOUTIEN FAMILIAL') ||
+       upper.includes('AIDE FAMILLE')) &&
+      !isMerchantOrTxRejected(tx, 'soutien', memory)
     ) {
       soutienTxs.push(tx);
       continue;
     }
 
-    if (upper.includes('REVOLUT') || upper.includes('REV*') || upper.includes('TOPUP')) {
+    // 2. Revolut (Transferts Reste à vivre)
+    if (
+      (upper.includes('REVOLUT') || upper.includes('REV*') || upper.includes('TOPUP')) &&
+      !isMerchantOrTxRejected(tx, 'revolut', memory)
+    ) {
       revolutTxs.push(tx);
       continue;
     }
 
-    if (upper.includes('TONTINE') || upper.includes('EPARGNE COLLECTIVE')) {
+    // 3. Tontine & participation collective
+    if (
+      (upper.includes('TONTINE') ||
+       upper.includes('EPARGNE COMMUNE') ||
+       upper.includes('PARTICIPATION EPARGNE COMMUNE') ||
+       upper.includes('EPARGNE COLLECTIVE') ||
+       upper.includes('CISSE ATOUMANE')) &&
+      !isMerchantOrTxRejected(tx, 'tontine', memory)
+    ) {
       tontineTxs.push(tx);
       continue;
     }
 
+    // 4. Loyer & Logement (CDC Habitat, BPCE Habitation, TotalEnergies, EDF, Engie, Assurances Habitation)
     if (
-      upper.includes('CDC HABITAT') ||
-      upper.includes('LOYER') ||
-      upper.includes('FONCIA') ||
-      upper.includes('NEXITY') ||
-      upper.includes('BAILLEUR') ||
-      upper.includes('LOGEMENT')
+      (upper.includes('CDC HABITAT') ||
+       upper.includes('LOYER') ||
+       upper.includes('FONCIA') ||
+       upper.includes('NEXITY') ||
+       upper.includes('BAILLEUR') ||
+       upper.includes('LOGEMENT') ||
+       upper.includes('BPCE') ||
+       upper.includes('HABITATION') ||
+       upper.includes('ASSURANCE HABITATION') ||
+       upper.includes('TAXE HABITATION') ||
+       upper.includes('TOTALENERGIES') ||
+       upper.includes('TOTAL ENERGIES') ||
+       upper.includes('EDF') ||
+       upper.includes('ENGIE') ||
+       upper.includes('PACIFICA') ||
+       upper.includes('MACIF') ||
+       upper.includes('MAIF') ||
+       upper.includes('AXA') ||
+       upper.includes('ALLIANZ') ||
+       upper.includes('MATMUT')) &&
+      !isMerchantOrTxRejected(tx, 'loyer', memory)
     ) {
       loyerTxs.push(tx);
       continue;
     }
 
+    // 5. PEA & Bourse (Virements réguliers d'investissement)
     if (
-      upper.includes('PEA') ||
-      upper.includes('BOURSE') ||
-      upper.includes('ETF WORLD') ||
-      upper.includes('INVEST') ||
-      upper.includes('TITRES')
+      (upper.includes('PEA') ||
+       upper.includes('BOURSE') ||
+       upper.includes('ETF WORLD') ||
+       upper.includes('INVEST') ||
+       upper.includes('TITRES')) &&
+      !isMerchantOrTxRejected(tx, 'pea', memory)
     ) {
       peaTxs.push(tx);
       continue;
     }
 
+    // 6. Livret A & Épargne de précaution
     if (
-      upper.includes('LIVRET A') ||
-      upper.includes('LIVRET') ||
-      upper.includes('LDDS') ||
-      upper.includes('LEP')
+      (upper.includes('LIVRET A') ||
+       upper.includes('LIVRET') ||
+       upper.includes('LDDS') ||
+       upper.includes('LEP')) &&
+      !isMerchantOrTxRejected(tx, 'livret_a', memory)
     ) {
       livretATxs.push(tx);
       continue;
     }
 
+    // 7. Abonnements Télécom / Médias / Services récurrents
     if (
-      upper.includes('BOUYGUES') ||
-      upper.includes('FREE') ||
-      upper.includes('ORANGE') ||
-      upper.includes('SFR') ||
-      upper.includes('SPOTIFY') ||
-      upper.includes('NETFLIX') ||
-      upper.includes('EDF') ||
-      upper.includes('ENGIE') ||
-      upper.includes('TOTALENERGIES') ||
-      upper.includes('AMAZON') ||
-      upper.includes('APPLE') ||
-      upper.includes('ABONNEMENT')
+      (upper.includes('BOUYGUES') ||
+       upper.includes('BBOX') ||
+       upper.includes('FREE MOBILE') ||
+       upper.includes('FREE TELECOM') ||
+       upper.includes('FREEBOX') ||
+       upper.includes('ORANGE') ||
+       upper.includes('SFR') ||
+       upper.includes('SPOTIFY') ||
+       upper.includes('NETFLIX') ||
+       upper.includes('AMAZON PRIME') ||
+       upper.includes('PRIME VIDEO') ||
+       upper.includes('APPLE.COM/BILL') ||
+       upper.includes('ICLOUD') ||
+       upper.includes('ITUNES') ||
+       upper.includes('CHATGPT') ||
+       upper.includes('OPENAI') ||
+       upper.includes('ABONNEMENT')) &&
+      !isMerchantOrTxRejected(tx, 'abonnement', memory)
     ) {
       abonnementTxs.push(tx);
       continue;
     }
 
-    // Otherwise it's unclassified
+    // Otherwise it's unclassified (daily card spending, shopping, one-off purchases)
     unclassifiedTxs.push(tx);
   }
 

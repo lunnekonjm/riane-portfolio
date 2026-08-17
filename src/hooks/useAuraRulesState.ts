@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import type {
   TemporaryExpenseItem,
   TargetFlowItem,
@@ -10,7 +10,7 @@ import {
   analyzeTargetFlows,
   SAMPLE_REAL_TRANSACTIONS,
 } from '@/engines/bankingAnalyzerEngine';
-import { getCachedTrueLayerTransactions } from '@/services/bankReconciliationEngine';
+import { getCachedTrueLayerTransactions, fetchAndCacheTrueLayerTransactions, type CachedTransactionsData } from '@/services/bankReconciliationEngine';
 import type { RuleCategoryItem, BudgetAuditLogEntry } from '@/types/auraRules';
 import {
   DEFAULT_SAVINGS,
@@ -179,8 +179,52 @@ export function useAuraRulesState(netSalary: number) {
     }
   }, [savingsCategories, fixedCategories, dailyCategories, temporaryExpenses, accountBalance, bufferMultiplier, auditLogs]);
 
-  // Read transactions from TrueLayer cache
-  const cachedData = useMemo(() => getCachedTrueLayerTransactions(), []);
+  // Read transactions from TrueLayer cache (Dynamic state)
+  const [cachedData, setCachedData] = useState<CachedTransactionsData | null>(() => getCachedTrueLayerTransactions());
+  const [isSyncingTrueLayer, setIsSyncingTrueLayer] = useState(false);
+
+  const refreshTrueLayerTransactions = useCallback(async (monthsCount = 3) => {
+    setIsSyncingTrueLayer(true);
+    try {
+      const res = await fetchAndCacheTrueLayerTransactions(monthsCount);
+      const updated = getCachedTrueLayerTransactions();
+      if (updated) {
+        setCachedData(updated);
+      } else if (res.transactions.length > 0) {
+        setCachedData({
+          transactions: res.transactions,
+          timestamp: Date.now(),
+          months: res.months,
+        });
+      }
+      return res;
+    } finally {
+      setIsSyncingTrueLayer(false);
+    }
+  }, []);
+
+  // Listen for storage and custom sync updates
+  useEffect(() => {
+    const handleUpdate = () => {
+      setCachedData(getCachedTrueLayerTransactions());
+    };
+    window.addEventListener('truelayer_transactions_updated', handleUpdate);
+    window.addEventListener('storage', handleUpdate);
+
+    // Auto-fetch if token exists in localStorage but cache is empty
+    if (!cachedData || !cachedData.transactions || cachedData.transactions.length === 0) {
+      const token = localStorage.getItem('truelayer_access_token');
+      if (token) {
+        refreshTrueLayerTransactions(3).catch(() => {});
+      }
+    }
+
+    return () => {
+      window.removeEventListener('truelayer_transactions_updated', handleUpdate);
+      window.removeEventListener('storage', handleUpdate);
+    };
+  }, [refreshTrueLayerTransactions]);
+
   const bankTransactions: TargetFlowItem[] = useMemo(() => {
     if (cachedData && Array.isArray(cachedData.transactions) && cachedData.transactions.length > 0) {
       return cachedData.transactions.map((t) => ({
@@ -260,6 +304,8 @@ export function useAuraRulesState(netSalary: number) {
     auditLogs,
     setAuditLogs,
     bankTransactions,
+    isSyncingTrueLayer,
+    refreshTrueLayerTransactions,
     targetSummary,
     getEffectiveAmount,
     getEffectivePercent,

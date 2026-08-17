@@ -3,15 +3,30 @@
 import React from 'react';
 import type { TargetFlowItem } from '@/engines/bankingAnalyzerEngine';
 
+export interface CandidateCategoryOption {
+  id: string;
+  label: string;
+  icon: string;
+}
+
+export const CANDIDATE_CATEGORY_OPTIONS: CandidateCategoryOption[] = [
+  { id: 'flow-loyer', label: 'Loyer & Logement', icon: '🏠' },
+  { id: 'flow-abonnement', label: 'Abonnements & Services', icon: '📱' },
+  { id: 'flow-tontine', label: 'Tontine (Épargne commune)', icon: '👥' },
+  { id: 'flow-soutien', label: 'Soutien familial (Wave)', icon: '❤️' },
+  { id: 'flow-pea', label: 'Cible PEA (Investissement)', icon: '📈' },
+  { id: 'flow-livret_a', label: 'Livret A (Épargne liquide)', icon: '🛡️' },
+  { id: 'flow-revolut', label: 'Revolut (Reste à vivre)', icon: '💳' },
+  { id: 'unclassified', label: 'Flux non classé / Autre', icon: '❓' },
+];
+
 interface AuraWizardExpandedTxsProps {
   candId: string;
   txList: TargetFlowItem[];
   excludedTxIds: Set<string>;
-  newTx: { title: string; amount: string; date: string };
   onToggleTxInclusion: (candId: string, txId: string) => void;
   onRemoveTx: (candId: string, tx: TargetFlowItem) => void;
-  onNewTxInputChange: (candId: string, field: 'title' | 'amount' | 'date', val: string) => void;
-  onAddTx: (candId: string) => void;
+  onMoveTx?: (tx: TargetFlowItem, fromCandId: string, toCandId: string) => void;
   fmtEur: (val: number) => string;
 }
 
@@ -19,11 +34,9 @@ export function AuraWizardExpandedTxs({
   candId,
   txList,
   excludedTxIds,
-  newTx,
   onToggleTxInclusion,
   onRemoveTx,
-  onNewTxInputChange,
-  onAddTx,
+  onMoveTx,
   fmtEur,
 }: AuraWizardExpandedTxsProps) {
   return (
@@ -31,7 +44,7 @@ export function AuraWizardExpandedTxs({
       style={{
         marginTop: 4,
         padding: '12px',
-        borderRadius: 10,
+        borderRadius: 12,
         background: 'rgba(5, 8, 15, 0.95)',
         border: '1px solid rgba(6, 182, 212, 0.25)',
         display: 'flex',
@@ -41,13 +54,17 @@ export function AuraWizardExpandedTxs({
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <strong style={{ fontSize: 11, color: 'var(--accent-cyan)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-          Transactions bancaires associées (Cochez pour inclure / Décochez pour exclure) :
+          Transactions associées ({txList.length}) :
         </strong>
+        <span style={{ fontSize: 10.5, color: '#94a3b8' }}>
+          Cochez pour inclure / Décochez pour exclure • Réaffectez en 1 clic
+        </span>
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
         {txList.map((tx) => {
           const isTxExcluded = excludedTxIds.has(tx.id);
+          const rawDesc = tx.rawTitle || tx.title;
           return (
             <div
               key={tx.id}
@@ -55,45 +72,101 @@ export function AuraWizardExpandedTxs({
                 display: 'flex',
                 justifyContent: 'space-between',
                 alignItems: 'center',
-                padding: '6px 10px',
-                borderRadius: 6,
+                padding: '8px 12px',
+                borderRadius: 8,
                 background: isTxExcluded ? 'rgba(244, 63, 94, 0.08)' : 'rgba(255, 255, 255, 0.03)',
-                border: isTxExcluded ? '1px dashed rgba(244, 63, 94, 0.3)' : '1px solid rgba(255, 255, 255, 0.05)',
-                fontSize: 11,
+                border: isTxExcluded ? '1px dashed rgba(244, 63, 94, 0.3)' : '1px solid rgba(255, 255, 255, 0.06)',
+                fontSize: 11.5,
+                gap: 8,
+                flexWrap: 'wrap',
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 0 }}>
+              {/* Left: Checkbox + Date + Clean Title + Raw tooltip */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 220 }}>
                 <input
                   type="checkbox"
                   checked={!isTxExcluded}
                   onChange={() => onToggleTxInclusion(candId, tx.id)}
-                  style={{ accentColor: 'var(--accent-cyan)', cursor: 'pointer' }}
+                  style={{ accentColor: 'var(--accent-cyan)', cursor: 'pointer', width: 15, height: 15 }}
                   title="Inclure ou exclure cette transaction de la somme du poste"
                 />
                 <span style={{ color: '#64748b', fontSize: 10.5, flexShrink: 0 }}>{tx.date}</span>
-                <span
-                  style={{
-                    color: isTxExcluded ? '#64748b' : '#cbd5e1',
-                    textDecoration: isTxExcluded ? 'line-through' : 'none',
-                    fontWeight: 600,
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap',
-                  }}
-                >
-                  {tx.title}
-                </span>
+                <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+                  <span
+                    style={{
+                      color: isTxExcluded ? '#64748b' : '#ffffff',
+                      textDecoration: isTxExcluded ? 'line-through' : 'none',
+                      fontWeight: 700,
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                    }}
+                    title={rawDesc}
+                  >
+                    {tx.title}
+                  </span>
+                  {rawDesc !== tx.title && (
+                    <span
+                      style={{
+                        color: '#64748b',
+                        fontSize: 9.5,
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                        maxWidth: 320,
+                      }}
+                      title={rawDesc}
+                    >
+                      {rawDesc}
+                    </span>
+                  )}
+                </div>
               </div>
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              {/* Right: Amount + Reclassification Move Selector + Remove */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <strong
                   style={{
                     color: isTxExcluded ? '#64748b' : '#ffffff',
                     textDecoration: isTxExcluded ? 'line-through' : 'none',
+                    fontSize: 12,
                   }}
                 >
                   {fmtEur(Math.abs(tx.amount))}
                 </strong>
+
+                {/* 1-Click Reclassification Dropdown */}
+                {onMoveTx && (
+                  <select
+                    defaultValue=""
+                    onChange={(e) => {
+                      if (e.target.value) {
+                        onMoveTx(tx, candId, e.target.value);
+                      }
+                    }}
+                    style={{
+                      padding: '3px 8px',
+                      borderRadius: 6,
+                      background: 'rgba(10, 14, 23, 0.9)',
+                      border: '1px solid rgba(6, 182, 212, 0.35)',
+                      color: '#38bdf8',
+                      fontSize: 10.5,
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      outline: 'none',
+                    }}
+                    title="Déplacer cette transaction vers un autre poste budgétaire"
+                  >
+                    <option value="" disabled>
+                      ⇄ Déplacer vers...
+                    </option>
+                    {CANDIDATE_CATEGORY_OPTIONS.filter((opt) => opt.id !== candId).map((opt) => (
+                      <option key={opt.id} value={opt.id} style={{ background: '#0f172a', color: '#ffffff' }}>
+                        {opt.icon} {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                )}
 
                 <button
                   type="button"
@@ -102,7 +175,7 @@ export function AuraWizardExpandedTxs({
                     background: 'transparent',
                     border: 'none',
                     color: 'var(--accent-rose)',
-                    fontSize: 12,
+                    fontSize: 13,
                     cursor: 'pointer',
                     padding: 2,
                   }}
@@ -114,72 +187,6 @@ export function AuraWizardExpandedTxs({
             </div>
           );
         })}
-      </div>
-
-      {/* Inline Form to Add a Missing Transaction to this Candidate */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 6,
-          marginTop: 4,
-          paddingTop: 8,
-          borderTop: '1px solid rgba(255, 255, 255, 0.08)',
-          flexWrap: 'wrap',
-        }}
-      >
-        <input
-          type="text"
-          placeholder="Libellé de la dépense..."
-          value={newTx.title}
-          onChange={(e) => onNewTxInputChange(candId, 'title', e.target.value)}
-          style={{
-            flex: 1,
-            minWidth: 150,
-            padding: '5px 8px',
-            borderRadius: 6,
-            background: 'rgba(10, 14, 23, 0.9)',
-            border: '1px solid rgba(255, 255, 255, 0.15)',
-            color: '#ffffff',
-            fontSize: 11,
-          }}
-        />
-
-        <input
-          type="number"
-          placeholder="Montant €"
-          step="0.01"
-          value={newTx.amount}
-          onChange={(e) => onNewTxInputChange(candId, 'amount', e.target.value)}
-          style={{
-            width: 80,
-            padding: '5px 8px',
-            borderRadius: 6,
-            background: 'rgba(10, 14, 23, 0.9)',
-            border: '1px solid rgba(255, 255, 255, 0.15)',
-            color: '#ffffff',
-            fontSize: 11,
-            textAlign: 'right',
-          }}
-        />
-
-        <button
-          type="button"
-          onClick={() => onAddTx(candId)}
-          disabled={!newTx.title.trim() || !newTx.amount}
-          style={{
-            padding: '5px 10px',
-            borderRadius: 6,
-            background: newTx.title.trim() && newTx.amount ? 'var(--accent-cyan)' : 'rgba(255, 255, 255, 0.08)',
-            color: newTx.title.trim() && newTx.amount ? '#0a0e17' : '#64748b',
-            border: 'none',
-            fontSize: 11,
-            fontWeight: 800,
-            cursor: newTx.title.trim() && newTx.amount ? 'pointer' : 'default',
-          }}
-        >
-          ⊕ Ajouter
-        </button>
       </div>
     </div>
   );

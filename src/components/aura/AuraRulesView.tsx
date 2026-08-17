@@ -56,6 +56,8 @@ export const AuraRulesView: React.FC<AuraRulesViewProps> = ({
     auditLogs,
     setAuditLogs,
     bankTransactions,
+    isSyncingTrueLayer,
+    refreshTrueLayerTransactions,
     targetSummary,
     selectedPeriod,
     selectedDate,
@@ -238,6 +240,8 @@ export const AuraRulesView: React.FC<AuraRulesViewProps> = ({
         isFlowWizardOpen={isFlowWizardOpen}
         setIsFlowWizardOpen={setIsFlowWizardOpen}
         bankTransactions={bankTransactions}
+        isSyncingTrueLayer={isSyncingTrueLayer}
+        refreshTrueLayerTransactions={refreshTrueLayerTransactions}
         savingsCategories={savingsCategories}
         fixedCategories={fixedCategories}
         dailyCategories={dailyCategories}

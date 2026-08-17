@@ -18,15 +18,13 @@ interface AuraWizardFlowCardProps {
   isAligned: boolean;
   netSalary: number;
   periodLabel: string;
-  newTx: { title: string; amount: string; date: string };
   onToggleSelect: (id: string) => void;
   onToggleExpand: (id: string) => void;
   onTogglePercentage: (id: string) => void;
   onChangeAmount: (id: string, val: number) => void;
   onToggleTxInclusion: (candId: string, txId: string) => void;
   onRemoveTx: (candId: string, tx: TargetFlowItem) => void;
-  onNewTxInputChange: (candId: string, field: 'title' | 'amount' | 'date', val: string) => void;
-  onAddTx: (candId: string) => void;
+  onMoveTx?: (tx: TargetFlowItem, fromCandId: string, toCandId: string) => void;
   fmtEur: (val: number) => string;
 }
 
@@ -44,15 +42,13 @@ export function AuraWizardFlowCard({
   isAligned,
   netSalary,
   periodLabel,
-  newTx,
   onToggleSelect,
   onToggleExpand,
   onTogglePercentage,
   onChangeAmount,
   onToggleTxInclusion,
   onRemoveTx,
-  onNewTxInputChange,
-  onAddTx,
+  onMoveTx,
   fmtEur,
 }: AuraWizardFlowCardProps) {
   const activeTxs = txList.filter((t) => !excludedTxIds.has(t.id));
@@ -158,85 +154,98 @@ export function AuraWizardFlowCard({
               type="number"
               step={isPct ? '0.1' : '1'}
               value={currentVal}
-              disabled={!isSelected}
-              onChange={(e) => {
-                const val = parseFloat(e.target.value) || 0;
-                onChangeAmount(cand.id, val);
-              }}
+              onChange={(e) => onChangeAmount(cand.id, parseFloat(e.target.value) || 0)}
               style={{
-                width: 85,
+                width: 84,
                 padding: '6px 8px',
                 borderRadius: 8,
-                background: 'rgba(10, 14, 23, 0.95)',
-                border: isSelected ? '1px solid var(--accent-cyan)' : '1px solid rgba(255, 255, 255, 0.1)',
-                color: isSelected ? '#ffffff' : '#64748b',
+                background: 'rgba(10, 14, 23, 0.9)',
+                border: '1px solid rgba(255, 255, 255, 0.15)',
+                color: '#ffffff',
                 fontSize: 13,
                 fontWeight: 800,
                 textAlign: 'right',
               }}
             />
-
-            {/* Percentage vs Euro Toggle */}
-            {cand.pillar !== 'FIXED' && cand.pillar !== 'TEMPORARY' ? (
+            {/* Unit Toggle (€ / %) */}
+            <div
+              style={{
+                display: 'inline-flex',
+                borderRadius: 8,
+                background: 'rgba(255, 255, 255, 0.06)',
+                padding: 2,
+                border: '1px solid rgba(255, 255, 255, 0.1)',
+              }}
+            >
               <button
                 type="button"
-                disabled={!isSelected}
-                onClick={() => onTogglePercentage(cand.id)}
+                onClick={() => isPct && onTogglePercentage(cand.id)}
                 style={{
-                  padding: '6px 8px',
-                  borderRadius: 8,
-                  background: 'rgba(255, 255, 255, 0.08)',
-                  border: '1px solid rgba(255, 255, 255, 0.15)',
-                  color: 'var(--accent-cyan)',
+                  padding: '4px 8px',
+                  borderRadius: 6,
+                  background: !isPct ? 'var(--accent-cyan)' : 'transparent',
+                  color: !isPct ? '#0a0e17' : '#94a3b8',
+                  border: 'none',
                   fontSize: 11,
                   fontWeight: 800,
-                  cursor: isSelected ? 'pointer' : 'default',
+                  cursor: 'pointer',
                 }}
-                title="Basculer entre % du salaire et montant fixe en €"
+                title="Définir en Euros (€ fixes)"
               >
-                {isPct ? '%' : '€'}
-              </button>
-            ) : (
-              <span style={{ fontSize: 12, fontWeight: 800, color: 'var(--text-muted)', paddingLeft: 4 }}>
                 €
-              </span>
-            )}
+              </button>
+              <button
+                type="button"
+                onClick={() => !isPct && onTogglePercentage(cand.id)}
+                style={{
+                  padding: '4px 8px',
+                  borderRadius: 6,
+                  background: isPct ? 'var(--accent-cyan)' : 'transparent',
+                  color: isPct ? '#0a0e17' : '#94a3b8',
+                  border: 'none',
+                  fontSize: 11,
+                  fontWeight: 800,
+                  cursor: 'pointer',
+                }}
+                title="Définir en Pourcentage (% du salaire net)"
+              >
+                %
+              </button>
+            </div>
           </div>
 
-          {/* Accurate Euro and % breakdown */}
+          {/* Effective Euro Display */}
           <div style={{ textAlign: 'right', minWidth: 100 }}>
-            <div style={{ fontSize: 13, fontWeight: 900, color: isSelected ? '#ffffff' : '#64748b' }}>
-              {fmtEur(effectiveEuro)}
+            <div style={{ fontSize: 13.5, fontWeight: 900, color: cand.color }}>
+              {fmtEur(effectiveEuro)}/m
             </div>
-            <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>
+            <div style={{ fontSize: 10, color: '#94a3b8' }}>
               {isPct
-                ? `${currentVal.toFixed(1)}% du net`
-                : `${((effectiveEuro / netSalary) * 100).toFixed(1)}% du net`}
+                ? `(${currentVal}% du net)`
+                : `(${netSalary > 0 ? (Math.round((effectiveEuro / netSalary) * 100 * 10) / 10) : 0}% du net)`}
             </div>
           </div>
         </div>
       </div>
 
-      {/* Comparison Row & Toggle Transaction Details */}
+      {/* Explanation & Calculation Formula */}
       <div
         style={{
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
-          padding: '8px 12px',
-          borderRadius: 8,
-          background: 'rgba(10, 14, 23, 0.6)',
-          border: '1px solid rgba(255, 255, 255, 0.04)',
           fontSize: 11,
           color: '#94a3b8',
+          borderTop: '1px solid rgba(255, 255, 255, 0.05)',
+          paddingTop: 8,
           flexWrap: 'wrap',
           gap: 8,
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1 }}>
-          <span>📐</span>
-          <span>
-            {activeTxs.length} transaction(s) active(s) = {fmtEur(activeTxs.reduce((sum, t) => sum + Math.abs(t.amount), 0))} ({periodLabel})
+        <div>
+          <span>{cand.explanation} </span>
+          <span style={{ color: '#cbd5e1', fontStyle: 'italic' }}>
+            ({cand.calculationFormula})
           </span>
         </div>
 
@@ -244,15 +253,18 @@ export function AuraWizardFlowCard({
           {comparison && (
             <span
               style={{
-                padding: '2px 6px',
+                padding: '2px 8px',
                 borderRadius: 6,
                 background: isAligned ? 'rgba(16, 185, 129, 0.15)' : 'rgba(245, 158, 11, 0.15)',
-                color: isAligned ? 'var(--accent-emerald)' : 'var(--accent-amber)',
-                fontWeight: 700,
+                border: `1px solid ${isAligned ? 'rgba(16, 185, 129, 0.3)' : 'rgba(245, 158, 11, 0.3)'}`,
+                color: isAligned ? '#6ee7b7' : '#fcd34d',
                 fontSize: 10.5,
+                fontWeight: 700,
               }}
             >
-              {isAligned ? '✓ Aligné avec règle' : `Écart : ${deltaEuro > 0 ? '+' : ''}${fmtEur(deltaEuro)}`}
+              {isAligned
+                ? `✓ Aligné (${fmtEur(comparison.ruleEuro)})`
+                : `Écart : ${deltaEuro > 0 ? '+' : ''}${fmtEur(deltaEuro)} (Règle : ${fmtEur(comparison.ruleEuro)})`}
             </span>
           )}
 
@@ -267,26 +279,26 @@ export function AuraWizardFlowCard({
                 fontSize: 11,
                 fontWeight: 700,
                 cursor: 'pointer',
-                textDecoration: 'underline',
+                padding: '2px 4px',
               }}
             >
-              {isExpanded ? 'Masquer tx' : `Détail tx (${txList.length}) ▾`}
+              {isExpanded
+                ? 'Masquer transactions ▲'
+                : `Voir transactions (${activeTxs.length}) ▼`}
             </button>
           )}
         </div>
       </div>
 
-      {/* 🔍 EXPANDED SUB-TRANSACTIONS LIST */}
-      {isExpanded && (
+      {/* Expanded transactions list */}
+      {isExpanded && txList.length > 0 && (
         <AuraWizardExpandedTxs
           candId={cand.id}
           txList={txList}
           excludedTxIds={excludedTxIds}
-          newTx={newTx}
           onToggleTxInclusion={onToggleTxInclusion}
           onRemoveTx={onRemoveTx}
-          onNewTxInputChange={onNewTxInputChange}
-          onAddTx={onAddTx}
+          onMoveTx={onMoveTx}
           fmtEur={fmtEur}
         />
       )}

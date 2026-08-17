@@ -226,7 +226,7 @@ export function useBoursoLive(): BoursoLiveData {
         displayName: acc.displayName || 'Compte',
         customAlias,
         ibanMasked: acc.ibanMasked,
-        balanceEUR: Number(acc.currentBalanceEUR ?? acc.currentBalance ?? 0),
+        balanceEUR: Number(acc.balanceEUR ?? acc.availableBalance ?? acc.currentBalanceEUR ?? acc.currentBalance ?? 0),
         category,
         included: category !== 'excluded' && included,
       };

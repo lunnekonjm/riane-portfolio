@@ -6,12 +6,16 @@ interface AuraRulesNoticeHeaderProps {
   netSalary: number;
   auditLogsCount: number;
   onOpenAudit: () => void;
+  onRefreshBank?: () => Promise<any> | void;
+  isSyncing?: boolean;
 }
 
 export function AuraRulesNoticeHeader({
   netSalary,
   auditLogsCount,
   onOpenAudit,
+  onRefreshBank,
+  isSyncing = false,
 }: AuraRulesNoticeHeaderProps) {
   return (
     <div
@@ -52,40 +56,69 @@ export function AuraRulesNoticeHeader({
         </div>
       </div>
 
-      <button
-        type="button"
-        onClick={onOpenAudit}
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 8,
-          padding: '8px 14px',
-          borderRadius: 10,
-          background: 'rgba(15, 23, 42, 0.9)',
-          border: '1px solid rgba(255, 255, 255, 0.12)',
-          color: '#e2e8f0',
-          fontSize: 12,
-          fontWeight: 700,
-          cursor: 'pointer',
-          transition: 'all 0.2s',
-        }}
-      >
-        <span>📜 Audit</span>
-        {auditLogsCount > 0 && (
-          <span
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        {onRefreshBank && (
+          <button
+            type="button"
+            onClick={() => onRefreshBank()}
+            disabled={isSyncing}
             style={{
-              padding: '2px 7px',
-              borderRadius: 999,
-              background: 'rgba(6, 182, 212, 0.2)',
-              color: 'var(--accent-cyan)',
-              fontSize: 10.5,
-              fontWeight: 800,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 7,
+              padding: '8px 14px',
+              borderRadius: 10,
+              background: isSyncing ? 'rgba(56, 189, 248, 0.15)' : 'rgba(56, 189, 248, 0.1)',
+              border: '1px solid rgba(56, 189, 248, 0.3)',
+              color: '#38bdf8',
+              fontSize: 12,
+              fontWeight: 700,
+              cursor: isSyncing ? 'not-allowed' : 'pointer',
+              transition: 'all 0.2s',
             }}
           >
-            {auditLogsCount}
-          </span>
+            <span style={{ display: 'inline-block', transform: isSyncing ? 'rotate(180deg)' : 'none', transition: 'transform 0.5s' }}>
+              🔄
+            </span>
+            <span>{isSyncing ? 'Actualisation...' : 'Actualiser Relevés'}</span>
+          </button>
         )}
-      </button>
+
+        <button
+          type="button"
+          onClick={onOpenAudit}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            padding: '8px 14px',
+            borderRadius: 10,
+            background: 'rgba(15, 23, 42, 0.9)',
+            border: '1px solid rgba(255, 255, 255, 0.12)',
+            color: '#e2e8f0',
+            fontSize: 12,
+            fontWeight: 700,
+            cursor: 'pointer',
+            transition: 'all 0.2s',
+          }}
+        >
+          <span>📜 Audit</span>
+          {auditLogsCount > 0 && (
+            <span
+              style={{
+                padding: '2px 7px',
+                borderRadius: 999,
+                background: 'rgba(6, 182, 212, 0.2)',
+                color: 'var(--accent-cyan)',
+                fontSize: 10.5,
+                fontWeight: 800,
+              }}
+            >
+              {auditLogsCount}
+            </span>
+          )}
+        </button>
+      </div>
     </div>
   );
 }

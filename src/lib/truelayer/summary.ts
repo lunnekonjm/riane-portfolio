@@ -131,6 +131,8 @@ export async function fetchTrueLayerSummary(accessToken?: string, refreshToken?:
 
       const iban = rawAcc.account_number?.iban;
       const ibanMasked = iban ? `••••${iban.slice(-4)}` : undefined;
+      // In French banks (STET), available balance reflects live real-time operations, whereas current is the overnight cleared balance
+      const liveBal = availableBal !== 0 ? availableBal : currentBal;
 
       accounts.push({
         id: accId,
@@ -140,7 +142,7 @@ export async function fetchTrueLayerSummary(accessToken?: string, refreshToken?:
         currency: currency,
         currentBalance: currentBal,
         availableBalance: availableBal,
-        balanceEUR: currentBal,
+        balanceEUR: liveBal,
         ibanMasked: ibanMasked,
         lastUpdated: lastUpdated,
         logoUri: rawAcc.provider?.logo_uri,

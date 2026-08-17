@@ -2,6 +2,8 @@
 
 import { useState } from 'react';
 import type { AppNotification, NotificationSettings, NotificationCategory } from '@/types/notification';
+import { NotificationCard } from './notifications/NotificationCard';
+import { NotificationSettingsTab } from './notifications/NotificationSettingsTab';
 
 interface NotificationCenterModalProps {
   notifications: AppNotification[];
@@ -151,50 +153,14 @@ export default function NotificationCenterModal({
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxHeight: 360, overflowY: 'auto' }}>
                 {filteredNotifs.map((n) => (
-                  <div
+                  <NotificationCard
                     key={n.id}
-                    style={{
-                      padding: 14,
-                      borderRadius: 10,
-                      background: n.priority === 'high' ? 'rgba(244, 63, 94, 0.1)' : 'var(--bg-tertiary)',
-                      borderLeft: n.priority === 'high' ? '4px solid var(--accent-rose)' : n.category === 'dca' ? '4px solid var(--accent-cyan)' : '4px solid var(--accent-amber)',
-                      opacity: n.read ? 0.7 : 1,
-                    }}
-                  >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4 }}>
-                      <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--text-primary)' }}>
-                        {n.title}
-                      </div>
-                      <span className="mono" style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)' }}>
-                        {new Date(n.timestamp).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
-                      </span>
-                    </div>
-                    <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', lineHeight: 1.5, margin: 0 }}>
-                      {n.message}
-                    </p>
-                    {n.actionHint && (
-                      <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-primary)', background: 'rgba(255, 255, 255, 0.05)', padding: '8px 12px', borderRadius: 6, marginTop: 8, borderLeft: '3px solid var(--accent-cyan)', lineHeight: 1.4, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 6 }}>
-                        <div>
-                          <strong>👉 Que faire :</strong> {n.actionHint}
-                        </div>
-                        {n.actionCtaLabel && (
-                          <button
-                            type="button"
-                            className="btn btn-primary btn-sm"
-                            style={{ fontSize: 'var(--text-xs)', padding: '4px 10px', whiteSpace: 'nowrap', fontWeight: 600 }}
-                            onClick={() => {
-                              onClose();
-                              if (n.actionType === 'open-envelopes') onNavigateView?.('envelopes');
-                              else if (n.actionType === 'open-analysis') onOpenAnalysis?.(`Analyse et recommandations pour : ${n.title}`);
-                              else onOpenRebalance?.();
-                            }}
-                          >
-                            {n.actionCtaLabel}
-                          </button>
-                        )}
-                      </div>
-                    )}
-                  </div>
+                    notification={n}
+                    onClose={onClose}
+                    onOpenRebalance={onOpenRebalance}
+                    onOpenAnalysis={onOpenAnalysis}
+                    onNavigateView={onNavigateView}
+                  />
                 ))}
               </div>
             )}
@@ -203,132 +169,12 @@ export default function NotificationCenterModal({
 
         {/* Tab 2: Notification Preferences */}
         {activeTab === 'settings' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            {/* Setting 1: DCA Reminders */}
-            <div style={{ padding: 14, background: 'var(--bg-tertiary)', borderRadius: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div>
-                <div style={{ fontWeight: 700, fontSize: 13 }}>💸 Rappels de Versement DCA Mensuel</div>
-                <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', marginTop: 2 }}>
-                  Notification automatique à la date choisie pour exécuter votre plan d&apos;épargne.
-                </div>
-              </div>
-              <label style={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
-                <input
-                  type="checkbox"
-                  checked={settings.dcaReminderEnabled}
-                  onChange={(e) => onUpdateSettings({ ...settings, dcaReminderEnabled: e.target.checked })}
-                  style={{ width: 18, height: 18, accentColor: 'var(--accent-cyan)', cursor: 'pointer' }}
-                />
-              </label>
-            </div>
-
-            {settings.dcaReminderEnabled && (
-              <div style={{ padding: '10px 14px', background: 'var(--bg-secondary)', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)' }}>Jour du versement mensuel :</span>
-                <select
-                  value={settings.dcaDayOfMonth}
-                  onChange={(e) => onUpdateSettings({ ...settings, dcaDayOfMonth: parseInt(e.target.value) || 1 })}
-                  style={{ background: 'var(--bg-tertiary)', color: 'var(--accent-cyan)', border: '1px solid var(--border-subtle)', borderRadius: 6, padding: '4px 10px', fontSize: 13, fontWeight: 700 }}
-                >
-                  <option value={1}>Le 1er du mois</option>
-                  <option value={5}>Le 5 du mois</option>
-                  <option value={10}>Le 10 du mois</option>
-                  <option value={15}>Le 15 du mois</option>
-                  <option value={20}>Le 20 du mois</option>
-                  <option value={25}>Le 25 du mois</option>
-                </select>
-              </div>
-            )}
-
-            {/* Setting 2: PEA Ceiling Alerts */}
-            <div style={{ padding: 14, background: 'var(--bg-tertiary)', borderRadius: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div>
-                <div style={{ fontWeight: 700, fontSize: 13 }}>🏛️ Alertes Plafond Légal PEA (150k€)</div>
-                <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', marginTop: 2 }}>
-                  Avertissement dès 90% de remplissage et saturation pour réorienter le DCA vers le CTO.
-                </div>
-              </div>
-              <label style={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
-                <input
-                  type="checkbox"
-                  checked={settings.peaCeilingAlertsEnabled}
-                  onChange={(e) => onUpdateSettings({ ...settings, peaCeilingAlertsEnabled: e.target.checked })}
-                  style={{ width: 18, height: 18, accentColor: 'var(--accent-cyan)', cursor: 'pointer' }}
-                />
-              </label>
-            </div>
-
-            {/* Setting 3: Allocation Drift */}
-            <div style={{ padding: 14, background: 'var(--bg-tertiary)', borderRadius: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div>
-                <div style={{ fontWeight: 700, fontSize: 13 }}>⚡ Alertes Dérive Thématique & Risque</div>
-                <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', marginTop: 2 }}>
-                  Signalement si l&apos;exposition à un thème dépasse la limite max de gestion.
-                </div>
-              </div>
-              <label style={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
-                <input
-                  type="checkbox"
-                  checked={settings.allocationDriftEnabled}
-                  onChange={(e) => onUpdateSettings({ ...settings, allocationDriftEnabled: e.target.checked })}
-                  style={{ width: 18, height: 18, accentColor: 'var(--accent-cyan)', cursor: 'pointer' }}
-                />
-              </label>
-            </div>
-
-            {/* Setting 4: Krach & Outliers Alert */}
-            <div style={{ padding: 14, background: 'var(--bg-tertiary)', borderRadius: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div>
-                <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--accent-rose)' }}>🚨 Alertes Krach Boursier & Variations Anormales (Outliers)</div>
-                <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', marginTop: 2 }}>
-                  Détection proactive en cas de baisse brutal ou d&apos;envolée exceptionnelle d&apos;un actif.
-                </div>
-              </div>
-              <label style={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
-                <input
-                  type="checkbox"
-                  checked={settings.outlierAlertsEnabled ?? true}
-                  onChange={(e) => onUpdateSettings({ ...settings, outlierAlertsEnabled: e.target.checked })}
-                  style={{ width: 18, height: 18, accentColor: 'var(--accent-rose)', cursor: 'pointer' }}
-                />
-              </label>
-            </div>
-
-            {settings.outlierAlertsEnabled && (
-              <div style={{ padding: '10px 14px', background: 'var(--bg-secondary)', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Sensibilité de détection d&apos;Outliers :</span>
-                <select
-                  value={settings.outlierThresholdPct || 3.0}
-                  onChange={(e) => onUpdateSettings({ ...settings, outlierThresholdPct: parseFloat(e.target.value) || 3.0 })}
-                  style={{ background: 'var(--bg-tertiary)', color: 'var(--accent-rose)', border: '1px solid var(--border-subtle)', borderRadius: 6, padding: '4px 10px', fontSize: 13, fontWeight: 700 }}
-                >
-                  <option value={3.0}>±3.0% (Haute Sensibilité)</option>
-                  <option value={5.0}>±5.0% (Sensibilité Normale)</option>
-                  <option value={7.0}>±7.0% (Chocs Majeurs Uniquement)</option>
-                </select>
-              </div>
-            )}
-            {/* Developer Test Tools in Settings */}
-            {(onTestNotification || onTestEmail) && (
-              <div style={{ padding: 14, background: 'rgba(6, 182, 212, 0.08)', borderRadius: 10, border: '1px dashed var(--accent-cyan)' }}>
-                <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--accent-cyan)', marginBottom: 8 }}>
-                  🛠️ Boutons de Test (Développeur)
-                </div>
-                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                  {onTestNotification && (
-                    <button type="button" className="btn btn-sm btn-primary" onClick={onTestNotification}>
-                      🧪 Déclencher une fausse notification
-                    </button>
-                  )}
-                  {onTestEmail && (
-                    <button type="button" className="btn btn-sm btn-secondary" onClick={onTestEmail}>
-                      📧 Envoyer un email de test (Resend)
-                    </button>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
+          <NotificationSettingsTab
+            settings={settings}
+            onUpdateSettings={onUpdateSettings}
+            onTestNotification={onTestNotification}
+            onTestEmail={onTestEmail}
+          />
         )}
 
         <div style={{ marginTop: 24, display: 'flex', justifyContent: 'flex-end' }}>

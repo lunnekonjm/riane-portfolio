@@ -2,22 +2,13 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { getQuote } from '@/services/market-data/provider';
+import { BenchmarkSummaryBar } from './benchmark/BenchmarkSummaryBar';
+import { BenchmarkPositionRow, type BenchmarkPosition } from './benchmark/BenchmarkPositionRow';
 
 /**
  * Portefeuille Étalon Boursobank
  * Complètement isolé du portefeuille principal — sert uniquement de référence.
  */
-
-
-interface BenchmarkPosition {
-  name: string;
-  ticker: string;
-  quantity: number;
-  avgPrice: number;
-  purchaseDate: string;
-  currentPrice: number | null;
-  loading: boolean;
-}
 
 const INITIAL_BENCHMARK: BenchmarkPosition[] = [
   {
@@ -58,6 +49,7 @@ export default function BenchmarkWidget({ visible, onClose }: BenchmarkWidgetPro
   const [positions, setPositions] = useState<BenchmarkPosition[]>(INITIAL_BENCHMARK);
   const [lastRefresh, setLastRefresh] = useState<number | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
 
   const fetchPrices = useCallback(async () => {
     setRefreshing(true);
@@ -86,8 +78,6 @@ export default function BenchmarkWidget({ visible, onClose }: BenchmarkWidgetPro
       fetchPrices();
     }
   }, [visible, lastRefresh, fetchPrices]);
-
-  const [isEditing, setIsEditing] = useState(false);
 
   if (!visible) return null;
 
@@ -188,126 +178,31 @@ export default function BenchmarkWidget({ visible, onClose }: BenchmarkWidgetPro
       </div>
 
       {/* Summary Bar */}
-      <div
-        style={{
-          padding: '12px 16px',
-          display: 'grid',
-          gridTemplateColumns: '1fr 1fr 1fr',
-          gap: 10,
-          borderBottom: '1px solid var(--border-subtle)',
-          background: 'rgba(0,0,0,0.25)',
-        }}
-      >
-        <div>
-          <div style={{ fontSize: 12, color: 'var(--text-secondary)', textTransform: 'uppercase', fontWeight: 600 }}>Investi</div>
-          <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>
-            {formatMoney(totalInvested)} €
-          </div>
-        </div>
-        <div>
-          <div style={{ fontSize: 12, color: 'var(--text-secondary)', textTransform: 'uppercase', fontWeight: 600 }}>Valeur</div>
-          <div style={{ fontSize: 14, fontWeight: 700, color: allLoaded ? 'var(--text-primary)' : 'var(--text-secondary)' }}>
-            {allLoaded ? formatMoney(totalCurrent) + ' €' : '...'}
-          </div>
-        </div>
-        <div>
-          <div style={{ fontSize: 12, color: 'var(--text-secondary)', textTransform: 'uppercase', fontWeight: 600 }}>P/L</div>
-          <div
-            style={{
-              fontSize: 14,
-              fontWeight: 700,
-              color: allLoaded ? (pnl >= 0 ? 'var(--accent-green)' : 'var(--accent-rose)') : 'var(--text-secondary)',
-            }}
-          >
-            {allLoaded ? `${pnl >= 0 ? '+' : ''}${formatMoney(pnl)} € (${pnlPct >= 0 ? '+' : ''}${pnlPct.toFixed(2)}%)` : '...'}
-          </div>
-        </div>
-      </div>
+      <BenchmarkSummaryBar
+        totalInvested={totalInvested}
+        totalCurrent={totalCurrent}
+        allLoaded={allLoaded}
+        pnl={pnl}
+        pnlPct={pnlPct}
+        formatMoney={formatMoney}
+      />
 
       {/* Positions List */}
       <div style={{ overflowY: 'auto', maxHeight: 'calc(70vh - 140px)' }}>
-        {positions.map((p) => {
-          const invested = p.quantity * p.avgPrice;
-          const current = p.quantity * (p.currentPrice ?? p.avgPrice);
-          const linePnl = current - invested;
-          const linePnlPct = invested > 0 ? (linePnl / invested) * 100 : 0;
-          const hasPrice = p.currentPrice !== null;
-
-          return (
-            <div
-              key={p.ticker}
-              style={{
-                padding: '10px 16px',
-                borderBottom: '1px solid var(--border-subtle)',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                gap: 12,
-              }}
-            >
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                  {p.name}
-                </div>
-                <div style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'flex', gap: 8, marginTop: 3, alignItems: 'center' }}>
-                  <span className="mono" style={{ fontWeight: 600, color: 'var(--accent-cyan)' }}>{p.ticker}</span>
-                  {isEditing ? (
-                    <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-                      <span style={{ fontSize: 'var(--text-xs)', fontWeight: 600, color: 'var(--text-secondary)' }}>Qté:</span>
-                      <input
-                        type="number"
-                        value={p.quantity}
-                        onChange={(e) => {
-                          const val = parseFloat(e.target.value) || 0;
-                          setPositions(positions.map((pos) => (pos.ticker === p.ticker ? { ...pos, quantity: val } : pos)));
-                        }}
-                        style={{ width: 50, fontSize: 'var(--text-xs)', padding: '2px 4px', background: 'var(--bg-tertiary)', border: '1px solid var(--border-medium)', borderRadius: 4, color: 'var(--text-primary)' }}
-                      />
-                      <span style={{ fontSize: 'var(--text-xs)', fontWeight: 600, color: 'var(--text-secondary)' }}>PRU:</span>
-                      <input
-                        type="number"
-                        step="0.001"
-                        value={p.avgPrice}
-                        onChange={(e) => {
-                          const val = parseFloat(e.target.value) || 0;
-                          setPositions(positions.map((pos) => (pos.ticker === p.ticker ? { ...pos, avgPrice: val } : pos)));
-                        }}
-                        style={{ width: 60, fontSize: 'var(--text-xs)', padding: '2px 4px', background: 'var(--bg-tertiary)', border: '1px solid var(--border-medium)', borderRadius: 4, color: 'var(--text-primary)' }}
-                      />
-                    </div>
-                  ) : (
-                    <>
-                      <span>×{p.quantity}</span>
-                      <span>PRU {p.avgPrice.toFixed(3)} €</span>
-                    </>
-                  )}
-                </div>
-              </div>
-
-              {/* Price & PnL */}
-              <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                <div style={{ fontSize: 13, fontWeight: 700, color: hasPrice ? 'var(--text-primary)' : 'var(--text-secondary)' }} className="mono">
-                  {hasPrice ? `${(p.currentPrice! * p.quantity).toFixed(2)} €` : 'Chargement...'}
-                </div>
-                <div
-                  style={{
-                    fontSize: 12,
-                    fontWeight: 700,
-                    color: hasPrice
-                      ? linePnl >= 0
-                        ? 'var(--accent-green)'
-                        : 'var(--accent-rose)'
-                      : 'var(--text-secondary)',
-                  }}
-                >
-                  {hasPrice
-                    ? `${linePnl >= 0 ? '+' : ''}${formatMoney(linePnl)} € (${linePnlPct >= 0 ? '+' : ''}${linePnlPct.toFixed(1)}%)`
-                    : ''}
-                </div>
-              </div>
-            </div>
-          );
-        })}
+        {positions.map((p) => (
+          <BenchmarkPositionRow
+            key={p.ticker}
+            position={p}
+            isEditing={isEditing}
+            onUpdateQuantity={(ticker, quantity) => {
+              setPositions(positions.map((pos) => (pos.ticker === ticker ? { ...pos, quantity } : pos)));
+            }}
+            onUpdateAvgPrice={(ticker, avgPrice) => {
+              setPositions(positions.map((pos) => (pos.ticker === ticker ? { ...pos, avgPrice } : pos)));
+            }}
+            formatMoney={formatMoney}
+          />
+        ))}
       </div>
 
       {/* Footer */}

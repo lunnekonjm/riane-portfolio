@@ -1,6 +1,10 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { MONTH_NAMES_FR, MONTH_SHORT_FR } from './datepicker/datePickerConstants';
+import { DatePickerYearSelector } from './datepicker/DatePickerYearSelector';
+import { DatePickerMonthGrid } from './datepicker/DatePickerMonthGrid';
+import { DatePickerDaySelector } from './datepicker/DatePickerDaySelector';
 
 interface CustomDatePickerProps {
   value: string; // Format: 'YYYY-MM-DD' or 'YYYY-MM'
@@ -8,16 +12,6 @@ interface CustomDatePickerProps {
   showDaySelector?: boolean;
   label?: string;
 }
-
-const MONTH_NAMES_FR = [
-  'Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
-  'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'
-];
-
-const MONTH_SHORT_FR = [
-  'Janv.', 'Fév.', 'Mars', 'Avr.', 'Mai', 'Juin',
-  'Juil.', 'Août', 'Sept.', 'Oct.', 'Nov.', 'Déc.'
-];
 
 export default function CustomDatePicker({
   value,
@@ -84,8 +78,6 @@ export default function CustomDatePicker({
   const formattedDisplayLabel = parts[2]
     ? `${initialDay} ${MONTH_SHORT_FR[currentMonth] || 'Janv.'} ${currentYear}`
     : `${MONTH_SHORT_FR[currentMonth] || 'Janv.'} ${currentYear}`;
-
-  const quickYears = [tempYear - 2, tempYear - 1, tempYear, tempYear + 1, tempYear + 2];
 
   return (
     <>
@@ -189,153 +181,21 @@ export default function CustomDatePicker({
 
             {/* Content Body */}
             <div style={{ padding: '18px 20px' }}>
-              {/* Year Selector */}
-              <div style={{ marginBottom: 16 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                  <button
-                    type="button"
-                    className="btn btn-secondary btn-sm"
-                    onClick={() => setTempYear(tempYear - 1)}
-                    style={{ padding: '6px 12px', fontSize: 14 }}
-                    title="Année précédente"
-                  >
-                    ◀
-                  </button>
+              <DatePickerYearSelector
+                tempYear={tempYear}
+                setTempYear={setTempYear}
+              />
 
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <span style={{ fontSize: 18, fontWeight: 800, fontFamily: 'var(--font-mono)', color: 'var(--accent-cyan)' }}>
-                      {tempYear}
-                    </span>
-                  </div>
+              <DatePickerMonthGrid
+                tempMonth={tempMonth}
+                setTempMonth={setTempMonth}
+              />
 
-                  <button
-                    type="button"
-                    className="btn btn-secondary btn-sm"
-                    onClick={() => setTempYear(tempYear + 1)}
-                    style={{ padding: '6px 12px', fontSize: 14 }}
-                    title="Année suivante"
-                  >
-                    ▶
-                  </button>
-                </div>
-
-                {/* Quick Year Pills */}
-                <div style={{ display: 'flex', justifyContent: 'center', gap: 6, flexWrap: 'wrap' }}>
-                  {quickYears.map((yr) => (
-                    <button
-                      key={yr}
-                      type="button"
-                      onClick={() => setTempYear(yr)}
-                      style={{
-                        padding: '3px 8px',
-                        fontSize: 11,
-                        borderRadius: 6,
-                        border: yr === tempYear ? '1px solid var(--accent-cyan)' : '1px solid rgba(255, 255, 255, 0.1)',
-                        background: yr === tempYear ? 'rgba(6, 182, 212, 0.15)' : 'rgba(255, 255, 255, 0.03)',
-                        color: yr === tempYear ? 'var(--accent-cyan)' : 'var(--text-secondary)',
-                        fontWeight: yr === tempYear ? 700 : 500,
-                        cursor: 'pointer',
-                      }}
-                    >
-                      {yr}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Month Grid (4 cols x 3 rows) */}
-              <div style={{ marginBottom: 16 }}>
-                <label style={{ display: 'block', fontSize: 11, color: 'var(--text-secondary)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>
-                  Mois
-                </label>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6 }}>
-                  {MONTH_SHORT_FR.map((mName, idx) => {
-                    const isSelected = idx === tempMonth;
-                    return (
-                      <button
-                        key={mName}
-                        type="button"
-                        onClick={() => setTempMonth(idx)}
-                        style={{
-                          padding: '8px 4px',
-                          borderRadius: 8,
-                          border: isSelected ? '1px solid var(--accent-cyan)' : '1px solid rgba(255, 255, 255, 0.08)',
-                          background: isSelected
-                            ? 'linear-gradient(135deg, #06b6d4 0%, #0284c7 100%)'
-                            : 'rgba(255, 255, 255, 0.04)',
-                          color: isSelected ? '#ffffff' : '#cbd5e1',
-                          fontSize: 12,
-                          fontWeight: isSelected ? 700 : 500,
-                          cursor: 'pointer',
-                          textAlign: 'center',
-                          transition: 'all 0.15s ease',
-                          boxShadow: isSelected ? '0 4px 12px rgba(6, 182, 212, 0.35)' : 'none',
-                        }}
-                      >
-                        {mName}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Day of Month Selector Bar (if enabled) */}
               {showDaySelector && (
-                <div style={{ marginBottom: 16, background: 'rgba(255, 255, 255, 0.03)', padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border-subtle)' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                    <span style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600 }}>
-                      Jour du mois :
-                    </span>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <input
-                        type="number"
-                        min="1"
-                        max="31"
-                        value={tempDay}
-                        onChange={(e) => {
-                          const d = Math.max(1, Math.min(31, parseInt(e.target.value) || 1));
-                          setTempDay(d);
-                        }}
-                        style={{
-                          width: 52,
-                          background: 'var(--bg-secondary)',
-                          border: '1px solid var(--accent-cyan)',
-                          borderRadius: 6,
-                          color: 'var(--accent-cyan)',
-                          fontFamily: 'var(--font-mono)',
-                          fontWeight: 700,
-                          fontSize: 13,
-                          textAlign: 'center',
-                          padding: '3px 4px',
-                          outline: 'none',
-                        }}
-                      />
-                    </div>
-                  </div>
-
-                  {/* Day Shortcut Buttons */}
-                  <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                    {[1, 5, 10, 15, 20, 25, 28, 31].map((d) => (
-                      <button
-                        key={d}
-                        type="button"
-                        onClick={() => setTempDay(d)}
-                        style={{
-                          padding: '2px 7px',
-                          fontSize: 10,
-                          borderRadius: 4,
-                          border: d === tempDay ? '1px solid var(--accent-cyan)' : '1px solid rgba(255, 255, 255, 0.08)',
-                          background: d === tempDay ? 'rgba(6, 182, 212, 0.2)' : 'transparent',
-                          color: d === tempDay ? 'var(--accent-cyan)' : 'var(--text-secondary)',
-                          fontWeight: d === tempDay ? 700 : 500,
-                          cursor: 'pointer',
-                        }}
-                      >
-                        {d}
-                      </button>
-                    ))}
-                  </div>
-                </div>
+                <DatePickerDaySelector
+                  tempDay={tempDay}
+                  setTempDay={setTempDay}
+                />
               )}
 
               {/* Quick Presets */}

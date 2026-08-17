@@ -4,13 +4,14 @@ import React, { useState, useMemo } from 'react';
 import { VALUATION_STOCKS, VALUATION_STOCK_KEYS } from '@/data/valuationData';
 import { computeStockValuation } from '@/engines/valuationEngine';
 import { exportSnapshotsCSV } from '@/engines/valuationHistoryStore';
+import { ValuationMatrixFilterBar, type FilterCategory } from './ValuationMatrixFilterBar';
+import { ValuationMatrixRow } from './ValuationMatrixRow';
 
 interface ValuationOverviewMatrixProps {
   onSelectStock: (key: string) => void;
   selectedKey: string;
 }
 
-type FilterCategory = 'all' | 'good_signal' | 'megacap' | 'growth_ai' | 'smallcap_fr' | 'high_upside';
 type SortField = 'name' | 'signal' | 'gapPct' | 'upside' | 'cagr';
 
 export const ValuationOverviewMatrix: React.FC<ValuationOverviewMatrixProps> = ({
@@ -123,66 +124,12 @@ export const ValuationOverviewMatrix: React.FC<ValuationOverviewMatrixProps> = (
       </div>
 
       {/* Filter Tabs & Search Bar */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12, margin: '16px 0' }}>
-        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-          {[
-            { key: 'all', label: 'Toutes (20)' },
-            { key: 'good_signal', label: '🟢 Favorables' },
-            { key: 'growth_ai', label: '💡 Croissance IA' },
-            { key: 'megacap', label: '🇺🇸 Méga-Caps' },
-            { key: 'smallcap_fr', label: '🇫🇷 Small-Caps FR' },
-            { key: 'high_upside', label: '📈 Upside >+20%' },
-          ].map((tab) => (
-            <button
-              key={tab.key}
-              onClick={() => setFilter(tab.key as FilterCategory)}
-              style={{
-                padding: '6px 12px',
-                borderRadius: 8,
-                fontSize: 11,
-                fontWeight: 600,
-                fontFamily: 'Inter, sans-serif',
-                cursor: 'pointer',
-                border: filter === tab.key ? '1px solid #10b981' : '1px solid rgba(255,255,255,0.08)',
-                background: filter === tab.key ? '#10b981' : 'rgba(15, 23, 42, 0.6)',
-                color: filter === tab.key ? '#022214' : '#94a3b8',
-                transition: 'all 0.15s ease',
-              }}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-
-        <div style={{ minWidth: 220, position: 'relative' }}>
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Rechercher ticker / nom..."
-            className="val-input"
-            style={{ padding: '6px 10px', fontSize: 11 }}
-          />
-          {search && (
-            <button
-              onClick={() => setSearch('')}
-              style={{
-                position: 'absolute',
-                right: 8,
-                top: '50%',
-                transform: 'translateY(-50%)',
-                background: 'transparent',
-                border: 'none',
-                color: '#94a3b8',
-                cursor: 'pointer',
-                fontSize: 11,
-              }}
-            >
-              ✕
-            </button>
-          )}
-        </div>
-      </div>
+      <ValuationMatrixFilterBar
+        filter={filter}
+        setFilter={setFilter}
+        search={search}
+        setSearch={setSearch}
+      />
 
       {/* Table Matrix */}
       <div className="val-table-wrapper">
@@ -211,138 +158,15 @@ export const ValuationOverviewMatrix: React.FC<ValuationOverviewMatrixProps> = (
             </tr>
           </thead>
           <tbody>
-            {filteredItems.map(({ stock, val }) => {
-              const isSelected = stock.key === selectedKey;
-              const badgeClass =
-                val.signalClass === 'good'
-                  ? 'val-badge-good'
-                  : val.signalClass === 'bad'
-                  ? 'val-badge-bad'
-                  : 'val-badge-warn';
-
-              return (
-                <tr
-                  key={stock.key}
-                  onClick={() => onSelectStock(stock.key)}
-                  className={isSelected ? 'selected-row' : ''}
-                >
-                  {/* Name & Ticker */}
-                  <td>
-                    <div style={{ fontWeight: 700, color: '#ffffff', display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <span>{stock.name}</span>
-                      <span className="val-badge val-badge-neutral" style={{ fontSize: 10, padding: '1px 5px' }}>
-                        {stock.shortTick}
-                      </span>
-                    </div>
-                    <div style={{ fontSize: 10, color: '#64748b', marginTop: 2 }}>{stock.categoryLabel}</div>
-                  </td>
-
-                  {/* Model Type */}
-                  <td>
-                    <span
-                      className="val-badge"
-                      style={{
-                        fontSize: 10,
-                        padding: '2px 6px',
-                        background: stock.metric === 'eps' ? 'rgba(6, 182, 212, 0.12)' : 'rgba(245, 158, 11, 0.12)',
-                        color: stock.metric === 'eps' ? '#06b6d4' : '#f59e0b',
-                        borderColor: stock.metric === 'eps' ? 'rgba(6, 182, 212, 0.3)' : 'rgba(245, 158, 11, 0.3)',
-                      }}
-                    >
-                      {stock.metric === 'eps' ? 'BPA & P/E' : 'CA & P/S'}
-                    </span>
-                  </td>
-
-                  {/* Current Price */}
-                  <td style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 800, color: '#ffffff' }}>
-                    {stock.currency === '$' ? '$' : ''}
-                    {val.currentPrice.toFixed(2)}
-                    {stock.currency === '€' ? ' €' : ''}
-                  </td>
-
-                  {/* Internal Signal */}
-                  <td>
-                    <span className={`val-badge ${badgeClass}`}>
-                      {val.signal}
-                    </span>
-                  </td>
-
-                  {/* Gap vs Average */}
-                  <td style={{ fontFamily: 'JetBrains Mono, monospace' }}>
-                    <span
-                      style={{
-                        fontWeight: 700,
-                        color: val.gapPct < -10 ? '#10b981' : val.gapPct > 15 ? '#f43f5e' : '#f59e0b',
-                      }}
-                    >
-                      {val.gapPct >= 0 ? '+' : ''}
-                      {val.gapPct.toFixed(0)}%
-                    </span>
-                    <span style={{ fontSize: 10, color: '#64748b', display: 'block' }}>
-                      {val.zScore ? `(${val.zScore >= 0 ? '+' : ''}${val.zScore.toFixed(1)}σ)` : ''}
-                    </span>
-                  </td>
-
-                  {/* Multiple */}
-                  <td style={{ fontFamily: 'JetBrains Mono, monospace' }}>
-                    <div style={{ color: '#ffffff', fontWeight: 600 }}>
-                      {val.currentRatio.toFixed(1)}×{' '}
-                      <span style={{ color: '#64748b', fontSize: 10 }}>({val.ratioName})</span>
-                    </div>
-                    <div style={{ fontSize: 10, color: '#64748b' }}>Moy: {val.avgRatio.toFixed(1)}×</div>
-                  </td>
-
-                  {/* Growth CAGR */}
-                  <td style={{ fontFamily: 'JetBrains Mono, monospace' }}>
-                    {val.growthCagrPct !== null ? (
-                      <span style={{ color: '#10b981', fontWeight: 600 }}>
-                        +{val.growthCagrPct.toFixed(1)}%/an
-                      </span>
-                    ) : (
-                      <span style={{ color: '#64748b' }}>—</span>
-                    )}
-                  </td>
-
-                  {/* Analyst Consensus & Upside */}
-                  <td style={{ fontFamily: 'JetBrains Mono, monospace' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <span style={{ color: '#ffffff', fontWeight: 600 }}>
-                        {stock.currency === '$' ? '$' : ''}
-                        {val.analystMean.toFixed(0)}
-                        {stock.currency === '€' ? ' €' : ''}
-                      </span>
-                      <span
-                        style={{
-                          fontSize: 11,
-                          fontWeight: 700,
-                          color: val.analystUpsidePct >= 15 ? '#10b981' : val.analystUpsidePct < 0 ? '#f43f5e' : '#f59e0b',
-                        }}
-                      >
-                        ({val.analystUpsidePct >= 0 ? '+' : ''}
-                        {val.analystUpsidePct.toFixed(0)}%)
-                      </span>
-                    </div>
-                    <div style={{ fontSize: 10, color: '#64748b' }}>
-                      {stock.consensus.rating} ({stock.consensus.analystCount} avis)
-                    </div>
-                  </td>
-
-                  {/* Action */}
-                  <td style={{ textAlign: 'right' }}>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onSelectStock(stock.key);
-                      }}
-                      className="val-btn val-btn-cyan"
-                      style={{ padding: '3px 8px', fontSize: 10 }}
-                    >
-                      Fiche ➔
-                    </button>
-                  </td>
-                </tr>
-              );
-            })}
+            {filteredItems.map(({ stock, val }) => (
+              <ValuationMatrixRow
+                key={stock.key}
+                stock={stock}
+                val={val}
+                isSelected={stock.key === selectedKey}
+                onSelectStock={onSelectStock}
+              />
+            ))}
           </tbody>
         </table>
       </div>

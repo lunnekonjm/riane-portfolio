@@ -1,6 +1,8 @@
 'use client';
 
 import React, { useState } from 'react';
+import { AuraSavingsPocketCard } from './funnel/AuraSavingsPocketCard';
+import { AuraWindfallAddModal } from './funnel/AuraWindfallAddModal';
 
 export interface SavingsPocket {
   id: string;
@@ -26,10 +28,9 @@ interface AuraSavingsFunnelViewProps {
 }
 
 export const AuraSavingsFunnelView: React.FC<AuraSavingsFunnelViewProps> = ({
-  netSalary,
   onShowToast,
 }) => {
-  const [pockets, setPockets] = useState<SavingsPocket[]>([
+  const [pockets] = useState<SavingsPocket[]>([
     {
       id: 'p-tampon',
       name: '1. Matelas de Sécurité (Tampon & Livret A)',
@@ -74,23 +75,10 @@ export const AuraSavingsFunnelView: React.FC<AuraSavingsFunnelViewProps> = ({
   ]);
 
   const [isAddEventOpen, setIsAddEventOpen] = useState(false);
-  const [newEventLabel, setNewEventLabel] = useState('');
-  const [newEventAmount, setNewEventAmount] = useState<number>(500);
-  const [newEventType, setNewEventType] = useState<'bonus' | 'tontine' | 'refund' | 'other'>('bonus');
 
-  const handleAddWindfall = () => {
-    if (!newEventLabel.trim() || newEventAmount <= 0) return;
-    const item: WindfallEvent = {
-      id: `w-${Date.now()}`,
-      label: newEventLabel.trim(),
-      amount: newEventAmount,
-      date: new Date().toISOString().slice(0, 10),
-      type: newEventType,
-    };
+  const handleAddWindfall = (item: WindfallEvent) => {
     setWindfalls([item, ...windfalls]);
     setIsAddEventOpen(false);
-    setNewEventLabel('');
-    setNewEventAmount(500);
     onShowToast(`🎉 Revenu exceptionnel "${item.label}" (+${item.amount} €) enregistré !`, 'success');
   };
 
@@ -153,58 +141,9 @@ export const AuraSavingsFunnelView: React.FC<AuraSavingsFunnelViewProps> = ({
 
       {/* 🧭 LES 4 ÉTAPES DE L'ENTONNOIR (POCKETS) */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 14 }}>
-        {pockets.map((p) => {
-          const ratio = Math.min(100, Math.round((p.current / (p.target || 1)) * 100));
-          return (
-            <div
-              key={p.id}
-              className="card"
-              style={{
-                background: 'var(--bg-secondary)',
-                border: '1px solid var(--border-subtle)',
-                borderRadius: 12,
-                padding: 18,
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 12,
-              }}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span style={{ fontSize: 18 }}>{p.icon}</span>
-                  <span>{p.name}</span>
-                </span>
-                <span style={{ fontSize: 12, fontWeight: 800, color: p.color, fontFamily: 'var(--font-mono)' }}>
-                  {ratio}%
-                </span>
-              </div>
-
-              <p style={{ margin: 0, fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.4 }}>
-                {p.description}
-              </p>
-
-              <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 6 }}>
-                  <span style={{ color: 'var(--text-secondary)' }}>Montant accumulé :</span>
-                  <strong style={{ color: p.color, fontFamily: 'var(--font-mono)' }}>
-                    {p.current.toLocaleString('fr-FR')} € / {p.target.toLocaleString('fr-FR')} €
-                  </strong>
-                </div>
-                <div style={{ width: '100%', height: 6, background: 'rgba(255, 255, 255, 0.08)', borderRadius: 3, overflow: 'hidden' }}>
-                  <div
-                    style={{
-                      width: `${ratio}%`,
-                      height: '100%',
-                      background: p.color,
-                      borderRadius: 3,
-                      transition: 'width 0.4s ease',
-                    }}
-                  />
-                </div>
-              </div>
-            </div>
-          );
-        })}
+        {pockets.map((p) => (
+          <AuraSavingsPocketCard key={p.id} pocket={p} />
+        ))}
       </div>
 
       {/* 🎁 HISTORIQUE DES RENTRÉES EXCEPTIONNELLES */}
@@ -249,107 +188,11 @@ export const AuraSavingsFunnelView: React.FC<AuraSavingsFunnelViewProps> = ({
       </div>
 
       {/* 🎁 MODAL D'AJOUT DE RENTRÉE */}
-      {isAddEventOpen && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(0, 0, 0, 0.75)',
-            backdropFilter: 'blur(6px)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 9999,
-            padding: 20,
-          }}
-        >
-          <div
-            className="card"
-            style={{
-              width: '100%',
-              maxWidth: 460,
-              padding: 24,
-              borderRadius: 16,
-              border: '1px solid var(--accent-emerald)',
-              background: 'var(--bg-primary)',
-            }}
-          >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-              <h3 style={{ fontSize: 17, margin: 0, fontWeight: 800, color: 'var(--text-primary)' }}>
-                Ajouter un Revenu Exceptionnel
-              </h3>
-              <button type="button" className="btn-ghost" onClick={() => setIsAddEventOpen(false)}>
-                ✕
-              </button>
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <div>
-                <label style={{ display: 'block', fontSize: 11, color: 'var(--text-secondary)', marginBottom: 4 }}>
-                  Libellé (ex: Prime, Virement Tontine)
-                </label>
-                <input
-                  type="text"
-                  className="input"
-                  value={newEventLabel}
-                  onChange={(e) => setNewEventLabel(e.target.value)}
-                  placeholder="ex: Prime de performance"
-                  style={{ width: '100%' }}
-                />
-              </div>
-
-              <div>
-                <label style={{ display: 'block', fontSize: 11, color: 'var(--text-secondary)', marginBottom: 4 }}>
-                  Montant Net (€)
-                </label>
-                <input
-                  type="number"
-                  className="input"
-                  value={newEventAmount}
-                  onChange={(e) => setNewEventAmount(Number(e.target.value))}
-                  style={{ width: '100%', fontFamily: 'var(--font-mono)' }}
-                />
-              </div>
-
-              <div>
-                <label style={{ display: 'block', fontSize: 11, color: 'var(--text-secondary)', marginBottom: 4 }}>
-                  Type
-                </label>
-                <select
-                  className="input"
-                  value={newEventType}
-                  onChange={(e) => setNewEventType(e.target.value as any)}
-                  style={{ width: '100%' }}
-                >
-                  <option value="bonus">Prime / Bonus d'entreprise</option>
-                  <option value="tontine">Gain / Retour Tontine</option>
-                  <option value="refund">Remboursement / Avoir</option>
-                  <option value="other">Autre rentrée</option>
-                </select>
-              </div>
-
-              <div style={{ display: 'flex', gap: 10, marginTop: 12 }}>
-                <button
-                  type="button"
-                  className="btn btn-secondary"
-                  onClick={() => setIsAddEventOpen(false)}
-                  style={{ flex: 1 }}
-                >
-                  Annuler
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-primary"
-                  onClick={handleAddWindfall}
-                  style={{ flex: 1, background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', fontWeight: 700 }}
-                >
-                  Ajouter
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      <AuraWindfallAddModal
+        isOpen={isAddEventOpen}
+        onClose={() => setIsAddEventOpen(false)}
+        onAdd={handleAddWindfall}
+      />
     </div>
   );
 };

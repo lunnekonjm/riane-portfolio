@@ -1,0 +1,85 @@
+'use client';
+
+import React from 'react';
+import type { PageView } from '@/types/navigation';
+import type { Position } from '@/types/portfolio';
+import { DashboardView } from '@/components/DashboardView';
+
+export interface DashboardViewWrapperProps {
+  user: any;
+  positions: Position[];
+  filledPositions: Position[];
+  transactions: any[];
+  fxRates: Record<string, number>;
+  totalValue: number;
+  totalCost: number;
+  bourseVal: number;
+  bourseCostVal: number;
+  cryptoVal: number;
+  cryptoCostVal: number;
+  savingsVal: number;
+  savingsCostVal: number;
+  savingsAnnualInt: number;
+  monthlyDCATotal: number;
+  bourseDCAVal: number;
+  cryptoDCAVal: number;
+  savingsDCAVal: number;
+  dcaBreakdown: any;
+  notifications: any[];
+  pendingCount: number;
+  marketStatusLabel: string;
+  lastPricesUpdated: number | null;
+  dcaGlobalStartDate: string;
+  handleUpdateDcaStartDate: (newDateStr: string) => void;
+  adjustInflation: boolean;
+  inflationRate: number;
+  peaSeniority: 'under5' | 'over5';
+  netLiquidationDetails: any;
+  showTotalValueDropdown: boolean;
+  setShowTotalValueDropdown: (show: boolean) => void;
+  showTotalCostDropdown: boolean;
+  setShowTotalCostDropdown: (show: boolean) => void;
+  showGainLossDropdown: boolean;
+  setShowGainLossDropdown: (show: boolean) => void;
+  showDcaFrequencyDropdown: boolean;
+  setShowDcaFrequencyDropdown: (show: boolean) => void;
+  queryInput: string;
+  setQueryInput: (q: string) => void;
+  isRunning: boolean;
+  handleRunAnalysis: (bypassCache?: boolean) => void | Promise<void>;
+  refreshingPrices: boolean;
+  setRefreshingPrices: (r: boolean) => void;
+  showToast: (msg: string, type?: 'success' | 'error') => void;
+  openGlossary: (term?: string) => void;
+  openRebalanceModal: (mode?: any, customAmt?: number) => void;
+  setShowIntegrationsModal: (show: boolean) => void;
+  setRebalanceBudgetMode: (mode: any) => void;
+  setFlowRebalanceResult: (res: any) => void;
+  setShowFlowRebalanceModal: (show: boolean) => void;
+  setShowNotificationModal: (show: boolean) => void;
+  setShowNetDetailsModal: (show: boolean) => void;
+  setShowConfigEditor: (show: boolean) => void;
+  setShowThemeInfoModal: (show: boolean) => void;
+  setShowTransactionModal: (show: boolean) => void;
+  setSelectedHistoryTicker: (ticker?: string) => void;
+  setEditingPosition: (pos: any) => void;
+  handleDeletePosition: (id: string) => Promise<void>;
+  handleSavePosition: (pos: Position) => Promise<void>;
+  upsertPositionsBatch: (positions: Position[]) => Promise<void>;
+  refreshSavingsPrices: () => Promise<any>;
+  refreshMarketPrices: () => Promise<any>;
+  refreshCryptoPrices: () => Promise<any>;
+  resetPortfolio: () => Promise<any>;
+  updatePosition: (pos: Position, reason?: string) => Promise<void>;
+  addPosition: (pos: Position) => Promise<void>;
+  undoLastAction: () => Promise<boolean>;
+  redoLastAction: () => Promise<boolean>;
+  canUndo: boolean;
+  canRedo: boolean;
+  saving: boolean;
+  onNavigateView: (view: PageView) => void;
+}
+
+export function DashboardViewWrapper(props: DashboardViewWrapperProps) {
+  return <DashboardView {...props} />;
+}

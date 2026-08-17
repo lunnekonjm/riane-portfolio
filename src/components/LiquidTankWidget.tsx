@@ -1,7 +1,9 @@
 'use client';
 
 import React, { useState } from 'react';
-import { CrisisRunwayMetrics } from '../engines/crisisRunwayEngine';
+import type { CrisisRunwayMetrics } from '../engines/crisisRunwayEngine';
+import { LiquidTankSvgCapsule } from './tank/LiquidTankSvgCapsule';
+import { LiquidTankMetricsPanel } from './tank/LiquidTankMetricsPanel';
 
 interface LiquidTankWidgetProps {
   metrics: CrisisRunwayMetrics;
@@ -73,11 +75,6 @@ export const LiquidTankWidget: React.FC<LiquidTankWidgetProps> = ({
   };
 
   const status = getStatusBadge();
-
-  // SVG Capsule calculations (Height: 200, Width: 110, Radius: 55)
-  const capsuleHeight = 180;
-  const capsuleWidth = 100;
-  const liquidY = capsuleHeight - (capsuleHeight * Math.min(100, Math.max(0, fillPercent))) / 100;
 
   return (
     <div
@@ -177,171 +174,19 @@ export const LiquidTankWidget: React.FC<LiquidTankWidgetProps> = ({
 
       {/* Corps Principal : Capsule Liquide + Métriques Clés */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-around', flexWrap: 'wrap', gap: 24 }}>
-        {/* 🧪 Capsule Visuelle SVG Liquid Tank */}
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
-          <div
-            style={{
-              position: 'relative',
-              width: capsuleWidth,
-              height: capsuleHeight,
-              borderRadius: capsuleWidth / 2,
-              border: '3px solid rgba(255, 255, 255, 0.15)',
-              background: 'radial-gradient(ellipse at top, rgba(30, 41, 59, 0.8), #090d16)',
-              overflow: 'hidden',
-              boxShadow: 'inset 0 0 20px rgba(0, 0, 0, 0.8), 0 8px 24px rgba(0, 0, 0, 0.6)',
-            }}
-          >
-            <svg
-              width={capsuleWidth}
-              height={capsuleHeight}
-              style={{ position: 'absolute', inset: 0 }}
-            >
-              <defs>
-                <linearGradient id="liquidGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#fbbf24" stopOpacity="0.95" />
-                  <stop offset="50%" stopColor="#f59e0b" stopOpacity="0.85" />
-                  <stop offset="100%" stopColor="#d97706" stopOpacity="0.75" />
-                </linearGradient>
-                <clipPath id="capsuleClip">
-                  <rect
-                    x="0"
-                    y="0"
-                    width={capsuleWidth}
-                    height={capsuleHeight}
-                    rx={capsuleWidth / 2}
-                    ry={capsuleWidth / 2}
-                  />
-                </clipPath>
-              </defs>
+        <LiquidTankSvgCapsule
+          fillPercent={fillPercent}
+          totalAvailableEmergencySavings={totalAvailableEmergencySavings}
+        />
 
-              <g clipPath="url(#capsuleClip)">
-                {/* Surface Liquide Animée */}
-                {fillPercent > 0 && (
-                  <path
-                    d={`
-                      M 0 ${liquidY}
-                      Q ${capsuleWidth * 0.25} ${liquidY - 4}, ${capsuleWidth * 0.5} ${liquidY}
-                      T ${capsuleWidth} ${liquidY}
-                      L ${capsuleWidth} ${capsuleHeight}
-                      L 0 ${capsuleHeight}
-                      Z
-                    `}
-                    fill="url(#liquidGrad)"
-                  />
-                )}
-                {/* Ligne brillante de crête */}
-                {fillPercent > 0 && fillPercent < 100 && (
-                  <path
-                    d={`
-                      M 0 ${liquidY}
-                      Q ${capsuleWidth * 0.25} ${liquidY - 4}, ${capsuleWidth * 0.5} ${liquidY}
-                      T ${capsuleWidth} ${liquidY}
-                    `}
-                    stroke="rgba(254, 240, 138, 0.8)"
-                    strokeWidth="2.5"
-                    fill="none"
-                  />
-                )}
-              </g>
-            </svg>
-
-            {/* Texte de pourcentage au centre */}
-            <div
-              style={{
-                position: 'absolute',
-                inset: 0,
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center',
-                pointerEvents: 'none',
-                textShadow: '0 2px 8px rgba(0,0,0,0.9)',
-              }}
-            >
-              <span style={{ fontSize: 24, fontWeight: 900, color: '#ffffff', fontFamily: 'var(--font-mono)' }}>
-                {fillPercent}%
-              </span>
-              <span style={{ fontSize: 10, fontWeight: 700, color: '#fef08a', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                Rempli
-              </span>
-            </div>
-          </div>
-
-          <div
-            style={{
-              padding: '4px 12px',
-              borderRadius: 20,
-              background: 'var(--bg-secondary)',
-              border: '1px solid var(--border-subtle)',
-              fontSize: 12,
-              fontWeight: 700,
-              color: 'var(--accent-amber)',
-              fontFamily: 'var(--font-mono)',
-            }}
-          >
-            {Math.round(totalAvailableEmergencySavings).toLocaleString('fr-FR')} € dispo
-          </div>
-        </div>
-
-        {/* 📊 Métriques & Détails d'Autonomie */}
-        <div style={{ flex: 1, minWidth: 260, display: 'flex', flexDirection: 'column', gap: 14 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 10 }}>
-            <div style={{ padding: 12, borderRadius: 10, background: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)' }}>
-              <span style={{ fontSize: 11, color: 'var(--text-secondary)', display: 'block' }}>Autonomie (Runway)</span>
-              <span style={{ fontSize: 22, fontWeight: 800, color: 'var(--accent-amber)', fontFamily: 'var(--font-mono)' }}>
-                {runwayMonths} <span style={{ fontSize: 13, fontWeight: 600 }}>mois</span>
-              </span>
-            </div>
-
-            <div style={{ padding: 12, borderRadius: 10, background: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)' }}>
-              <span style={{ fontSize: 11, color: 'var(--text-secondary)', display: 'block' }}>Cible {selectedTargetMonths} mois</span>
-              <span style={{ fontSize: 22, fontWeight: 800, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>
-                {Math.round(currentTarget).toLocaleString('fr-FR')} <span style={{ fontSize: 13, fontWeight: 600 }}>€</span>
-              </span>
-            </div>
-          </div>
-
-          {/* Jauge horizontale de progression */}
-          <div style={{ background: 'var(--bg-secondary)', padding: 12, borderRadius: 10, border: '1px solid var(--border-subtle)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 6 }}>
-              <span style={{ color: 'var(--text-secondary)' }}>Progression vers la cible {selectedTargetMonths} mois :</span>
-              <span style={{ fontWeight: 700, color: 'var(--accent-amber)' }}>{Math.round(totalAvailableEmergencySavings).toLocaleString('fr-FR')} / {Math.round(currentTarget).toLocaleString('fr-FR')} €</span>
-            </div>
-            <div style={{ width: '100%', height: 8, background: 'rgba(255,255,255,0.08)', borderRadius: 4, overflow: 'hidden' }}>
-              <div
-                style={{
-                  height: '100%',
-                  width: `${fillPercent}%`,
-                  background: 'linear-gradient(90deg, #f59e0b, #10b981)',
-                  borderRadius: 4,
-                  transition: 'width 0.6s ease',
-                }}
-              />
-            </div>
-          </div>
-
-          {onOpenCrisisModal && (
-            <button
-              type="button"
-              className="btn btn-primary"
-              onClick={onOpenCrisisModal}
-              style={{
-                background: 'linear-gradient(135deg, rgba(244, 63, 94, 0.8) 0%, rgba(245, 158, 11, 0.8) 100%)',
-                border: '1px solid rgba(244, 63, 94, 0.4)',
-                fontWeight: 700,
-                fontSize: 13,
-                padding: '10px 16px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 8,
-                boxShadow: '0 4px 14px rgba(244, 63, 94, 0.3)',
-              }}
-            >
-              <span>🚨 Ouvrir le Simulateur de Crise &amp; Financement CLIC</span>
-            </button>
-          )}
-        </div>
+        <LiquidTankMetricsPanel
+          runwayMonths={runwayMonths}
+          selectedTargetMonths={selectedTargetMonths}
+          currentTarget={currentTarget}
+          totalAvailableEmergencySavings={totalAvailableEmergencySavings}
+          fillPercent={fillPercent}
+          onOpenCrisisModal={onOpenCrisisModal}
+        />
       </div>
     </div>
   );

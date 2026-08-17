@@ -116,7 +116,7 @@ describe('AuraRulesView & RevenueBudgetView Robustness Suite', () => {
 
     it('analyzes target flows with empty and corrupted transaction arrays', () => {
       const summaryEmpty = analyzeTargetFlows([], 2713.74, 30);
-      expect(summaryEmpty.totalOutflows).toBeGreaterThan(0); // Uses sample fallback
+      expect(summaryEmpty.totalOutflows).toBe(0);
       expect(summaryEmpty.pea).toBeDefined();
 
       const dirtyTxs: TargetFlowItem[] = [

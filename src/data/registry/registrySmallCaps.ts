@@ -1,0 +1,48 @@
+import type { RegisteredAsset } from '../assetRegistry';
+
+export const REGISTRY_SMALL_CAPS: RegisteredAsset[] = [
+  {
+    ticker: 'ALKAL.PA',
+    name: 'Kalray SA',
+    assetType: 'STOCK',
+    envelope: 'PEA-PME',
+    currency: 'EUR',
+    themes: ['ai-semis', 'cloud-saas'],
+    exchange: 'Euronext Growth Paris',
+    isin: 'FR0010796062',
+    searchTerms: ['kalray', 'alkal.pa', 'alkal', 'fr0010796062', 'kalray sa', 'semiconducteurs pea-pme', 'dpu', 'ia processeur'],
+  },
+  {
+    ticker: 'MEMS.PA',
+    name: 'MEMSCAP SE',
+    assetType: 'STOCK',
+    envelope: 'PEA-PME',
+    currency: 'EUR',
+    themes: ['ai-semis'],
+    exchange: 'Euronext Paris',
+    isin: 'FR0010263202',
+    searchTerms: ['memscap', 'mems.pa', 'mems', 'fr0010263202', 'capteurs', 'mems', 'semiconducteurs pme'],
+  },
+  {
+    ticker: 'VU.PA',
+    name: 'VusionGroup (SES-imagotag)',
+    assetType: 'STOCK',
+    envelope: 'PEA-PME',
+    currency: 'EUR',
+    themes: ['cloud-saas', 'robotics-automation'],
+    exchange: 'Euronext Paris',
+    isin: 'FR0010282822',
+    searchTerms: ['vusiongroup', 'ses-imagotag', 'vu.pa', 'fr0010282822', 'etiquettes electroniques', 'retail tech'],
+  },
+  {
+    ticker: 'ALCLA.PA',
+    name: 'Claranova SE',
+    assetType: 'STOCK',
+    envelope: 'PEA-PME',
+    currency: 'EUR',
+    themes: ['cloud-saas'],
+    exchange: 'Euronext Growth Paris',
+    isin: 'FR0013426004',
+    searchTerms: ['claranova', 'alcla.pa', 'alcla', 'fr0013426004', 'logiciel grand public', 'planetart'],
+  },
+];

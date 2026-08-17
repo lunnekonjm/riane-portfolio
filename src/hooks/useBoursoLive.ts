@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 
+export type BoursoConnectionStatus = 'connected' | 'expired' | 'disconnected' | 'error';
+
 export interface BoursoLiveAccount {
   id: string;
   displayName: string;
@@ -14,6 +16,10 @@ export interface BoursoLiveAccount {
 
 export interface BoursoLiveData {
   isConnected: boolean;
+  isLive: boolean;
+  connectionStatus: BoursoConnectionStatus;
+  syncError: string | null;
+  requiresReauth: boolean;
   isLoading: boolean;
   checkingEUR: number;
   tamponEUR: number;
@@ -27,10 +33,15 @@ export interface BoursoLiveData {
   accounts: BoursoLiveAccount[];
   lastSync: string | null;
   refresh: () => Promise<void>;
+  connectBourso: () => Promise<void>;
 }
 
 export function useBoursoLive(): BoursoLiveData {
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [isLive, setIsLive] = useState<boolean>(false);
+  const [connectionStatus, setConnectionStatus] = useState<BoursoConnectionStatus>('disconnected');
+  const [syncError, setSyncError] = useState<string | null>(null);
+  const [requiresReauth, setRequiresReauth] = useState<boolean>(false);
   const [cachedAccounts, setCachedAccounts] = useState<any[]>([]);
   const [configs, setConfigs] = useState<Record<string, any>>({});
   const [livretABalance, setLivretABalance] = useState<number>(0);
@@ -46,6 +57,14 @@ export function useBoursoLive(): BoursoLiveData {
       const rawAccounts = localStorage.getItem('truelayer_cached_accounts');
       if (rawAccounts) {
         setCachedAccounts(JSON.parse(rawAccounts));
+      }
+
+      // Token presence determines base local status
+      const hasToken = !!localStorage.getItem('truelayer_access_token');
+      if (hasToken) {
+        setConnectionStatus('connected');
+      } else {
+        setConnectionStatus('disconnected');
       }
 
       // Accounts custom role config
@@ -68,6 +87,7 @@ export function useBoursoLive(): BoursoLiveData {
       const rawTontine = localStorage.getItem('riane_tontine_balance');
       if (rawTontine) setTontineManualBalance(parseFloat(rawTontine) || 0);
 
+      // Real last successful sync
       const rawSync = localStorage.getItem('truelayer_last_sync');
       if (rawSync) setLastSync(rawSync);
     } catch (e) {
@@ -91,24 +111,89 @@ export function useBoursoLive(): BoursoLiveData {
 
   const refresh = useCallback(async () => {
     setIsLoading(true);
+    setSyncError(null);
+
+    const tlToken = typeof window !== 'undefined' ? localStorage.getItem('truelayer_access_token') : null;
+    const tlRefreshToken = typeof window !== 'undefined' ? localStorage.getItem('truelayer_refresh_token') : null;
+
+    if (!tlToken && !tlRefreshToken) {
+      setIsLoading(false);
+      setIsLive(false);
+      setConnectionStatus('disconnected');
+      setRequiresReauth(true);
+      setSyncError('Aucune session BoursoBank active. Veuillez vous connecter.');
+      return;
+    }
+
     try {
-      const res = await fetch('/api/integrations/truelayer/summary');
-      if (res.ok) {
-        const data = await res.json();
-        if (data.accounts && Array.isArray(data.accounts)) {
-          setCachedAccounts(data.accounts);
-          const nowStr = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
-          setLastSync(nowStr);
-          try {
-            localStorage.setItem('truelayer_cached_accounts', JSON.stringify(data.accounts));
-            localStorage.setItem('truelayer_last_sync', nowStr);
-          } catch {}
-        }
+      const params = new URLSearchParams();
+      if (tlToken) params.set('token', tlToken);
+      if (tlRefreshToken) params.set('refreshToken', tlRefreshToken);
+
+      const res = await fetch(`/api/integrations/truelayer/summary?${params.toString()}`);
+      const data = await res.json().catch(() => ({}));
+
+      if (res.status === 401 || data.requiresReauth || (data.partialErrors && data.partialErrors.some((e: string) => e.includes('401') || e.toLowerCase().includes('expir')))) {
+        setIsLive(false);
+        setConnectionStatus('expired');
+        setRequiresReauth(true);
+        setSyncError(data.partialErrors?.[0] || 'Session BoursoBank expirée (401). Veuillez vous reconnecter.');
+        return;
       }
-    } catch (e) {
+
+      if (!res.ok || (data.connected === false && (!data.accounts || data.accounts.length === 0))) {
+        setIsLive(false);
+        setConnectionStatus('error');
+        const errMsg = data.partialErrors?.[0] || `Erreur de synchronisation (${res.status})`;
+        setSyncError(errMsg);
+        return;
+      }
+
+      if (data.accounts && Array.isArray(data.accounts) && data.accounts.length > 0) {
+        setCachedAccounts(data.accounts);
+        setIsLive(true);
+        setConnectionStatus('connected');
+        setRequiresReauth(false);
+        setSyncError(null);
+
+        const now = new Date();
+        const timeStr = now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+        const dateStr = now.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' });
+        const fullSyncStr = `${dateStr} à ${timeStr}`;
+        setLastSync(fullSyncStr);
+
+        try {
+          localStorage.setItem('truelayer_cached_accounts', JSON.stringify(data.accounts));
+          localStorage.setItem('truelayer_last_sync', fullSyncStr);
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new Event('riane_bourso_updated'));
+          }
+        } catch {}
+      } else {
+        setIsLive(false);
+        setConnectionStatus('error');
+        setSyncError('Aucun compte bancaire retourné par BoursoBank.');
+      }
+    } catch (e: unknown) {
+      setIsLive(false);
+      setConnectionStatus('error');
+      const msg = e instanceof Error ? e.message : 'Erreur réseau lors de la synchronisation.';
+      setSyncError(msg);
       console.warn('[useBoursoLive] Error refreshing TrueLayer accounts:', e);
     } finally {
       setIsLoading(false);
+    }
+  }, []);
+
+  const connectBourso = useCallback(async () => {
+    try {
+      const res = await fetch('/api/integrations/truelayer/auth-url?format=json&view=dashboard&open_wizard=false');
+      const data = await res.json();
+      if (data.authUrl) {
+        window.location.href = data.authUrl;
+      }
+    } catch (e) {
+      console.error('[useBoursoLive] Failed to get BoursoBank auth URL:', e);
     }
   }, []);
 
@@ -171,8 +256,6 @@ export function useBoursoLive(): BoursoLiveData {
     return (livretABalance * livretARate) / 100;
   }, [livretABalance, livretARate]);
 
-  // Liquidités d'exploitation opérationnelles réelles (Courant + Tampon + Livret A).
-  // La Tontine est une épargne rotative annuelle indicative reversée sur le Tampon à l'échéance (septembre).
   const totalLiquiditiesEUR = useMemo(() => {
     return checkingEUR + tamponEUR + livretABalance;
   }, [checkingEUR, tamponEUR, livretABalance]);
@@ -181,6 +264,10 @@ export function useBoursoLive(): BoursoLiveData {
 
   return {
     isConnected,
+    isLive,
+    connectionStatus,
+    syncError,
+    requiresReauth,
     isLoading,
     checkingEUR,
     tamponEUR,
@@ -194,5 +281,6 @@ export function useBoursoLive(): BoursoLiveData {
     accounts: processedAccounts,
     lastSync,
     refresh,
+    connectBourso,
   };
 }

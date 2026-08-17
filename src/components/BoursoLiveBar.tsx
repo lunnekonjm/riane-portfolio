@@ -16,6 +16,10 @@ export default function BoursoLiveBar({
 }: BoursoLiveBarProps) {
   const {
     isConnected,
+    isLive,
+    connectionStatus,
+    syncError,
+    requiresReauth,
     isLoading,
     checkingEUR,
     tamponEUR,
@@ -25,6 +29,7 @@ export default function BoursoLiveBar({
     livretAYearlyInterest,
     lastSync,
     refresh,
+    connectBourso,
   } = useBoursoLive();
 
   const formatEUR = (val: number) =>
@@ -46,8 +51,13 @@ export default function BoursoLiveBar({
     >
       <BoursoHeaderBar
         isConnected={isConnected}
+        isLive={isLive}
+        connectionStatus={connectionStatus}
+        syncError={syncError}
+        requiresReauth={requiresReauth}
         isLoading={isLoading}
         onRefresh={refresh}
+        onConnectBourso={connectBourso}
         onOpenIntegrations={onOpenIntegrations}
       />
 
@@ -59,17 +69,26 @@ export default function BoursoLiveBar({
         livretAEUR={livretAEUR}
         livretARate={livretARate}
         livretAYearlyInterest={livretAYearlyInterest}
+        isLive={isLive}
+        connectionStatus={connectionStatus}
         onOpenRebalanceWithTampon={onOpenRebalanceWithTampon}
         formatEUR={formatEUR}
       />
 
-      {lastSync && (
-        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 10, flexWrap: 'wrap', gap: 6 }}>
+        <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>
+          {isLive ? '🟢 Synchronisé avec BoursoBank' : (connectionStatus === 'expired' || requiresReauth) ? '⚠️ Session expirée • Données en cache local' : '⚪ Mode local'}
+        </span>
+        {lastSync ? (
           <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>
-            Dernière synchro : {lastSync}
+            Dernière synchro réussie : <strong style={{ color: 'var(--text-secondary)' }}>{lastSync}</strong>
           </span>
-        </div>
-      )}
+        ) : (
+          <span style={{ fontSize: 10, color: 'var(--text-muted)', fontStyle: 'italic' }}>
+            Non synchronisé
+          </span>
+        )}
+      </div>
     </div>
   );
 }

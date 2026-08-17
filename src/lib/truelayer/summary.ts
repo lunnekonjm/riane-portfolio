@@ -42,7 +42,8 @@ export async function fetchTrueLayerSummary(accessToken?: string, refreshToken?:
       totalSavingsEUR: 0,
       totalInvestedEUR: 0,
       totalBoursoBankEUR: 0,
-      partialErrors: [],
+      partialErrors: ["Aucun jeton d'accès TrueLayer / BoursoBank disponible."],
+      requiresReauth: true,
     };
   }
 
@@ -78,6 +79,7 @@ export async function fetchTrueLayerSummary(accessToken?: string, refreshToken?:
         totalInvestedEUR: 0,
         totalBoursoBankEUR: 0,
         partialErrors: ["Session BoursoBank expirée (401). Veuillez vous reconnecter."],
+        requiresReauth: true,
       };
     }
 

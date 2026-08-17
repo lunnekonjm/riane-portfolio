@@ -47,4 +47,5 @@ export interface TrueLayerSyncResult {
   totalInvestedEUR: number;
   totalBoursoBankEUR: number;
   partialErrors: string[];
+  requiresReauth?: boolean;
 }

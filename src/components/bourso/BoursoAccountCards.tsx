@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import type { BoursoConnectionStatus } from '@/hooks/useBoursoLive';
 
 interface BoursoAccountCardsProps {
   checkingEUR: number;
@@ -9,6 +10,8 @@ interface BoursoAccountCardsProps {
   livretAEUR: number;
   livretARate: number;
   livretAYearlyInterest: number;
+  isLive?: boolean;
+  connectionStatus?: BoursoConnectionStatus;
   onOpenRebalanceWithTampon?: (amount: number) => void;
   formatEUR: (val: number) => string;
 }
@@ -20,9 +23,13 @@ export function BoursoAccountCards({
   livretAEUR,
   livretARate,
   livretAYearlyInterest,
+  isLive = false,
+  connectionStatus = 'disconnected',
   onOpenRebalanceWithTampon,
   formatEUR,
 }: BoursoAccountCardsProps) {
+  const isFromCache = !isLive;
+
   return (
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: 10 }}>
       {/* 1. Compte Courant */}
@@ -41,7 +48,9 @@ export function BoursoAccountCards({
           <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--accent-cyan)', textTransform: 'uppercase' }}>
             💳 Compte Courant
           </span>
-          <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>Dépenses</span>
+          <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>
+            {isLive ? '🟢 En direct' : 'Dépenses'}
+          </span>
         </div>
         <div
           style={{
@@ -54,8 +63,13 @@ export function BoursoAccountCards({
         >
           {formatEUR(checkingEUR)}
         </div>
-        <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-          Solde opérationnel quotidien
+        <div style={{ fontSize: 11, color: 'var(--text-muted)', display: 'flex', justifyContent: 'space-between' }}>
+          <span>Solde opérationnel quotidien</span>
+          {isFromCache && (
+            <span style={{ fontSize: 10, fontStyle: 'italic', color: 'var(--text-muted)' }}>
+              (cache)
+            </span>
+          )}
         </div>
       </div>
 

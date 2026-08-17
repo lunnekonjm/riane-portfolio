@@ -12,16 +12,25 @@ export async function GET(request: Request) {
     const cookieHeader = request.headers.get("cookie") || "";
     const cookieMatch = cookieHeader.match(/truelayer_access_token=([^;]+)/);
     const cookieToken = cookieMatch ? decodeURIComponent(cookieMatch[1].trim()) : undefined;
+    const refreshMatch = cookieHeader.match(/truelayer_refresh_token=([^;]+)/);
+    const cookieRefreshToken = refreshMatch ? decodeURIComponent(refreshMatch[1].trim()) : undefined;
 
     const truelayerToken =
       searchParams.get("truelayerToken") ||
+      searchParams.get("token") ||
       cookieToken ||
       process.env.TRUELAYER_ACCESS_TOKEN ||
       undefined;
 
+    const refreshToken =
+      searchParams.get("refreshToken") ||
+      cookieRefreshToken ||
+      process.env.TRUELAYER_REFRESH_TOKEN ||
+      undefined;
+
     const [snaptradeRes, truelayerRes] = await Promise.allSettled([
       fetchSnapTradeSummary(isNaN(fxRate) ? 1.08 : fxRate),
-      fetchTrueLayerSummary(truelayerToken),
+      fetchTrueLayerSummary(truelayerToken, refreshToken),
     ]);
 
     const snaptrade =

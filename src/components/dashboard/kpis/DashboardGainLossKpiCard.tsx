@@ -55,7 +55,7 @@ export function DashboardGainLossKpiCard({
           </div>
 
           <div style={{ marginTop: 14 }}>
-            <span className="text-sm text-secondary font-semibold" style={{ display: 'block', marginBottom: 6 }}>Net Retrait</span>
+            <span className="text-sm text-secondary font-semibold" style={{ display: 'block', marginBottom: 6 }}>Gain Net Après Fiscalité</span>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 6 }}>
               <button
                 type="button"
@@ -74,8 +74,9 @@ export function DashboardGainLossKpiCard({
                 <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--accent-blue)' }}></span>
                 PEA {peaSeniority === 'over5' ? '> 5 ans' : '< 5 ans'} · charges {peaSeniority === 'over5' ? '18,6 %' : '31,4 %'} ⓘ
               </button>
-              <span className="text-xl font-extrabold" style={{ color: 'var(--accent-emerald)' }}>
-                {(netLiquidationDetails.totalNetValue / cumulativeInflationFactor).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
+              <span className={`text-xl font-extrabold ${(netLiquidationDetails.totalNetGain || 0) >= 0 ? 'stat-gain' : 'stat-loss'}`}>
+                {(netLiquidationDetails.totalNetGain || 0) >= 0 ? '+' : ''}
+                {((netLiquidationDetails.totalNetGain || 0) / cumulativeInflationFactor).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
               </span>
             </div>
           </div>

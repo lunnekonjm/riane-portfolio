@@ -240,7 +240,7 @@ export const AuraBankFlowWizardModal: React.FC<AuraBankFlowWizardModalProps> = (
       style={{
         position: 'fixed',
         inset: 0,
-        zIndex: 9999,
+        zIndex: 10050,
         display: 'flex',
         background: 'rgba(0, 0, 0, 0.85)',
         backdropFilter: 'blur(16px)',

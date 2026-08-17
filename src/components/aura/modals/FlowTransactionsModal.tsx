@@ -1,20 +1,7 @@
 'use client';
 
 import React from 'react';
-import { cleanFrenchMerchantName } from '@/engines/bankingAnalyzerEngine';
-
-export interface TargetFlowCategory {
-  key: string;
-  label: string;
-  transactions: Array<{
-    id: string;
-    title: string;
-    date: string;
-    amount: number;
-  }>;
-  totalAmount: number;
-  monthlyAverage: number;
-}
+import { cleanFrenchMerchantName, type TargetFlowCategory } from '@/engines/bankingAnalyzerEngine';
 
 interface FlowTransactionsModalProps {
   selectedFlowModalCat: TargetFlowCategory | null;
@@ -78,9 +65,9 @@ export function FlowTransactionsModal({ selectedFlowModalCat, onClose }: FlowTra
               Aucune transaction détectée sur la période.
             </div>
           ) : (
-            selectedFlowModalCat.transactions.map((tx) => (
+            selectedFlowModalCat.transactions.map((tx, idx) => (
               <div
-                key={tx.id}
+                key={tx.id || `tx-modal-${idx}`}
                 style={{
                   display: 'flex',
                   justifyContent: 'space-between',
@@ -95,7 +82,7 @@ export function FlowTransactionsModal({ selectedFlowModalCat, onClose }: FlowTra
                 <div>
                   <strong style={{ color: '#ffffff' }}>{cleanFrenchMerchantName(tx.title)}</strong>
                   <div style={{ fontSize: 10.5, color: 'var(--text-muted)' }}>
-                    {tx.date} • {tx.title}
+                    {tx.date || 'Date non spécifiée'} • {tx.rawTitle || tx.title}
                   </div>
                 </div>
                 <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--accent-rose)' }}>

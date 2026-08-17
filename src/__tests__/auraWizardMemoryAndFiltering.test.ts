@@ -169,4 +169,195 @@ describe('Aura Wizard Memory & Strict Filtering Suite', () => {
       expect(cleaned.dismissedInsightIds.length).toBe(0);
     });
   });
+
+  describe('4. Bank Statement Truth & Divisor Fidelity (No 30.4375 distortions)', () => {
+    it('uses exact integer divisor: 300€ over 30 days is strictly 300.00€, NOT 304.38€', () => {
+      const tontineTx: TargetFlowItem = {
+        id: 'tontine-1',
+        date: '2026-08-05',
+        title: 'VIR PARTICIPATION EPARGNE COMMUNE TONTINE',
+        rawTitle: 'VIR PARTICIPATION EPARGNE COMMUNE TONTINE',
+        amount: -300.0,
+        rawAmount: -300.0,
+        accountName: 'Compte Courant',
+      };
+
+      const summary = analyzeTargetFlows([tontineTx], 2713.74, 30);
+      expect(summary.tontine.transactions.length).toBe(1);
+      expect(summary.tontine.totalAmount).toBe(300.0);
+      // Strictly 300.00 € (divisor = 1.0, not 30/30.4375)
+      expect(summary.tontine.monthlyAverage).toBe(300.0);
+
+      const candidates = buildInteractiveFlowCandidates(summary, [], 2713.74);
+      const tontineCand = candidates.find((c) => c.id === 'flow-tontine');
+      expect(tontineCand?.detectedMonthlyAmount).toBe(300.0);
+      expect(tontineCand?.calculationFormula).toContain('1 versement(s) = 300,00 €');
+    });
+
+    it('preserves exact Soutien familial amount: 230.16€ over 30 days is 230.16€, NOT 233.52€', () => {
+      const soutienTx: TargetFlowItem = {
+        id: 'soutien-1',
+        date: '2026-08-10',
+        title: 'PRLV SEPA SENDWAVE SOUTIEN FAMILLE',
+        rawTitle: 'PRLV SEPA SENDWAVE SOUTIEN FAMILLE',
+        amount: -230.16,
+        rawAmount: -230.16,
+        accountName: 'Compte Courant',
+      };
+
+      const summary = analyzeTargetFlows([soutienTx], 2713.74, 30);
+      expect(summary.soutien.transactions.length).toBe(1);
+      expect(summary.soutien.totalAmount).toBe(230.16);
+      expect(summary.soutien.monthlyAverage).toBe(230.16);
+
+      const candidates = buildInteractiveFlowCandidates(summary, [], 2713.74);
+      const soutienCand = candidates.find((c) => c.id === 'flow-soutien');
+      expect(soutienCand?.detectedMonthlyAmount).toBe(230.16);
+      expect(soutienCand?.calculationFormula).toContain('230,16 €');
+    });
+
+    it('strictly isolates Compte Courant and excludes sister transfers in Compte Joint from Tontine', () => {
+      const allBankTxs: TargetFlowItem[] = [
+        {
+          id: 'tontine-user',
+          date: '2026-08-05',
+          title: 'VIR EPARGNE COMMUNE TONTINE',
+          amount: -300.0,
+          rawAmount: -300.0,
+          accountName: 'Compte Courant Individuel',
+        },
+        {
+          id: 'sister-joint-1',
+          date: '2026-08-04',
+          title: 'VIR SOEUR EPARGNE COMMUNE TONTINE',
+          amount: 300.0,
+          rawAmount: 300.0, // Inflow from sister
+          accountName: 'Compte Joint',
+        },
+        {
+          id: 'joint-tontine-2',
+          date: '2026-08-04',
+          title: 'VIR EPARGNE COMMUNE TONTINE',
+          amount: -300.0,
+          rawAmount: -300.0,
+          accountName: 'Compte Joint',
+        },
+      ];
+
+      // Filtering for principal checking account
+      const checkingOnly = allBankTxs.filter((tx) => {
+        const acc = `${tx.accountId || ''} ${tx.accountType || ''} ${tx.accountName || ''}`.toUpperCase();
+        return !isNonPrincipalAccount(acc);
+      });
+
+      expect(checkingOnly.length).toBe(1);
+      expect(checkingOnly[0].id).toBe('tontine-user');
+
+      const summary = analyzeTargetFlows(checkingOnly, 2713.74, 30);
+      expect(summary.tontine.transactions.length).toBe(1);
+      expect(summary.tontine.totalAmount).toBe(300.0);
+      expect(summary.tontine.monthlyAverage).toBe(300.0);
+    });
+    it('creates PEA, Livret A, and Revolut candidates with isPercentage: false by default to prevent rounding deltas', () => {
+      const txs: TargetFlowItem[] = [
+        {
+          id: 'pea-tx',
+          date: '2026-08-03',
+          title: 'VIR CIBLE PEA BOURSOBANK',
+          amount: -400.0,
+          rawAmount: -400.0,
+          accountName: 'Compte Courant',
+        },
+        {
+          id: 'livret-tx',
+          date: '2026-08-03',
+          title: 'VIR LIVRET A BOURSOBANK',
+          amount: -400.0,
+          rawAmount: -400.0,
+          accountName: 'Compte Courant',
+        },
+      ];
+
+      const summary = analyzeTargetFlows(txs, 2861.26, 30);
+      const candidates = buildInteractiveFlowCandidates(summary, [], 2861.26);
+
+      const peaCand = candidates.find((c) => c.id === 'flow-pea');
+      expect(peaCand).toBeDefined();
+      expect(peaCand?.isPercentage).toBe(false);
+      expect(peaCand?.detectedMonthlyAmount).toBe(400.0);
+
+      const livretCand = candidates.find((c) => c.id === 'flow-livret_a');
+      expect(livretCand).toBeDefined();
+      expect(livretCand?.isPercentage).toBe(false);
+      expect(livretCand?.detectedMonthlyAmount).toBe(400.0);
+    });
+
+    it('analyzes full calendar month (Juillet 2026) capturing both Bouygues subscriptions (Mobile 7.99€ + Bbox 23.99€) and Netflix (7.99€) for 39.97€', () => {
+      const txs: TargetFlowItem[] = [
+        // July complete month transactions
+        {
+          id: 'tx-bytel-mob',
+          date: '2026-07-17',
+          title: 'PRLV SEPA BOUYGUES TELECOM (06...)',
+          amount: -7.99,
+          rawAmount: -7.99,
+          category: 'Abonnements',
+        },
+        {
+          id: 'tx-netflix',
+          date: '2026-07-26',
+          title: 'CARTE Netflix.com',
+          amount: -7.99,
+          rawAmount: -7.99,
+          category: 'Abonnements',
+        },
+        {
+          id: 'tx-bytel-bbox',
+          date: '2026-07-31',
+          title: 'PRLV SEPA BOUYGUES TELECOM (09...)',
+          amount: -23.99,
+          rawAmount: -23.99,
+          category: 'Abonnements',
+        },
+        // Ongoing August transactions
+        {
+          id: 'tx-cdc-aug',
+          date: '2026-08-05',
+          title: 'PRLV SEPA CDC HABITAT',
+          amount: -757.09,
+          rawAmount: -757.09,
+          category: 'Logement',
+        },
+        {
+          id: 'tx-pea-aug',
+          date: '2026-08-06',
+          title: 'VIR SEPA BOURSO PEA DCA ETF WORLD',
+          amount: -400.0,
+          rawAmount: -400.0,
+          category: 'Investissement',
+        },
+      ];
+
+      // Mode 30: Full Completed Calendar Month (Juillet 2026)
+      const summaryJuly = analyzeTargetFlows(txs, 2713.74, 30);
+      expect(summaryJuly.periodLabel).toContain('Juillet 2026');
+      expect(summaryJuly.abonnement.transactions.length).toBe(3);
+      expect(summaryJuly.abonnement.totalAmount).toBe(39.97);
+      expect(summaryJuly.abonnement.monthlyAverage).toBe(39.97);
+
+      const candidatesJuly = buildInteractiveFlowCandidates(summaryJuly, [], 2713.74);
+      const aboCand = candidatesJuly.find((c) => c.id === 'flow-abonnement');
+      expect(aboCand).toBeDefined();
+      expect(aboCand?.detectedMonthlyAmount).toBe(39.97);
+      expect(aboCand?.transactions.length).toBe(3);
+
+      // Mode 31: Current Month (Août 2026)
+      const summaryAugust = analyzeTargetFlows(txs, 2713.74, 31);
+      expect(summaryAugust.periodLabel).toContain('Août 2026');
+      expect(summaryAugust.loyer.transactions.length).toBe(1);
+      expect(summaryAugust.loyer.totalAmount).toBe(757.09);
+      expect(summaryAugust.pea.transactions.length).toBe(1);
+      expect(summaryAugust.pea.totalAmount).toBe(400.0);
+    });
+  });
 });

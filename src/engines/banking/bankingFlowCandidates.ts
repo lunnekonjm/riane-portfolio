@@ -43,13 +43,13 @@ export function buildInteractiveFlowCandidates(
     categoryKey: 'loyer',
     pillar: 'FIXED',
     title: 'Loyer & Logement',
-    subtitle: 'CDC Habitat, Charges & Assurance Logement',
+    subtitle: 'CDC Habitat, Énergie & Assurances',
     detectedMonthlyAmount: summary.loyer.monthlyAverage,
     isPercentage: false,
     defaultPercentage: netSalary > 0 ? Math.round((summary.loyer.monthlyAverage / netSalary) * 100 * 10) / 10 : 0,
     transactions: summary.loyer.transactions,
     calculationFormula: hasLoyer
-      ? `${summary.loyer.transactions.length} transaction(s) constatée(s) = ${fmtEur(summary.loyer.totalAmount)} (${summary.periodLabel})`
+      ? `${summary.loyer.transactions.length} transaction(s) constatée(s) = ${fmtEur(summary.loyer.totalAmount)} • ${summary.periodLabel}`
       : `0 transaction constatée sur ${summary.periodLabel}`,
     explanation: 'Prélèvement obligatoire de loyer et charges locatives.',
     defaultSelected: hasLoyer && !isCandRejected('flow-loyer'),
@@ -64,13 +64,13 @@ export function buildInteractiveFlowCandidates(
     categoryKey: 'abonnement',
     pillar: 'FIXED',
     title: 'Abonnements & Services',
-    subtitle: 'Bouygues Telecom, Services & Abonnements récurrents',
+    subtitle: 'Bouygues Telecom, Streaming & Services',
     detectedMonthlyAmount: summary.abonnement.monthlyAverage,
     isPercentage: false,
     defaultPercentage: netSalary > 0 ? Math.round((summary.abonnement.monthlyAverage / netSalary) * 100 * 10) / 10 : 0,
     transactions: summary.abonnement.transactions,
     calculationFormula: hasAbo
-      ? `${summary.abonnement.transactions.length} transaction(s) = ${fmtEur(summary.abonnement.totalAmount)} (${summary.periodLabel})`
+      ? `${summary.abonnement.transactions.length} transaction(s) = ${fmtEur(summary.abonnement.totalAmount)} • ${summary.periodLabel}`
       : `0 transaction constatée sur ${summary.periodLabel}`,
     explanation: 'Services numériques, télécoms et abonnements récurrents.',
     defaultSelected: hasAbo && !isCandRejected('flow-abonnement'),
@@ -91,7 +91,7 @@ export function buildInteractiveFlowCandidates(
     defaultPercentage: netSalary > 0 ? Math.round((summary.tontine.monthlyAverage / netSalary) * 100 * 10) / 10 : 0,
     transactions: summary.tontine.transactions,
     calculationFormula: hasTontine
-      ? `${summary.tontine.transactions.length} versement(s) = ${fmtEur(summary.tontine.totalAmount)} (${summary.periodLabel})`
+      ? `${summary.tontine.transactions.length} versement(s) = ${fmtEur(summary.tontine.totalAmount)} • ${summary.periodLabel}`
       : `0 versement constaté sur ${summary.periodLabel}`,
     explanation: "Cotisation d'épargne communautaire / tontine.",
     defaultSelected: hasTontine && !isCandRejected('flow-tontine'),
@@ -112,7 +112,7 @@ export function buildInteractiveFlowCandidates(
     defaultPercentage: netSalary > 0 ? Math.round((summary.soutien.monthlyAverage / netSalary) * 100 * 10) / 10 : 0,
     transactions: summary.soutien.transactions,
     calculationFormula: hasSoutien
-      ? `${summary.soutien.transactions.length} virement(s) = ${fmtEur(summary.soutien.totalAmount)} (${summary.periodLabel})`
+      ? `${summary.soutien.transactions.length} virement(s) = ${fmtEur(summary.soutien.totalAmount)} • ${summary.periodLabel}`
       : `0 virement constaté sur ${summary.periodLabel}`,
     explanation: 'Aide et transferts financiers réguliers vers la famille.',
     defaultSelected: hasSoutien && !isCandRejected('flow-soutien'),
@@ -130,11 +130,11 @@ export function buildInteractiveFlowCandidates(
     title: 'Cible PEA (Investissement)',
     subtitle: 'Virement mensuel régulier vers le PEA (DCA ETF)',
     detectedMonthlyAmount: summary.pea.monthlyAverage,
-    isPercentage: true,
+    isPercentage: false,
     defaultPercentage: peaPercent,
     transactions: summary.pea.transactions,
     calculationFormula: hasPea
-      ? `${summary.pea.transactions.length} virement(s) constatés vers PEA = ${fmtEur(summary.pea.totalAmount)} (${summary.periodLabel})`
+      ? `${summary.pea.transactions.length} virement(s) constatés vers PEA = ${fmtEur(summary.pea.totalAmount)} • ${summary.periodLabel}`
       : `0 virement constaté sur ${summary.periodLabel}`,
     explanation: "Versements d'épargne débités du compte courant vers le PEA (virement mensuel régulier et NON le solde du compte).",
     isVirementEpargne: true,
@@ -153,11 +153,11 @@ export function buildInteractiveFlowCandidates(
     title: 'Livret A (Épargne liquide)',
     subtitle: 'Virement mensuel régulier vers le Livret A',
     detectedMonthlyAmount: summary.livretA.monthlyAverage,
-    isPercentage: true,
+    isPercentage: false,
     defaultPercentage: livretPercent,
     transactions: summary.livretA.transactions,
     calculationFormula: hasLivret
-      ? `${summary.livretA.transactions.length} virement(s) constatés vers Livret A = ${fmtEur(summary.livretA.totalAmount)} (${summary.periodLabel})`
+      ? `${summary.livretA.transactions.length} virement(s) constatés vers Livret A = ${fmtEur(summary.livretA.totalAmount)} • ${summary.periodLabel}`
       : `0 virement constaté sur ${summary.periodLabel}`,
     explanation: "Versements d'épargne débités du compte courant vers le Livret A (virement mensuel régulier et NON le solde du compte).",
     isVirementEpargne: true,
@@ -176,11 +176,11 @@ export function buildInteractiveFlowCandidates(
     title: 'Revolut (Reste à vivre)',
     subtitle: 'Recharges et virements vers Revolut pour dépenses quotidiennes',
     detectedMonthlyAmount: summary.revolut.monthlyAverage,
-    isPercentage: true,
+    isPercentage: false,
     defaultPercentage: revPercent,
     transactions: summary.revolut.transactions,
     calculationFormula: hasRevolut
-      ? `${summary.revolut.transactions.length} recharge(s) Revolut = ${fmtEur(summary.revolut.totalAmount)} (${summary.periodLabel})`
+      ? `${summary.revolut.transactions.length} recharge(s) Revolut = ${fmtEur(summary.revolut.totalAmount)} • ${summary.periodLabel}`
       : `0 recharge constatée sur ${summary.periodLabel}`,
     explanation: 'Montant transféré pour vos dépenses du quotidien (alimentation, sorties, imprévus).',
     defaultSelected: hasRevolut && !isCandRejected('flow-revolut'),

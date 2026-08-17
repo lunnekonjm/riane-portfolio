@@ -29,15 +29,16 @@ export function AuraWizardHeader({
 }: AuraWizardHeaderProps) {
   return (
     <div
+      className="aura-wizard-header"
       style={{
-        padding: '16px 22px',
+        padding: '14px 18px',
         borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
-        background: 'rgba(15, 23, 42, 0.8)',
+        background: 'rgba(15, 23, 42, 0.85)',
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
         flexWrap: 'wrap',
-        gap: 12,
+        gap: 10,
       }}
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -174,8 +175,10 @@ export function AuraWizardHeader({
             cursor: 'pointer',
           }}
         >
-          <option value={30}>Dernier mois (30 jours)</option>
-          <option value={90}>Moyenne 3 mois (90 jours)</option>
+          <option value={30}>★ Dernier mois civil complet</option>
+          <option value={31}>Mois en cours</option>
+          <option value={90}>Moyenne 3 mois complets</option>
+          <option value={300}>30 jours glissants</option>
           <option value={0}>Toutes les transactions</option>
         </select>
 

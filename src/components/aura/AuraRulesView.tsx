@@ -170,7 +170,7 @@ export const AuraRulesView: React.FC<AuraRulesViewProps> = ({
         onOpenEditBufferMult={() => setActiveModal('EDIT_BUFFER_MULT')}
         onOpenArbitrage={() => setActiveModal('ARBITRAGE')}
         onOpenEditBalance={() => setActiveModal('EDIT_BALANCE')}
-        onSyncBank={onSyncBank}
+        onSyncBank={onSyncBank || refreshTrueLayerTransactions}
         onShowToast={onShowToast}
       />
 

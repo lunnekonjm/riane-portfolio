@@ -209,7 +209,7 @@ export function recordUserWizardFeedback({
     const catKey = matchedCand ? matchedCand.categoryKey : candId;
 
     for (const tx of txs) {
-      if (excludedTxIds.has(tx.id)) {
+      if (Boolean(tx.id && excludedTxIds.has(tx.id))) {
         excludedTxSignaturesSet.add(getTxSignature(tx));
         const pattern = normalizeMerchantPattern(tx.rawTitle || tx.title);
         if (pattern && pattern.length >= 3) {

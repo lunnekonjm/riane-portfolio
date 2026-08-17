@@ -34,7 +34,8 @@ export function isNonPrincipalAccount(accDesc: string): boolean {
     upper.includes('PEA') ||
     upper.includes('CSL') ||
     upper.includes('LDDS') ||
-    upper.includes('TIERS')
+    upper.includes('TIERS') ||
+    upper.includes('SAVINGS')
   );
 }
 
@@ -173,7 +174,7 @@ export function useAuraBankFlowWizardState({
     }
   }, [isOpen, initialCandidates, targetSummary]);
 
-  const divisor = periodDays > 0 ? periodDays / 30.4375 : 1;
+  const divisor = periodDays <= 31 ? 1.0 : periodDays / 30.0;
 
   const toggleSelect = (id: string) => {
     setSelectedIds((prev) => {
@@ -234,7 +235,7 @@ export function useAuraBankFlowWizardState({
       else nextExcluded.add(txId);
 
       const allTxs = candidateTxsMap[candId] || [];
-      const activeTxs = allTxs.filter((t) => !nextExcluded.has(t.id));
+      const activeTxs = allTxs.filter((t) => Boolean(t.id && !nextExcluded.has(t.id)));
       const newSumMonthly = activeTxs.reduce((sum, t) => sum + Math.abs(t.amount), 0) / divisor;
 
       const isPct = isPercentageMap[candId];
@@ -262,7 +263,7 @@ export function useAuraBankFlowWizardState({
 
     setUnclassifiedTxs((prev) => [removedTx, ...prev]);
 
-    const remaining = list.filter((t) => t.id !== txId && !excludedTxIds.has(t.id));
+    const remaining = list.filter((t) => t.id !== txId && Boolean(t.id && !excludedTxIds.has(t.id)));
     const newSum = remaining.reduce((sum, t) => sum + Math.abs(t.amount), 0) / divisor;
     const isPct = isPercentageMap[candId];
     if (isPct) {
@@ -285,8 +286,8 @@ export function useAuraBankFlowWizardState({
       [toCandId]: [...(prev[toCandId] || []), txToMove],
     }));
 
-    const nextFrom = fromList.filter((t) => t.id !== txId && !excludedTxIds.has(t.id));
-    const nextTo = [...(candidateTxsMap[toCandId] || []).filter((t) => !excludedTxIds.has(t.id)), txToMove];
+    const nextFrom = fromList.filter((t) => t.id !== txId && Boolean(t.id && !excludedTxIds.has(t.id)));
+    const nextTo = [...(candidateTxsMap[toCandId] || []).filter((t) => Boolean(t.id && !excludedTxIds.has(t.id))), txToMove];
 
     const sumFrom = nextFrom.reduce((sum, t) => sum + Math.abs(t.amount), 0) / divisor;
     const sumTo = nextTo.reduce((sum, t) => sum + Math.abs(t.amount), 0) / divisor;
@@ -323,7 +324,7 @@ export function useAuraBankFlowWizardState({
       [targetCandId]: [...(prev[targetCandId] || []), tx!],
     }));
 
-    const nextList = [...(candidateTxsMap[targetCandId] || []).filter((t) => !excludedTxIds.has(t.id)), tx!];
+    const nextList = [...(candidateTxsMap[targetCandId] || []).filter((t) => Boolean(t.id && !excludedTxIds.has(t.id))), tx!];
     const sum = nextList.reduce((s, t) => s + Math.abs(t.amount), 0) / divisor;
 
     setCustomAmounts((prev) => ({
@@ -371,7 +372,7 @@ export function useAuraBankFlowWizardState({
 
     if (targetCand) {
       const txs = candidateTxsMap[targetCand.id] || targetCand.transactions;
-      const activeTxs = txs.filter((t) => !excludedTxIds.has(t.id));
+      const activeTxs = txs.filter((t) => Boolean(t.id && !excludedTxIds.has(t.id)));
       const sumMonthly = activeTxs.reduce((sum, t) => sum + Math.abs(t.amount), 0) / divisor;
       const isPct = isPercentageMap[targetCand.id] ?? targetCand.isPercentage;
 

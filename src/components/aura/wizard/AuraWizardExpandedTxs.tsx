@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { cleanFrenchMerchantName } from '@/utils/bankingSanitizer';
 import type { TargetFlowItem } from '@/engines/bankingAnalyzerEngine';
 
 export interface CandidateCategoryOption {
@@ -63,11 +64,11 @@ export function AuraWizardExpandedTxs({
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
         {txList.map((tx) => {
-          const isTxExcluded = excludedTxIds.has(tx.id);
+          const isTxExcluded = Boolean(tx.id && excludedTxIds.has(tx.id));
           const rawDesc = tx.rawTitle || tx.title;
           return (
             <div
-              key={tx.id}
+              key={tx.id || `tx-expanded-${Math.random()}`}
               style={{
                 display: 'flex',
                 justifyContent: 'space-between',
@@ -86,7 +87,7 @@ export function AuraWizardExpandedTxs({
                 <input
                   type="checkbox"
                   checked={!isTxExcluded}
-                  onChange={() => onToggleTxInclusion(candId, tx.id)}
+                  onChange={() => tx.id && onToggleTxInclusion(candId, tx.id)}
                   style={{ accentColor: 'var(--accent-cyan)', cursor: 'pointer', width: 15, height: 15 }}
                   title="Inclure ou exclure cette transaction de la somme du poste"
                 />
@@ -103,23 +104,20 @@ export function AuraWizardExpandedTxs({
                     }}
                     title={rawDesc}
                   >
-                    {tx.title}
+                    {cleanFrenchMerchantName(tx.title || rawDesc)}
                   </span>
-                  {rawDesc !== tx.title && (
-                    <span
-                      style={{
-                        color: '#64748b',
-                        fontSize: 9.5,
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
-                        maxWidth: 320,
-                      }}
-                      title={rawDesc}
-                    >
-                      {rawDesc}
-                    </span>
-                  )}
+                  <span
+                    style={{
+                      color: '#64748b',
+                      fontSize: 10,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 4,
+                    }}
+                    title={rawDesc}
+                  >
+                    {rawDesc.toUpperCase().includes('VIR') ? 'Virement bancaire' : rawDesc.toUpperCase().includes('CB') || rawDesc.toUpperCase().includes('CARTE') ? 'Paiement carte' : 'Prélèvement automatique'}
+                  </span>
                 </div>
               </div>
 

@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { isFirebaseConfigured } from '@/services/firebase/config';
 import { signOut } from '@/services/firebase/auth';
 import { AuthScreen, ConfigNeeded } from '@/components/auth/AuthScreens';
@@ -168,6 +168,8 @@ export default function HomePage() {
     isAnalysisRunning: isRunning,
   });
 
+  const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState(false);
+
   const {
     handleTestEmail,
     handleSavePosition,
@@ -264,6 +266,11 @@ export default function HomePage() {
           isRunning={isRunning}
           analysisStatus={status}
           pipelineSteps={PIPELINE_STEPS}
+          user={user}
+          onOpenProfile={() => setShowProfileModal(true)}
+          onNavigate={setCurrentView}
+          isMobileDrawerOpen={isMobileDrawerOpen}
+          setIsMobileDrawerOpen={setIsMobileDrawerOpen}
         />
 
         <div className="page-body">
@@ -462,6 +469,7 @@ export default function HomePage() {
         currentView={currentView}
         onNavigate={setCurrentView}
         onOpenProfile={() => setShowProfileModal(true)}
+        onOpenDrawer={() => setIsMobileDrawerOpen(true)}
       />
 
       <BenchmarkWidget visible={showBenchmark} onClose={() => setShowBenchmark(false)} />

@@ -51,7 +51,7 @@ export function AuraWizardFlowCard({
   onMoveTx,
   fmtEur,
 }: AuraWizardFlowCardProps) {
-  const activeTxs = txList.filter((t) => !excludedTxIds.has(t.id));
+  const activeTxs = txList.filter((t) => Boolean(t.id && !excludedTxIds.has(t.id)));
 
   return (
     <div
@@ -71,7 +71,7 @@ export function AuraWizardFlowCard({
     >
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
         {/* Left: Checkbox + Icon + Title + Subtitle */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1, minWidth: 260 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: '1 1 200px', minWidth: 200 }}>
           <input
             type="checkbox"
             checked={isSelected}

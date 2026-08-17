@@ -94,7 +94,24 @@ export function AuraTargetFlowsHeader({
               transition: 'all 0.2s',
             }}
           >
-            Dernier mois (30j)
+            Dernier mois complet
+          </button>
+          <button
+            type="button"
+            onClick={() => setSelectedTargetPeriodDays(31)}
+            style={{
+              padding: '6px 12px',
+              borderRadius: 8,
+              border: 'none',
+              background: selectedTargetPeriodDays === 31 ? 'var(--accent-cyan)' : 'transparent',
+              color: selectedTargetPeriodDays === 31 ? '#0a0e17' : '#94a3b8',
+              fontWeight: selectedTargetPeriodDays === 31 ? 800 : 600,
+              fontSize: 11.5,
+              cursor: 'pointer',
+              transition: 'all 0.2s',
+            }}
+          >
+            Mois en cours
           </button>
           <button
             type="button"
@@ -111,7 +128,7 @@ export function AuraTargetFlowsHeader({
               transition: 'all 0.2s',
             }}
           >
-            Moyenne 3 mois (90j)
+            3 mois (Moyenne)
           </button>
           <button
             type="button"

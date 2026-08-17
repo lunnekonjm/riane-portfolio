@@ -108,14 +108,17 @@ export function useRevenueBudgetState({
   const handleSyncBoursoBank = useCallback(async () => {
     setIsSyncingTrueLayer(true);
     try {
-      const result = await fetchAndCacheTrueLayerTransactions();
+      const [result] = await Promise.all([
+        fetchAndCacheTrueLayerTransactions(),
+        boursoLive.refresh().catch(() => {}),
+      ]);
       setAllBankTransactions(result.transactions);
       if (result.requiresReauth) {
         setNeedsReauth(true);
         onShowToast('Session BoursoBank expirée. Veuillez vous reconnecter.', 'error');
       } else {
         setNeedsReauth(false);
-        onShowToast(`🏦 ${result.transactions.length} transactions synchronisées depuis BoursoBank !`, 'success');
+        onShowToast(`🏦 ${result.transactions.length} transactions et soldes synchronisés depuis BoursoBank !`, 'success');
       }
     } catch (err: any) {
       if (err.message === 'TRUE_LAYER_REAUTH_REQUIRED') {
@@ -127,7 +130,7 @@ export function useRevenueBudgetState({
     } finally {
       setIsSyncingTrueLayer(false);
     }
-  }, [onShowToast]);
+  }, [boursoLive, onShowToast]);
 
   const handleClearCache = useCallback(() => {
     try {

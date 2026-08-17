@@ -7,12 +7,14 @@ interface MobileBottomNavProps {
   currentView: PageView;
   onNavigate: (view: PageView) => void;
   onOpenProfile: () => void;
+  onOpenDrawer?: () => void;
 }
 
 export function MobileBottomNav({
   currentView,
   onNavigate,
   onOpenProfile,
+  onOpenDrawer,
 }: MobileBottomNavProps) {
   const handleNavClick = (view: PageView) => {
     onNavigate(view);
@@ -21,8 +23,11 @@ export function MobileBottomNav({
     }
   };
 
+  const isMoreActive = ['analysis', 'risk', 'reports', 'audit'].includes(currentView);
+
   return (
     <nav className="mobile-bottom-nav" aria-label="Navigation Mobile">
+      {/* 1. Tableau de Bord */}
       <button
         type="button"
         className={`mobile-nav-btn ${currentView === 'dashboard' ? 'active' : ''}`}
@@ -30,19 +35,10 @@ export function MobileBottomNav({
         id="mob-nav-dashboard"
       >
         <span className="icon">📊</span>
-        <span>Bord</span>
+        <span className="label">Bord</span>
       </button>
 
-      <button
-        type="button"
-        className={`mobile-nav-btn ${currentView === 'envelopes' ? 'active' : ''}`}
-        onClick={() => handleNavClick('envelopes')}
-        id="mob-nav-envelopes"
-      >
-        <span className="icon">🏛️</span>
-        <span>Fiscalité</span>
-      </button>
-
+      {/* 2. Budget & Trésorerie */}
       <button
         type="button"
         className={`mobile-nav-btn ${currentView === 'revenue' ? 'active' : ''}`}
@@ -50,19 +46,21 @@ export function MobileBottomNav({
         id="mob-nav-revenue"
       >
         <span className="icon">💰</span>
-        <span>Budget</span>
+        <span className="label">Budget</span>
       </button>
 
+      {/* 3. Enveloppes & Fiscalité */}
       <button
         type="button"
-        className={`mobile-nav-btn ${currentView === 'analysis' ? 'active' : ''}`}
-        onClick={() => handleNavClick('analysis')}
-        id="mob-nav-analysis"
+        className={`mobile-nav-btn ${currentView === 'envelopes' ? 'active' : ''}`}
+        onClick={() => handleNavClick('envelopes')}
+        id="mob-nav-envelopes"
       >
-        <span className="icon">🔬</span>
-        <span>Analyse</span>
+        <span className="icon">🏛️</span>
+        <span className="label">Fiscalité</span>
       </button>
 
+      {/* 4. Valorisation (Prix != Valeur) */}
       <button
         type="button"
         className={`mobile-nav-btn ${currentView === 'valuation' ? 'active' : ''}`}
@@ -70,37 +68,40 @@ export function MobileBottomNav({
         id="mob-nav-valuation"
       >
         <span className="icon">📐</span>
-        <span>Valorisation</span>
+        <span className="label">Valeur</span>
       </button>
 
+      {/* 5. Plus (Outils & Vues Analytiques) */}
       <button
         type="button"
-        className={`mobile-nav-btn ${currentView === 'risk' ? 'active' : ''}`}
-        onClick={() => handleNavClick('risk')}
-        id="mob-nav-risk"
+        className={`mobile-nav-btn ${isMoreActive ? 'active' : ''}`}
+        onClick={() => {
+          if (onOpenDrawer) {
+            onOpenDrawer();
+          } else {
+            onOpenProfile();
+          }
+        }}
+        id="mob-nav-more"
       >
-        <span className="icon">⚡</span>
-        <span>Risque</span>
-      </button>
-
-      <button
-        type="button"
-        className={`mobile-nav-btn ${currentView === 'reports' ? 'active' : ''}`}
-        onClick={() => handleNavClick('reports')}
-        id="mob-nav-reports"
-      >
-        <span className="icon">📰</span>
-        <span>Rapports</span>
-      </button>
-
-      <button
-        type="button"
-        className="mobile-nav-btn"
-        onClick={onOpenProfile}
-        id="mob-nav-profile"
-      >
-        <span className="icon">⚙️</span>
-        <span>Profil</span>
+        <div style={{ position: 'relative', display: 'inline-flex' }}>
+          <span className="icon">☰</span>
+          {isMoreActive && (
+            <span
+              style={{
+                position: 'absolute',
+                top: -2,
+                right: -4,
+                width: 6,
+                height: 6,
+                borderRadius: '50%',
+                background: 'var(--accent-cyan)',
+                boxShadow: '0 0 6px var(--accent-cyan)',
+              }}
+            />
+          )}
+        </div>
+        <span className="label">Plus</span>
       </button>
     </nav>
   );

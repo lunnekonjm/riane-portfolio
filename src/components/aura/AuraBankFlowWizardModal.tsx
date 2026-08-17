@@ -140,7 +140,8 @@ export const AuraBankFlowWizardModal: React.FC<AuraBankFlowWizardModalProps> = (
       if (onRefreshTransactions) {
         res = await onRefreshTransactions();
       } else {
-        res = await fetchAndCacheTrueLayerTransactions(periodDays);
+        const monthsCount = periodDays <= 31 ? 1 : Math.max(1, Math.ceil(periodDays / 30));
+        res = await fetchAndCacheTrueLayerTransactions(monthsCount);
       }
       if (res) {
         setLastSyncResult({
@@ -205,7 +206,7 @@ export const AuraBankFlowWizardModal: React.FC<AuraBankFlowWizardModalProps> = (
           });
         }
       } else {
-        const refinedTxs = (candidateTxsMap[c.id] || c.transactions).filter((t) => !excludedTxIds.has(t.id));
+        const refinedTxs = (candidateTxsMap[c.id] || c.transactions).filter((t) => !t.id || Boolean(t.id && !Boolean(t.id && excludedTxIds.has(t.id))));
         approvedList.push({
           candidate: {
             ...c,
@@ -235,16 +236,15 @@ export const AuraBankFlowWizardModal: React.FC<AuraBankFlowWizardModalProps> = (
 
   return (
     <div
+      className="modal-overlay aura-wizard-overlay"
       style={{
         position: 'fixed',
         inset: 0,
         zIndex: 9999,
         display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: 16,
         background: 'rgba(0, 0, 0, 0.85)',
         backdropFilter: 'blur(16px)',
+        WebkitBackdropFilter: 'blur(16px)',
         overscrollBehavior: 'contain',
       }}
       onClick={(e) => {
@@ -252,9 +252,10 @@ export const AuraBankFlowWizardModal: React.FC<AuraBankFlowWizardModalProps> = (
       }}
     >
       <div
+        className="aura-wizard-modal-card"
         style={{
           width: '100%',
-          maxWidth: 880,
+          maxWidth: 900,
           height: '92vh',
           maxHeight: '92vh',
           display: 'flex',
@@ -344,7 +345,7 @@ export const AuraBankFlowWizardModal: React.FC<AuraBankFlowWizardModalProps> = (
                         libelleBrut: t.rawTitle || t.title,
                         nomNettoye: t.title,
                         montant: t.amount,
-                        compte: t.accountName || t.accountType || t.accountId,
+                        compte: t.accountName || t.accountType || t.accountId || 'Compte Principal',
                         categorieDetectee: t.category,
                       }))
                     };
@@ -521,8 +522,9 @@ export const AuraBankFlowWizardModal: React.FC<AuraBankFlowWizardModalProps> = (
               const isPct = isPercentageMap[cand.id] ?? cand.isPercentage;
 
               const txList = candidateTxsMap[cand.id] || cand.transactions;
-              const activeTxs = txList.filter((t) => !excludedTxIds.has(t.id));
-              const calculatedSum = activeTxs.reduce((sum, t) => sum + Math.abs(t.amount), 0) / (periodDays > 0 ? periodDays / 30.4375 : 1);
+              const activeTxs = txList.filter((t) => Boolean(t.id && !Boolean(t.id && excludedTxIds.has(t.id))));
+              const cleanDivisor = periodDays <= 31 ? 1.0 : periodDays / 30.0;
+              const calculatedSum = activeTxs.reduce((sum, t) => sum + Math.abs(t.amount), 0) / cleanDivisor;
 
               const currentVal = customAmounts[cand.id] !== undefined
                 ? customAmounts[cand.id]

@@ -1,19 +1,18 @@
-import { cleanTransactionTitle } from '@/services/reconciliation/transactionClassifier';
-import {
-  type AuraWizardLearningMemory,
-  isMerchantOrTxRejected,
-} from '@/services/banking/auraWizardMemoryService';
+import type { AuraWizardLearningMemory } from '@/services/banking/auraWizardMemoryService';
+import { cleanFrenchMerchantName } from '@/utils/bankingSanitizer';
 
 export interface TargetFlowItem {
-  id: string;
-  date: string;
+  id?: string;
+  date?: string;
   title: string;
   rawTitle?: string;
   amount: number;
+  rawAmount?: number;
   category?: string;
-  accountId?: string;
   accountName?: string;
   accountType?: string;
+  accountId?: string;
+  isCustomExcluded?: boolean;
 }
 
 export interface TargetFlowCategory {
@@ -21,7 +20,7 @@ export interface TargetFlowCategory {
   label: string;
   totalAmount: number;
   monthlyAverage: number;
-  effectivePercent: number; // % of net salary
+  effectivePercent: number;
   transactions: TargetFlowItem[];
   iconType: string;
   color: string;
@@ -41,44 +40,172 @@ export interface BankTargetAnalysisSummary {
   unclassified: TargetFlowCategory;
 }
 
+/**
+ * Standard reference sample transactions for testing and fallback budget simulations
+ */
 export const SAMPLE_REAL_TRANSACTIONS: TargetFlowItem[] = [
-  { id: '1', date: '2026-08-05', title: 'PRLV SEPA CDC HABITAT REF 883920', amount: -757.09, category: 'Logement' },
-  { id: '2', date: '2026-08-06', title: 'VIR SEPA BOURSO PEA DCA ETF WORLD', amount: -400.0, category: 'Investissement' },
-  { id: '3', date: '2026-08-06', title: 'VIR SEPA LIVRET A BOURSOBANK', amount: -700.0, category: 'Épargne' },
-  { id: '4', date: '2026-08-08', title: 'PRLV SEPA BOUYGUES TELECOM', amount: -35.99, category: 'Abonnement' },
-  { id: '5', date: '2026-08-10', title: 'PRLV SEPA SENDWAVE SOUTIEN FAMILLE', amount: -200.0, category: 'Soutien' },
-  { id: '6', date: '2026-08-12', title: 'TOPUP REVOLUT CARTE', amount: -200.0, category: 'Dépenses' },
-  { id: '7', date: '2026-08-14', title: 'VIR SEPA PARTICIPATION EPARGNE COMMUNE TONTINE', amount: -150.0, category: 'Tontine' },
+  { id: 'tx-cdc', date: '2026-07-05', title: 'PRLV SEPA CDC HABITAT REF 883920', amount: 757.09, category: 'Logement' },
+  { id: 'tx-pea', date: '2026-07-06', title: 'VIR SEPA BOURSO PEA DCA ETF WORLD', amount: 400.00, category: 'Investissement' },
+  { id: 'tx-livret', date: '2026-07-06', title: 'VIR SEPA LIVRET A BOURSOBANK', amount: 700.00, category: 'Épargne' },
+  { id: 'tx-bouygues', date: '2026-07-10', title: 'PRLV SEPA BOUYGUES TELECOM', amount: 35.99, category: 'Abonnements' },
+  { id: 'tx-soutien', date: '2026-07-15', title: 'PRLV SEPA SENDWAVE SOUTIEN FAMILLE', amount: 200.00, category: 'Soutien' },
+  { id: 'tx-tontine', date: '2026-07-15', title: 'VIR SEPA TONTINE FAMILIALE', amount: 150.00, category: 'Tontine' },
+  { id: 'tx-rev', date: '2026-07-20', title: 'TOPUP REVOLUT CARTE', amount: 200.00, category: 'Reste à vivre' },
 ];
 
 /**
- * Filter transactions by timeframe in days from the latest date in the dataset
+ * Normalizes and cleans transaction titles for accurate classification
+ */
+export function cleanTransactionTitle(rawTitle: string): string {
+  return cleanFrenchMerchantName(rawTitle);
+}
+
+/**
+ * Checks if a transaction is excluded or re-assigned by the AI memory
+ */
+function isMerchantOrTxRejected(
+  tx: TargetFlowItem,
+  categoryKey: string,
+  memory?: AuraWizardLearningMemory
+): boolean {
+  if (!memory) return false;
+  const rawDesc = (tx.rawTitle || tx.title || '').trim().toUpperCase();
+  const cleanTitle = cleanTransactionTitle(rawDesc).toUpperCase();
+
+  // 1. Check excluded tx signatures
+  const amt = Math.abs(tx.amount || 0).toFixed(2);
+  const date = (tx.date || '').slice(0, 10);
+  const sig = `${date}:${rawDesc}:${amt}`;
+  if (memory.excludedTxSignatures?.includes(sig)) return true;
+
+  // 2. Check rejected merchant patterns
+  if (memory.rejectedMerchantPatterns?.length) {
+    const isMatched = memory.rejectedMerchantPatterns.some((rule) => {
+      if (rule.categoryKey && rule.categoryKey !== 'ALL' && rule.categoryKey !== categoryKey) {
+        return false;
+      }
+      return rawDesc.includes(rule.pattern) || cleanTitle.includes(rule.pattern);
+    });
+    if (isMatched) return true;
+  }
+
+  return false;
+}
+
+/**
+ * Filter transactions by timeframe:
+ * - 30: Dernier mois civil complet (ex: 1er au 31 juillet quand août est en cours)
+ * - 31: Mois en cours (ex: 1er au 17 août)
+ * - 90: Moyenne 3 derniers mois civils complets
+ * - 300: 30 jours glissants
+ * - 0: Tout l'historique
  */
 export function filterTransactionsByPeriod(
   transactions: TargetFlowItem[],
-  days: number
-): TargetFlowItem[] {
-  if (!Array.isArray(transactions) || transactions.length === 0) return [];
-  if (days <= 0) return transactions; // 0 means all
-
-  // Find the most recent transaction date
-  let maxTimestamp = 0;
-  for (const t of transactions) {
-    if (t.date) {
-      const ts = new Date(t.date).getTime();
-      if (!isNaN(ts) && ts > maxTimestamp) maxTimestamp = ts;
-    }
+  days: number = 30
+): { filtered: TargetFlowItem[]; periodLabel: string; divisor: number } {
+  if (!Array.isArray(transactions) || transactions.length === 0) {
+    return { filtered: [], periodLabel: 'Aucune donnée', divisor: 1 };
   }
 
-  if (maxTimestamp === 0) return transactions;
+  const validDates = transactions
+    .map((t) => t.date)
+    .filter((d): d is string => Boolean(d && typeof d === 'string' && d.length >= 7 && !isNaN(new Date(d).getTime())))
+    .sort();
 
-  const minTimestamp = maxTimestamp - days * 24 * 60 * 60 * 1000;
-  return transactions.filter((t) => {
+  if (validDates.length === 0) {
+    return { filtered: transactions, periodLabel: 'Toutes les transactions', divisor: 1 };
+  }
+
+  const latestDateStr = validDates[validDates.length - 1];
+  const latestDate = new Date(latestDateStr);
+  const distinctMonths = Array.from(new Set(validDates.map((d) => d.substring(0, 7)))).sort().reverse();
+  const monthNamesFr = [
+    'Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
+    'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'
+  ];
+
+  const formatMonthName = (mStr: string) => {
+    const [y, m] = mStr.split('-');
+    const name = monthNamesFr[parseInt(m, 10) - 1] || mStr;
+    return `${name} ${y}`;
+  };
+
+  if (days === 0) {
+    const divisor = Math.max(1, distinctMonths.length);
+    return {
+      filtered: transactions,
+      periodLabel: `Toutes les transactions (${divisor} mois)`,
+      divisor,
+    };
+  }
+
+  if (days === 30) {
+    // Mode: Dernier mois civil complet (ex: 1er au 31 juillet si le mois d'août est en cours)
+    const targetMonth = distinctMonths.length > 1 && latestDate.getDate() < 28
+      ? distinctMonths[1]
+      : distinctMonths[0];
+
+    const filtered = transactions.filter((t) => {
+      const d = t.date;
+      if (!d || isNaN(new Date(d).getTime())) return true;
+      return d.startsWith(targetMonth);
+    });
+    const label = `${formatMonthName(targetMonth)} (Mois complet)`;
+    return { filtered, periodLabel: label, divisor: 1 };
+  }
+
+  if (days === 31) {
+    // Mode: Mois en cours (ex: Août 2026)
+    const targetMonth = distinctMonths[0];
+    const filtered = transactions.filter((t) => {
+      const d = t.date;
+      if (!d || isNaN(new Date(d).getTime())) return true;
+      return d.startsWith(targetMonth);
+    });
+    const label = `${formatMonthName(targetMonth)} (En cours)`;
+    return { filtered, periodLabel: label, divisor: 1 };
+  }
+
+  if (days === 90) {
+    // Mode: 3 derniers mois complets (Moyenne)
+    const targetMonths = distinctMonths.length > 3 && latestDate.getDate() < 28
+      ? distinctMonths.slice(1, 4)
+      : distinctMonths.slice(0, 3);
+
+    const filtered = transactions.filter((t) => {
+      const d = t.date;
+      if (!d || isNaN(new Date(d).getTime())) return true;
+      return targetMonths.some((m) => d.startsWith(m));
+    });
+    const count = Math.max(1, targetMonths.length);
+    const startM = targetMonths[targetMonths.length - 1];
+    const endM = targetMonths[0];
+    const label = `Moyenne ${count} mois (${formatMonthName(startM)} - ${formatMonthName(endM)})`;
+    return { filtered, periodLabel: label, divisor: count };
+  }
+
+  if (days === 300) {
+    // Mode: 30 jours glissants (Temps réel)
+    const maxTs = latestDate.getTime();
+    const minTs = maxTs - 30 * 24 * 60 * 60 * 1000;
+    const filtered = transactions.filter((t) => {
+      if (!t.date) return true;
+      const ts = new Date(t.date).getTime();
+      return isNaN(ts) || ts >= minTs;
+    });
+    return { filtered, periodLabel: '30 jours glissants', divisor: 1 };
+  }
+
+  // Fallback: window by N days
+  const maxTs = latestDate.getTime();
+  const minTs = maxTs - days * 24 * 60 * 60 * 1000;
+  const filtered = transactions.filter((t) => {
     if (!t.date) return true;
     const ts = new Date(t.date).getTime();
-    if (isNaN(ts)) return true; // Keep transactions with unparseable/invalid dates
-    return ts >= minTimestamp;
+    return isNaN(ts) || ts >= minTs;
   });
+  return { filtered, periodLabel: `${days} jours`, divisor: 1 };
 }
 
 /**
@@ -90,7 +217,7 @@ export function analyzeTargetFlows(
   periodDays: number = 30,
   memory?: AuraWizardLearningMemory
 ): BankTargetAnalysisSummary {
-  const filtered = filterTransactionsByPeriod(transactions, periodDays);
+  const { filtered, periodLabel, divisor } = filterTransactionsByPeriod(transactions, periodDays);
 
   const peaTxs: TargetFlowItem[] = [];
   const livretATxs: TargetFlowItem[] = [];
@@ -127,9 +254,12 @@ export function analyzeTargetFlows(
       upper.includes('RESTITUTION');
 
     // Only debits/outflows should be categorized into expense/budget flows
-    const isOutflow = hasNegativeAmounts
-      ? (typeof tx.amount === 'number' && tx.amount < 0)
-      : (!isExplicitInflow && typeof tx.amount === 'number' && Math.abs(tx.amount) > 0);
+    // Inflows (credits, salary, incoming transfers from family/sister) must NEVER be counted as expense candidates!
+    const isOutflow = typeof tx.rawAmount === 'number'
+      ? tx.rawAmount < 0
+      : hasNegativeAmounts
+        ? (typeof tx.amount === 'number' && tx.amount < 0)
+        : (!isExplicitInflow && typeof tx.amount === 'number' && Math.abs(tx.amount) > 0);
 
     if (!isOutflow) {
       unclassifiedTxs.push(tx);
@@ -194,69 +324,59 @@ export function analyzeTargetFlows(
        upper.includes('BAILLEUR') ||
        upper.includes('LOGEMENT') ||
        upper.includes('BPCE') ||
-       upper.includes('HABITATION') ||
-       upper.includes('ASSURANCE HABITATION') ||
-       upper.includes('TAXE HABITATION') ||
        upper.includes('TOTALENERGIES') ||
-       upper.includes('TOTAL ENERGIES') ||
        upper.includes('EDF') ||
-       upper.includes('ENGIE') ||
-       upper.includes('PACIFICA') ||
-       upper.includes('MACIF') ||
-       upper.includes('MAIF') ||
-       upper.includes('AXA') ||
-       upper.includes('ALLIANZ') ||
-       upper.includes('MATMUT')) &&
+       upper.includes('ENGIE')) &&
       !isMerchantOrTxRejected(tx, 'loyer', memory)
     ) {
       loyerTxs.push(tx);
       continue;
     }
 
-    // 5. PEA & Bourse (Virements réguliers d'investissement)
+    // 5. PEA (Plan d'Epargne en Actions / Bourse / DCA ETF World)
     if (
       (upper.includes('PEA') ||
-       upper.includes('BOURSE') ||
+       upper.includes('BOURSO PEA') ||
+       upper.includes('DCA ETF') ||
        upper.includes('ETF WORLD') ||
-       upper.includes('INVEST') ||
-       upper.includes('TITRES')) &&
+       upper.includes('TRADE REPUBLIC') ||
+       upper.includes('DEGIRO') ||
+       upper.includes('BOURSE')) &&
       !isMerchantOrTxRejected(tx, 'pea', memory)
     ) {
       peaTxs.push(tx);
       continue;
     }
 
-    // 6. Livret A & Épargne de précaution
+    // 6. Livret A / Epargne de précaution
     if (
       (upper.includes('LIVRET A') ||
-       upper.includes('LIVRET') ||
-       upper.includes('LDDS') ||
-       upper.includes('LEP')) &&
+       upper.includes('EPARGNE DE PRECAUTION') ||
+       upper.includes('LIVRET PRECAUTION') ||
+       upper.includes('LIVRET DEVELOPPEMENT DURABLE') ||
+       upper.includes('LDDS')) &&
       !isMerchantOrTxRejected(tx, 'livret_a', memory)
     ) {
       livretATxs.push(tx);
       continue;
     }
 
-    // 7. Abonnements Télécom / Médias / Services récurrents
+    // 7. Abonnements & Services récurrents (Bbox, Bouygues, Free, Orange, SFR, Netflix, Spotify, iCloud, Canal+)
     if (
       (upper.includes('BOUYGUES') ||
        upper.includes('BBOX') ||
-       upper.includes('FREE MOBILE') ||
-       upper.includes('FREE TELECOM') ||
-       upper.includes('FREEBOX') ||
-       upper.includes('ORANGE') ||
-       upper.includes('SFR') ||
-       upper.includes('SPOTIFY') ||
+       upper.includes('FREE ') ||
+       upper.includes('ORANGE ') ||
+       upper.includes('SFR ') ||
        upper.includes('NETFLIX') ||
-       upper.includes('AMAZON PRIME') ||
-       upper.includes('PRIME VIDEO') ||
+       upper.includes('SPOTIFY') ||
        upper.includes('APPLE.COM/BILL') ||
        upper.includes('ICLOUD') ||
-       upper.includes('ITUNES') ||
+       upper.includes('AMAZON PRIME') ||
+       upper.includes('CANAL+') ||
+       upper.includes('DISNEY') ||
        upper.includes('CHATGPT') ||
-       upper.includes('OPENAI') ||
-       upper.includes('ABONNEMENT')) &&
+       upper.includes('OPENAI')) &&
       !isMerchantOrTxRejected(tx, 'abonnement', memory)
     ) {
       abonnementTxs.push(tx);
@@ -267,7 +387,6 @@ export function analyzeTargetFlows(
     unclassifiedTxs.push(tx);
   }
 
-  const divisor = periodDays <= 31 ? 1.0 : periodDays / 30.0;
   const sumList = (list: TargetFlowItem[]) =>
     Array.isArray(list)
       ? list.reduce((sum, t) => sum + (typeof t?.amount === 'number' && !isNaN(t.amount) ? Math.abs(t.amount) : 0), 0)
@@ -312,13 +431,6 @@ export function analyzeTargetFlows(
     tontine.monthlyAverage +
     soutien.monthlyAverage +
     revolut.monthlyAverage;
-
-  const periodLabel =
-    periodDays === 30
-      ? 'Dernier mois (30j)'
-      : periodDays === 90
-      ? 'Moyenne 3 mois (90j)'
-      : 'Tout';
 
   return {
     periodDays,

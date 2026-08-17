@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useBoursoLive } from '@/hooks/useBoursoLive';
 import type {
   TemporaryExpenseItem,
   TargetFlowItem,
@@ -127,8 +128,29 @@ export function useAuraRulesState(netSalary: number) {
     return DEFAULT_TEMP_EXPENSES;
   });
 
+  const boursoLive = useBoursoLive();
+
   const [accountBalance, setAccountBalance] = useState<number>(() => {
     if (typeof window !== 'undefined') {
+      // Prioritize live checking account from BoursoBank cache if connected
+      const rawAccounts = localStorage.getItem('truelayer_cached_accounts');
+      if (rawAccounts) {
+        try {
+          const accs = JSON.parse(rawAccounts);
+          if (Array.isArray(accs)) {
+            const checkingAcc = accs.find((a: any) =>
+              (a.account_type === 'checking' || a.displayName?.toLowerCase().includes('courant') || a.ibanMasked?.includes('0429')) &&
+              !a.displayName?.toLowerCase().includes('joint') &&
+              !a.displayName?.toLowerCase().includes('mme')
+            );
+            if (checkingAcc) {
+              const liveBal = Number(checkingAcc.balanceEUR ?? checkingAcc.availableBalance ?? checkingAcc.currentBalance ?? 0);
+              return liveBal;
+            }
+          }
+        } catch {}
+      }
+
       const saved = localStorage.getItem('aura_account_balance');
       if (saved) {
         const val = parseFloat(saved);
@@ -137,6 +159,13 @@ export function useAuraRulesState(netSalary: number) {
     }
     return -182.0;
   });
+
+  // Automatically synchronize account balance when live BoursoBank balance updates
+  useEffect(() => {
+    if (boursoLive.isConnected && typeof boursoLive.checkingEUR === 'number') {
+      setAccountBalance(boursoLive.checkingEUR);
+    }
+  }, [boursoLive.isConnected, boursoLive.checkingEUR]);
 
   const [bufferMultiplier, setBufferMultiplier] = useState<number>(() => {
     if (typeof window !== 'undefined') {
@@ -186,7 +215,10 @@ export function useAuraRulesState(netSalary: number) {
   const refreshTrueLayerTransactions = useCallback(async (monthsCount = 3) => {
     setIsSyncingTrueLayer(true);
     try {
-      const res = await fetchAndCacheTrueLayerTransactions(monthsCount);
+      const [res] = await Promise.all([
+        fetchAndCacheTrueLayerTransactions(monthsCount),
+        boursoLive.refresh().catch(() => {}),
+      ]);
       const updated = getCachedTrueLayerTransactions();
       if (updated) {
         setCachedData(updated);
@@ -197,11 +229,14 @@ export function useAuraRulesState(netSalary: number) {
           months: res.months,
         });
       }
+      if (boursoLive.isConnected && typeof boursoLive.checkingEUR === 'number') {
+        setAccountBalance(boursoLive.checkingEUR);
+      }
       return res;
     } finally {
       setIsSyncingTrueLayer(false);
     }
-  }, []);
+  }, [boursoLive]);
 
   // Listen for storage and custom sync updates
   useEffect(() => {
@@ -209,6 +244,7 @@ export function useAuraRulesState(netSalary: number) {
       setCachedData(getCachedTrueLayerTransactions());
     };
     window.addEventListener('truelayer_transactions_updated', handleUpdate);
+    window.addEventListener('riane_bourso_updated', handleUpdate);
     window.addEventListener('storage', handleUpdate);
 
     // Auto-fetch if token exists in localStorage but cache is empty
@@ -221,6 +257,7 @@ export function useAuraRulesState(netSalary: number) {
 
     return () => {
       window.removeEventListener('truelayer_transactions_updated', handleUpdate);
+      window.removeEventListener('riane_bourso_updated', handleUpdate);
       window.removeEventListener('storage', handleUpdate);
     };
   }, [refreshTrueLayerTransactions]);
@@ -231,8 +268,13 @@ export function useAuraRulesState(netSalary: number) {
         id: t.id,
         date: t.date,
         title: t.description || t.counterpartyName || 'Prélèvement',
+        rawTitle: t.rawDescription || t.description || t.counterpartyName || '',
         amount: Math.abs(typeof t.amount === 'number' ? t.amount : 0),
+        rawAmount: typeof t.amount === 'number' ? t.amount : 0,
         category: t.category,
+        accountId: t.accountId,
+        accountName: t.accountName,
+        accountType: t.accountType,
       }));
     }
     return [];

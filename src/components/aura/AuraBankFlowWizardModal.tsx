@@ -180,6 +180,28 @@ export const AuraBankFlowWizardModal: React.FC<AuraBankFlowWizardModalProps> = (
           onDeselectAll={handleDeselectAll}
         />
 
+        {/* ℹ️ EMPTY STATE BANNER WHEN NO TRANSACTIONS */}
+        {bankTransactions.length === 0 && (
+          <div
+            style={{
+              margin: "8px 22px 0 22px",
+              padding: "12px 16px",
+              borderRadius: 12,
+              background: "rgba(245, 158, 11, 0.12)",
+              border: "1px solid rgba(245, 158, 11, 0.35)",
+              display: "flex",
+              alignItems: "center",
+              gap: 12,
+            }}
+          >
+            <span style={{ fontSize: 24 }}>ℹ️</span>
+            <div style={{ flex: 1, fontSize: 12.5, color: "#fcd34d", lineHeight: 1.45 }}>
+              <strong>Aucune transaction bancaire en cache (0 transaction détectée).</strong>
+              <br />
+              Le radar affiche 0 € car votre compte BoursoBank n'est pas synchronisé dans votre navigateur. Pour détecter vos virements et prélèvements réels, rendez-vous dans le <strong>Hub Intégrations</strong>.
+            </div>
+          </div>
+        )}
         {/* 🏷️ PILLAR TABS */}
         <AuraWizardPillarsNav
           activeTab={activeTab}

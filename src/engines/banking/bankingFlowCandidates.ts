@@ -116,7 +116,7 @@ export function buildInteractiveFlowCandidates(
 
   // 5. Cible PEA (Investissement)
   const hasPea = summary.pea.transactions.length > 0 || summary.pea.monthlyAverage > 0;
-  const peaPercent = netSalary > 0 ? Math.round((summary.pea.monthlyAverage / netSalary) * 100 * 10) / 10 : 35.0;
+  const peaPercent = (netSalary > 0 && summary.pea.monthlyAverage > 0) ? Math.round((summary.pea.monthlyAverage / netSalary) * 100 * 10) / 10 : 0;
   candidates.push({
     id: 'flow-pea',
     categoryKey: 'pea',
@@ -125,7 +125,7 @@ export function buildInteractiveFlowCandidates(
     subtitle: 'Virement mensuel régulier vers le PEA (DCA ETF)',
     detectedMonthlyAmount: summary.pea.monthlyAverage,
     isPercentage: true,
-    defaultPercentage: peaPercent > 0 ? peaPercent : 35.0,
+    defaultPercentage: peaPercent,
     transactions: summary.pea.transactions,
     calculationFormula: hasPea
       ? `${summary.pea.transactions.length} virement(s) constatés vers PEA = ${fmtEur(summary.pea.totalAmount)} (${summary.periodLabel})`
@@ -139,7 +139,7 @@ export function buildInteractiveFlowCandidates(
 
   // 6. Livret A (Épargne liquide)
   const hasLivret = summary.livretA.transactions.length > 0 || summary.livretA.monthlyAverage > 0;
-  const livretPercent = netSalary > 0 ? Math.round((summary.livretA.monthlyAverage / netSalary) * 100 * 10) / 10 : 7.0;
+  const livretPercent = (netSalary > 0 && summary.livretA.monthlyAverage > 0) ? Math.round((summary.livretA.monthlyAverage / netSalary) * 100 * 10) / 10 : 0;
   candidates.push({
     id: 'flow-livret_a',
     categoryKey: 'livret_a',
@@ -148,7 +148,7 @@ export function buildInteractiveFlowCandidates(
     subtitle: 'Virement mensuel régulier vers le Livret A',
     detectedMonthlyAmount: summary.livretA.monthlyAverage,
     isPercentage: true,
-    defaultPercentage: livretPercent > 0 ? livretPercent : 7.0,
+    defaultPercentage: livretPercent,
     transactions: summary.livretA.transactions,
     calculationFormula: hasLivret
       ? `${summary.livretA.transactions.length} virement(s) constatés vers Livret A = ${fmtEur(summary.livretA.totalAmount)} (${summary.periodLabel})`
@@ -162,7 +162,7 @@ export function buildInteractiveFlowCandidates(
 
   // 7. Revolut (Reste à vivre / Quotidien)
   const hasRevolut = summary.revolut.transactions.length > 0 || summary.revolut.monthlyAverage > 0;
-  const revPercent = netSalary > 0 ? Math.round((summary.revolut.monthlyAverage / netSalary) * 100 * 10) / 10 : 7.0;
+  const revPercent = (netSalary > 0 && summary.revolut.monthlyAverage > 0) ? Math.round((summary.revolut.monthlyAverage / netSalary) * 100 * 10) / 10 : 0;
   candidates.push({
     id: 'flow-revolut',
     categoryKey: 'revolut',
@@ -171,7 +171,7 @@ export function buildInteractiveFlowCandidates(
     subtitle: 'Recharges et virements vers Revolut pour dépenses quotidiennes',
     detectedMonthlyAmount: summary.revolut.monthlyAverage,
     isPercentage: true,
-    defaultPercentage: revPercent > 0 ? revPercent : 7.0,
+    defaultPercentage: revPercent,
     transactions: summary.revolut.transactions,
     calculationFormula: hasRevolut
       ? `${summary.revolut.transactions.length} recharge(s) Revolut = ${fmtEur(summary.revolut.totalAmount)} (${summary.periodLabel})`

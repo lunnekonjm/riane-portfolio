@@ -85,7 +85,7 @@ export default function WelcomeBanner({
       }}
     >
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 14 }}>
-        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14, flex: 1, minWidth: 260 }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14, flex: '1 1 200px', minWidth: 0 }}>
           <span style={{ fontSize: 32 }}>👋</span>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
